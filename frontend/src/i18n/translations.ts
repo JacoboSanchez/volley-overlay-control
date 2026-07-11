@@ -227,10 +227,6 @@ export const translations: Record<string, TranslationDict> = {
     'overlay.themeDefault': 'Default',
     'overlay.themeDark': 'Dark',
     'overlay.themeLight': 'Light',
-    'overlay.verticalAnchorLabel': 'Vertical position',
-    'overlay.anchorTop': 'Top',
-    'overlay.anchorCenter': 'Center',
-    'overlay.anchorBottom': 'Bottom',
     'overlay.showStats': 'Show live stats',
     'overlay.showPointsHistory': 'Show points history',
 
@@ -248,6 +244,8 @@ export const translations: Record<string, TranslationDict> = {
     'position.anchorFree': 'Free',
     'position.anchorHint':
       'Pin the overlay to a screen zone so it stays flush at any size; the H/V steppers nudge it. Free uses absolute coordinates.',
+    'position.anchorPairedHint':
+      'This style is pinned to the side edges: pick the top, middle or bottom pair of corners.',
     'position.nudgeH': 'Nudge H',
     'position.nudgeV': 'Nudge V',
     'position.zone.top': 'Top',
@@ -1086,10 +1084,6 @@ export const translations: Record<string, TranslationDict> = {
     'overlay.themeDefault': 'Por defecto',
     'overlay.themeDark': 'Oscuro',
     'overlay.themeLight': 'Claro',
-    'overlay.verticalAnchorLabel': 'Posición vertical',
-    'overlay.anchorTop': 'Arriba',
-    'overlay.anchorCenter': 'Centro',
-    'overlay.anchorBottom': 'Abajo',
     'overlay.showStats': 'Mostrar estadísticas en vivo',
     'overlay.showPointsHistory': 'Mostrar histórico de puntos',
 
@@ -1107,6 +1101,8 @@ export const translations: Record<string, TranslationDict> = {
     'position.anchorFree': 'Libre',
     'position.anchorHint':
       'Ancla el overlay a una zona de la pantalla para que quede a ras en cualquier tamaño; los pasos H/V lo ajustan. «Libre» usa coordenadas absolutas.',
+    'position.anchorPairedHint':
+      'Este estilo va fijado a los bordes laterales: elige la pareja de esquinas superior, media o inferior.',
     'position.nudgeH': 'Ajuste H',
     'position.nudgeV': 'Ajuste V',
     'position.zone.top': 'Arriba',
@@ -1951,10 +1947,6 @@ export const translations: Record<string, TranslationDict> = {
     'overlay.themeDefault': 'Padrão',
     'overlay.themeDark': 'Escuro',
     'overlay.themeLight': 'Claro',
-    'overlay.verticalAnchorLabel': 'Posição vertical',
-    'overlay.anchorTop': 'Topo',
-    'overlay.anchorCenter': 'Centro',
-    'overlay.anchorBottom': 'Base',
     'overlay.showStats': 'Mostrar estatísticas ao vivo',
     'overlay.showPointsHistory': 'Mostrar histórico de pontos',
 
@@ -1972,6 +1964,8 @@ export const translations: Record<string, TranslationDict> = {
     'position.anchorFree': 'Livre',
     'position.anchorHint':
       'Fixa o overlay numa zona do ecrã para ficar rente em qualquer tamanho; os passos H/V ajustam-no. «Livre» usa coordenadas absolutas.',
+    'position.anchorPairedHint':
+      'Este estilo fica fixo às margens laterais: escolhe o par de cantos superior, médio ou inferior.',
     'position.nudgeH': 'Ajuste H',
     'position.nudgeV': 'Ajuste V',
     'position.zone.top': 'Topo',
@@ -2808,10 +2802,6 @@ export const translations: Record<string, TranslationDict> = {
     'overlay.themeDefault': 'Predefinito',
     'overlay.themeDark': 'Scuro',
     'overlay.themeLight': 'Chiaro',
-    'overlay.verticalAnchorLabel': 'Posizione verticale',
-    'overlay.anchorTop': 'Alto',
-    'overlay.anchorCenter': 'Centro',
-    'overlay.anchorBottom': 'Basso',
     'overlay.showStats': 'Mostra statistiche in tempo reale',
     'overlay.showPointsHistory': 'Mostra cronologia dei punti',
 
@@ -2829,6 +2819,8 @@ export const translations: Record<string, TranslationDict> = {
     'position.anchorFree': 'Libero',
     'position.anchorHint':
       'Ancora l’overlay a una zona dello schermo così resta a filo a qualsiasi dimensione; i passi O/V lo regolano. «Libero» usa coordinate assolute.',
+    'position.anchorPairedHint':
+      'Questo stile è fissato ai bordi laterali: scegli la coppia di angoli superiore, centrale o inferiore.',
     'position.nudgeH': 'Spost. O',
     'position.nudgeV': 'Spost. V',
     'position.zone.top': 'Alto',
@@ -3666,10 +3658,6 @@ export const translations: Record<string, TranslationDict> = {
     'overlay.themeDefault': 'Par défaut',
     'overlay.themeDark': 'Sombre',
     'overlay.themeLight': 'Clair',
-    'overlay.verticalAnchorLabel': 'Position verticale',
-    'overlay.anchorTop': 'Haut',
-    'overlay.anchorCenter': 'Centre',
-    'overlay.anchorBottom': 'Bas',
     'overlay.showStats': 'Afficher les statistiques en direct',
     'overlay.showPointsHistory': 'Afficher l’historique des points',
 
@@ -3687,6 +3675,8 @@ export const translations: Record<string, TranslationDict> = {
     'position.anchorFree': 'Libre',
     'position.anchorHint':
       'Ancrez l’overlay à une zone de l’écran pour qu’il reste au bord à toute taille ; les pas H/V l’ajustent. « Libre » utilise des coordonnées absolues.',
+    'position.anchorPairedHint':
+      'Ce style est fixé aux bords latéraux : choisissez la paire de coins supérieure, centrale ou inférieure.',
     'position.nudgeH': 'Décalage H',
     'position.nudgeV': 'Décalage V',
     'position.zone.top': 'Haut',
@@ -4530,10 +4520,6 @@ export const translations: Record<string, TranslationDict> = {
     'overlay.themeDefault': 'Standard',
     'overlay.themeDark': 'Dunkel',
     'overlay.themeLight': 'Hell',
-    'overlay.verticalAnchorLabel': 'Vertikale Position',
-    'overlay.anchorTop': 'Oben',
-    'overlay.anchorCenter': 'Mitte',
-    'overlay.anchorBottom': 'Unten',
     'overlay.showStats': 'Live-Statistiken anzeigen',
     'overlay.showPointsHistory': 'Punkteverlauf anzeigen',
 
@@ -4551,6 +4537,8 @@ export const translations: Record<string, TranslationDict> = {
     'position.anchorFree': 'Frei',
     'position.anchorHint':
       'Verankere das Overlay an einer Bildschirmzone, damit es bei jeder Größe bündig bleibt; die H/V-Schritte verschieben es. „Frei“ nutzt absolute Koordinaten.',
+    'position.anchorPairedHint':
+      'Dieser Stil ist an den Seitenrändern fixiert: wähle das obere, mittlere oder untere Eckenpaar.',
     'position.nudgeH': 'Versatz H',
     'position.nudgeV': 'Versatz V',
     'position.zone.top': 'Oben',
