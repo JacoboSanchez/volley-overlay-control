@@ -460,6 +460,13 @@ def _compute_stats(audit: list[dict], *, initial_serve: int | None = None) -> di
         1: {"deficit": 0, "set": None},
         2: {"deficit": 0, "set": None},
     }
+    # Per-team largest score gap opened at any point, with the set it
+    # happened in. Independent of who finally won the set — the
+    # comeback cards tell the "and then lost it" story.
+    biggest_lead: dict[int, dict] = {
+        1: {"lead": 0, "set": None},
+        2: {"lead": 0, "set": None},
+    }
     longest_rally: dict[str, Any] = {"duration_s": 0.0, "set": None}
     total_points = 0
     # Per-team total of won rallies (every ``add_point`` for the team,
@@ -516,6 +523,17 @@ def _compute_stats(audit: list[dict], *, initial_serve: int | None = None) -> di
                     point_types, error_types, point_types_by_set,
                 )
 
+        # Biggest lead: largest gap either team opened in this set.
+        for r in set_records:
+            pair = _running_score_pair(r)
+            if not pair:
+                continue
+            t1, t2 = pair
+            if t1 - t2 > biggest_lead[1]["lead"]:
+                biggest_lead[1] = {"lead": t1 - t2, "set": set_num}
+            if t2 - t1 > biggest_lead[2]["lead"]:
+                biggest_lead[2] = {"lead": t2 - t1, "set": set_num}
+
         # Comebacks. Walk the running scores once, then split:
         #   * winner's peak deficit  → set_win comeback for the winner
         #   * loser's peak deficit minus the smallest subsequent deficit
@@ -550,6 +568,7 @@ def _compute_stats(audit: list[dict], *, initial_serve: int | None = None) -> di
         "longest_streak": longest_streak,
         "set_win_comeback": set_win_comeback,
         "partial_comeback": partial_comeback,
+        "biggest_lead": biggest_lead,
         "longest_rally": longest_rally,
         "total_points": total_points,
         "total_points_by_team": total_points_by_team,

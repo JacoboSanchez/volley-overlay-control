@@ -94,6 +94,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "serveReceiveHeading": "Points on serve / receive",
         "serveDetail": "On serve: {won} of {total} ({pct}%)",
         "receiveDetail": "On receive: {won} of {total} ({pct}%)",
+        "highlightBiggestLead": "Biggest lead",
+        "leadValue": "led by {n} in set {set}",
     },
     "es": {
         "title": "Informe del partido — {label}",
@@ -166,6 +168,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "serveReceiveHeading": "Puntos al saque / en recepción",
         "serveDetail": "Al saque: {won} de {total} ({pct}%)",
         "receiveDetail": "En recepción: {won} de {total} ({pct}%)",
+        "highlightBiggestLead": "Mayor ventaja",
+        "leadValue": "ventaja de {n} en el set {set}",
     },
     "pt": {
         "title": "Relatório do jogo — {label}",
@@ -238,6 +242,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "serveReceiveHeading": "Pontos ao serviço / na receção",
         "serveDetail": "Ao serviço: {won} de {total} ({pct}%)",
         "receiveDetail": "Na receção: {won} de {total} ({pct}%)",
+        "highlightBiggestLead": "Maior vantagem",
+        "leadValue": "vantagem de {n} no set {set}",
     },
     "it": {
         "title": "Referto della partita — {label}",
@@ -310,6 +316,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "serveReceiveHeading": "Punti al servizio / in ricezione",
         "serveDetail": "Al servizio: {won} su {total} ({pct}%)",
         "receiveDetail": "In ricezione: {won} su {total} ({pct}%)",
+        "highlightBiggestLead": "Vantaggio massimo",
+        "leadValue": "avanti di {n} nel set {set}",
     },
     "fr": {
         "title": "Rapport du match — {label}",
@@ -382,6 +390,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "serveReceiveHeading": "Points au service / en réception",
         "serveDetail": "Au service : {won} sur {total} ({pct} %)",
         "receiveDetail": "En réception : {won} sur {total} ({pct} %)",
+        "highlightBiggestLead": "Plus grande avance",
+        "leadValue": "avance de {n} dans le set {set}",
     },
     "de": {
         "title": "Spielbericht — {label}",
@@ -454,6 +464,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "serveReceiveHeading": "Punkte bei Aufschlag / Annahme",
         "serveDetail": "Bei Aufschlag: {won} von {total} ({pct}%)",
         "receiveDetail": "Bei Annahme: {won} von {total} ({pct}%)",
+        "highlightBiggestLead": "Größte Führung",
+        "leadValue": "führte mit {n} in Satz {set}",
     },
 }
 

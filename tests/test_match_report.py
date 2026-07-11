@@ -2149,3 +2149,74 @@ class TestServeReceiveBreakdown:
             stats, "es", team1_name="Alpha", team2_name="Beta",
         )
         assert "Puntos al saque / en recepción" in html
+
+
+class TestBiggestLeadHighlight:
+    """Largest score gap either team opened, as a highlight card.
+
+    Threshold mirrors the set-win comeback floor (>= 5): a lead is
+    the other team's deficit, so the two cards should agree on what
+    counts as noteworthy.
+    """
+
+    # Reuse the running-score seeder / card extractor from the
+    # comeback suite — the data shape is identical.
+    _seed = TestMatchReportComebacks._seed
+    _archive = TestMatchReportComebacks._archive
+    _highlight_card = TestMatchReportComebacks._highlight_card
+
+    def test_lead_below_5_is_suppressed(self, client):
+        # Team 1 never leads by more than 4.
+        scores = [(1, 0), (2, 0), (3, 0), (4, 0), (4, 1)]
+        oid = "lead-small"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        assert "Biggest lead" not in body
+
+    def test_lead_at_5_renders_with_team_and_set(self, client):
+        # Team 1 opens a 5-0 gap and the margin never grows past 5.
+        scores = [(1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (5, 1), (6, 1)]
+        oid = "lead-five"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        card = self._highlight_card(body, "Biggest lead")
+        assert "led by 5 in set 1" in card
+        assert "Alpha" in card
+
+    def test_lead_tie_renders_tie_message(self, client):
+        # Team 1 leads 5-0; team 2 storms back to lead 5-10 — both
+        # peak at +5, so the card must not pick a side.
+        scores = [(1, 0), (2, 0), (3, 0), (4, 0), (5, 0)] + [
+            (5, n) for n in range(1, 11)
+        ]
+        oid = "lead-tie"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=2)
+        body = client.get(f"/match/{match_id}/report").text
+        card = self._highlight_card(body, "Biggest lead")
+        assert "Tied between both teams" in card
+
+    def test_lead_recorded_when_no_comeback_qualifies(self):
+        from app.match_report import _compute_stats
+
+        # A one-sided 25-10 set: no comeback story at all, but a
+        # 15-point lead worth surfacing.
+        audit = []
+        s1 = s2 = 0
+        ts = 1.0
+        while s1 < 25 or s2 < 10:
+            team = 1 if (s1 < 25 and (s2 >= 10 or (s1 + s2) % 3 != 2)) else 2
+            s1, s2 = (s1 + 1, s2) if team == 1 else (s1, s2 + 1)
+            audit.append({
+                "ts": ts, "action": "add_point",
+                "params": {"team": team, "undo": False},
+                "result": {"current_set": 1, "score_set": 1,
+                           "team_1": {"score": s1}, "team_2": {"score": s2}},
+            })
+            ts += 30.0
+        stats = _compute_stats(audit)
+        assert stats["biggest_lead"][1] == {"lead": 15, "set": 1}
+        assert stats["biggest_lead"][2] == {"lead": 0, "set": None}
+        assert stats["set_win_comeback"][1]["deficit"] == 0

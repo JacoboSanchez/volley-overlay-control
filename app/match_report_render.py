@@ -664,18 +664,21 @@ def _pct(n: int, denom: int) -> int:
 def _comeback_card(
     card, team_label, locale: str, data: dict, *,
     qualifies: bool, label_key: str, value_key: str,
+    field: str = "deficit",
 ) -> None:
-    """Append one comeback highlight card (set-win or partial flavour).
+    """Append one best-of-both-teams highlight card.
 
-    *data* is the per-team ``{team: {"deficit", "set"}}`` accumulator
-    from ``_compute_stats``. When both teams' best deficit is the same,
-    a single tied-card is rendered instead of arbitrarily picking one
-    team. *qualifies* carries the flavour-specific threshold check.
+    *data* is a per-team ``{team: {field, "set"}}`` accumulator from
+    ``_compute_stats`` — historically the comeback deficits, and via
+    *field* also the biggest-lead flavour. When both teams' best value
+    is the same, a single tied-card is rendered instead of arbitrarily
+    picking one team. *qualifies* carries the flavour-specific
+    threshold check.
     """
     if not qualifies:
         return
-    d1 = (data.get(1) or {}).get("deficit", 0)
-    d2 = (data.get(2) or {}).get("deficit", 0)
+    d1 = (data.get(1) or {}).get(field, 0)
+    d2 = (data.get(2) or {}).get(field, 0)
     if d1 == d2:
         card(
             _t(locale, label_key),
@@ -687,7 +690,7 @@ def _comeback_card(
     entry = data[team]
     card(
         _t(locale, label_key),
-        _t(locale, value_key, n=entry["deficit"], set=entry.get("set") or "?"),
+        _t(locale, value_key, n=entry[field], set=entry.get("set") or "?"),
         team_label(team),
     )
 
@@ -866,6 +869,22 @@ def _render_highlights(
         qualifies=p_max > 3,
         label_key="highlightPartialComeback",
         value_key="partialDeltaValue",
+    )
+
+    # Biggest lead either team opened. The ≥5 floor matches the
+    # set-win comeback threshold — a lead is, after all, the other
+    # team's deficit.
+    lead = stats.get("biggest_lead") or {}
+    lead_max = max(
+        (lead.get(1) or {}).get("lead", 0),
+        (lead.get(2) or {}).get("lead", 0),
+    )
+    _comeback_card(
+        _card, _team_label, locale, lead,
+        qualifies=lead_max >= 5,
+        label_key="highlightBiggestLead",
+        value_key="leadValue",
+        field="lead",
     )
 
     rally = stats.get("longest_rally") or {}
