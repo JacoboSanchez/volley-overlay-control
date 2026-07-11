@@ -43,7 +43,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "allTypes": "All types", "indoor": "Indoor", "beach": "Beach",
         "table_tennis": "Table tennis",
         "day": "Day", "filter": "Filter", "allDays": "All days",
-        "prevMonth": "Previous month", "nextMonth": "Next month",
+        "prevMonth": "Previous month", "nextMonth": "Next month", "team": "Team",
     },
     "es": {
         "title": "Historial de partidos — {label}", "date": "Fecha", "match": "Partido",
@@ -53,7 +53,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "allTypes": "Todas", "indoor": "Pista", "beach": "Playa",
         "table_tennis": "Tenis de mesa",
         "day": "Día", "filter": "Filtrar", "allDays": "Todos los días",
-        "prevMonth": "Mes anterior", "nextMonth": "Mes siguiente",
+        "prevMonth": "Mes anterior", "nextMonth": "Mes siguiente", "team": "Equipo",
     },
     "pt": {
         "title": "Histórico de jogos — {label}", "date": "Data", "match": "Jogo",
@@ -63,7 +63,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "allTypes": "Todas", "indoor": "Pista", "beach": "Praia",
         "table_tennis": "Tênis de mesa",
         "day": "Dia", "filter": "Filtrar", "allDays": "Todos os dias",
-        "prevMonth": "Mês anterior", "nextMonth": "Mês seguinte",
+        "prevMonth": "Mês anterior", "nextMonth": "Mês seguinte", "team": "Equipa",
     },
     "it": {
         "title": "Storico partite — {label}", "date": "Data", "match": "Partita",
@@ -73,7 +73,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "allTypes": "Tutti", "indoor": "Indoor", "beach": "Beach",
         "table_tennis": "Ping pong",
         "day": "Giorno", "filter": "Filtra", "allDays": "Tutti i giorni",
-        "prevMonth": "Mese precedente", "nextMonth": "Mese successivo",
+        "prevMonth": "Mese precedente", "nextMonth": "Mese successivo", "team": "Squadra",
     },
     "fr": {
         "title": "Historique des matchs — {label}", "date": "Date", "match": "Match",
@@ -83,7 +83,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "allTypes": "Tous", "indoor": "Indoor", "beach": "Beach",
         "table_tennis": "Tennis de table",
         "day": "Jour", "filter": "Filtrer", "allDays": "Tous les jours",
-        "prevMonth": "Mois précédent", "nextMonth": "Mois suivant",
+        "prevMonth": "Mois précédent", "nextMonth": "Mois suivant", "team": "Équipe",
     },
     "de": {
         "title": "Spielverlauf — {label}", "date": "Datum", "match": "Spiel",
@@ -93,7 +93,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "allTypes": "Alle", "indoor": "Halle", "beach": "Beach",
         "table_tennis": "Tischtennis",
         "day": "Tag", "filter": "Filtern", "allDays": "Alle Tage",
-        "prevMonth": "Voriger Monat", "nextMonth": "Nächster Monat",
+        "prevMonth": "Voriger Monat", "nextMonth": "Nächster Monat", "team": "Team",
     },
 }
 
@@ -209,8 +209,12 @@ def _fmt_duration(locale: str, duration_s: object) -> str:
 
 
 def _teams_cell(locale: str, m: dict) -> str:
-    n1 = html.escape(str(m.get("team_1_name") or f"{_STRINGS.get(locale, _STRINGS['en']).get('match', 'Team')} 1"))
-    n2 = html.escape(str(m.get("team_2_name") or f"{_STRINGS.get(locale, _STRINGS['en']).get('match', 'Team')} 2"))
+    # Unnamed teams fall back to the localized "Team N" placeholder —
+    # this used to (wrongly) read the ``match`` column-header string,
+    # rendering "Match 1" / "Partido 1" instead.
+    team_word = _t(locale, "team")
+    n1 = html.escape(str(m.get("team_1_name") or f"{team_word} 1"))
+    n2 = html.escape(str(m.get("team_2_name") or f"{team_word} 2"))
     s1 = int(m.get("team_1_sets") or 0)
     s2 = int(m.get("team_2_sets") or 0)
     w = m.get("winning_team")

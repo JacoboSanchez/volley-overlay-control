@@ -31,19 +31,24 @@ from __future__ import annotations
 import html
 import logging
 import time
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 from app.api import match_archive
 from app.match_report_access import check_read_access
+from app.match_report_export import csv_filename, render_point_log_csv
 from app.match_report_i18n import SUPPORTED_LOCALES, resolve_locale
 from app.match_report_i18n import t as _t
 from app.match_report_render import (
+    _CHART_FALLBACK_DARK,
+    _CHART_SURFACE_DARK,
     _chart_color,
     _ensure_distinct_chart_colors,
     _fmt_seconds,
     _fmt_ts,
+    _fmt_ts_html,
     _render_charts,
     _render_highlights,
     _render_logo,
@@ -55,7 +60,9 @@ from app.match_report_render import (
 from app.match_report_stats import (
     _collapse_undos,
     _compute_stats,
+    _initial_serve_from_pregame,
     _played_set_count,
+    _safe_int,
     _timeouts_per_set,
     _trim_pregame,
 )
@@ -79,6 +86,26 @@ def _is_supported_locale_tag(value: str | None) -> bool:
 logger = logging.getLogger(__name__)
 
 match_report_router = APIRouter()
+
+
+def _effective_started_at(payload: dict, audit: list[dict]) -> float | None:
+    """The match anchor both report surfaces measure time from.
+
+    ``session.match_started_at`` is set by the explicit Start-match
+    button or implicitly by the first scored point, then archived as
+    ``payload.started_at``. Either source is the moment the *match*
+    really began; we just trust it. Legacy snapshots (no anchor
+    stored) fall back to the first scoring action in the (already
+    trimmed) audit so the report still has something honest to show.
+    """
+    payload_started = payload.get("started_at")
+    if isinstance(payload_started, (int, float)):
+        return float(payload_started)
+    for record in audit:
+        ts = record.get("ts")
+        if isinstance(ts, (int, float)):
+            return float(ts)
+    return None
 
 
 @match_report_router.get(
@@ -138,6 +165,11 @@ def match_report(
     # the post-undo view, and at least one (``_timeouts_per_set``)
     # was leaking undone forward-counts into the per-set row.
     audit = _collapse_undos(_trim_pregame(raw_audit))
+    # The serve/receive walk needs to know who served the *first*
+    # rally, and that fact lives in the pregame slice the trim just
+    # dropped (the operator's pre-match serve assignment). Seed it
+    # from the raw log before the slice is forgotten.
+    initial_serve = _initial_serve_from_pregame(raw_audit)
 
     team1_name = _team_name(customization, 1)
     team2_name = _team_name(customization, 2)
@@ -165,6 +197,20 @@ def match_report(
         _chart_color(1, t1_color, t1_fg),
         _chart_color(2, t2_color, t2_fg),
     )
+    # Same resolution against the dark surface for the
+    # ``prefers-color-scheme: dark`` palette — a navy brand that reads
+    # fine on the light page would vanish on #1e1e1e without this.
+    t1_chart_dark, t2_chart_dark = _ensure_distinct_chart_colors(
+        _chart_color(
+            1, t1_color, t1_fg,
+            surface=_CHART_SURFACE_DARK, fallbacks=_CHART_FALLBACK_DARK,
+        ),
+        _chart_color(
+            2, t2_color, t2_fg,
+            surface=_CHART_SURFACE_DARK, fallbacks=_CHART_FALLBACK_DARK,
+        ),
+        fallbacks=_CHART_FALLBACK_DARK,
+    )
 
     set_headers = "".join(
         f'<th>{html.escape(_t(locale, "setLabel", n=i))}</th>'
@@ -172,6 +218,18 @@ def match_report(
     )
 
     timeouts_by_set = _timeouts_per_set(audit)
+
+    def _set_winner(i: int) -> int | None:
+        """Which team took set *i*, from the archived per-set scores.
+
+        ``None`` for ties (in-progress / corrupt data) and missing
+        scores — those cells render without the winner emphasis.
+        """
+        s1 = _safe_int((team1.get("scores") or {}).get(f"set_{i}"))
+        s2 = _safe_int((team2.get("scores") or {}).get(f"set_{i}"))
+        if s1 is None or s2 is None or s1 == s2:
+            return None
+        return 1 if s1 > s2 else 2
 
     def _team_set_cells(team_dict: dict, team_id: int) -> str:
         cells = []
@@ -182,30 +240,17 @@ def match_report(
             timeouts = timeouts_by_set.get(i, {}).get(team_id, 0)
             if timeouts > 0:
                 text = f"{text} ({timeouts})"
-            cells.append(f"<td>{html.escape(text)}</td>")
+            td_open = (
+                '<td class="set-won">' if _set_winner(i) == team_id
+                else "<td>"
+            )
+            cells.append(f"{td_open}{html.escape(text)}</td>")
         return "".join(cells)
 
-    stats = _compute_stats(audit)
+    stats = _compute_stats(audit, initial_serve=initial_serve)
     set_durations = stats.get("set_durations", {}) or {}
 
-    # The reported "Started" and "Duration" snap to the match anchor
-    # the session captured: ``session.match_started_at`` is set by the
-    # explicit Start-match button or implicitly by the first scored
-    # point, then archived as ``payload.started_at``. Either source is
-    # the moment the *match* really began; we just trust it. Legacy
-    # snapshots (no anchor stored) fall back to the first scoring
-    # action so the report still has something honest to show.
-    first_scoring_ts: float | None = None
-    for record in audit:
-        ts = record.get("ts")
-        if isinstance(ts, (int, float)):
-            first_scoring_ts = float(ts)
-            break
-    payload_started = payload.get("started_at")
-    if isinstance(payload_started, (int, float)):
-        effective_started_at: float | None = float(payload_started)
-    else:
-        effective_started_at = first_scoring_ts
+    effective_started_at = _effective_started_at(payload, audit)
     ended_at = payload.get("ended_at")
     effective_duration: float | None
     if (
@@ -218,6 +263,31 @@ def match_report(
     else:
         effective_duration = payload.get("duration_s")
 
+    # Winner badge for the hero scoreboard. ``winning_team`` is
+    # archived at match end; snapshots without it (aborted matches,
+    # legacy rows) simply render no badge on either panel.
+    winning_team = payload.get("winning_team")
+
+    def _winner_badge(team_id: int) -> str:
+        if winning_team != team_id:
+            return ""
+        return (
+            '<div class="winner-badge">'
+            '<span aria-hidden="true">\U0001f3c6</span> '
+            f'{html.escape(_t(locale, "winnerBadge"))}</div>'
+        )
+
+    # Open Graph description: the per-set scores plus the end date —
+    # what a chat-app unfurl should say about a match. Falls back to
+    # the bare match label when no set ever scored.
+    set_scores = ", ".join(
+        f"{(team1.get('scores') or {}).get(f'set_{i}') or 0}"
+        f"–{(team2.get('scores') or {}).get(f'set_{i}') or 0}"
+        for i in range(1, played_sets + 1)
+        if (team1.get("scores") or {}).get(f"set_{i}")
+        or (team2.get("scores") or {}).get(f"set_{i}")
+    )
+
     # ``match_label`` and ``permalink`` are kept raw here — every
     # consumer escapes at insertion time. Pre-escaping the source
     # would push the title through ``html.escape`` twice (once here,
@@ -225,6 +295,21 @@ def match_report(
     # ``&`` in a team name.
     match_label = f"{team1_name} {team1_sets} – {team2_sets} {team2_name}"
     permalink = f"/match/{match_id}/report"
+    og_description = (
+        _t(locale, "ogDescription",
+           sets=set_scores, date=_fmt_ts(payload.get("ended_at")))
+        if set_scores else match_label
+    )
+    # The Download-CSV anchor must keep working for signed-URL
+    # readers: carry the capability params through so the CSV route's
+    # identical access ladder admits them. Built server-side so the
+    # link works without JS.
+    csv_params = urlencode(
+        [(k, v) for k, v in (("exp", exp), ("sig", sig)) if v],
+    )
+    csv_href = f"/match/{match_id}/report.csv" + (
+        f"?{csv_params}" if csv_params else ""
+    )
 
     rendered = _REPORT_TEMPLATE.format(
         # ``locale`` derives from the ``?lang=`` param / ``Accept-Language``
@@ -234,6 +319,7 @@ def match_report(
         # attacker bytes.
         locale=html.escape(locale, quote=True),
         title=html.escape(_t(locale, "title", label=match_label)),
+        og_description=html.escape(og_description, quote=True),
         match_label=html.escape(match_label),
         match_id=html.escape(payload.get("match_id", match_id)),
         team1_name=html.escape(team1_name),
@@ -242,10 +328,18 @@ def match_report(
         team2_logo=_render_logo(customization, 2),
         team1_sets=team1_sets,
         team2_sets=team2_sets,
+        team1_badge=_winner_badge(1),
+        team2_badge=_winner_badge(2),
         team1_color=t1_color,
         team1_fg=t1_fg,
         team2_color=t2_color,
         team2_fg=t2_fg,
+        # Chart palette vars — strict-hex values from the contrast
+        # machinery, inserted raw like the brand colours above.
+        team1_chart=t1_chart,
+        team2_chart=t2_chart,
+        team1_chart_dark=t1_chart_dark,
+        team2_chart_dark=t2_chart_dark,
         set_count=played_sets,
         set_headers=set_headers,
         team1_set_cells=_team_set_cells(team1, 1),
@@ -262,8 +356,11 @@ def match_report(
             points=config.get("points_limit") or "—",
             last=config.get("points_limit_last_set") or "—",
         )),
-        started_at_display=_fmt_ts(effective_started_at),
-        ended_at_display=_fmt_ts(payload.get("ended_at")),
+        # ``_fmt_ts_html`` wraps the UTC text in a ``data-utc-ts`` span
+        # so the template script can rewrite it into the viewer's
+        # local time; the kwargs are inserted unescaped by design.
+        started_at_display=_fmt_ts_html(effective_started_at),
+        ended_at_display=_fmt_ts_html(payload.get("ended_at")),
         duration_display=_fmt_seconds(effective_duration),
         audit_count=len(audit),
         highlights_html=_render_highlights(
@@ -298,16 +395,71 @@ def match_report(
         permalink_label=html.escape(_t(locale, "permalinkLabel")),
         permalink_display=html.escape(permalink),
         generated_label=html.escape(_t(locale, "generatedLabel")),
-        # ``_fmt_ts`` reuses the same human format as the started /
+        # Same shape (and same local-time enhancement) as the started /
         # ended cells in the match-facts table, so the footer reads
-        # in the same shape regardless of locale.
-        generated_at_display=_fmt_ts(time.time()),
+        # consistently regardless of locale.
+        generated_at_display=_fmt_ts_html(time.time()),
         btn_print=html.escape(_t(locale, "print")),
         btn_print_include_prompt=html.escape(
             _t(locale, "printIncludeLogPrompt"), quote=True,
         ),
         btn_copy=html.escape(_t(locale, "copyLink")),
         btn_copy_ok=html.escape(_t(locale, "copyLinkOk")),
+        btn_csv=html.escape(_t(locale, "downloadCsv")),
+        csv_href=html.escape(csv_href, quote=True),
         permalink=html.escape(permalink, quote=True),
     )
     return HTMLResponse(content=rendered)
+
+
+@match_report_router.get(
+    "/match/{match_id}/report.csv",
+    summary="Point-log CSV export for an archived match",
+)
+def match_report_csv(
+    match_id: str,
+    request: Request,
+    exp: str | None = Query(default=None,
+                               description="Signed-URL expiry (unix seconds)."),
+    sig: str | None = Query(default=None,
+                               description="Signed-URL HMAC-SHA256 hex digest."),
+) -> Response:
+    """Machine-readable point log for the same archived match.
+
+    Access mirrors ``/match/{id}/report`` exactly — owner cookie,
+    signed URL, or ``MATCH_REPORT_PUBLIC``. The signature covers only
+    ``match_id|exp`` (not the path), so a signed *report* link's
+    ``exp``/``sig`` params deliberately open the CSV too: it exposes
+    the same collapsed audit slice the report's timeline already
+    renders, just in rows.
+    """
+    check_read_access(request, match_id, exp=exp, sig=sig)
+    payload = match_archive.load_match(match_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Match not found.")
+
+    raw_audit = payload.get("audit_log", []) or []
+    # Same slice as the HTML report: pregame noise trimmed, undo pairs
+    # collapsed — the CSV and the rendered timeline must agree.
+    audit = _collapse_undos(_trim_pregame(raw_audit))
+
+    customization = payload.get("customization", {}) or {}
+    final = payload.get("final_state", {}) or {}
+    team1_sets = (final.get("team_1", {}) or {}).get("sets") or 0
+    team2_sets = (final.get("team_2", {}) or {}).get("sets") or 0
+    match_label = (
+        f"{_team_name(customization, 1)} {team1_sets} "
+        f"{team2_sets} {_team_name(customization, 2)}"
+    )
+
+    body = render_point_log_csv(
+        audit, base_ts=_effective_started_at(payload, audit),
+    )
+    filename = csv_filename(match_label, payload.get("match_id", match_id))
+    return Response(
+        content=body,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )

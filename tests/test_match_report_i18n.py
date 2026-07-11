@@ -1,10 +1,48 @@
 """Unit coverage for the report-side i18n helpers."""
 from app.match_report_i18n import (
+    _TRANSLATIONS,
     DEFAULT_LOCALE,
     SUPPORTED_LOCALES,
     resolve_locale,
     t,
 )
+
+
+class TestKeyParity:
+    """Every locale carries the full English key set.
+
+    Runtime falls back to English for a missing key, so a gap never
+    breaks the page — but it silently un-translates it. This pins the
+    "add the key to all six locales" rule mechanically.
+    """
+
+    def test_all_locales_share_the_english_key_set(self):
+        english = set(_TRANSLATIONS[DEFAULT_LOCALE])
+        for locale in SUPPORTED_LOCALES:
+            assert locale in _TRANSLATIONS
+            missing = english - set(_TRANSLATIONS[locale])
+            extra = set(_TRANSLATIONS[locale]) - english
+            assert not missing, f"{locale} is missing keys: {sorted(missing)}"
+            assert not extra, f"{locale} has extra keys: {sorted(extra)}"
+
+    def test_placeholders_match_the_english_template(self):
+        # A translated string must use exactly the English template's
+        # placeholders — a stray or renamed field would raise at
+        # ``str.format`` time and fall back to the raw template.
+        import string
+        formatter = string.Formatter()
+
+        def _fields(template: str) -> set[str]:
+            return {
+                field for _, field, _, _ in formatter.parse(template) if field
+            }
+
+        for key, english_template in _TRANSLATIONS[DEFAULT_LOCALE].items():
+            expected = _fields(english_template)
+            for locale in SUPPORTED_LOCALES:
+                assert _fields(_TRANSLATIONS[locale][key]) == expected, (
+                    f"placeholder drift in {locale}:{key}"
+                )
 
 
 class TestResolveLocale:

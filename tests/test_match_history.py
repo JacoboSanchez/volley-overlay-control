@@ -166,3 +166,28 @@ class TestMatchHistoryPage:
         resp = client.get(f"/matches/{token}")
         assert resp.status_code == 200
         assert "No archived matches yet." in resp.text
+
+    def test_unnamed_teams_fall_back_to_team_not_match(
+            self, client, db_session, fake_backend_cls, monkeypatch):
+        # ``_setup`` archives without customization, so both names are
+        # unset — the placeholder used to (wrongly) borrow the "Match"
+        # column-header string.
+        monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
+        token = _setup(client, db_session, oid="hist-unnamed", n=1)
+        body = client.get(f"/matches/{token}").text
+        assert "Team 1" in body and "Team 2" in body
+        assert "Match 1" not in body
+
+    def test_unnamed_team_fallback_is_localized(
+            self, client, db_session, fake_backend_cls, monkeypatch):
+        monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
+        token = _setup(client, db_session, oid="hist-unnamed-es", n=1)
+        body = client.get(f"/matches/{token}?lang=es").text
+        assert "Equipo 1" in body
+        assert "Partido 1" not in body
+
+    def test_strings_tables_share_the_english_key_set(self):
+        from app.match_history import _STRINGS
+        english = set(_STRINGS["en"])
+        for locale, table in _STRINGS.items():
+            assert set(table) == english, f"key drift in locale {locale!r}"

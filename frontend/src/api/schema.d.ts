@@ -1790,6 +1790,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/match/{match_id}/report.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Point-log CSV export for an archived match
+         * @description Machine-readable point log for the same archived match.
+         *
+         *     Access mirrors ``/match/{id}/report`` exactly — owner cookie,
+         *     signed URL, or ``MATCH_REPORT_PUBLIC``. The signature covers only
+         *     ``match_id|exp`` (not the path), so a signed *report* link's
+         *     ``exp``/``sig`` params deliberately open the CSV too: it exposes
+         *     the same collapsed audit slice the report's timeline already
+         *     renders, just in rows.
+         */
+        get: operations["match_report_csv_match__match_id__report_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/matches/{public_token}": {
         parameters: {
             query?: never;
@@ -6712,6 +6739,42 @@ export interface operations {
                 };
                 content: {
                     "text/html": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    match_report_csv_match__match_id__report_csv_get: {
+        parameters: {
+            query?: {
+                /** @description Signed-URL expiry (unix seconds). */
+                exp?: string | null;
+                /** @description Signed-URL HMAC-SHA256 hex digest. */
+                sig?: string | null;
+            };
+            header?: never;
+            path: {
+                match_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

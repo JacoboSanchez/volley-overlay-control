@@ -6,21 +6,54 @@ REPORT_TEMPLATE = """<!doctype html>
 <meta charset="utf-8">
 <title>{title}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta property="og:title" content="{title}">
+<meta property="og:description" content="{og_description}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Volley Overlay Control">
+<meta name="twitter:card" content="summary">
 <style>
   :root {{
+    color-scheme: light dark;
+    --bg: #ffffff;
     --fg: #1a1a1a;
     --muted: #666;
     --border: #d0d0d0;
     --surface: #fafafa;
+    --btn-bg: #ffffff;
+    --chart-grid: #e0e0e0;
+    --chart-axis: #999999;
     --t1: {team1_color};
     --t1-fg: {team1_fg};
     --t2: {team2_color};
     --t2-fg: {team2_fg};
+    /* Scheme-aware chart palette. The SVG fragments carry the light
+       values as presentation attributes (the no-CSS fallback); these
+       vars win via the class rules below, and the dark block simply
+       re-points them at the dark-surface-safe pair. */
+    --t1-chart: {team1_chart};
+    --t2-chart: {team2_chart};
+  }}
+  /* Scoped to screen so print keeps the light palette regardless of
+     the OS theme — the report is a paper artefact when printed. */
+  @media screen and (prefers-color-scheme: dark) {{
+    :root {{
+      --bg: #121212;
+      --fg: #e8e8e8;
+      --muted: #9aa0a6;
+      --border: #3a3a3a;
+      --surface: #1e1e1e;
+      --btn-bg: #1e1e1e;
+      --chart-grid: #3a3a3a;
+      --chart-axis: #9aa0a6;
+      --t1-chart: {team1_chart_dark};
+      --t2-chart: {team2_chart_dark};
+    }}
   }}
   * {{ box-sizing: border-box; }}
   body {{
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     color: var(--fg);
+    background: var(--bg);
     margin: 0;
     padding: 24px;
     max-width: 960px;
@@ -36,16 +69,23 @@ REPORT_TEMPLATE = """<!doctype html>
     margin: 12px 0 0;
     flex-wrap: wrap;
   }}
-  .toolbar button {{
+  .toolbar button,
+  .toolbar .toolbar-link {{
     cursor: pointer;
     font: inherit;
     padding: 6px 12px;
     border: 1px solid var(--border);
-    background: #fff;
+    background: var(--btn-bg);
     border-radius: 4px;
     transition: background 0.1s ease;
   }}
-  .toolbar button:hover {{ background: var(--surface); }}
+  .toolbar .toolbar-link {{
+    display: inline-block;
+    color: inherit;
+    text-decoration: none;
+  }}
+  .toolbar button:hover,
+  .toolbar .toolbar-link:hover {{ background: var(--surface); }}
   .toolbar button:disabled {{ opacity: 0.6; cursor: default; }}
   .scoreboard {{
     display: grid;
@@ -75,6 +115,18 @@ REPORT_TEMPLATE = """<!doctype html>
   }}
   .team .name {{ font-weight: 600; font-size: 18px; }}
   .team .sets {{ font-size: 56px; line-height: 1; font-weight: 700; }}
+  /* currentColor keeps the pill readable on any brand panel colour
+     and survives monochrome print without a background dependency. */
+  .winner-badge {{
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 10px;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+  }}
+  td.set-won {{ font-weight: 700; }}
   .vs {{ font-size: 24px; font-weight: 600; color: var(--muted); }}
   table {{
     width: 100%;
@@ -149,6 +201,23 @@ REPORT_TEMPLATE = """<!doctype html>
     height: auto;
     display: block;
   }}
+  /* Scheme-aware chart colours: these rules beat the inline
+     presentation attributes the SVG fragments carry, so the polylines
+     and markers follow --t1-chart/--t2-chart in both schemes. The
+     timeout guides/glyphs are addressed by their existing data-team
+     attribute (their class list is pinned by tests). */
+  .set-chart .chart-grid {{ stroke: var(--chart-grid); }}
+  .set-chart .chart-axis {{ fill: var(--chart-axis); }}
+  .set-chart .t1-stroke {{ stroke: var(--t1-chart); }}
+  .set-chart .t2-stroke {{ stroke: var(--t2-chart); }}
+  .set-chart .t1-fill {{ fill: var(--t1-chart); }}
+  .set-chart .t2-fill {{ fill: var(--t2-chart); }}
+  .set-chart .set-chart-timeout[data-team="1"],
+  .set-chart .set-chart-timeout-glyph[data-team="1"] {{ stroke: var(--t1-chart); }}
+  .set-chart .set-chart-timeout[data-team="2"],
+  .set-chart .set-chart-timeout-glyph[data-team="2"] {{ stroke: var(--t2-chart); }}
+  .chart-card .legend .swatch-t1 {{ background: var(--t1-chart); }}
+  .chart-card .legend .swatch-t2 {{ background: var(--t2-chart); }}
   .timeline {{
     font-size: 13px;
     border: 1px solid var(--border);
@@ -307,6 +376,7 @@ REPORT_TEMPLATE = """<!doctype html>
     <button type="button" data-action="copy"
             data-default-label="{btn_copy}"
             data-ok-label="{btn_copy_ok}">{btn_copy}</button>
+    <a class="toolbar-link" href="{csv_href}" download>{btn_csv}</a>
   </div>
 </header>
 
@@ -315,12 +385,14 @@ REPORT_TEMPLATE = """<!doctype html>
     {team1_logo}
     <div class="name">{team1_name}</div>
     <div class="sets">{team1_sets}</div>
+    {team1_badge}
   </div>
   <div class="vs">{versus}</div>
   <div class="team t2">
     {team2_logo}
     <div class="name">{team2_name}</div>
     <div class="sets">{team2_sets}</div>
+    {team2_badge}
   </div>
 </section>
 
@@ -374,6 +446,19 @@ REPORT_TEMPLATE = """<!doctype html>
 
 <script>
 (function() {{
+  // Progressive enhancement: rewrite the server-rendered UTC
+  // timestamps into the viewer's locale/timezone. The UTC original
+  // moves to the tooltip; without JS the UTC text simply stands.
+  document.querySelectorAll('[data-utc-ts]').forEach(function (el) {{
+    const epoch = parseFloat(el.getAttribute('data-utc-ts'));
+    if (!isFinite(epoch)) return;
+    el.title = el.textContent;
+    el.textContent = new Date(epoch * 1000).toLocaleString(undefined, {{
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit',
+    }});
+  }});
+
   const toolbar = document.querySelector('.toolbar');
   if (!toolbar) return;
   const permalink = toolbar.getAttribute('data-permalink') || window.location.href;

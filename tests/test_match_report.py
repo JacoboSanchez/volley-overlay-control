@@ -1,6 +1,7 @@
 """Tests for the print-friendly match report at /match/{match_id}/report."""
 import json
 import os
+import re
 import time
 
 import pytest
@@ -60,6 +61,12 @@ def _seed_realistic_audit(oid: str, base_ts: float) -> None:
     records: list[dict] = []
 
     def _add(action: str, params: dict, result: dict, offset: float) -> None:
+        # Mirror the live engine: every audit result snapshots the
+        # post-action serve, and in volleyball the serve follows the
+        # rally winner. This feeds the serve/receive breakdown the
+        # same way real logs do.
+        if action == "add_point" and params.get("team") in (1, 2):
+            result.setdefault("serve", "A" if params["team"] == 1 else "B")
         records.append({
             "ts": base_ts + offset,
             "action": action,
@@ -592,6 +599,58 @@ class TestChartColorContrast:
     def test_strong_brand_colour_is_left_untouched(self):
         from app.match_report_render import _chart_color
         assert _chart_color(1, "#0047AB", "#ffffff") == "#0047AB"
+
+    @pytest.mark.parametrize(
+        "brand,fg",
+        [
+            ("#000000", "#ffffff"),  # black brand, would vanish on dark
+            ("#00234f", "#0a0a0a"),  # navy brand + dark text (worst case)
+            ("#1a1a1a", "#333333"),  # near-surface greys
+            ("#90ee90", "#ffffff"),  # pale green (fine on dark already)
+            ("#0047ab", "#ffffff"),  # cobalt — too dark for #1e1e1e
+        ],
+    )
+    def test_dark_surface_colours_clear_the_floor(self, brand, fg):
+        from app.match_report_render import (
+            _CHART_FALLBACK_DARK,
+            _CHART_SURFACE_DARK,
+            _MIN_CHART_CONTRAST,
+            _chart_color,
+        )
+        for team in (1, 2):
+            resolved = _chart_color(
+                team, brand, fg,
+                surface=_CHART_SURFACE_DARK, fallbacks=_CHART_FALLBACK_DARK,
+            )
+            assert self._contrast(resolved, _CHART_SURFACE_DARK) \
+                >= _MIN_CHART_CONTRAST
+
+    def test_dark_brand_is_lightened_keeping_hue(self):
+        # A navy that fails on the dark surface is lifted toward white
+        # (blue channel stays dominant), not swapped for the fallback.
+        from app.match_report_render import (
+            _CHART_FALLBACK_DARK,
+            _CHART_SURFACE_DARK,
+            _chart_color,
+            _hex_to_rgb,
+        )
+        resolved = _chart_color(
+            1, "#00234f", "#0a0a0a",
+            surface=_CHART_SURFACE_DARK, fallbacks=_CHART_FALLBACK_DARK,
+        )
+        assert resolved not in _CHART_FALLBACK_DARK
+        r, g, b = _hex_to_rgb(resolved)
+        assert b > r and b > g
+
+    def test_dark_fallback_palette_clears_the_floor(self):
+        from app.match_report_render import (
+            _CHART_FALLBACK_DARK,
+            _CHART_SURFACE_DARK,
+            _MIN_CHART_CONTRAST,
+        )
+        for color in _CHART_FALLBACK_DARK:
+            assert self._contrast(color, _CHART_SURFACE_DARK) \
+                >= _MIN_CHART_CONTRAST
 
 
 class TestMatchReportI18n:
@@ -1971,3 +2030,551 @@ class TestPointTypeBreakdown:
             stats, "en", team1_name="Alpha", team2_name="Beta",
         )
         assert "Points won" not in html
+
+
+class TestServeReceiveBreakdown:
+    """Serve/receive attribution walk + highlight cards.
+
+    The server of rally N is the ``result.serve`` snapshot of record
+    N-1 (post-action serve follows the rally winner), seeded for the
+    very first rally from the pregame slice.
+    """
+
+    # Reuse the realistic record builder — its results already carry
+    # the winner-serves-next snapshot.
+    _point = staticmethod(TestPointTypeBreakdown._point)
+
+    @staticmethod
+    def _serve_change(serve: str, *, ts: float) -> dict:
+        return {
+            "ts": ts,
+            "action": "change_serve",
+            "params": {"team": 1 if serve == "A" else 2},
+            "result": {
+                "current_set": 1,
+                "team_1": {"score": 0},
+                "team_2": {"score": 0},
+                "serve": serve,
+            },
+        }
+
+    def test_points_attributed_by_previous_records_serve(self):
+        from app.match_report_stats import _serve_receive_summary
+
+        # Seeded: team 1 serves rally 1 and wins it (hold), serves
+        # rally 2 and loses it (team 2 side-out), then team 2 serves
+        # rally 3 and wins it (hold).
+        audit = [
+            self._point(1, (1, 0), ts=1.0),   # server: seed (1) → won
+            self._point(2, (1, 1), ts=2.0),   # server: 1 → lost (side-out)
+            self._point(2, (1, 2), ts=3.0),   # server: 2 → won
+        ]
+        out = _serve_receive_summary(audit, initial_serve=1)
+        assert out[1] == {"served": 2, "won": 1}
+        assert out[2] == {"served": 1, "won": 1}
+
+    def test_unseeded_first_point_excluded_from_totals(self):
+        from app.match_report_stats import _serve_receive_summary
+
+        audit = [
+            self._point(1, (1, 0), ts=1.0),   # server unknown → skipped
+            self._point(1, (2, 0), ts=2.0),   # server: 1 (from record 1)
+        ]
+        out = _serve_receive_summary(audit)
+        assert out[1] == {"served": 1, "won": 1}
+        assert out[2] == {"served": 0, "won": 0}
+
+    def test_initial_serve_seeded_from_pregame_change_serve(self):
+        from app.match_report_stats import _initial_serve_from_pregame
+
+        raw = [
+            self._serve_change("B", ts=1.0),
+            self._point(1, (1, 0), ts=2.0),
+        ]
+        assert _initial_serve_from_pregame(raw) == 2
+
+    def test_pregame_serve_none_clears_the_seed(self):
+        from app.match_report_stats import _initial_serve_from_pregame
+
+        # The reset's ``serve: "None"`` supersedes the earlier
+        # assignment — resurrecting it would guess.
+        raw = [
+            self._serve_change("A", ts=1.0),
+            {"ts": 2.0, "action": "reset", "params": {},
+             "result": {"current_set": 1, "team_1": {"score": 0},
+                        "team_2": {"score": 0}, "serve": "None"}},
+            self._point(1, (1, 0), ts=3.0),
+        ]
+        assert _initial_serve_from_pregame(raw) is None
+
+    def test_no_scoring_action_yields_no_seed(self):
+        from app.match_report_stats import _initial_serve_from_pregame
+
+        assert _initial_serve_from_pregame([]) is None
+        assert _initial_serve_from_pregame(
+            [self._serve_change("A", ts=1.0)],
+        ) is None
+
+    def test_undo_records_do_not_move_counters_or_tracker(self):
+        from app.match_report_stats import _serve_receive_summary
+
+        # Uncollapsed log (live-style): the undo record must neither
+        # count as a rally nor update the serve tracker.
+        undo = self._point(2, (1, 0), ts=3.0)
+        undo["params"]["undo"] = True
+        audit = [
+            self._point(1, (1, 0), ts=1.0),
+            self._point(2, (1, 1), ts=2.0),
+            undo,
+            self._point(1, (2, 1), ts=4.0),  # server: 2 (not the undo's B)
+        ]
+        out = _serve_receive_summary(audit, initial_serve=1)
+        assert out[1] == {"served": 2, "won": 1}
+        assert out[2] == {"served": 1, "won": 0}
+
+    def test_legacy_log_without_serve_renders_no_cards(self):
+        from app.match_report import _compute_stats, _render_highlights
+
+        audit = []
+        for i, team in enumerate((1, 2, 1), start=1):
+            record = self._point(team, (i, 0), ts=float(i))
+            del record["result"]["serve"]
+            audit.append(record)
+        stats = _compute_stats(audit)
+        assert stats["serve_receive"][1] == {"served": 0, "won": 0}
+        assert stats["serve_receive"][2] == {"served": 0, "won": 0}
+        html = _render_highlights(
+            stats, "en", team1_name="Alpha", team2_name="Beta",
+        )
+        assert "Points on serve / receive" not in html
+
+    def test_cards_render_with_names_and_percentages(self):
+        from app.match_report import _compute_stats, _render_highlights
+
+        # Team 1 serves and wins both rallies; team 2 never wins a
+        # serve. Alpha: 2 of 2 on serve (100%); Beta: 0 side-outs of
+        # 2 receives (0%).
+        audit = [
+            self._point(1, (1, 0), ts=1.0),
+            self._point(1, (2, 0), ts=2.0),
+        ]
+        stats = _compute_stats(audit, initial_serve=1)
+        html = _render_highlights(
+            stats, "en", team1_name="Alpha", team2_name="Beta",
+        )
+        assert "Alpha · Points on serve / receive" in html
+        assert "On serve: 2 of 2 (100%)" in html
+        assert "Beta · Points on serve / receive" in html
+        assert "On receive: 0 of 2 (0%)" in html
+
+    def test_report_route_renders_serve_cards_from_pregame_seed(self, client):
+        # End-to-end through the archive: pregame serve assignment →
+        # trimmed report still attributes the first rally.
+        seeder = TestMatchReportPregameTrim()
+        base_ts = time.time() - 1000
+        oid = "serve-route-1"
+        seeder._seed_audit(oid, [
+            self._serve_change("A", ts=base_ts),
+            self._point(1, (1, 0), ts=base_ts + 10),
+            self._point(2, (1, 1), ts=base_ts + 40),
+        ])
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={"team_1": {"scores": {"set_1": 1}},
+                         "team_2": {"scores": {"set_1": 1}}},
+            customization={"Team 1 Name": "Alpha", "Team 2 Name": "Beta"},
+            started_at=base_ts + 10, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        assert response.status_code == 200
+        # Both rallies were served by team 1 (seed, then hold): Alpha
+        # 1 of 2 on serve, Beta 1 side-out of 2 receives.
+        assert "Alpha · Points on serve / receive" in response.text
+        assert "On serve: 1 of 2 (50%)" in response.text
+        assert "On receive: 1 of 2 (50%)" in response.text
+
+    def test_localized_heading(self):
+        from app.match_report import _compute_stats, _render_highlights
+
+        audit = [self._point(1, (1, 0), ts=1.0)]
+        stats = _compute_stats(audit, initial_serve=1)
+        html = _render_highlights(
+            stats, "es", team1_name="Alpha", team2_name="Beta",
+        )
+        assert "Puntos al saque / en recepción" in html
+
+
+class TestBiggestLeadHighlight:
+    """Largest score gap either team opened, as a highlight card.
+
+    Threshold mirrors the set-win comeback floor (>= 5): a lead is
+    the other team's deficit, so the two cards should agree on what
+    counts as noteworthy.
+    """
+
+    # Reuse the running-score seeder / card extractor from the
+    # comeback suite — the data shape is identical.
+    _seed = TestMatchReportComebacks._seed
+    _archive = TestMatchReportComebacks._archive
+    _highlight_card = TestMatchReportComebacks._highlight_card
+
+    def test_lead_below_5_is_suppressed(self, client):
+        # Team 1 never leads by more than 4.
+        scores = [(1, 0), (2, 0), (3, 0), (4, 0), (4, 1)]
+        oid = "lead-small"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        assert "Biggest lead" not in body
+
+    def test_lead_at_5_renders_with_team_and_set(self, client):
+        # Team 1 opens a 5-0 gap and the margin never grows past 5.
+        scores = [(1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (5, 1), (6, 1)]
+        oid = "lead-five"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        card = self._highlight_card(body, "Biggest lead")
+        assert "led by 5 in set 1" in card
+        assert "Alpha" in card
+
+    def test_lead_tie_renders_tie_message(self, client):
+        # Team 1 leads 5-0; team 2 storms back to lead 5-10 — both
+        # peak at +5, so the card must not pick a side.
+        scores = [(1, 0), (2, 0), (3, 0), (4, 0), (5, 0)] + [
+            (5, n) for n in range(1, 11)
+        ]
+        oid = "lead-tie"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=2)
+        body = client.get(f"/match/{match_id}/report").text
+        card = self._highlight_card(body, "Biggest lead")
+        assert "Tied between both teams" in card
+
+    def test_lead_recorded_when_no_comeback_qualifies(self):
+        from app.match_report import _compute_stats
+
+        # A one-sided 25-10 set: no comeback story at all, but a
+        # 15-point lead worth surfacing.
+        audit = []
+        s1 = s2 = 0
+        ts = 1.0
+        while s1 < 25 or s2 < 10:
+            team = 1 if (s1 < 25 and (s2 >= 10 or (s1 + s2) % 3 != 2)) else 2
+            s1, s2 = (s1 + 1, s2) if team == 1 else (s1, s2 + 1)
+            audit.append({
+                "ts": ts, "action": "add_point",
+                "params": {"team": team, "undo": False},
+                "result": {"current_set": 1, "score_set": 1,
+                           "team_1": {"score": s1}, "team_2": {"score": s2}},
+            })
+            ts += 30.0
+        stats = _compute_stats(audit)
+        assert stats["biggest_lead"][1] == {"lead": 15, "set": 1}
+        assert stats["biggest_lead"][2] == {"lead": 0, "set": None}
+        assert stats["set_win_comeback"][1]["deficit"] == 0
+
+
+class TestMatchReportWinner:
+    """Winner badge on the hero panel + bold set-winner scores."""
+
+    def test_winner_badge_on_winning_panel_only(self, client, archived_match):
+        body = client.get(f"/match/{archived_match}/report").text
+        assert body.count('class="winner-badge"') == 1
+        # The badge sits inside the team-1 panel: after the t1 div
+        # opens and before the "vs" separator div.
+        badge_at = body.index('class="winner-badge"')
+        assert body.index('<div class="team t1">') < badge_at
+        assert badge_at < body.index('<div class="vs">')
+        assert "Winner" in body
+
+    def test_no_badge_when_winning_team_missing(self, client):
+        match_id = match_archive.archive_match(
+            oid="win-none",
+            final_state={"team_1": {"scores": {"set_1": 10}},
+                         "team_2": {"scores": {"set_1": 8}}},
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            sets_limit=3,
+        )
+        body = client.get(f"/match/{match_id}/report").text
+        assert 'class="winner-badge"' not in body
+
+    def test_winning_set_scores_are_bold(self, client, archived_match):
+        body = client.get(f"/match/{archived_match}/report").text
+        # Sets 1/3/4 went to team 1 (25-18, 25-22, 25-21); set 2 to
+        # team 2 (18-25). Both rows carry set-won cells; the losing
+        # scores stay in plain <td>s.
+        assert body.count('<td class="set-won">25') == 4
+        assert '<td class="set-won">18' not in body
+        assert '<td class="set-won">21' not in body
+        assert "<td>18</td>" in body
+
+    def test_tied_set_scores_not_bold(self, client):
+        match_id = match_archive.archive_match(
+            oid="win-tie",
+            final_state={"team_1": {"scores": {"set_1": 12}},
+                         "team_2": {"scores": {"set_1": 12}}},
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=1,
+            sets_limit=3,
+        )
+        body = client.get(f"/match/{match_id}/report").text
+        assert 'class="set-won"' not in body
+
+    def test_badge_is_localized(self, client, archived_match):
+        body = client.get(f"/match/{archived_match}/report?lang=es").text
+        assert "Ganador" in body
+        assert ">Winner<" not in body
+
+
+class TestMatchReportCsv:
+    """/match/{id}/report.csv — point-log export behind the same ladder."""
+
+    HEADER = ("ts_utc,rel_time_s,set,action,team,point_type,error_type,"
+              "score_t1,score_t2,sets_t1,sets_t2,serve_after")
+
+    @staticmethod
+    def _rows(text: str) -> list[str]:
+        return text.lstrip("\ufeff").strip().splitlines()
+
+    def test_media_type_and_attachment_disposition(self, client, rich_match):
+        response = client.get(f"/match/{rich_match}/report.csv")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/csv")
+        disposition = response.headers["content-disposition"]
+        assert disposition.startswith('attachment; filename="match-report-')
+        assert disposition.endswith('.csv"')
+        assert "alpha" in disposition and "bravo" in disposition
+        # Excel-friendly BOM prefix.
+        assert response.text.startswith("\ufeff")
+
+    def test_header_row_matches_columns(self, client, rich_match):
+        rows = self._rows(client.get(f"/match/{rich_match}/report.csv").text)
+        assert rows[0] == self.HEADER
+
+    def test_rows_come_from_collapsed_trimmed_slice(self, client, rich_match):
+        # ``rich_match`` seeds 17 audit records including one undo
+        # pair; the collapse drops both halves, leaving 15 — the same
+        # count the HTML report's "Audit entries" cell shows.
+        rows = self._rows(client.get(f"/match/{rich_match}/report.csv").text)
+        assert len(rows) == 1 + 15
+        first = rows[1].split(",")
+        assert first[1] == "0"            # rel_time_s anchored at start
+        assert first[2] == "1"            # set 1
+        assert first[3] == "add_point"
+        assert first[4] == "1"            # team 1 scored
+        assert first[7] == "1" and first[8] == "0"  # running score 1-0
+        assert first[11] == "1"           # serve after → team 1
+        # The undone 5-3 running score never appears in any row.
+        assert not any(
+            row.split(",")[7:9] == ["5", "3"] for row in rows[1:]
+        )
+
+    def test_empty_match_yields_header_only(self, client):
+        match_id = match_archive.archive_match(
+            oid="csv-empty",
+            final_state={"team_1": {}, "team_2": {}},
+            customization={},
+            sets_limit=3,
+        )
+        rows = self._rows(client.get(f"/match/{match_id}/report.csv").text)
+        assert rows == [self.HEADER]
+
+    def test_toolbar_anchor_plain_when_no_capability_params(
+        self, client, rich_match,
+    ):
+        body = client.get(f"/match/{rich_match}/report").text
+        assert f'href="/match/{rich_match}/report.csv"' in body
+        assert "Download CSV" in body
+
+    def test_gated_without_credentials_is_401(self, monkeypatch):
+        monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
+        app = FastAPI()
+        app.include_router(match_report_router)
+        c = TestClient(app)
+        match_id = match_archive.archive_match(
+            oid="csv-priv",
+            final_state={"team_1": {"sets": 1}, "team_2": {"sets": 0}},
+            customization={}, sets_limit=3,
+        )
+        assert c.get(f"/match/{match_id}/report.csv").status_code == 401
+
+    def test_signed_report_params_open_the_csv_and_the_anchor_carries_them(
+        self, monkeypatch,
+    ):
+        monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
+        monkeypatch.setenv("SESSION_SECRET", "test-signing-secret")
+        from app.match_report_signing import make_signed_query
+        app = FastAPI()
+        app.include_router(match_report_router)
+        c = TestClient(app)
+        match_id = match_archive.archive_match(
+            oid="csv-signed",
+            final_state={"team_1": {"sets": 1}, "team_2": {"sets": 0}},
+            customization={}, sets_limit=3,
+        )
+        sq = make_signed_query(match_id)
+        signed = f"exp={sq['exp']}&sig={sq['sig']}"
+        # The signature covers match_id|exp only, so the report's
+        # capability params open the CSV route too.
+        assert c.get(f"/match/{match_id}/report.csv?{signed}").status_code == 200
+        assert c.get(f"/match/{match_id}/report.csv?exp={sq['exp']}&sig=deadbeef").status_code == 401
+        # And the HTML toolbar link forwards them so the download
+        # works for signed-URL readers.
+        body = c.get(f"/match/{match_id}/report?{signed}").text
+        assert f'href="/match/{match_id}/report.csv?exp={sq["exp"]}&amp;sig={sq["sig"]}"' in body
+
+    def test_owner_cookie_allows_csv(self, monkeypatch):
+        monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
+        from app.bootstrap import create_app
+        c = TestClient(create_app())
+        assert c.post(
+            "/api/v1/auth/login",
+            json={"username": "reporter", "password": "password123"},
+        ).status_code == 200
+        match_id = match_archive.archive_match(
+            oid="csv-owned",
+            final_state={"team_1": {"sets": 1}, "team_2": {"sets": 0}},
+            customization={}, sets_limit=3,
+        )
+        assert c.get(f"/match/{match_id}/report.csv").status_code == 200
+
+
+class TestMatchReportOpenGraph:
+    """Open Graph / Twitter meta so shared links unfurl usefully."""
+
+    def test_og_title_matches_page_title(self, client, archived_match):
+        body = client.get(f"/match/{archived_match}/report").text
+        title = "Match report — Thunder Wolves 3 – 1 Solar Hawks"
+        assert f"<title>{title}</title>" in body
+        assert f'<meta property="og:title" content="{title}">' in body
+        assert '<meta property="og:type" content="website">' in body
+        assert '<meta name="twitter:card" content="summary">' in body
+
+    def test_og_description_contains_set_scores_and_date(
+        self, client, archived_match,
+    ):
+        body = client.get(f"/match/{archived_match}/report").text
+        marker = body.index('property="og:description"')
+        content = body[marker:body.index(">", marker)]
+        assert "25–18, 18–25, 25–22, 25–21" in content
+        assert "UTC" in content  # the ended date rides along
+
+    def test_og_values_are_escaped(self, client):
+        match_id = match_archive.archive_match(
+            oid="og-escape",
+            final_state={"team_1": {"scores": {"set_1": 25}},
+                         "team_2": {"scores": {"set_1": 20}}},
+            customization={"Team 1 Name": 'R&D "A"', "Team 2 Name": "B"},
+            winning_team=1, sets_limit=3,
+        )
+        body = client.get(f"/match/{match_id}/report").text
+        marker = body.index('property="og:title"')
+        content = body[marker:body.index(">", marker)]
+        assert "R&amp;D &quot;A&quot;" in content
+        assert '"A"' not in content
+
+    def test_no_og_image_tag(self, client, archived_match):
+        body = client.get(f"/match/{archived_match}/report").text
+        assert 'property="og:image"' not in body
+
+
+class TestMatchReportLocalTimestamps:
+    """Started/Ended/Generated carry epoch hooks for local-time JS."""
+
+    def test_timestamps_carry_epoch_data_attributes(self, client, archived_match):
+        payload = match_archive.load_match(archived_match)
+        body = client.get(f"/match/{archived_match}/report").text
+        started = int(float(payload["started_at"]))
+        ended = int(float(payload["ended_at"]))
+        assert f'<span data-utc-ts="{started}">' in body
+        assert f'<span data-utc-ts="{ended}">' in body
+        # The UTC text stays as the no-JS fallback inside the span.
+        import datetime as _dt
+        started_label = _dt.datetime.fromtimestamp(
+            started, _dt.UTC,
+        ).strftime("%Y-%m-%d %H:%M UTC")
+        assert f'<span data-utc-ts="{started}">{started_label}</span>' in body
+
+    def test_missing_timestamp_renders_plain_dash(self, client):
+        match_id = match_archive.archive_match(
+            oid="ts-none",
+            final_state={"team_1": {"scores": {"set_1": 1}},
+                         "team_2": {"scores": {"set_1": 0}}},
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            sets_limit=3,
+        )
+        body = client.get(f"/match/{match_id}/report").text
+        # No audit → no started anchor; the Started cell is a bare
+        # dash, not an empty epoch span.
+        assert "<td>—</td>" in body
+        assert 'data-utc-ts=""' not in body
+
+    def test_converter_script_present(self, client, archived_match):
+        body = client.get(f"/match/{archived_match}/report").text
+        assert "querySelectorAll('[data-utc-ts]')" in body
+        assert "toLocaleString" in body
+
+
+class TestMatchReportDarkMode:
+    """The report follows ``prefers-color-scheme: dark`` on screen only.
+
+    Chart colours are resolved twice server-side (light + dark surface)
+    and plumbed through CSS vars; the inline SVG presentation
+    attributes keep the light values as the no-CSS fallback.
+    """
+
+    def _archive(self, oid: str, customization: dict) -> str:
+        _seed_realistic_audit(oid, time.time() - 3600)
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={
+                "team_1": {"sets": 0, "scores": {"set_1": 25, "set_2": 22}},
+                "team_2": {"sets": 2, "scores": {"set_1": 23, "set_2": 25}},
+            },
+            customization=customization,
+            winning_team=2, sets_limit=3,
+        )
+        assert match_id is not None
+        return match_id
+
+    def test_dark_media_block_is_screen_scoped(self, client):
+        match_id = self._archive("dark-1", {
+            "Team 1 Name": "Alpha", "Team 2 Name": "Bravo",
+        })
+        body = client.get(f"/match/{match_id}/report").text
+        assert "@media screen and (prefers-color-scheme: dark)" in body
+        assert "color-scheme: light dark" in body
+
+    def test_chart_vars_emitted_for_both_schemes(self, client):
+        # A white team 1 brand: the light pass darkens it (or falls
+        # back), the dark pass keeps it white — the two var values
+        # must differ so each scheme stays readable.
+        match_id = self._archive("dark-2", {
+            "Team 1 Name": "Alpha", "Team 2 Name": "Bravo",
+            "Team 1 Color": "#ffffff", "Team 1 Text Color": "#f5f5f5",
+            "Team 2 Color": "#E21836", "Team 2 Text Color": "#FFFFFF",
+        })
+        body = client.get(f"/match/{match_id}/report").text
+        values = re.findall(r"--t1-chart:\s*(#[0-9a-fA-F]{3,6})", body)
+        assert len(values) == 2
+        light_value, dark_value = values
+        assert light_value.lower() != dark_value.lower()
+        assert dark_value.lower() == "#ffffff"
+
+    def test_svg_elements_carry_theme_classes_and_inline_attrs(self, client):
+        match_id = self._archive("dark-3", {
+            "Team 1 Name": "Alpha", "Team 2 Name": "Bravo",
+            "Color 1": "#0047AB", "Color 2": "#E21836",
+        })
+        body = client.get(f"/match/{match_id}/report").text
+        assert '<polyline class="t1-stroke"' in body
+        assert '<polyline class="t2-stroke"' in body
+        assert '<circle class="t1-fill"' in body
+        assert 'class="chart-grid"' in body
+        assert 'class="chart-axis"' in body
+        # The no-CSS fallback: inline attributes still present.
+        assert 'stroke="#0047AB"' in body
+        # Legend swatches are var-driven now.
+        assert '<span class="swatch swatch-t1"></span>' in body
+        assert '<span class="swatch swatch-t2"></span>' in body

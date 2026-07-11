@@ -8,6 +8,52 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Serve/receive breakdown in the match report.** The Highlights grid
+  now shows, per team, points won on own serve vs on receive
+  (side-outs), with honest denominators — derived from the audit log's
+  per-action serve snapshots, the same walk the live stats endpoint
+  already used, so live and printed numbers reconcile. The first
+  rally's server is seeded from the operator's pre-match serve
+  assignment; rallies whose server is unknown (legacy archives without
+  serve data) are excluded rather than guessed, and fully untracked
+  matches simply show no card.
+- **"Biggest lead" highlight.** The report surfaces the largest score
+  gap either team opened (with the set it happened in), using the same
+  ≥ 5-point floor as the set-winning comeback card.
+- **The report declares the winner.** The hero scoreboard shows a
+  localized trophy badge on the winning team's panel, and the
+  set-by-set table bolds the set winner's score in each played set.
+- **Dark mode for the match report.** The page follows the viewer's
+  `prefers-color-scheme` on screen; print always keeps the light,
+  paper-oriented palette. Chart line colours are contrast-checked
+  server-side against both surfaces (a navy that reads on white would
+  vanish on dark), preserving each team's hue where possible.
+- **Report timestamps show in the viewer's local time.** Started /
+  Ended / Generated render in the reader's timezone and locale, with
+  the UTC original in the tooltip; without JavaScript the UTC text
+  stands, so printouts follow whoever prints.
+- **CSV export of the point log.** A new **Download CSV** button on the
+  report (and `GET /match/{id}/report.csv`) exports the point-by-point
+  log — timestamps, set, action, team, scouting tags, running score
+  and serve holder — for spreadsheet/scouting analysis. Access mirrors
+  the report exactly: owner cookie, signed share URL (an existing
+  signed report link's parameters open its CSV too), or
+  `MATCH_REPORT_PUBLIC`.
+- **Match report links unfurl in chat apps.** The report page now
+  carries Open Graph / Twitter meta tags (result title, localized
+  per-set scores and end date), so shared links preview with the score
+  instead of a bare URL.
+
+### Fixed
+
+- **Public match-history page: unnamed teams read "Team 1" again.**
+  The placeholder for archives without team names mistakenly borrowed
+  the "Match" column-header string, rendering "Match 1" / "Partido 1".
+  All six locales now carry a proper "Team" fallback, and a key-parity
+  test keeps the page's string tables from drifting.
+
 ### Security
 
 - **Locale tags are now escaped and canonicalised before reaching
