@@ -296,7 +296,7 @@ All `/api/v1/*` user routes require the `vsession` cookie (`require_user`); admi
 | `/metrics` | Prometheus exposition (unauthenticated; aggregates only) |
 | `/health` | Health check — returns `200 OK` with timestamp |
 | `/sw.js` | PWA service worker (from frontend build) |
-| `/manifest.webmanifest` | PWA manifest (from frontend build) |
+| `/manifest.webmanifest` | PWA manifest — served dynamically from the frontend build: `APP_TITLE` name, optional per-board `?oid=`/`?u=` variants, and (for a signed-in owner, via the `vsession` cookie) their overlays as long-press app `shortcuts` |
 
 For the complete authentication matrix see [AUTHENTICATION.md](AUTHENTICATION.md).
 

@@ -51,6 +51,13 @@ export default defineConfig(async () => ({
     ...(await maybeCompression()),
     VitePWA({
       registerType: 'autoUpdate',
+      // Emit ``<link rel="manifest" crossorigin="use-credentials">`` so the
+      // browser sends the ``vsession`` cookie when it (re)fetches the
+      // manifest. The backend reads that cookie to personalise the manifest's
+      // ``shortcuts`` with the signed-in user's overlays (the Android
+      // long-press / desktop jump-list app shortcuts). Without credentials the
+      // manifest request is anonymous and no per-user shortcuts appear.
+      useCredentials: true,
       includeAssets: ['fonts/**/*', 'icon.svg', 'icon-board.svg'],
       manifest: {
         name: 'Volley Scoreboard',

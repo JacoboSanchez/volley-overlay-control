@@ -216,6 +216,65 @@ def test_manifest_route_serves_per_board_variant(tmp_path, monkeypatch):
         ] == "/"
 
 
+def test_manifest_route_adds_signed_in_overlay_shortcuts(tmp_path, monkeypatch, db_session):
+    """The signed-in owner's overlays become manifest ``shortcuts`` — the app
+    shortcuts Android surfaces on a long-press of the installed icon. Built
+    from the ``vsession`` cookie only: an anonymous request gets none, and one
+    account's overlays never leak into another's manifest."""
+    import app.bootstrap as bootstrap
+    from app import overlays_service
+    from tests.conftest import login_client, make_user
+
+    frontend = tmp_path / "dist"
+    frontend.mkdir()
+    (frontend / "manifest.webmanifest").write_text(
+        '{"name": "Volley", "short_name": "Volley", "start_url": "/", "icons": []}',
+        encoding="utf-8",
+    )
+    (frontend / "index.html").write_text("<title>x</title>", encoding="utf-8")
+    monkeypatch.setattr(bootstrap, "FRONTEND_DIR", frontend)
+    _render_manifest.cache_clear()
+
+    with TestClient(bootstrap.create_app()) as client:
+        # Anonymous: no personalised shortcuts.
+        assert "shortcuts" not in client.get("/manifest.webmanifest").json()
+
+        # Sign in and give the owner two overlays (one described).
+        login_client(client, db_session, username="alex")
+        overlays_service.create_overlay(
+            db_session, client.test_user_id, "liga", description="Liga local"
+        )
+        overlays_service.create_overlay(db_session, client.test_user_id, "copa")
+        db_session.commit()
+
+        res = client.get("/manifest.webmanifest")
+        assert "Cookie" in res.headers.get("Vary", "")
+        shortcuts = res.json()["shortcuts"]
+        # Ordered by oid (list_overlays orders by oid): copa, liga.
+        assert [s["url"] for s in shortcuts] == [
+            "/board?oid=copa", "/board?oid=liga",
+        ]
+        assert [s["name"] for s in shortcuts] == ["copa", "liga"]
+        by_oid = {s["name"]: s for s in shortcuts}
+        assert by_oid["liga"]["description"] == "Liga local"
+        assert "description" not in by_oid["copa"]  # absent when unset
+        assert shortcuts[0]["icons"][0]["src"] == "icon-board-192x192.png"
+
+        # A per-board manifest variant keeps the owner's shortcuts too.
+        board = client.get("/manifest.webmanifest", params={"oid": "liga"}).json()
+        assert board["start_url"] == "/board?oid=liga"
+        assert [s["url"] for s in board["shortcuts"]] == [
+            "/board?oid=copa", "/board?oid=liga",
+        ]
+
+        # A second account's overlays must never leak into alex's manifest.
+        bob = make_user(db_session, "bob")
+        overlays_service.create_overlay(db_session, bob.id, "bobonly")
+        db_session.commit()
+        urls = [s["url"] for s in client.get("/manifest.webmanifest").json()["shortcuts"]]
+        assert "/board?oid=bobonly" not in urls
+
+
 def test_conf_survives_malformed_numeric_env(monkeypatch):
     """MATCH_GAME_POINTS=abc must degrade to the default with a warning,
     not crash Conf() (and with it every session init)."""
