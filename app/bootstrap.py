@@ -16,12 +16,13 @@ from functools import lru_cache
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import api_router
@@ -36,8 +37,10 @@ from app.api.routes.metrics import router as metrics_router
 from app.app_config import get_app_title
 from app.auth.bootstrap import ensure_admin_bootstrap
 from app.auth.routes import auth_router
+from app.auth.sessions import COOKIE_NAME
 from app.config_validator import validate_config
 from app.db import migrate as db_migrate
+from app.db.engine import get_db
 from app.match_history import match_history_router
 from app.match_report import match_report_router
 from app.security_bootstrap import run_security_bootstrap
@@ -154,6 +157,72 @@ def _board_manifest(base: dict, title: str, u: str | None, oid: str) -> dict:
         {"src": "icon-board-512x512.png", "sizes": "512x512", "type": "image/png",
          "purpose": "any maskable"},
     ]
+    return manifest
+
+
+# Cap on how many overlays are advertised as manifest ``shortcuts``. Android
+# launchers surface only the first few (~4) of a manifest's shortcuts on a
+# long-press; desktop Chrome shows more in the jump list. Keep the list short
+# so the per-user manifest stays small — the browser re-fetches it in the
+# background to refresh the shortcuts, so a fat list is paid for repeatedly.
+_MAX_MANIFEST_SHORTCUTS = 10
+
+
+def _overlay_shortcuts(db: Session, cookie_token: str | None) -> list[dict]:
+    """PWA app shortcuts for the *signed-in* user's overlays.
+
+    Rendered under the installed app icon on a long-press (Android launcher)
+    or in the desktop jump list, each opening ``/board?oid=<oid>``. Built only
+    from the authenticated ``vsession`` cookie — never the ``?u=`` bookmark
+    param — so one account's overlay list can never surface in a manifest
+    served for another user's public board. Any failure degrades to "no
+    shortcuts": a 500 from this route would block PWA installation entirely.
+    """
+    if not cookie_token:
+        return []
+    try:
+        from app.auth import sessions
+        from app.overlays_service import list_overlays
+
+        user = sessions.resolve_session(db, cookie_token)
+        if user is None:
+            return []
+        overlays = list_overlays(db, user.id)
+    except Exception:
+        logger.exception("Failed to build PWA manifest shortcuts")
+        return []
+
+    shortcuts: list[dict] = []
+    for overlay in overlays[:_MAX_MANIFEST_SHORTCUTS]:
+        oid = overlay.oid
+        shortcut: dict = {
+            "name": oid,
+            "short_name": oid,
+            "url": f"/board?oid={quote(oid, safe='')}",
+            "icons": [
+                {"src": "icon-board-192x192.png", "sizes": "192x192",
+                 "type": "image/png"},
+            ],
+        }
+        if overlay.description:
+            shortcut["description"] = overlay.description
+        shortcuts.append(shortcut)
+    return shortcuts
+
+
+def _with_overlay_shortcuts(
+    content: dict, db: Session, cookie_token: str | None,
+) -> dict:
+    """Return *content* plus a ``shortcuts`` array, or *content* unchanged.
+
+    Copies before writing so the ``lru_cache``d base manifest dict from
+    :func:`_render_manifest` is never mutated.
+    """
+    shortcuts = _overlay_shortcuts(db, cookie_token)
+    if not shortcuts:
+        return content
+    manifest = dict(content)
+    manifest["shortcuts"] = shortcuts
     return manifest
 
 
@@ -336,11 +405,11 @@ def _register_system_endpoints(application: FastAPI) -> None:
         return manifest if manifest.is_file() else None
 
     @application.get("/manifest.webmanifest")
-    def serve_webmanifest(request: Request):
-        # ``request`` (not declared query params) keeps the OpenAPI signature
-        # unchanged so schema.d.ts needn't be regenerated. ``?u=&oid=`` (public
-        # bookmark) and ``?oid=`` (owner board) are optional, opt-in per-board
-        # variants; bare requests get the app-wide manifest exactly as before.
+    def serve_webmanifest(request: Request, db: Session = Depends(get_db)):
+        # ``request``/``db`` (not declared query params) keep the OpenAPI
+        # signature unchanged so schema.d.ts needn't be regenerated. ``?u=&oid=``
+        # (public bookmark) and ``?oid=`` (owner board) are optional, opt-in
+        # per-board variants; bare requests get the app-wide manifest.
         source = _vite_manifest_path()
         if source is None:
             return JSONResponse({"error": "manifest not available"}, status_code=404)
@@ -350,10 +419,16 @@ def _register_system_endpoints(application: FastAPI) -> None:
         oid = request.query_params.get("oid")
         if oid and _BOARD_TOKEN_RE.match(oid) and (not u or _BOARD_TOKEN_RE.match(u)):
             content = _board_manifest(content, title, u or None, oid)
+        # Personalise with the signed-in owner's overlays as long-press app
+        # shortcuts. Needs the ``vsession`` cookie, which the browser only sends
+        # when the manifest <link> carries ``crossorigin="use-credentials"``
+        # (vite-plugin-pwa ``useCredentials: true``). ``Vary: Cookie`` +
+        # ``private`` keep one user's shortcuts out of another's cached manifest.
+        content = _with_overlay_shortcuts(content, db, request.cookies.get(COOKIE_NAME))
         return JSONResponse(
             content=content,
             media_type="application/manifest+json",
-            headers={"Cache-Control": "no-cache"},
+            headers={"Cache-Control": "private, no-cache", "Vary": "Cookie"},
         )
 
     @application.get("/manifest.json")

@@ -8,6 +8,22 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **PWA app shortcuts to your overlays.** Long-pressing the installed
+  app icon on Android (or opening the jump list on desktop Chrome/Edge)
+  now lists the signed-in owner's overlays, each launching straight into
+  its control board (`/board?oid=<id>`). The manifest is fetched with
+  credentials (`crossorigin="use-credentials"`, via vite-plugin-pwa
+  `useCredentials`), so `GET /manifest.webmanifest` personalises the
+  `shortcuts` array from the `vsession` cookie — an anonymous request
+  gets none, and one account's overlays never surface in another's
+  manifest (the response carries `Vary: Cookie` + `Cache-Control:
+  private`). The list is capped at the first 10 overlays (ordered by id;
+  Android's launcher only surfaces a handful). Shortcuts refresh
+  whenever the browser next re-reads the manifest (roughly on relaunch),
+  so a just-created overlay can take a launch or two to appear.
+
 ## [6.2.0] - 2026-07-11
 
 ### Added
