@@ -24,6 +24,13 @@ once a first tagged release ships.
   whenever the browser next re-reads the manifest (roughly on relaunch),
   so a just-created overlay can take a launch or two to appear.
 
+### Security
+
+- **Bump `click` 8.3.2 → 8.3.3** to clear PYSEC-2026-2132, a known
+  vulnerability that `pip-audit --strict` began failing CI on once the
+  advisory was published. `click` is a transitive runtime dependency
+  (pulled in via `uvicorn`); the patch release is API-compatible.
+
 ## [6.2.0] - 2026-07-11
 
 ### Added
