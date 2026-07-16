@@ -21,7 +21,7 @@
   "dependencies": {
     "material-icons": "^1.13.14",
     "react": "^19.2.7",
-    "react-colorful": "^5.7.0",
+    "react-colorful": "^5.8.0",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1"
   },
