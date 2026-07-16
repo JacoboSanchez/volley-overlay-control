@@ -86,7 +86,7 @@ jobs:
         uv pip install --system -r requirements.lock
 
     - name: Set up Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: "20"
         cache: "npm"
@@ -185,7 +185,7 @@ jobs:
         pip-audit -r requirements-dev.lock --strict
 
     - name: Set up Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: "20"
         cache: "npm"
