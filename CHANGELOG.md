@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [6.2.1] - 2026-07-18
+
 ### Added
 
 - **PWA app shortcuts to your overlays.** Long-pressing the installed
