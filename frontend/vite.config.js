@@ -47,11 +47,15 @@ function serveManifestFromNetwork() {
     // buildStart runs after every configResolved hook (where the PWA
     // plugin computes its precache additions) and before its closeBundle
     // hook generates sw.js — the one window where the precache entry list
-    // is both complete and still editable.
+    // is both complete and still editable. Match by path basename rather
+    // than the exact string so a prefixed entry (e.g. under a non-root
+    // Vite `base`) can't dodge the filter, without also catching
+    // unrelated names that merely end in "manifest.webmanifest".
     buildStart() {
-      pwaApi?.extendManifestEntries((entries) => entries.filter(
-        (entry) => (typeof entry === 'string' ? entry : entry.url) !== 'manifest.webmanifest',
-      ));
+      pwaApi?.extendManifestEntries((entries) => entries.filter((entry) => {
+        const url = typeof entry === 'string' ? entry : entry.url;
+        return url.split('/').pop() !== 'manifest.webmanifest';
+      }));
     },
   };
 }
