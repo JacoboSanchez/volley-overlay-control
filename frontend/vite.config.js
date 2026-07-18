@@ -24,6 +24,42 @@ async function maybeCompression() {
   }
 }
 
+// The backend serves /manifest.webmanifest itself (APP_TITLE rename,
+// per-board start_url variants, and — for a signed-in owner — their
+// overlays as app `shortcuts`, personalised via the vsession cookie; see
+// app/bootstrap.py). vite-plugin-pwa unconditionally adds the static
+// build-time manifest to the service worker precache, and the SW answers
+// bare /manifest.webmanifest fetches from that cache — so a PWA installed
+// from the main screen froze the anonymous build-time manifest (no
+// shortcuts, default title). Board installs only escaped because their
+// ?oid= query string defeats the precache's exact-URL match. Strip the
+// manifest from the precache so every manifest fetch reaches the backend:
+// the manifest is install metadata the browser re-reads over the network,
+// never something the installed app needs offline.
+function serveManifestFromNetwork() {
+  let pwaApi;
+  return {
+    name: 'serve-manifest-from-network',
+    apply: 'build',
+    configResolved(config) {
+      pwaApi = config.plugins.find((p) => p.name === 'vite-plugin-pwa')?.api;
+    },
+    // buildStart runs after every configResolved hook (where the PWA
+    // plugin computes its precache additions) and before its closeBundle
+    // hook generates sw.js — the one window where the precache entry list
+    // is both complete and still editable. Match by path basename rather
+    // than the exact string so a prefixed entry (e.g. under a non-root
+    // Vite `base`) can't dodge the filter, without also catching
+    // unrelated names that merely end in "manifest.webmanifest".
+    buildStart() {
+      pwaApi?.extendManifestEntries((entries) => entries.filter((entry) => {
+        const url = typeof entry === 'string' ? entry : entry.url;
+        return url.split('/').pop() !== 'manifest.webmanifest';
+      }));
+    },
+  };
+}
+
 async function maybeVisualizer() {
   if (!analyze) return null;
   try {
@@ -143,6 +179,7 @@ export default defineConfig(async () => ({
         ],
       },
     }),
+    serveManifestFromNetwork(),
   ],
   server: {
     port: 3000,
