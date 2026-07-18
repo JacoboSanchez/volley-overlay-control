@@ -24,6 +24,21 @@ once a first tagged release ships.
   whenever the browser next re-reads the manifest (roughly on relaunch),
   so a just-created overlay can take a launch or two to appear.
 
+### Fixed
+
+- **PWA installed from the main screen now gets the personalised
+  manifest.** The service worker precached the static build-time copy of
+  `manifest.webmanifest` and answered the bare manifest URL from that
+  cache, so installing from the app root (clean URL) froze the anonymous
+  manifest — no per-user overlay `shortcuts`, and the `APP_TITLE` rename
+  was lost too. Board installs only escaped because their `?oid=` query
+  string bypassed the precache's exact-URL match. The manifest is now
+  excluded from the service-worker precache so every manifest (re)fetch
+  reaches `GET /manifest.webmanifest`, and a main-screen install lists
+  the signed-in owner's overlays in the long-press / jump-list shortcuts
+  just like a board install. Existing installations pick the fix up on
+  their next service-worker update, no reinstall needed.
+
 ### Security
 
 - **Bump `click` 8.3.2 → 8.3.3** to clear PYSEC-2026-2132, a known
