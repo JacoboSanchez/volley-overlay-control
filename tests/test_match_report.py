@@ -510,6 +510,36 @@ class TestMatchReport:
         assert 'stroke="#0047AB"' in response.text
         assert 'stroke="#E21836"' in response.text
 
+    def test_chart_colors_are_distinct_when_both_resolve_near_white_on_dark(
+            self, client):
+        # Both teams have dark brand colours, so the dark-scheme pass
+        # falls back to each team's text colour — two near-identical
+        # whites. Exact-equality collision detection waved this pair
+        # through and the chart rendered as a single visible trace.
+        oid = "near-white-dark"
+        self._seed_minimal_chart_audit(oid)
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={
+                "team_1": {"sets": 0, "scores": {"set_1": 1}},
+                "team_2": {"sets": 0, "scores": {"set_1": 1}},
+            },
+            customization={
+                "Team 1 Name": "A",
+                "Team 2 Name": "B",
+                "Color 1": "#111111",
+                "Color 2": "#1a1a2e",
+                "Text Color 1": "#FFFFFF",
+                "Text Color 2": "#F5F5F5",
+            },
+            winning_team=None, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        # Dark palette: team 1 keeps its white, team 2 is swapped to the
+        # dark-surface fallback farthest from white.
+        assert "--t1-chart: #FFFFFF" in response.text
+        assert "--t2-chart: #ff6b6b" in response.text
+
     def test_print_media_query_hides_toolbar_and_unbounds_timeline(
             self, client, archived_match):
         response = client.get(f"/match/{archived_match}/report")
@@ -651,6 +681,70 @@ class TestChartColorContrast:
         for color in _CHART_FALLBACK_DARK:
             assert self._contrast(color, _CHART_SURFACE_DARK) \
                 >= _MIN_CHART_CONTRAST
+
+
+class TestDistinctChartColors:
+    """``_ensure_distinct_chart_colors`` must catch *near*-identical pairs.
+
+    Exact-equality collision detection let two almost-equal colours (e.g.
+    both teams resolving to near-white on the dark surface) render as a
+    single visible trace. The check is now a perceptual RGB distance,
+    mirroring ``resolveChartColors`` in ``overlay_static/js/spectator.js``.
+    """
+
+    def test_clearly_different_colours_pass_through(self):
+        from app.match_report_render import _ensure_distinct_chart_colors
+        assert _ensure_distinct_chart_colors("#0047AB", "#E21836") \
+            == ("#0047AB", "#E21836")
+
+    def test_identical_colours_swap_team2_to_fallback(self):
+        from app.match_report_render import _ensure_distinct_chart_colors
+        assert _ensure_distinct_chart_colors("#0047AB", "#0047AB") \
+            == ("#0047AB", "#E21836")
+
+    def test_near_identical_whites_swap_team2_on_dark_palette(self):
+        from app.match_report_render import (
+            _CHART_FALLBACK_DARK,
+            _ensure_distinct_chart_colors,
+        )
+        c1, c2 = _ensure_distinct_chart_colors(
+            "#ffffff", "#f5f5f5", fallbacks=_CHART_FALLBACK_DARK,
+        )
+        assert c1 == "#ffffff"
+        assert c2 in _CHART_FALLBACK_DARK
+
+    def test_swap_picks_the_fallback_farthest_from_team1(self):
+        # Team 1 sits on (a near-copy of) the red fallback; a colliding
+        # team 2 must get the blue one, never a red-on-red swap.
+        from app.match_report_render import _ensure_distinct_chart_colors
+        _, c2 = _ensure_distinct_chart_colors("#E21836", "#d21430")
+        assert c2 == "#0047AB"
+
+    def test_resolved_pair_clears_the_collision_threshold(self):
+        from app.match_report_render import (
+            _CHART_COLOR_COLLISION_THRESHOLD,
+            _CHART_FALLBACK,
+            _CHART_FALLBACK_DARK,
+            _color_distance,
+            _ensure_distinct_chart_colors,
+        )
+        pairs = [
+            ("#ffffff", "#f5f5f5", _CHART_FALLBACK_DARK),
+            ("#e8e8e8", "#ffffff", _CHART_FALLBACK_DARK),
+            ("#0047ab", "#1a51b8", _CHART_FALLBACK),
+            ("#e21836", "#d21430", _CHART_FALLBACK),
+            ("#111111", "#1a1a2e", _CHART_FALLBACK),
+        ]
+        for a, b, fallbacks in pairs:
+            c1, c2 = _ensure_distinct_chart_colors(a, b, fallbacks=fallbacks)
+            assert _color_distance(c1, c2) > _CHART_COLOR_COLLISION_THRESHOLD
+
+    def test_unparseable_colour_never_triggers_the_swap(self):
+        # "Can't tell the distance" must not clobber a colour that may
+        # actually be fine — mirrors spectator.js returning Infinity.
+        from app.match_report_render import _ensure_distinct_chart_colors
+        assert _ensure_distinct_chart_colors("not-a-colour", "#0047AB") \
+            == ("not-a-colour", "#0047AB")
 
 
 class TestMatchReportI18n:

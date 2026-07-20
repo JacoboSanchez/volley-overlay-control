@@ -8,6 +8,21 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Match report chart lines no longer blend together when both teams
+  resolve to near-identical colours.** The print report's score-evolution
+  chart forced a fallback colour on team 2 only when both teams' resolved
+  chart colours were *exactly* equal, so two almost-equal colours — most
+  visibly the two near-whites both teams get in the dark-scheme palette
+  when their brand colours are too dark to read on the dark surface —
+  rendered as a single indistinguishable trace. Collision detection now
+  uses the same perceptual RGB-distance threshold as the live spectator
+  view (`resolveChartColors` in `spectator.js`), and the swapped-in
+  fallback is the one farthest from team 1's colour, so the two polylines
+  (and the legend dots and timeout markers that share the palette) stay
+  visually distinct in both the light and dark schemes.
+
 ## [6.2.1] - 2026-07-18
 
 ### Added
