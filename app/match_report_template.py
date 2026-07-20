@@ -90,14 +90,20 @@ REPORT_TEMPLATE = """<!doctype html>
   .scoreboard {{
     display: grid;
     grid-template-columns: 1fr auto 1fr;
+    /* Default (stretch) row alignment on purpose: both team panels fill
+       the same row height, so the winner badge can't make one panel
+       taller than the other. The panels centre their own content. */
     gap: 16px;
-    align-items: center;
     margin: 24px 0;
     padding: 16px;
     border: 1px solid var(--border);
     border-radius: 8px;
   }}
   .team {{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-align: center;
     padding: 12px;
     border-radius: 6px;
@@ -127,7 +133,9 @@ REPORT_TEMPLATE = """<!doctype html>
     font-weight: 700;
   }}
   td.set-won {{ font-weight: 700; }}
-  .vs {{ font-size: 24px; font-weight: 600; color: var(--muted); }}
+  /* align-self restores the vertical centring the row-level ``align-items:
+     center`` used to give (dropped so the team panels stretch evenly). */
+  .vs {{ align-self: center; font-size: 24px; font-weight: 600; color: var(--muted); }}
   table {{
     width: 100%;
     border-collapse: collapse;

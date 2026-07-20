@@ -540,6 +540,20 @@ class TestMatchReport:
         assert "--t1-chart: #FFFFFF" in response.text
         assert "--t2-chart: #ff6b6b" in response.text
 
+    def test_winner_badge_does_not_unbalance_team_panels(
+            self, client, archived_match):
+        # The scoreboard grid must stretch both team panels to the same
+        # row height (no row-level centring) while each panel centres
+        # its own content — otherwise the winner badge makes the
+        # winner's box taller than the loser's.
+        response = client.get(f"/match/{archived_match}/report")
+        scoreboard_rule = \
+            response.text.split(".scoreboard {", 1)[1].split("}", 1)[0]
+        assert "align-items" not in scoreboard_rule
+        team_rule = response.text.split(".team {", 1)[1].split("}", 1)[0]
+        assert "flex-direction: column" in team_rule
+        assert "justify-content: center" in team_rule
+
     def test_print_media_query_hides_toolbar_and_unbounds_timeline(
             self, client, archived_match):
         response = client.get(f"/match/{archived_match}/report")

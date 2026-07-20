@@ -8,7 +8,19 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- Refreshed the `08-match-report.png` README screenshot for the
+  equal-height scoreboard panels fix below.
+
 ### Fixed
+
+- **The winner badge no longer makes one scoreboard panel taller than
+  the other.** The match report's hero scoreboard centred each team
+  panel at its natural height, so the panel carrying the 🏆 winner
+  badge grew past its neighbour. The two panels now stretch to the
+  same row height, with each panel's logo/name/sets/badge stack
+  vertically centred inside it.
 
 - **Match report chart lines no longer blend together when both teams
   resolve to near-identical colours.** The print report's score-evolution
