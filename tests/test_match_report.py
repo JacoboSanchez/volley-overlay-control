@@ -547,10 +547,13 @@ class TestMatchReport:
         # its own content — otherwise the winner badge makes the
         # winner's box taller than the loser's.
         response = client.get(f"/match/{archived_match}/report")
-        scoreboard_rule = \
-            response.text.split(".scoreboard {", 1)[1].split("}", 1)[0]
-        assert "align-items" not in scoreboard_rule
-        team_rule = response.text.split(".team {", 1)[1].split("}", 1)[0]
+        scoreboard_match = re.search(
+            r"\.scoreboard\s*\{([^}]+)\}", response.text)
+        assert scoreboard_match is not None
+        assert "align-items" not in scoreboard_match.group(1)
+        team_match = re.search(r"\.team\s*\{([^}]+)\}", response.text)
+        assert team_match is not None
+        team_rule = team_match.group(1)
         assert "flex-direction: column" in team_rule
         assert "justify-content: center" in team_rule
 

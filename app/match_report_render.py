@@ -435,7 +435,7 @@ def _color_distance(c1: str, c2: str) -> float:
     rgb2 = _hex_to_rgb(c2)
     if rgb1 is None or rgb2 is None:
         return float("inf")
-    return math.sqrt(sum((a - b) ** 2 for a, b in zip(rgb1, rgb2, strict=True)))
+    return math.dist(rgb1, rgb2)
 
 
 # Two chart colours closer than this read as a single trace at the
