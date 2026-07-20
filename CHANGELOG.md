@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [6.2.2] - 2026-07-20
+
 ### Changed
 
 - Refreshed the `08-match-report.png` README screenshot for the
