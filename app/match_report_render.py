@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime
 import html
+import math
 import re
 
 from app.api.schemas import ERROR_TYPES, is_safe_logo_url
@@ -423,15 +424,46 @@ def _chart_color(
     return nudged if nudged is not None else fallbacks[(team - 1) % 2]
 
 
+def _color_distance(c1: str, c2: str) -> float:
+    """Euclidean RGB distance between two hex colours.
+
+    Unparseable input returns ``inf`` — "can't tell" must never trigger
+    the collision swap, mirroring ``colorDistance`` in
+    ``overlay_static/js/spectator.js``.
+    """
+    rgb1 = _hex_to_rgb(c1)
+    rgb2 = _hex_to_rgb(c2)
+    if rgb1 is None or rgb2 is None:
+        return float("inf")
+    return math.dist(rgb1, rgb2)
+
+
+# Two chart colours closer than this read as a single trace at the
+# report's polyline stroke width — an exact-equality check used to wave
+# through near-identical pairs (e.g. both teams resolving to near-white
+# on the dark surface). Keep in sync with ``COLOR_COLLISION_THRESHOLD``
+# in ``overlay_static/js/spectator.js``, which was tuned empirically on
+# the bundled theme palettes.
+_CHART_COLOR_COLLISION_THRESHOLD = 60.0
+
+
 def _ensure_distinct_chart_colors(
     c1: str, c2: str, *,
     fallbacks: tuple[str, str] = _CHART_FALLBACK,
 ) -> tuple[str, str]:
-    """If both teams resolve to the same chart colour, force team 2 to fallback."""
-    if c1.lower() != c2.lower():
+    """If the teams' chart colours are too close to tell apart, swap team 2's.
+
+    Perceptual closeness, not just exact equality: two brands that both
+    resolve to (say) near-white on the dark surface would otherwise
+    render as one line. Team 2 gets the fallback farthest from team 1's
+    colour — the fallback pair is far enough apart that the farther one
+    is always distinguishable from ``c1``.
+    """
+    if _color_distance(c1, c2) > _CHART_COLOR_COLLISION_THRESHOLD:
         return c1, c2
-    fallback = fallbacks[1] if c1.lower() != fallbacks[1].lower() \
-        else fallbacks[0]
+    fallback = fallbacks[0] \
+        if _color_distance(c1, fallbacks[0]) >= _color_distance(c1, fallbacks[1]) \
+        else fallbacks[1]
     return c1, fallback
 
 

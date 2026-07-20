@@ -8,6 +8,33 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- Refreshed the `08-match-report.png` README screenshot for the
+  equal-height scoreboard panels fix below.
+
+### Fixed
+
+- **The winner badge no longer makes one scoreboard panel taller than
+  the other.** The match report's hero scoreboard centred each team
+  panel at its natural height, so the panel carrying the 🏆 winner
+  badge grew past its neighbour. The two panels now stretch to the
+  same row height, with each panel's logo/name/sets/badge stack
+  vertically centred inside it.
+
+- **Match report chart lines no longer blend together when both teams
+  resolve to near-identical colours.** The print report's score-evolution
+  chart forced a fallback colour on team 2 only when both teams' resolved
+  chart colours were *exactly* equal, so two almost-equal colours — most
+  visibly the two near-whites both teams get in the dark-scheme palette
+  when their brand colours are too dark to read on the dark surface —
+  rendered as a single indistinguishable trace. Collision detection now
+  uses the same perceptual RGB-distance threshold as the live spectator
+  view (`resolveChartColors` in `spectator.js`), and the swapped-in
+  fallback is the one farthest from team 1's colour, so the two polylines
+  (and the legend dots and timeout markers that share the palette) stay
+  visually distinct in both the light and dark schemes.
+
 ## [6.2.1] - 2026-07-18
 
 ### Added
