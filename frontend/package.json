@@ -20,9 +20,9 @@
   },
   "dependencies": {
     "material-icons": "^1.13.14",
-    "react": "^19.2.7",
+    "react": "^19.2.8",
     "react-colorful": "^5.8.0",
-    "react-dom": "^19.2.7",
+    "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.1"
   },
   "devDependencies": {
