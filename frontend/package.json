@@ -44,7 +44,7 @@
     "openapi-typescript": "^7.13.0",
     "prettier": "^3.8.4",
     "rollup-plugin-visualizer": "^7.0.1",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.1.0",
     "vite-plugin-compression2": "^2.5.3",
