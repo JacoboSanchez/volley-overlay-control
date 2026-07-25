@@ -34,7 +34,7 @@ class Conf:
         # URL. All are populated by the session-init route for a logged-in
         # user; they stay ``None`` for bare/standalone Backend construction
         # (tests, legacy paths).
-        self.oid = None
+        self.oid: str | None = None
         self.user_id: int | None = None
         self.skey: str | None = None
         self.public_token: str | None = None

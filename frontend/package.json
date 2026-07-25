@@ -13,7 +13,7 @@
     "test:coverage": "vitest run --coverage",
     "gen:types": "openapi-typescript ./schema/openapi.json -o ./src/api/schema.d.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src",
+    "lint": "eslint src --max-warnings 0",
     "lint:fix": "eslint src --fix",
     "format": "prettier --write src",
     "format:check": "prettier --check src"

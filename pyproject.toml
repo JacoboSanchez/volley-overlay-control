@@ -58,10 +58,11 @@ ignore = [
 ]
 
 [tool.ruff.lint.mccabe]
-# Generous cap — flags only the genuinely-too-complex functions. The two
-# pre-existing offenders (``app/match_report.py::_compute_stats``,
-# ``app/overlay/routes.py::create_overlay_router``) are silenced via
-# per-file-ignores below until the structural-refactor PR lands.
+# Generous cap — flags only the genuinely-too-complex functions. The tree
+# is currently clean at this cap: no C901 per-file-ignores are needed. (An
+# earlier version of this comment claimed two functions were silenced
+# below; they never were, and one of them has since moved to
+# ``app/match_report_stats.py``.)
 max-complexity = 18
 
 [tool.ruff.lint.flake8-bugbear]
@@ -99,9 +100,15 @@ python_version = "3.11"
 follow_imports = "silent"
 ignore_missing_imports = true
 implicit_optional = true
-# Permissive baseline — flip these on a module-by-module basis once the core is clean.
+# ``check_untyped_defs`` is on: without it mypy skips the *body* of every
+# unannotated function, which hid 4 real errors across 3 modules while the
+# gate reported "no issues found in 114 source files".
+check_untyped_defs = true
+# Still off: ~374 functions lack a return/parameter annotation, so turning
+# this on wholesale would fail the build. It is the remaining typing debt,
+# to be flipped module-by-module (heaviest first: app/customization.py 51,
+# app/api/game_service.py 43, app/backend.py 38, app/api/routes/teams.py 30).
 disallow_untyped_defs = false
-check_untyped_defs = false
 warn_unused_ignores = true
 warn_redundant_casts = true
 
@@ -131,6 +138,10 @@ branch = true
 [tool.coverage.report]
 skip_empty = true
 show_missing = true
+# Kept in config, not only as a CI flag, so the plain
+# ``pytest --cov=app`` documented in AGENTS.md enforces the same floor CI
+# does. Raise deliberately; do not lower to make a red run pass.
+fail_under = 70
 exclude_lines = [
     "pragma: no cover",
     "if __name__ == .__main__.:",

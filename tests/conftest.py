@@ -90,11 +90,12 @@ def isolate_action_log(tmp_path_factory, monkeypatch):
     """Redirect the per-OID audit log to a per-test temp dir.
 
     Also resets ``action_log``'s in-memory per-OID state (the monotonic
-    timestamp tracker and the mutation-version counter) and drops the
-    ``live_stats`` memoization cache. These live at module scope and are
-    deliberately not persisted, so without an explicit reset a fresh test
-    reusing an OID would inherit the previous test's version counter and
-    could be served a stale cached stats payload for a now-empty log.
+    timestamp tracker, the mutation-version counter and the parsed-record
+    cache) and drops the ``live_stats`` memoization cache. These live at
+    module scope and are deliberately not persisted, so without an explicit
+    reset a fresh test reusing an OID would inherit the previous test's
+    version counter and could be served stale cached records for what is now
+    an empty log in a brand-new temp dir.
     """
     from app.api import action_log, live_stats
 
@@ -102,6 +103,7 @@ def isolate_action_log(tmp_path_factory, monkeypatch):
     monkeypatch.setattr(action_log, "_data_dir", lambda: str(seed_dir))
     action_log._version_per_oid.clear()
     action_log._last_ts_per_oid.clear()
+    action_log._raw_cache.clear()
     live_stats.clear_cache()
 
 

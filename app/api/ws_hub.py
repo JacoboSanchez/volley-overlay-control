@@ -53,6 +53,12 @@ class WSHub:
     _last_seen: dict = {}
     # Background heartbeat task (created by ``start_heartbeat``).
     _heartbeat_task = None
+    # The application's event loop, captured at startup. The sync broadcast
+    # helpers are called from ``GameService``, which runs in a worker thread
+    # (routes hand it to ``run_in_threadpool`` so its blocking I/O stays off
+    # the loop). ``asyncio.get_running_loop()`` raises there, so without a
+    # captured loop every broadcast from a game action would be dropped.
+    _loop: "asyncio.AbstractEventLoop | None" = None
 
     # Runtime-tunable copy of the cap so tests can ``monkeypatch.setattr``
     # without reaching into ``app.constants``.
@@ -202,31 +208,51 @@ class WSHub:
         await cls._broadcast_text(oid, message)
 
     @classmethod
-    def broadcast_sync(cls, oid: str, data: dict):
-        """Fire-and-forget broadcast usable from synchronous code.
+    def capture_event_loop(cls) -> None:
+        """Remember the running loop so worker threads can schedule onto it.
 
-        Schedules the async broadcast on the running event loop. If there is
-        no running loop (e.g. during tests) the call is silently skipped.
+        Mirrors :meth:`app.overlay.broadcast.ObsBroadcastHub.capture_event_loop`;
+        called once from the app's startup hook.
         """
-        try:
-            loop = asyncio.get_running_loop()
-            task = loop.create_task(cls.broadcast(oid, data))
+        cls._loop = asyncio.get_running_loop()
+
+    @classmethod
+    def _schedule(cls, oid: str, coro_factory):
+        """Schedule a broadcast coroutine, on- or off-loop.
+
+        On the loop, create the task directly. Off it (``GameService``
+        running under ``run_in_threadpool``), hand it to the captured loop
+        via ``call_soon_threadsafe``. Only when no loop can be found at all
+        — genuinely synchronous unit tests — is the broadcast skipped.
+        """
+        def _create():
+            task = asyncio.ensure_future(coro_factory())
             cls._pending_tasks.add(task)
             task.add_done_callback(cls._pending_tasks.discard)
+
+        try:
+            asyncio.get_running_loop()
         except RuntimeError:
-            logger.debug("No running event loop — skipping broadcast for OID=%s", oid)
+            loop = cls._loop
+            if loop is None or loop.is_closed():
+                logger.debug(
+                    "No event loop available — skipping broadcast for OID=%s", oid,
+                )
+                return
+            loop.call_soon_threadsafe(_create)
+            return
+        _create()
+
+    @classmethod
+    def broadcast_sync(cls, oid: str, data: dict):
+        """Fire-and-forget broadcast usable from synchronous code."""
+        cls._schedule(oid, lambda: cls.broadcast(oid, data))
 
     @classmethod
     def broadcast_payload_json_sync(cls, oid: str, payload_json: str):
         """Sync wrapper around :meth:`broadcast_payload_json` for use from
         synchronous code paths (the ``GameService`` action methods)."""
-        try:
-            loop = asyncio.get_running_loop()
-            task = loop.create_task(cls.broadcast_payload_json(oid, payload_json))
-            cls._pending_tasks.add(task)
-            task.add_done_callback(cls._pending_tasks.discard)
-        except RuntimeError:
-            logger.debug("No running event loop — skipping broadcast for OID=%s", oid)
+        cls._schedule(oid, lambda: cls.broadcast_payload_json(oid, payload_json))
 
     @classmethod
     def clear(cls):

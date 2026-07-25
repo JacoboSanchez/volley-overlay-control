@@ -50,10 +50,14 @@ export default tseslint.config(
       'react/prop-types': 'off',
       'react/react-in-jsx-scope': 'off',
 
-      // TypeScript escapes — keep visible but not blocking until cleanup PR.
-      '@typescript-eslint/no-explicit-any': 'warn',
+      // TypeScript escapes. The cleanup these were staged for is done —
+      // the tree has zero `any` and zero unused vars — so they are errors
+      // now, and `npm run lint` runs with --max-warnings 0 to keep it that
+      // way. Reintroducing one should fail the build, not print a warning
+      // nobody reads.
+      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': [
-        'warn',
+        'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
 
@@ -62,11 +66,12 @@ export default tseslint.config(
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
 
-      // a11y rules that PR 7 (dialog accessibility) will tighten.
-      // Kept as warnings here so we can land linting without a flag day.
-      'jsx-a11y/click-events-have-key-events': 'warn',
-      'jsx-a11y/no-static-element-interactions': 'warn',
-      'jsx-a11y/no-autofocus': 'warn',
+      // a11y. The tree is clean on all three, so they block too; the only
+      // autofocus uses are the first field of single-purpose auth pages,
+      // each carrying a justified inline disable.
+      'jsx-a11y/click-events-have-key-events': 'error',
+      'jsx-a11y/no-static-element-interactions': 'error',
+      'jsx-a11y/no-autofocus': 'error',
 
       // `allowTransparency` is a valid iframe attribute that React's type
       // checker doesn't know about; the alternative is to spread it via

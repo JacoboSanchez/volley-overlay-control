@@ -27,8 +27,12 @@ def is_custom_overlay(oid: str) -> bool:
     return oid is not None and str(oid).upper().startswith(_LEGACY_PREFIX)
 
 
-def strip_legacy_prefix(oid: str) -> str:
-    """Drop the leading ``C-`` prefix if present, otherwise return as-is."""
+def strip_legacy_prefix(oid: str | None) -> str:
+    """Drop the leading ``C-`` prefix if present, otherwise return as-is.
+
+    Accepts ``None`` (mapping it to ``""``) because callers pass
+    ``Conf.oid``, which is ``None`` for a bare/standalone Backend.
+    """
     if oid is None:
         return ""
     s = str(oid)
@@ -37,11 +41,11 @@ def strip_legacy_prefix(oid: str) -> str:
     return s
 
 
-def split_custom_oid(oid: str):
+def split_custom_oid(oid: str | None) -> tuple[str, str | None]:
     """Extract ``base_id`` and optional ``style`` from an overlay OID.
 
     Accepts both the legacy ``C-id[/style]`` syntax and the bare
-    ``id[/style]`` form.
+    ``id[/style]`` form, as well as ``None`` (yielding ``("", None)``).
     """
     raw_id = strip_legacy_prefix(oid)
     parts = raw_id.split('/', 1)

@@ -27,6 +27,7 @@ jobs:
   release:
     name: Cut changelog, tag and publish
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write   # commit the changelog cut, push the tag, create the release
       actions: write    # chain docker-publish.yml via workflow_dispatch

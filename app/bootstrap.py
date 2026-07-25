@@ -292,6 +292,11 @@ async def _lifespan(application: FastAPI):
         obs_broadcast_hub.capture_event_loop()
     except Exception:
         logger.exception("Failed to capture event loop for OBS broadcast hub")
+    try:
+        from app.api.ws_hub import WSHub
+        WSHub.capture_event_loop()
+    except Exception:
+        logger.exception("Failed to capture event loop for the control WS hub")
     yield
 
 
@@ -493,7 +498,9 @@ def _register_system_endpoints(application: FastAPI) -> None:
             reasons["data_dir_writable"] = "write_failed"
 
         all_ok = all(checks.values())
-        payload = {
+        # Explicitly heterogeneous: mypy would otherwise infer the value
+        # type from the literal alone and reject the ``reasons`` insert.
+        payload: dict[str, object] = {
             "status": "ok" if all_ok else "degraded",
             "timestamp": int(time.time()),
             "service": "volley-overlay-control",

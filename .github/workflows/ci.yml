@@ -17,16 +17,24 @@ concurrency:
 
 jobs:
   test:
-    name: Run Pytest and Linters
+    name: Run Pytest and Linters (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 is the floor declared in pyproject.toml; 3.14 is what the
+        # Dockerfile actually ships, so it must be exercised here too.
+        python-version: ["3.11", "3.14"]
+
     steps:
     - uses: actions/checkout@v7
-    
-    - name: Set up Python 3.11
+
+    - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v7
       with:
-        python-version: "3.11"
+        python-version: ${{ matrix.python-version }}
         cache: 'pip' # caching pip dependencies
         
     - name: Install dependencies
@@ -40,6 +48,25 @@ jobs:
         # pre-commit hook never saw. Bumping these is a deliberate change that
         # should land in its own PR with the new findings reviewed.
         uv pip install --system ruff==0.15.8 mypy==1.19.1
+
+    - name: Fail if requirements.lock violates requirements.txt
+      # CI and the Dockerfile install from the lock only, so a lock whose
+      # pins sit below the floors in requirements.txt makes those floors
+      # fiction — including the CVE ones. This caught fastapi, uvicorn and
+      # alembic pinned under their stated minimums.
+      #
+      # Resolving requirements.txt *against the lock as a constraints file*
+      # rather than diffing a fresh compile: a byte-diff would go red every
+      # time any dependency publishes a new release, whereas this only
+      # fails when the lock genuinely cannot satisfy the declared ranges.
+      run: |
+        if ! uv pip compile requirements.txt \
+             --constraint requirements.lock -o /dev/null --quiet; then
+          echo ""
+          echo "::error::requirements.lock does not satisfy requirements.txt."
+          echo "Run 'uv pip compile requirements.txt -o requirements.lock' and commit the result."
+          exit 1
+        fi
 
     - name: Lint with ruff
       run: ruff check .
@@ -63,13 +90,16 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v7
       with:
-        name: coverage-xml
+        # Suffixed with the matrix version — artifact names must be unique
+        # across jobs in a run.
+        name: coverage-xml-py${{ matrix.python-version }}
         path: coverage.xml
         if-no-files-found: ignore
 
   frontend:
     name: Frontend typecheck, tests and schema drift
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
     - uses: actions/checkout@v7
@@ -144,6 +174,7 @@ jobs:
     # ``# nosec`` comments.
     name: Security scanners (bandit, pip-audit, npm audit)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
     - uses: actions/checkout@v7
@@ -203,6 +234,7 @@ jobs:
   docker-build:
     name: Docker image build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
     - uses: actions/checkout@v7

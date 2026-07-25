@@ -8,6 +8,119 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Scoring a point no longer re-reads and re-parses the entire audit log
+  on the event loop.** `GameService.add_point` writes its audit record
+  *before* building the state response, and that write bumps the log
+  version the live-stats memo is keyed on — so the memo missed on every
+  single point, and each miss walked the active audit file plus every
+  rotated one (`AUDIT_LOG_MAX_BYTES` × `AUDIT_LOG_MAX_FILES`, 25 MiB with
+  the defaults), `json.loads`-ing every line before running nine
+  aggregation passes. All of it ran synchronously inside an `async`
+  handler, stalling every other request and every WebSocket broadcast in
+  the process for the duration.
+
+  `action_log` now keeps the parsed records per OID and folds each
+  newly-written record into that cache, so the steady-state cost of a
+  point is one line appended to a file rather than a full reparse. The
+  cache is invalidated on rotation (which can discard the oldest file) and
+  on `clear`/`delete`. Aggregation logic is untouched — this changes only
+  how the records reach it.
+
+  Separately, the synchronous `GameService` calls behind `/game/*`,
+  `/state`, `/session/init`, `/session/rules`, `/customization` and
+  `/audit` now run via `run_in_threadpool` instead of directly on the
+  loop, matching the pattern `/session/init` already used for its other
+  blocking calls.
+
+- **The control WebSocket hub no longer drops broadcasts sent from
+  background threads.** `WSHub.broadcast_sync` resolved its loop with
+  `asyncio.get_running_loop()`, which raises off the event loop; the
+  handler logged at debug level and returned, so the broadcast vanished
+  with no visible error. This was latent while every caller happened to
+  run on the loop, and would have silently stopped the control UI from
+  receiving updates as soon as one did not. `WSHub` now captures the
+  loop at startup and schedules through `call_soon_threadsafe` when
+  off-loop — the same approach `ObsBroadcastHub` already used.
+
+- **The per-OID caches are now released when a session is retired.** The
+  live-stats payload and the parsed audit records were keyed by OID and
+  never evicted — `clear_cache` was documented as test-only, "production
+  never needs it" — so an instance retained the full history of every
+  overlay it had ever served. `SessionManager.remove` and
+  `cleanup_expired` now drop both.
+
+- **Live-stats failures are no longer silent.** Five `except Exception`
+  handlers in `game_service.py` returned a fallback with no log line. The
+  one wrapping `compute_live_stats` was the worst: on failure `/state`
+  degraded permanently and invisibly (`current_set_started_at` became
+  `None`, the summary set silently fell back to `current_set - 1`). All
+  five now log.
+
+- **The Docker healthcheck no longer marks the container permanently
+  unhealthy when `APP_PORT` is changed.** Both `docker-compose.yml` and
+  `docker-compose.traefik.yml` hardcoded `localhost:8080` in their
+  `healthcheck.test`. A compose-level healthcheck overrides the image's
+  own `HEALTHCHECK` (which already resolved `APP_PORT` correctly), so any
+  operator moving the app off 8080 got a container that never became
+  healthy — and, behind Traefik's health-gating plus
+  `restart: unless-stopped`, never became routable either. Both files now
+  interpolate `${APP_PORT:-8080}`, as does the published container port in
+  `docker-compose.yml`.
+
+### Security
+
+- **`requirements.lock` no longer ships versions below the floors declared
+  in `requirements.txt`.** CI and the Dockerfile install from the lock
+  only, so the declared minimums were not being enforced: the lock carried
+  `fastapi==0.137.2` against a `>=0.139.2` floor, `uvicorn==0.49.0`
+  against `>=0.51.0`, and `alembic==1.18.4` against `>=1.18.5`. (The two
+  CVE-driven floors, `starlette` and `urllib3`, were correctly pinned.)
+  The lock has been recompiled, and CI now fails when it cannot satisfy
+  `requirements.txt`.
+
+### Changed
+
+- **Type checking now covers the bodies of unannotated functions.**
+  `check_untyped_defs` was off, so mypy skipped the body of every function
+  without annotations while reporting "no issues found in 114 source
+  files". Turning it on surfaced four real defects, now fixed: a variable
+  reused with two different types in `app/config_validator.py`, an
+  undeclared mixin attribute contract in `app/overlay_backends/base.py`,
+  and a wrongly-inferred payload dict in `app/bootstrap.py`.
+  `split_custom_oid` / `strip_legacy_prefix` now declare the `None` they
+  already accepted at runtime.
+- **Lint warnings can no longer accumulate silently.** `npm run lint` runs
+  with `--max-warnings 0`, and `no-explicit-any`, `no-unused-vars` and the
+  three `jsx-a11y` rules are errors rather than warnings — the cleanup they
+  were staged behind is complete. The four deliberate `autoFocus` uses on
+  single-purpose auth pages carry justified inline disables.
+- **The backend coverage floor lives in `pyproject.toml`.** It existed only
+  as a `--cov-fail-under=70` flag in CI, so the plain `pytest --cov=app`
+  documented in `AGENTS.md` enforced nothing.
+- CI now runs the backend suite against **Python 3.14** as well as 3.11.
+  3.14 is what the Dockerfile ships and it had never been tested.
+- Every CI job now sets `timeout-minutes`; a hung job previously ran until
+  GitHub's 6-hour default.
+- `AGENTS.md` now lists the quality gates CI actually enforces (it omitted
+  bandit, pip-audit, npm audit, eslint, prettier and the OpenAPI
+  schema-drift check), corrects the claim that `npm run build` runs `tsc`
+  (it is `vite build`, which does not type-check), and fixes the overlay
+  template count (30 files, 27 selectable — one place said 16).
+
+### Removed
+
+- **Dropped the unused `feat/multi-user-db` deployment scaffolding.**
+  `docker-publish-new.yml`, `docker-compose.traefik.new.yml` and
+  `.env.traefik.new.example` duplicated their mainline counterparts and
+  carried a personal hostname as the example value. The multi-user
+  refactor they staged is merged.
+- **Dropped the `PUID`/`PGID` environment knobs** from
+  `docker-compose.yml`. Nothing read them: `docker-entrypoint.sh`
+  hardcodes uid/gid 1000. They invited operators to set a value that
+  silently did nothing.
+
 ## [6.2.2] - 2026-07-20
 
 ### Changed

@@ -138,26 +138,20 @@ volley-overlay-control/
 │   │
 │   └── pwa/                   # Legacy PWA assets (icons)
 │
-├── overlay_templates/         # Jinja2 HTML templates for overlay styles (16 templates)
+├── overlay_templates/         # Jinja2 HTML templates for overlay styles (30 files, 27 selectable)
 ├── overlay_static/            # Static assets for overlays (JS, CSS, images)
 ├── data/                      # Persisted runtime state — app.db (default SQLite), overlay_state_*.json (skey-keyed), audit_*.jsonl, matches/, .session_secret, .overlay_server_token, .admin_bootstrap_token (auto-generated, mode 0o600)
 │
 ├── alembic.ini                # Alembic config (script_location = migrations/)
 ├── migrations/                # Alembic env.py + versions/ revisions (applied to head on startup)
 │
-├── tests/                     # Pytest suite (see also frontend Vitest)
+├── tests/                     # Pytest suite, 63 modules (see also frontend Vitest)
 │   ├── conftest.py            # Shared fixtures: autouse in-memory `db_session`, cookie-auth helpers
-│   ├── test_state.py          # Unit tests for State model
-│   ├── test_game_manager.py   # Unit tests for scoring rules and set logic
-│   ├── test_backend.py        # Unit tests for API communication
-│   ├── test_auth.py           # Cookie sessions, registration, claim-admin, force-change
-│   ├── test_api.py            # SessionManager, GameService, cookie-auth tests
-│   ├── test_customization.py  # Unit tests for team/color customization
-│   ├── test_env_vars_manager.py
-│   ├── test_config_validator.py
-│   ├── test_admin_users.py    # Admin user-management + registration toggle tests
-│   ├── test_overlays_service.py  # Per-user overlay CRUD + public_token tests
-│   └── test_db_migrations.py  # Alembic upgrade-to-head migration tests
+│   ├── fixtures/              # JSON fixtures representing known game states
+│   ├── helpers/               # Shared test helpers
+│   └── test_*.py              # One module per unit under test — `ls tests/` for the
+│                              # current list rather than mirroring it here, since an
+│                              # inline inventory goes stale on every new test file.
 │
 └── font/                      # Custom TTF/OTF scoreboard fonts
 ```
@@ -304,17 +298,28 @@ For the complete authentication matrix see [AUTHENTICATION.md](AUTHENTICATION.md
 
 ## Testing
 
-Quality gates that must pass: **backend** — pytest + ruff + mypy; **frontend** — vitest + tsc.
+Quality gates that must pass. **CI fails the build on every one of these**,
+so satisfying only a subset still produces a red PR:
+
+| Surface | Gates |
+|---------|-------|
+| Backend | `pytest` (coverage floor 70%) · `ruff` · `mypy` · `bandit` · `pip-audit` (both lockfiles) · lockfile-satisfies-`requirements.txt` |
+| Frontend | `vitest` (coverage floors in `vite.config.js`) · `tsc` · `eslint` (`--max-warnings 0`) · `prettier --check` · `npm audit` |
+| Contract | committed OpenAPI schema + generated types must not drift |
+| Image | `docker build` must succeed |
 
 ```bash
 # Backend
 pytest tests/ -v
-pytest tests/ --cov=app --cov-report=term-missing
-ruff check . && mypy app
+pytest tests/ --cov=app --cov-report=term-missing   # fail_under=70 lives in pyproject.toml
+ruff check . && mypy
 
-# Frontend
-cd frontend && npm test        # vitest
-cd frontend && npm run build   # runs tsc
+# Frontend — `npm run build` is `vite build` (esbuild, no type checking),
+# so it does NOT type-check. Use `typecheck` for that.
+cd frontend && npm test           # vitest
+cd frontend && npm run typecheck  # tsc --noEmit
+cd frontend && npm run lint       # eslint --max-warnings 0
+cd frontend && npm run format:check
 ```
 
 **Test conventions:**

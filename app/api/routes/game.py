@@ -1,6 +1,19 @@
-"""POST /game/* — game actions (points, sets, timeouts, serve, reset)."""
+"""POST /game/* — game actions (points, sets, timeouts, serve, reset).
+
+Every handler is ``async`` but ``GameService`` is fully synchronous and
+does real blocking work: it appends to the audit log, writes session meta
+and overlay state, and recomputes live stats. Calling it directly from the
+coroutine would run all of that on the event loop, stalling every other
+request and every WebSocket broadcast in the process for its duration.
+Each call therefore goes through ``run_in_threadpool``.
+
+The ``async with session.lock`` still serializes mutations per session, so
+handing the body to a worker thread does not widen the race window: the
+lock is held across the threadpool await.
+"""
 
 from fastapi import APIRouter, Depends
+from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencies import get_session
 from app.api.game_service import GameService
@@ -24,7 +37,8 @@ router = APIRouter()
 async def add_point(req: AddPointRequest,
                     session: GameSession = Depends(get_session)):
     async with session.lock:
-        return GameService.add_point(
+        return await run_in_threadpool(
+            GameService.add_point,
             session, req.team, req.undo,
             point_type=req.point_type, error_type=req.error_type,
         )
@@ -37,7 +51,9 @@ async def add_point(req: AddPointRequest,
 async def add_set(req: TeamActionRequest,
                   session: GameSession = Depends(get_session)):
     async with session.lock:
-        return GameService.add_set(session, req.team, req.undo)
+        return await run_in_threadpool(
+            GameService.add_set, session, req.team, req.undo,
+        )
 
 
 @router.post(
@@ -47,7 +63,9 @@ async def add_set(req: TeamActionRequest,
 async def add_timeout(req: TeamActionRequest,
                       session: GameSession = Depends(get_session)):
     async with session.lock:
-        return GameService.add_timeout(session, req.team, req.undo)
+        return await run_in_threadpool(
+            GameService.add_timeout, session, req.team, req.undo,
+        )
 
 
 @router.post(
@@ -57,7 +75,9 @@ async def add_timeout(req: TeamActionRequest,
 async def change_serve(req: ServeRequest,
                        session: GameSession = Depends(get_session)):
     async with session.lock:
-        return GameService.change_serve(session, req.team)
+        return await run_in_threadpool(
+            GameService.change_serve, session, req.team,
+        )
 
 
 @router.post(
@@ -67,7 +87,10 @@ async def change_serve(req: ServeRequest,
 async def set_score(req: SetScoreRequest,
                     session: GameSession = Depends(get_session)):
     async with session.lock:
-        return GameService.set_score(session, req.team, req.set_number, req.value)
+        return await run_in_threadpool(
+            GameService.set_score,
+            session, req.team, req.set_number, req.value,
+        )
 
 
 @router.post(
@@ -77,7 +100,9 @@ async def set_score(req: SetScoreRequest,
 async def set_sets(req: SetSetsRequest,
                    session: GameSession = Depends(get_session)):
     async with session.lock:
-        return GameService.set_sets_value(session, req.team, req.value)
+        return await run_in_threadpool(
+            GameService.set_sets_value, session, req.team, req.value,
+        )
 
 
 @router.post(
@@ -86,7 +111,7 @@ async def set_sets(req: SetSetsRequest,
 )
 async def reset_game(session: GameSession = Depends(get_session)):
     async with session.lock:
-        return GameService.reset(session)
+        return await run_in_threadpool(GameService.reset, session)
 
 
 @router.post(
@@ -101,7 +126,7 @@ async def start_match(session: GameSession = Depends(get_session)):
     flow all read this field downstream.
     """
     async with session.lock:
-        return GameService.start_match(session)
+        return await run_in_threadpool(GameService.start_match, session)
 
 
 @router.post(
@@ -116,4 +141,4 @@ async def undo_last(session: GameSession = Depends(get_session)):
     ``"Nothing to undo."`` when the log has no eligible entry.
     """
     async with session.lock:
-        return GameService.undo_last(session)
+        return await run_in_threadpool(GameService.undo_last, session)

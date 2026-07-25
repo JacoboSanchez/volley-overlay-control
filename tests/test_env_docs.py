@@ -13,11 +13,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # Variables intentionally undocumented: test-only knobs, values managed by
 # the runtime itself, or vars surfaced through other docs.
-ALLOWLIST = {
-    # Set by docker-entrypoint.sh, not operator-facing app config.
-    "PUID",
-    "PGID",
-}
+#
+# Empty by design. The guard only inspects reads under ``app/``, so a var
+# the backend never reads can never reach this check — an entry here would
+# be inert and, worse, could imply the runtime honours something it does
+# not. ``PUID``/``PGID`` used to sit here described as "set by
+# docker-entrypoint.sh"; the entrypoint never read them (it hardcodes
+# uid/gid 1000), so both the compose knob and this entry were removed.
+ALLOWLIST: set[str] = set()
 
 # Also matches the local ``_env*("NAME", default)`` helper wrappers used in
 # app/constants.py and the middlewares, so indirected reads cannot slip past

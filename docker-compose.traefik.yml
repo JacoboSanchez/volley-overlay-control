@@ -76,8 +76,13 @@ services:
       # SQLite DB + session secret + bootstrap / overlay-server tokens.
       - overlay_data:/app/data
     healthcheck:
-      # The slim base image has no curl; probe with urllib.
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health', timeout=5).status == 200 else 1)"]
+      # The slim base image has no curl; probe with urllib. The port comes
+      # from the same APP_PORT as the service env and the Traefik service
+      # label below — a compose-level healthcheck overrides the image's own
+      # HEALTHCHECK, so a hardcoded 8080 here would leave the container
+      # permanently unhealthy (and, with Traefik health-gating plus
+      # `restart: unless-stopped`, never routable) on any other APP_PORT.
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:${APP_PORT:-8080}/health', timeout=5).status == 200 else 1)"]
       interval: 30s
       timeout: 10s
       retries: 3

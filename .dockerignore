@@ -18,8 +18,12 @@ tests/
 pytest.ini
 requirements-dev.txt
 
-# Docs / licence (not needed at runtime)
+# Docs / licence (not needed at runtime).
+# ``*.md`` matches root-level files only, so the docs tree — ~2 MB of
+# README screenshot PNGs — needs its own entry or it rides along in every
+# build context, including CI's.
 *.md
+docs/
 LICENSE
 CUSTOM_OVERLAY_API.yaml
 walkthrough.md
@@ -32,6 +36,12 @@ walkthrough.md
 Dockerfile
 .dockerignore
 docker-compose.yml
+docker-compose.traefik.yml
+
+# Agent / editor config
+.claude/
+.editorconfig
+.gitattributes
 
 # Scripts used at dev/CI time only
 scripts/
