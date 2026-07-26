@@ -49,34 +49,60 @@ jobs:
         # should land in its own PR with the new findings reviewed.
         uv pip install --system ruff==0.15.8 mypy==1.19.1
 
-    - name: Fail if requirements.lock violates requirements.txt
-      # CI and the Dockerfile install from the lock only, so a lock whose
-      # pins sit below the floors in requirements.txt makes those floors
-      # fiction — including the CVE ones. This caught fastapi, uvicorn and
-      # alembic pinned under their stated minimums.
+    - name: Fail if requirements.lock does not match requirements.txt
+      # CI and the Dockerfile install from the lock only, so a lock that
+      # disagrees with requirements.txt makes the declared ranges fiction —
+      # including the CVE floors. This caught fastapi, uvicorn and alembic
+      # pinned under their stated minimums.
       #
-      # Resolving requirements.txt *against the lock as a constraints file*
-      # rather than diffing a fresh compile: a byte-diff would go red every
-      # time any dependency publishes a new release, whereas this only
-      # fails when the lock genuinely cannot satisfy the declared ranges.
+      # Two distinct failures have to be caught, and they need two checks:
+      #
+      # 1. A pin that *violates* a declared range. Resolving requirements.txt
+      #    with the lock as a constraints file surfaces this as an
+      #    unsatisfiable resolution. Constraining rather than diffing a fresh
+      #    compile is deliberate: a byte-diff would go red every time any
+      #    dependency publishes a new release, whereas this only fails when
+      #    the lock genuinely cannot satisfy the declared ranges.
+      #
+      # 2. A package *missing* from the lock. `--constraint` only constrains
+      #    versions of packages it lists — it does not require that the lock
+      #    covers everything requirements.txt pulls in. So uv happily
+      #    resolves a newly-added dependency from the registry into the
+      #    throwaway output and exits 0, while CI and the image keep
+      #    installing the incomplete committed lock and only fail later at
+      #    import time. Comparing the resolved pin set against the lock's
+      #    closes that hole (and also catches stale leftovers in the lock).
       #
       # The resolved output goes to a real file under RUNNER_TEMP, not
       # /dev/null: uv writes a temp file alongside the output path and then
       # renames it, so ``-o /dev/null`` makes it try to create ``/dev/.tmpXXXX``
       # and fail with EACCES on the runner — which looked exactly like lock
-      # drift. Only a genuine resolution failure may fail this step, so the
-      # exit code is captured separately from the diagnostic output.
+      # drift. Only a genuine mismatch may fail this step, so the exit code
+      # is captured separately from the diagnostic output.
       run: |
+        CHECK="${RUNNER_TEMP}/requirements.lock.check"
         set +e
         out=$(uv pip compile requirements.txt \
                 --constraint requirements.lock \
-                -o "${RUNNER_TEMP}/requirements.lock.check" --quiet 2>&1)
+                -o "$CHECK" --quiet 2>&1)
         rc=$?
         set -e
         if [ $rc -ne 0 ]; then
           echo "$out"
           echo ""
-          echo "::error::requirements.lock does not satisfy requirements.txt."
+          echo "::error::requirements.lock cannot satisfy requirements.txt (a pin violates a declared range)."
+          echo "Run 'uv pip compile requirements.txt -o requirements.lock' and commit the result."
+          exit 1
+        fi
+        # Normalise to a sorted set of PEP 503 name==version pins.
+        norm() {
+          grep -oiE '^[a-z0-9][a-z0-9._-]*==[^ ;]+' "$1" \
+            | tr 'A-Z' 'a-z' | tr '_' '-' | sort -u
+        }
+        if ! delta=$(diff <(norm requirements.lock) <(norm "$CHECK")); then
+          echo "$delta"
+          echo ""
+          echo "::error::requirements.lock is missing or has stale packages ('<' only in lock, '>' only in the resolved set)."
           echo "Run 'uv pip compile requirements.txt -o requirements.lock' and commit the result."
           exit 1
         fi
