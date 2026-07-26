@@ -85,12 +85,15 @@ once a first tagged release ships.
 - **Type checking now covers the bodies of unannotated functions.**
   `check_untyped_defs` was off, so mypy skipped the body of every function
   without annotations while reporting "no issues found in 114 source
-  files". Turning it on surfaced four real defects, now fixed: a variable
+  files". Turning it on surfaced five real defects, now fixed: a variable
   reused with two different types in `app/config_validator.py`, an
   undeclared mixin attribute contract in `app/overlay_backends/base.py`,
-  and a wrongly-inferred payload dict in `app/bootstrap.py`.
-  `split_custom_oid` / `strip_legacy_prefix` now declare the `None` they
-  already accepted at runtime.
+  a wrongly-inferred payload dict in `app/bootstrap.py`, and an
+  unguarded `Path(self.directory)` in `SPAStaticFiles._index_response`
+  where `StaticFiles.directory` is optional upstream — that one would
+  have raised `TypeError` rather than 404ing if the SPA were ever mounted
+  without a directory. `split_custom_oid` / `strip_legacy_prefix` now
+  declare the `None` they already accepted at runtime.
 - **Lint warnings can no longer accumulate silently.** `npm run lint` runs
   with `--max-warnings 0`, and `no-explicit-any`, `no-unused-vars` and the
   three `jsx-a11y` rules are errors rather than warnings — the cleanup they

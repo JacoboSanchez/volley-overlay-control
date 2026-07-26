@@ -375,6 +375,28 @@ class TestParsedRecordCache:
         # Eviction is a memory concern only — the records survive on disk.
         assert len(action_log.read_all("cache-5")) == 1
 
+    def test_evict_cache_keeps_timestamps_monotonic(self, monkeypatch):
+        """Eviction must not drop the monotonic timestamp tracker.
+
+        The log files outlive the session, so if ``_last_ts_per_oid`` were
+        cleared here a wall-clock rollback would let the next append reuse a
+        timestamp already on disk. Tombstones reference records by ``ts``, so
+        a duplicate lets one ``_pop`` cancel two records.
+        """
+        clock = [1_000_000.0]
+        monkeypatch.setattr(action_log.time, "time", lambda: clock[0])
+
+        action_log.append("cache-7", "add_point", {"team": 1}, {"x": 1})
+        action_log.evict_cache("cache-7")
+
+        # Clock jumps backwards while the log file is still on disk.
+        clock[0] -= 60.0
+        action_log.append("cache-7", "add_point", {"team": 1}, {"x": 2})
+
+        records = action_log.read_all("cache-7")
+        assert len(records) == 2
+        assert records[1]["ts"] > records[0]["ts"]
+
     def test_caller_cannot_mutate_the_cache(self):
         action_log.append("cache-6", "add_point", {"team": 1}, {"x": 1})
         records = action_log.read_all("cache-6")

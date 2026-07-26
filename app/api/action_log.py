@@ -152,20 +152,30 @@ def _commit_append_locked(oid: str, record: dict) -> None:
 
 
 def evict_cache(oid: str) -> None:
-    """Release the OID's cached records and per-OID bookkeeping.
+    """Release the OID's cached records.
 
     Called when a session is retired (see
     :meth:`app.api.session_manager.SessionManager.remove`). Without this the
-    caches grow for the lifetime of the process, retaining the full parsed
+    cache grows for the lifetime of the process, retaining the full parsed
     history of every OID the instance has ever served.
 
-    The version counter is deliberately *not* reset: a stale reader holding
-    an older version must still observe a change, so the counter stays
-    monotonic for the process lifetime.
+    Only the parsed records are dropped. Two pieces of per-OID bookkeeping
+    deliberately survive, because both must stay monotonic for as long as
+    the log files exist and both cost a single number per OID:
+
+    * the version counter — a stale reader holding an older version must
+      still observe a change;
+    * ``_last_ts_per_oid`` — ``_next_ts`` uses it to keep record timestamps
+      strictly increasing. The log files outlive the session, so dropping it
+      here would let a wall-clock rollback (NTP correction, manual change)
+      hand the next append a timestamp at or below the last persisted
+      record. Tombstones reference records by ``ts``, so a collision would
+      let one ``_pop`` cancel two records — the exact failure ``_next_ts``
+      exists to prevent. ``clear``/``delete`` do reset it, correctly: they
+      remove the underlying files it is protecting.
     """
     with _lock_for(oid):
         _raw_cache.pop(oid, None)
-        _last_ts_per_oid.pop(oid, None)
 
 
 def version(oid: str) -> int:
