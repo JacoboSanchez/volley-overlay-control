@@ -137,7 +137,7 @@ For the full endpoint reference, request/response schemas, and WebSocket protoco
 ### Prerequisites
 
 *   **Python 3.11+**
-*   **Node.js 20+** and **npm** (for building the frontend)
+*   **Node.js 22.22+** and **npm** (for building the frontend)
 
 ### Creating an Overlay
 

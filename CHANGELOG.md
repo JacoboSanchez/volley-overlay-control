@@ -98,6 +98,16 @@ once a first tagged release ships.
   handled by the router, and `/board` still loads — with no
   module-resolution or router errors in the console.
 
+  **This raises the Node floor for building the frontend to 22.22.**
+  `react-router@8.3.0` declares `node >=22.22.0`, while CI selected Node 20
+  and the docs advertised 20+ — so the documented environment would have
+  installed an unsupported dependency, and `npm ci` would have failed
+  outright anywhere `engine-strict` is set. CI now uses Node 22,
+  `README.md` and `CONTRIBUTING.md` state 22.22+, and `frontend/package.json`
+  declares the `engines.node` range so the mismatch cannot drift silently
+  again. The Docker image already built the frontend on a newer Node, so
+  published images were never affected.
+
 ### Changed
 
 - **Type checking now covers the bodies of unannotated functions.**
