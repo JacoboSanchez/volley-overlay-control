@@ -10,6 +10,14 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Screen readers now follow the selected language throughout the scoring
+  controls.** Score, timeout, serve, dialog, and recent-action accessible
+  labels and gesture instructions now use the six-locale catalog. Icon-only
+  HUD controls expose translated names and pressed state without announcing
+  Material icon ligatures, and a source guard rejects new hard-coded
+  accessible text. Fixes
+  [#436](https://github.com/JacoboSanchez/volley-overlay-control/issues/436).
+
 - **Scoring a point no longer re-reads and re-parses the entire audit
   log.** `GameService.add_point` writes its audit record *before* building
   the state response, and that write bumps the log version the live-stats

@@ -1,6 +1,7 @@
 import type { RecentEvent } from '../hooks/useRecentEvents';
 import { getReadableOnSurface } from '../utils/contrast';
 import { useSurfaceColor } from '../hooks/useSurfaceColor';
+import { useI18n, type Translate } from '../i18n';
 
 // Markers are non-text UI shapes — WCAG AA only requires 3:1 here.
 const MARKER_MIN_RATIO = 3;
@@ -34,14 +35,14 @@ const POINT_TYPE_ABBR: Record<string, string> = {
   opp_error: 'E',
 };
 
-// Readable words for screen readers, so the aria-label never announces
-// the raw programmatic token (e.g. "opp_error"). Matches the
-// English-only convention of this strip's other aria-labels.
-const POINT_TYPE_ARIA: Record<string, string> = {
-  ace: 'ace',
-  kill: 'kill',
-  block: 'block',
-  opp_error: 'opponent error',
+// Translation keys for the full words announced by screen readers, so
+// the aria-label never exposes a raw programmatic token such as
+// ``opp_error``.
+const POINT_TYPE_ARIA_KEYS: Record<string, string> = {
+  ace: 'pointType.ace',
+  kill: 'pointType.kill',
+  block: 'pointType.block',
+  opp_error: 'pointType.opp_error',
 };
 
 function ClockIcon() {
@@ -118,20 +119,22 @@ function chipContent(ev: RecentEvent) {
   }
 }
 
-function chipAriaLabel(ev: RecentEvent, teamName: string): string {
+function chipAriaLabel(ev: RecentEvent, teamName: string, t: Translate): string {
   switch (ev.kind) {
-    case 'point_add':
-      return ev.pointType
-        ? `${teamName}: +1 (${POINT_TYPE_ARIA[ev.pointType] ?? ev.pointType})`
-        : `${teamName}: +1`;
+    case 'point_add': {
+      if (!ev.pointType) return t('history.chip.point', { team: teamName });
+      const typeKey = POINT_TYPE_ARIA_KEYS[ev.pointType];
+      const type = typeKey ? t(typeKey) : ev.pointType;
+      return t('history.chip.typedPoint', { team: teamName, type });
+    }
     case 'set_won':
-      return `${teamName}: set won`;
+      return t('history.chip.setWon', { team: teamName });
     case 'match_won':
-      return `${teamName}: match won`;
+      return t('history.chip.matchWon', { team: teamName });
     case 'timeout':
-      return `${teamName}: timeout`;
+      return t('history.chip.timeout', { team: teamName });
     case 'manual':
-      return `${teamName}: manual ${ev.value ?? 0}`;
+      return t('history.chip.manual', { team: teamName, value: ev.value ?? 0 });
   }
 }
 
@@ -142,6 +145,7 @@ interface RowProps {
   textColor: string;
   logo: string | null;
   name: string;
+  t: Translate;
 }
 
 function Row({
@@ -151,6 +155,7 @@ function Row({
   textColor,
   logo,
   name,
+  t,
   surface,
 }: RowProps & { surface: string }) {
   const markerColor = getReadableOnSurface(color, surface, MARKER_MIN_RATIO);
@@ -177,7 +182,7 @@ function Row({
                 className={`phs-chip phs-chip-${ev.kind}`}
                 style={{ backgroundColor: color, color: textColor }}
                 data-testid={`phs-chip-${team}-${i}`}
-                aria-label={chipAriaLabel(ev, name)}
+                aria-label={chipAriaLabel(ev, name, t)}
               >
                 {chipContent(ev)}
               </span>
@@ -201,6 +206,7 @@ export default function PointsHistoryStrip({
   team2Name,
   swapped = false,
 }: PointsHistoryStripProps) {
+  const { t } = useI18n();
   const surface = useSurfaceColor();
   if (events.length === 0) return null;
   const rows = [
@@ -212,6 +218,7 @@ export default function PointsHistoryStrip({
       textColor={team1TextColor}
       logo={team1Logo}
       name={team1Name}
+      t={t}
       surface={surface}
     />,
     <Row
@@ -222,6 +229,7 @@ export default function PointsHistoryStrip({
       textColor={team2TextColor}
       logo={team2Logo}
       name={team2Name}
+      t={t}
       surface={surface}
     />,
   ];
@@ -230,7 +238,7 @@ export default function PointsHistoryStrip({
     <div
       className="points-history-strip"
       data-testid="points-history-strip"
-      aria-label="Recent actions"
+      aria-label={t('history.recentActions')}
     >
       {rows}
     </div>

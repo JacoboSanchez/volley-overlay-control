@@ -1,8 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Dialog from '../components/Dialog';
+import { renderWithI18n } from './helpers';
 
 describe('Dialog', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it('renders nothing when closed', () => {
     render(
       <Dialog open={false} onClose={() => {}} ariaLabel="Test dialog">
@@ -63,6 +68,16 @@ describe('Dialog', () => {
     );
     fireEvent.click(screen.getByLabelText('Close dialog'));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('localizes the backdrop accessible name', () => {
+    localStorage.setItem('volley_lang', 'es');
+    renderWithI18n(
+      <Dialog open onClose={() => {}} ariaLabel="Prueba">
+        <p>Contenido</p>
+      </Dialog>,
+    );
+    expect(screen.getByRole('button', { name: 'Cerrar diálogo' })).toBeInTheDocument();
   });
 
   it('does not listen for Escape after closing', () => {

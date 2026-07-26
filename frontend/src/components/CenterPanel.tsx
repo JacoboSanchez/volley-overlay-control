@@ -121,6 +121,16 @@ function CenterPanel({
   const setsById = { 1: state.team_1.sets, 2: state.team_2.sets } as const;
   // Already gated by the "show logos" toggle upstream — null when off.
   const logosById = { 1: team1Logo, 2: team2Logo } as const;
+  const teamNamesById = {
+    1:
+      asString(customization?.['Team 1 Name']) ||
+      asString(customization?.['Team 1 Text Name']) ||
+      t('scoreboard.team', { team: 1 }),
+    2:
+      asString(customization?.['Team 2 Name']) ||
+      asString(customization?.['Team 2 Text Name']) ||
+      t('scoreboard.team', { team: 2 }),
+  } as const;
 
   return (
     <div className={`center-panel${compactLandscape ? ' center-panel-compact' : ''}`}>
@@ -144,7 +154,7 @@ function CenterPanel({
               {logosById[leftId] && (
                 <img
                   src={logosById[leftId]}
-                  alt={`Team ${leftId}`}
+                  alt={teamNamesById[leftId]}
                   className="team-logo"
                   data-testid={`team-${leftId}-logo`}
                 />
@@ -163,7 +173,7 @@ function CenterPanel({
               {logosById[rightId] && (
                 <img
                   src={logosById[rightId]}
-                  alt={`Team ${rightId}`}
+                  alt={teamNamesById[rightId]}
                   className="team-logo"
                   data-testid={`team-${rightId}-logo`}
                 />
@@ -209,7 +219,9 @@ function CenterPanel({
             aria-pressed={sidesSwapped}
             data-testid="swap-sides-button"
           >
-            <span className="material-icons">swap_horiz</span>
+            <span className="material-icons" aria-hidden="true">
+              swap_horiz
+            </span>
           </button>
         )}
         <MatchAlertIndicator state={state} isPortrait={isPortrait} sidesSwapped={sidesSwapped} />
@@ -246,11 +258,11 @@ function CenterPanel({
           team1Color={btnColorA}
           team1TextColor={btnTextA}
           team1Logo={logosById[1] || null}
-          team1Name={asString(customization?.['Team 1 Name']) || 'Team 1'}
+          team1Name={teamNamesById[1]}
           team2Color={btnColorB}
           team2TextColor={btnTextB}
           team2Logo={logosById[2] || null}
-          team2Name={asString(customization?.['Team 2 Name']) || 'Team 2'}
+          team2Name={teamNamesById[2]}
         />
       )}
     </div>

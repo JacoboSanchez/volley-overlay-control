@@ -24,6 +24,7 @@ const defaultProps = {
 describe('CenterPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
   });
 
   it('returns null when state is null', () => {
@@ -81,6 +82,21 @@ describe('CenterPanel', () => {
     );
     expect(screen.getByTestId('team-1-logo')).toHaveAttribute('src', 'logo1.png');
     expect(screen.getByTestId('team-2-logo')).toHaveAttribute('src', 'logo2.png');
+  });
+
+  it('uses localized fallback team names for logo alt text', () => {
+    localStorage.setItem('volley_lang', 'es');
+    renderWithI18n(
+      <CenterPanel
+        {...defaultProps}
+        customization={null}
+        team1Logo="logo1.png"
+        team2Logo="logo2.png"
+        isPortrait={false}
+      />,
+    );
+    expect(screen.getByTestId('team-1-logo')).toHaveAttribute('alt', 'Equipo 1');
+    expect(screen.getByTestId('team-2-logo')).toHaveAttribute('alt', 'Equipo 2');
   });
 
   it('hides logos when they are turned off, regardless of the customization', () => {
