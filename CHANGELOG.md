@@ -10,16 +10,14 @@ once a first tagged release ships.
 
 ### Fixed
 
-- **Scoring a point no longer re-reads and re-parses the entire audit log
-  on the event loop.** `GameService.add_point` writes its audit record
-  *before* building the state response, and that write bumps the log
-  version the live-stats memo is keyed on — so the memo missed on every
-  single point, and each miss walked the active audit file plus every
-  rotated one (`AUDIT_LOG_MAX_BYTES` × `AUDIT_LOG_MAX_FILES`, 25 MiB with
-  the defaults), `json.loads`-ing every line before running nine
-  aggregation passes. All of it ran synchronously inside an `async`
-  handler, stalling every other request and every WebSocket broadcast in
-  the process for the duration.
+- **Scoring a point no longer re-reads and re-parses the entire audit
+  log.** `GameService.add_point` writes its audit record *before* building
+  the state response, and that write bumps the log version the live-stats
+  memo is keyed on — so the memo missed on every single point, and each
+  miss walked the active audit file plus every rotated one
+  (`AUDIT_LOG_MAX_BYTES` × `AUDIT_LOG_MAX_FILES`, 25 MiB with the
+  defaults), `json.loads`-ing every line before running nine aggregation
+  passes.
 
   `action_log` now keeps the parsed records per OID and folds each
   newly-written record into that cache, so the steady-state cost of a
@@ -28,21 +26,24 @@ once a first tagged release ships.
   on `clear`/`delete`. Aggregation logic is untouched — this changes only
   how the records reach it.
 
-  Separately, the synchronous `GameService` calls behind `/game/*`,
-  `/state`, `/session/init`, `/session/rules`, `/customization` and
-  `/audit` now run via `run_in_threadpool` instead of directly on the
-  loop, matching the pattern `/session/init` already used for its other
-  blocking calls.
+  Handlers still call `GameService` synchronously on the event loop, as
+  before. Moving those calls to a worker thread was tried and reverted:
+  the single-threaded loop is what currently makes a mutation atomic with
+  respect to every other handler, and `session.lock` is held only by the
+  mutation routes — `/state` and the WebSocket snapshot never take it,
+  and `get_state` itself writes via `_sync_table_tennis_serve`. Offloading
+  therefore needs a full audit of every session reader first, tracked
+  separately.
 
-- **The control WebSocket hub no longer drops broadcasts sent from
-  background threads.** `WSHub.broadcast_sync` resolved its loop with
-  `asyncio.get_running_loop()`, which raises off the event loop; the
-  handler logged at debug level and returned, so the broadcast vanished
-  with no visible error. This was latent while every caller happened to
-  run on the loop, and would have silently stopped the control UI from
-  receiving updates as soon as one did not. `WSHub` now captures the
-  loop at startup and schedules through `call_soon_threadsafe` when
-  off-loop — the same approach `ObsBroadcastHub` already used.
+- **`WSHub` no longer depends on being called from the event loop to
+  deliver a broadcast.** `broadcast_sync` resolved its loop with
+  `asyncio.get_running_loop()`, which raises off-loop; the handler logged
+  at debug level and returned, so the broadcast vanished with no visible
+  error. Every current caller does run on the loop, so this was latent
+  rather than live — but it made "must run on the loop" an undocumented
+  precondition of a fire-and-forget API. `WSHub` now captures the loop at
+  startup and schedules through `call_soon_threadsafe` when off-loop, the
+  same approach `ObsBroadcastHub` already used.
 
 - **The per-OID caches are now released when a session is retired.** The
   live-stats payload and the parsed audit records were keyed by OID and

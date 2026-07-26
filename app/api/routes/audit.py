@@ -1,7 +1,6 @@
 """GET /audit — read recent action audit records for a session."""
 
 from fastapi import APIRouter, Depends, Query
-from starlette.concurrency import run_in_threadpool
 
 from app.api import action_log
 from app.api.dependencies import get_session
@@ -48,10 +47,8 @@ async def get_audit_log(
     * ``next_cursor`` — the ``ts`` to pass as ``before_ts`` for the
       next page, or ``null`` when this is the last page.
     """
-    # ``read_page`` paginates the wire payload but still materializes the
-    # full log to do it, so keep it off the event loop.
-    records, next_cursor = await run_in_threadpool(
-        action_log.read_page, session.oid, limit=limit, before_ts=before_ts,
+    records, next_cursor = action_log.read_page(
+        session.oid, limit=limit, before_ts=before_ts,
     )
     return {
         # Present the human-facing oid, never the internal "<user_id>:<oid>"
