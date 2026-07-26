@@ -540,7 +540,9 @@ The API router installs its own lifespan (`app/api/routes/lifespan.py`):
 For a static, boot-time setting:
 
 1. Add the field to `app/conf.py`.
-2. Add the env var to `docker-compose.yml` and `README.md`.
+2. Document the env var in `.env.example` and, when operator-facing enough for
+   the main configuration table, `README.md`. Both shipped Compose files load
+   `.env` directly, so they do not maintain separate variable allow-lists.
 
 For an operator-toggleable setting that should persist (DB wins after first
 boot, like `REGISTRATION_OPEN`): add a key + accessor in

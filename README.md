@@ -187,20 +187,28 @@ WebSocket at `/ws/{public_token}`.
 
 The Dockerfile uses a multi-stage build: Node.js builds the React frontend, then the result is copied into the Python image. No separate frontend container or nginx is needed.
 
+> Requires **Docker Compose 2.24.0+**. Both shipped Compose files use the
+> `env_file.required` attribute introduced in that release so `.env` can stay
+> optional; legacy `docker-compose` and older v2 plugins are not supported.
+>
 > Deploying behind a **Traefik** reverse proxy? Use [`docker-compose.traefik.yml`](docker-compose.traefik.yml) + [`.env.traefik.example`](.env.traefik.example) instead — it publishes the app through Traefik (TLS, HTTP→HTTPS redirect, WebSocket pass-through) with no host ports, SQLite on a volume by default and an optional PostgreSQL service.
 
-1.  Create a `.env` file (everything here is optional):
+1.  Create a `.env` file (everything here is optional; Compose passes every
+    entry through to the app, so advanced settings do not need a matching
+    `docker-compose.yml` edit):
     ```env
     EXTERNAL_PORT=80
     APP_TITLE=MyScoreboard
     # DATABASE_URL=postgresql+psycopg://user:pass@host/db  # default: SQLite under data/
     ```
+    To expose the container only to a reverse proxy on the same host, use
+    `EXTERNAL_PORT=127.0.0.1:8080`.
 2.  Run Docker Compose:
     ```bash
-    docker-compose up -d
+    docker compose up -d
     ```
 3.  **Claim the first admin:** read the one-time bootstrap token from the
-    startup log (`docker-compose logs app` — logged at `WARNING`), open
+    startup log (`docker compose logs app` — logged at `WARNING`), open
     `/claim-admin`, and create the first administrator. The SQLite database,
     session secret and bootstrap/overlay-server token files all live under
     `data/`, so persist that directory across container restarts.
