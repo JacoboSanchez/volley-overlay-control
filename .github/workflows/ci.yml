@@ -59,9 +59,22 @@ jobs:
       # rather than diffing a fresh compile: a byte-diff would go red every
       # time any dependency publishes a new release, whereas this only
       # fails when the lock genuinely cannot satisfy the declared ranges.
+      #
+      # The resolved output goes to a real file under RUNNER_TEMP, not
+      # /dev/null: uv writes a temp file alongside the output path and then
+      # renames it, so ``-o /dev/null`` makes it try to create ``/dev/.tmpXXXX``
+      # and fail with EACCES on the runner — which looked exactly like lock
+      # drift. Only a genuine resolution failure may fail this step, so the
+      # exit code is captured separately from the diagnostic output.
       run: |
-        if ! uv pip compile requirements.txt \
-             --constraint requirements.lock -o /dev/null --quiet; then
+        set +e
+        out=$(uv pip compile requirements.txt \
+                --constraint requirements.lock \
+                -o "${RUNNER_TEMP}/requirements.lock.check" --quiet 2>&1)
+        rc=$?
+        set -e
+        if [ $rc -ne 0 ]; then
+          echo "$out"
           echo ""
           echo "::error::requirements.lock does not satisfy requirements.txt."
           echo "Run 'uv pip compile requirements.txt -o requirements.lock' and commit the result."
