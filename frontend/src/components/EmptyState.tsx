@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 /** Shared placeholder for "nothing here yet" states across the account pages.
  *  Optionally renders a call-to-action button linking somewhere useful (e.g.

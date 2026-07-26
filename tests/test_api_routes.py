@@ -264,6 +264,44 @@ class TestWSHubResilience:
         assert healthy in WSHub._connections.get("oid1", set())
         WSHub.clear()
 
+    def test_broadcast_from_worker_thread_reaches_clients(self):
+        """``broadcast_sync`` must work off the event loop.
+
+        Route handlers hand the synchronous ``GameService`` to
+        ``run_in_threadpool``, so the sync broadcast helpers run in a worker
+        thread where ``asyncio.get_running_loop()`` raises. Before the hub
+        captured the loop that path silently dropped every broadcast — the
+        control UI simply stopped receiving updates, with only a debug log
+        to show for it.
+        """
+        import asyncio as _asyncio
+        from unittest.mock import AsyncMock
+
+        from app.api.ws_hub import WSHub
+
+        WSHub.clear()
+        client = AsyncMock()
+        WSHub._connections["oid-thread"] = {client}
+
+        async def scenario():
+            WSHub.capture_event_loop()
+            # Schedule from a worker thread, exactly as a route handler does.
+            await _asyncio.to_thread(
+                WSHub.broadcast_sync, "oid-thread", {"current_set": 1},
+            )
+            # Let the scheduled task run.
+            for _ in range(10):
+                await _asyncio.sleep(0)
+                if client.send_text.await_count:
+                    break
+
+        try:
+            _asyncio.run(scenario())
+            assert client.send_text.await_count == 1
+        finally:
+            WSHub._loop = None
+            WSHub.clear()
+
     def test_broadcast_preserves_reconnected_oid(self):
         """If a new client installs a fresh set under the same OID while
         broadcast was awaiting, the final cleanup must not pop that new set."""

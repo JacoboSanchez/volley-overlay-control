@@ -248,6 +248,13 @@ class SPAStaticFiles(StaticFiles):
         return response
 
     async def _index_response(self, scope):
+        # ``StaticFiles.directory`` is optional upstream (a bare StaticFiles
+        # can be backed by a packaged directory instead). We always construct
+        # this class with one, but fall back to the parent rather than
+        # ``Path(None)`` so a future mount without a directory 404s cleanly
+        # instead of raising TypeError.
+        if self.directory is None:
+            return await super().get_response("index.html", scope)
         index_path = Path(self.directory) / "index.html"
         if not index_path.is_file():
             return await super().get_response("index.html", scope)
@@ -292,6 +299,11 @@ async def _lifespan(application: FastAPI):
         obs_broadcast_hub.capture_event_loop()
     except Exception:
         logger.exception("Failed to capture event loop for OBS broadcast hub")
+    try:
+        from app.api.ws_hub import WSHub
+        WSHub.capture_event_loop()
+    except Exception:
+        logger.exception("Failed to capture event loop for the control WS hub")
     yield
 
 
@@ -493,7 +505,9 @@ def _register_system_endpoints(application: FastAPI) -> None:
             reasons["data_dir_writable"] = "write_failed"
 
         all_ok = all(checks.values())
-        payload = {
+        # Explicitly heterogeneous: mypy would otherwise infer the value
+        # type from the literal alone and reject the ``reasons`` insert.
+        payload: dict[str, object] = {
             "status": "ok" if all_ok else "degraded",
             "timestamp": int(time.time()),
             "service": "volley-overlay-control",

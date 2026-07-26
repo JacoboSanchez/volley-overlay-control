@@ -16,7 +16,7 @@ pip install -U pip uv
 uv pip install -r requirements.lock -r requirements-dev.lock
 uv pip install ruff mypy
 
-# Frontend (Node 20+)
+# Frontend (Node 22.22+)
 cd frontend && npm ci
 ```
 

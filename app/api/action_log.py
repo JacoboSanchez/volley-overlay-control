@@ -104,9 +104,78 @@ _TS_MIN_STEP = 1e-6
 _version_per_oid: dict[str, int] = {}
 
 
+# Per-OID cache of parsed records, in append order and *before* tombstone
+# filtering — i.e. exactly what ``_read_raw_locked`` would return from disk.
+# Stored as ``(version, records)`` and only trusted while the stored version
+# still matches ``_version_per_oid``.
+#
+# Why this exists: every mutation bumps the version, which invalidates the
+# live-stats memo in :mod:`app.api.live_stats`, whose recompute calls
+# ``read_all``. Since ``GameService.add_point`` audits *before* building its
+# state response, that memo was a guaranteed miss on every scored point, and
+# each miss re-read and re-parsed the whole log — the active file plus every
+# rotated one, up to ``AUDIT_LOG_MAX_BYTES * AUDIT_LOG_MAX_FILES``. Appends
+# now fold the record they just wrote into this cache, so the steady-state
+# cost of a point is one line appended to a file instead of a full reparse.
+#
+# Records are cached as the parsed dicts themselves, shared with callers, so
+# consumers must treat both the list and its records as read-only.
+_raw_cache: dict[str, tuple[int, list[dict]]] = {}
+
+
 def _bump_version(oid: str) -> None:
     """Increment the OID's mutation counter. Caller holds ``_lock_for(oid)``."""
     _version_per_oid[oid] = _version_per_oid.get(oid, 0) + 1
+
+
+def _cache_drop_locked(oid: str) -> None:
+    """Forget the OID's parsed-record cache. Caller holds ``_lock_for(oid)``."""
+    _raw_cache.pop(oid, None)
+
+
+def _commit_append_locked(oid: str, record: dict) -> None:
+    """Bump the version and fold *record* into the parsed-record cache.
+
+    Caller holds ``_lock_for(oid)`` and has just appended *record* to the
+    active log file. When the cache is absent or already stale it is simply
+    dropped — the next read repopulates it from disk — so this can never
+    serve a list that disagrees with the file.
+    """
+    entry = _raw_cache.get(oid)
+    was_fresh = entry is not None and entry[0] == _version_per_oid.get(oid, 0)
+    _bump_version(oid)
+    if was_fresh and entry is not None:
+        entry[1].append(record)
+        _raw_cache[oid] = (_version_per_oid[oid], entry[1])
+    else:
+        _raw_cache.pop(oid, None)
+
+
+def evict_cache(oid: str) -> None:
+    """Release the OID's cached records.
+
+    Called when a session is retired (see
+    :meth:`app.api.session_manager.SessionManager.remove`). Without this the
+    cache grows for the lifetime of the process, retaining the full parsed
+    history of every OID the instance has ever served.
+
+    Only the parsed records are dropped. Two pieces of per-OID bookkeeping
+    deliberately survive, because both must stay monotonic for as long as
+    the log files exist and both cost a single number per OID:
+
+    * the version counter — a stale reader holding an older version must
+      still observe a change;
+    * ``_last_ts_per_oid`` — ``_next_ts`` uses it to keep record timestamps
+      strictly increasing. The log files outlive the session, so dropping it
+      here would let a wall-clock rollback (NTP correction, manual change)
+      hand the next append a timestamp at or below the last persisted
+      record. Tombstones reference records by ``ts``, so a collision would
+      let one ``_pop`` cancel two records — the exact failure ``_next_ts``
+      exists to prevent. ``clear``/``delete`` do reset it, correctly: they
+      remove the underlying files it is protecting.
+    """
+    with _lock_for(oid):
+        _raw_cache.pop(oid, None)
 
 
 def version(oid: str) -> int:
@@ -212,13 +281,18 @@ def _iter_log_paths_oldest_first(path: str) -> list[str]:
     return paths
 
 
-def _rotate_if_needed_locked(path: str) -> None:
+def _rotate_if_needed_locked(path: str) -> bool:
     """Rotate ``path`` when it exceeds ``AUDIT_LOG_MAX_BYTES``.
 
     Caller must hold ``_lock_for(oid)``. No-op when the file is missing
     or under the threshold, or when ``AUDIT_LOG_MAX_FILES <= 1`` (in
     which case the operator has effectively disabled rotation history
     and we just truncate by deletion on overflow).
+
+    Returns ``True`` when files were moved or removed. Rotation can drop
+    the oldest slot, which silently removes records the parsed-record
+    cache is still holding, so the caller must invalidate that cache on
+    a ``True`` return.
     """
     if AUDIT_LOG_MAX_FILES <= 1:
         # No rotated slots configured — fall back to truncating the
@@ -228,13 +302,15 @@ def _rotate_if_needed_locked(path: str) -> None:
                 os.remove(path)
             except OSError as exc:
                 logger.warning("Failed to truncate oversized audit '%s': %s", path, exc)
-        return
+                return False
+            return True
+        return False
     try:
         size = os.path.getsize(path)
     except OSError:
-        return
+        return False
     if size <= AUDIT_LOG_MAX_BYTES:
-        return
+        return False
     # Drop the oldest slot if it would exceed the cap after the shift.
     oldest = _rotated_path(path, AUDIT_LOG_MAX_FILES - 1)
     try:
@@ -257,12 +333,15 @@ def _rotate_if_needed_locked(path: str) -> None:
                     "Failed to shift rotated audit '%s' -> '%s': %s",
                     src, dst, exc,
                 )
-                return
+                # Files already moved: report rotation so the caller still
+                # invalidates its cache.
+                return True
     # Active -> .1.
     try:
         os.replace(path, _rotated_path(path, 1))
     except OSError as exc:
         logger.warning("Failed to rotate active audit '%s': %s", path, exc)
+    return True
 
 
 def _append_log_line(
@@ -291,14 +370,17 @@ def _append_log_line(
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with _lock_for(oid):
-            _rotate_if_needed_locked(path)
+            if _rotate_if_needed_locked(path):
+                # Rotation may have discarded the oldest slot, so the
+                # cached records no longer match what is on disk.
+                _cache_drop_locked(oid)
             record = {"ts": _next_ts(oid), **body}
             line = json.dumps(
                 record, separators=(",", ":"), ensure_ascii=False,
             ) + "\n"
             with open(path, "a", encoding="utf-8") as f:
                 f.write(line)
-            _bump_version(oid)
+            _commit_append_locked(oid, record)
         return record
     except Exception as exc:
         logger.warning(error_msg, oid, exc)
@@ -348,10 +430,19 @@ def _read_raw_locked(path: str, oid: str) -> list[dict]:
     ``_lock_for(oid)``. Tombstone records and the records they
     reference are returned as-is — filtering happens in
     :func:`_apply_tombstones`.
+
+    Served from the parsed-record cache when that cache is current for
+    the OID's version, which is the steady state during a live match.
+    The returned list is the cached list itself — callers must not
+    mutate it (``read_all`` copies before handing it out).
     """
+    entry = _raw_cache.get(oid)
+    if entry is not None and entry[0] == _version_per_oid.get(oid, 0):
+        return entry[1]
     records: list[dict] = []
     for p in _iter_log_paths_oldest_first(path):
         records.extend(_read_one_file_locked(p, oid))
+    _raw_cache[oid] = (_version_per_oid.get(oid, 0), records)
     return records
 
 
@@ -424,10 +515,15 @@ def read_all(oid: str) -> list[dict]:
     try:
         with _lock_for(oid):
             raw = _read_raw_locked(path, oid)
+            filtered = _apply_tombstones(raw)
+            # ``_apply_tombstones`` returns ``raw`` itself when there is
+            # nothing to filter, and ``raw`` may be the cached list — copy
+            # so a caller cannot mutate the cache out from under us. This
+            # is a pointer copy, far cheaper than re-reading the log.
+            return list(filtered)
     except Exception as exc:
         logger.warning("Failed to read audit log for %r: %s", oid, exc)
         return []
-    return _apply_tombstones(raw)
 
 
 def read_page(
@@ -516,6 +612,7 @@ def clear(oid: str) -> None:
         with _lock_for(oid):
             _remove_all_log_files_locked(path)
             _last_ts_per_oid.pop(oid, None)
+            _cache_drop_locked(oid)
             _bump_version(oid)
     except Exception as exc:
         logger.warning("Failed to clear audit log for %r: %s", oid, exc)
@@ -533,6 +630,7 @@ def delete(oid: str) -> bool:
         with _lock_for(oid):
             removed = _remove_all_log_files_locked(path)
             _last_ts_per_oid.pop(oid, None)
+            _cache_drop_locked(oid)
             _bump_version(oid)
         return removed
     except OSError as exc:
@@ -617,7 +715,7 @@ def pop_last_forward(
             # cancelled by a tombstone in the active file.
             with open(path, "a", encoding="utf-8") as f:
                 f.write(line)
-            _bump_version(oid)
+            _commit_append_locked(oid, tombstone)
             return target
     except Exception as exc:
         logger.warning("Failed to pop last forward record for %r: %s", oid, exc)

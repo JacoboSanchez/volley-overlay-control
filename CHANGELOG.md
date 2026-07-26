@@ -8,6 +8,150 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Scoring a point no longer re-reads and re-parses the entire audit
+  log.** `GameService.add_point` writes its audit record *before* building
+  the state response, and that write bumps the log version the live-stats
+  memo is keyed on — so the memo missed on every single point, and each
+  miss walked the active audit file plus every rotated one
+  (`AUDIT_LOG_MAX_BYTES` × `AUDIT_LOG_MAX_FILES`, 25 MiB with the
+  defaults), `json.loads`-ing every line before running nine aggregation
+  passes.
+
+  `action_log` now keeps the parsed records per OID and folds each
+  newly-written record into that cache, so the steady-state cost of a
+  point is one line appended to a file rather than a full reparse. The
+  cache is invalidated on rotation (which can discard the oldest file) and
+  on `clear`/`delete`. Aggregation logic is untouched — this changes only
+  how the records reach it.
+
+  Handlers still call `GameService` synchronously on the event loop, as
+  before. Moving those calls to a worker thread was tried and reverted:
+  the single-threaded loop is what currently makes a mutation atomic with
+  respect to every other handler, and `session.lock` is held only by the
+  mutation routes — `/state` and the WebSocket snapshot never take it,
+  and `get_state` itself writes via `_sync_table_tennis_serve`. Offloading
+  therefore needs a full audit of every session reader first, tracked
+  separately.
+
+- **`WSHub` no longer depends on being called from the event loop to
+  deliver a broadcast.** `broadcast_sync` resolved its loop with
+  `asyncio.get_running_loop()`, which raises off-loop; the handler logged
+  at debug level and returned, so the broadcast vanished with no visible
+  error. Every current caller does run on the loop, so this was latent
+  rather than live — but it made "must run on the loop" an undocumented
+  precondition of a fire-and-forget API. `WSHub` now captures the loop at
+  startup and schedules through `call_soon_threadsafe` when off-loop, the
+  same approach `ObsBroadcastHub` already used.
+
+- **The per-OID caches are now released when a session is retired.** The
+  live-stats payload and the parsed audit records were keyed by OID and
+  never evicted — `clear_cache` was documented as test-only, "production
+  never needs it" — so an instance retained the full history of every
+  overlay it had ever served. `SessionManager.remove` and
+  `cleanup_expired` now drop both.
+
+- **Live-stats failures are no longer silent.** Five `except Exception`
+  handlers in `game_service.py` returned a fallback with no log line. The
+  one wrapping `compute_live_stats` was the worst: on failure `/state`
+  degraded permanently and invisibly (`current_set_started_at` became
+  `None`, the summary set silently fell back to `current_set - 1`). All
+  five now log.
+
+- **The Docker healthcheck no longer marks the container permanently
+  unhealthy when `APP_PORT` is changed.** Both `docker-compose.yml` and
+  `docker-compose.traefik.yml` hardcoded `localhost:8080` in their
+  `healthcheck.test`. A compose-level healthcheck overrides the image's
+  own `HEALTHCHECK` (which already resolved `APP_PORT` correctly), so any
+  operator moving the app off 8080 got a container that never became
+  healthy — and, behind Traefik's health-gating plus
+  `restart: unless-stopped`, never became routable either. Both files now
+  interpolate `${APP_PORT:-8080}`, as does the published container port in
+  `docker-compose.yml`.
+
+### Security
+
+- **`requirements.lock` no longer ships versions below the floors declared
+  in `requirements.txt`.** CI and the Dockerfile install from the lock
+  only, so the declared minimums were not being enforced: the lock carried
+  `fastapi==0.137.2` against a `>=0.139.2` floor, `uvicorn==0.49.0`
+  against `>=0.51.0`, and `alembic==1.18.4` against `>=1.18.5`. (The two
+  CVE-driven floors, `starlette` and `urllib3`, were correctly pinned.)
+  The lock has been recompiled, and CI now fails when it cannot satisfy
+  `requirements.txt`.
+
+- **Migrated the router off the vulnerable `react-router-dom`.**
+  `react-router-dom@7.18.1` is affected by GHSA-qwww-vcr4-c8h2 (high, RSC
+  Mode CSRF bypass) and no patched release exists — 7.18.1 is the last
+  version ever published, because React Router v8 folded DOM support into
+  the core `react-router` package. The dependency is now
+  `react-router@8.3.0`, which is above the advisory range.
+
+  This SPA only uses the declarative API (`BrowserRouter`, `Routes`,
+  `Route`, `Link`, `NavLink`, `Navigate`, `Outlet`, `MemoryRouter`,
+  `useLocation`, `useNavigate`), all of which v8 exports unchanged, so the
+  migration is the package swap plus the import specifier in 20 files.
+  Verified by driving the built SPA in a real browser: anonymous access to
+  a protected route still redirects to login, in-app links still navigate
+  client-side without a full reload, the browser back button is still
+  handled by the router, and `/board` still loads — with no
+  module-resolution or router errors in the console.
+
+  **This raises the Node floor for building the frontend to 22.22.**
+  `react-router@8.3.0` declares `node >=22.22.0`, while CI selected Node 20
+  and the docs advertised 20+ — so the documented environment would have
+  installed an unsupported dependency, and `npm ci` would have failed
+  outright anywhere `engine-strict` is set. CI now uses Node 22,
+  `README.md` and `CONTRIBUTING.md` state 22.22+, and `frontend/package.json`
+  declares the `engines.node` range so the mismatch cannot drift silently
+  again. The Docker image already built the frontend on a newer Node, so
+  published images were never affected.
+
+### Changed
+
+- **Type checking now covers the bodies of unannotated functions.**
+  `check_untyped_defs` was off, so mypy skipped the body of every function
+  without annotations while reporting "no issues found in 114 source
+  files". Turning it on surfaced five real defects, now fixed: a variable
+  reused with two different types in `app/config_validator.py`, an
+  undeclared mixin attribute contract in `app/overlay_backends/base.py`,
+  a wrongly-inferred payload dict in `app/bootstrap.py`, and an
+  unguarded `Path(self.directory)` in `SPAStaticFiles._index_response`
+  where `StaticFiles.directory` is optional upstream — that one would
+  have raised `TypeError` rather than 404ing if the SPA were ever mounted
+  without a directory. `split_custom_oid` / `strip_legacy_prefix` now
+  declare the `None` they already accepted at runtime.
+- **Lint warnings can no longer accumulate silently.** `npm run lint` runs
+  with `--max-warnings 0`, and `no-explicit-any`, `no-unused-vars` and the
+  three `jsx-a11y` rules are errors rather than warnings — the cleanup they
+  were staged behind is complete. The four deliberate `autoFocus` uses on
+  single-purpose auth pages carry justified inline disables.
+- **The backend coverage floor lives in `pyproject.toml`.** It existed only
+  as a `--cov-fail-under=70` flag in CI, so the plain `pytest --cov=app`
+  documented in `AGENTS.md` enforced nothing.
+- CI now runs the backend suite against **Python 3.14** as well as 3.11.
+  3.14 is what the Dockerfile ships and it had never been tested.
+- Every CI job now sets `timeout-minutes`; a hung job previously ran until
+  GitHub's 6-hour default.
+- `AGENTS.md` now lists the quality gates CI actually enforces (it omitted
+  bandit, pip-audit, npm audit, eslint, prettier and the OpenAPI
+  schema-drift check), corrects the claim that `npm run build` runs `tsc`
+  (it is `vite build`, which does not type-check), and fixes the overlay
+  template count (30 files, 27 selectable — one place said 16).
+
+### Removed
+
+- **Dropped the unused `feat/multi-user-db` deployment scaffolding.**
+  `docker-publish-new.yml`, `docker-compose.traefik.new.yml` and
+  `.env.traefik.new.example` duplicated their mainline counterparts and
+  carried a personal hostname as the example value. The multi-user
+  refactor they staged is merged.
+- **Dropped the `PUID`/`PGID` environment knobs** from
+  `docker-compose.yml`. Nothing read them: `docker-entrypoint.sh`
+  hardcodes uid/gid 1000. They invited operators to set a value that
+  silently did nothing.
+
 ## [6.2.2] - 2026-07-20
 
 ### Changed

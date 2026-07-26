@@ -17,16 +17,24 @@ concurrency:
 
 jobs:
   test:
-    name: Run Pytest and Linters
+    name: Run Pytest and Linters (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 is the floor declared in pyproject.toml; 3.14 is what the
+        # Dockerfile actually ships, so it must be exercised here too.
+        python-version: ["3.11", "3.14"]
+
     steps:
     - uses: actions/checkout@v7
-    
-    - name: Set up Python 3.11
+
+    - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v7
       with:
-        python-version: "3.11"
+        python-version: ${{ matrix.python-version }}
         cache: 'pip' # caching pip dependencies
         
     - name: Install dependencies
@@ -40,6 +48,64 @@ jobs:
         # pre-commit hook never saw. Bumping these is a deliberate change that
         # should land in its own PR with the new findings reviewed.
         uv pip install --system ruff==0.15.8 mypy==1.19.1
+
+    - name: Fail if requirements.lock does not match requirements.txt
+      # CI and the Dockerfile install from the lock only, so a lock that
+      # disagrees with requirements.txt makes the declared ranges fiction —
+      # including the CVE floors. This caught fastapi, uvicorn and alembic
+      # pinned under their stated minimums.
+      #
+      # Two distinct failures have to be caught, and they need two checks:
+      #
+      # 1. A pin that *violates* a declared range. Resolving requirements.txt
+      #    with the lock as a constraints file surfaces this as an
+      #    unsatisfiable resolution. Constraining rather than diffing a fresh
+      #    compile is deliberate: a byte-diff would go red every time any
+      #    dependency publishes a new release, whereas this only fails when
+      #    the lock genuinely cannot satisfy the declared ranges.
+      #
+      # 2. A package *missing* from the lock. `--constraint` only constrains
+      #    versions of packages it lists — it does not require that the lock
+      #    covers everything requirements.txt pulls in. So uv happily
+      #    resolves a newly-added dependency from the registry into the
+      #    throwaway output and exits 0, while CI and the image keep
+      #    installing the incomplete committed lock and only fail later at
+      #    import time. Comparing the resolved pin set against the lock's
+      #    closes that hole (and also catches stale leftovers in the lock).
+      #
+      # The resolved output goes to a real file under RUNNER_TEMP, not
+      # /dev/null: uv writes a temp file alongside the output path and then
+      # renames it, so ``-o /dev/null`` makes it try to create ``/dev/.tmpXXXX``
+      # and fail with EACCES on the runner — which looked exactly like lock
+      # drift. Only a genuine mismatch may fail this step, so the exit code
+      # is captured separately from the diagnostic output.
+      run: |
+        CHECK="${RUNNER_TEMP}/requirements.lock.check"
+        set +e
+        out=$(uv pip compile requirements.txt \
+                --constraint requirements.lock \
+                -o "$CHECK" --quiet 2>&1)
+        rc=$?
+        set -e
+        if [ $rc -ne 0 ]; then
+          echo "$out"
+          echo ""
+          echo "::error::requirements.lock cannot satisfy requirements.txt (a pin violates a declared range)."
+          echo "Run 'uv pip compile requirements.txt -o requirements.lock' and commit the result."
+          exit 1
+        fi
+        # Normalise to a sorted set of PEP 503 name==version pins.
+        norm() {
+          grep -oiE '^[a-z0-9][a-z0-9._-]*==[^ ;]+' "$1" \
+            | tr 'A-Z' 'a-z' | tr '_' '-' | sort -u
+        }
+        if ! delta=$(diff <(norm requirements.lock) <(norm "$CHECK")); then
+          echo "$delta"
+          echo ""
+          echo "::error::requirements.lock is missing or has stale packages ('<' only in lock, '>' only in the resolved set)."
+          echo "Run 'uv pip compile requirements.txt -o requirements.lock' and commit the result."
+          exit 1
+        fi
 
     - name: Lint with ruff
       run: ruff check .
@@ -63,13 +129,16 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v7
       with:
-        name: coverage-xml
+        # Suffixed with the matrix version — artifact names must be unique
+        # across jobs in a run.
+        name: coverage-xml-py${{ matrix.python-version }}
         path: coverage.xml
         if-no-files-found: ignore
 
   frontend:
     name: Frontend typecheck, tests and schema drift
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
     - uses: actions/checkout@v7
@@ -88,7 +157,10 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v7
       with:
-        node-version: "20"
+        # >= 22.22.0 is required by react-router 8; the Dockerfile's
+        # frontend stage builds on a newer Node still, and that path is
+        # exercised by the docker-build job.
+        node-version: "22"
         cache: "npm"
         cache-dependency-path: frontend/package-lock.json
 
@@ -144,6 +216,7 @@ jobs:
     # ``# nosec`` comments.
     name: Security scanners (bandit, pip-audit, npm audit)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
     - uses: actions/checkout@v7
@@ -187,7 +260,10 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v7
       with:
-        node-version: "20"
+        # >= 22.22.0 is required by react-router 8; the Dockerfile's
+        # frontend stage builds on a newer Node still, and that path is
+        # exercised by the docker-build job.
+        node-version: "22"
         cache: "npm"
         cache-dependency-path: frontend/package-lock.json
 
@@ -203,6 +279,7 @@ jobs:
   docker-build:
     name: Docker image build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
     - uses: actions/checkout@v7

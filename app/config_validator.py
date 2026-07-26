@@ -31,10 +31,12 @@ def validate_config():
     # import/export JSON shapes, not as operator env config.)
     json_vars = ['APP_TEAMS', 'APP_THEMES']
     for var in json_vars:
-        val = os.environ.get(var)
-        if val:
+        # Distinct name from the ``val`` above: that one is always ``str``
+        # (it carries a default), this one is optional.
+        raw = os.environ.get(var)
+        if raw:
             try:
-                json.loads(val)
+                json.loads(raw)
             except json.JSONDecodeError:
                 logger.warning("Invalid JSON in %s. Defaulting to empty/None behavior.", var)
                 # We simply remove invalid JSON from environment to prevent runtime crashes

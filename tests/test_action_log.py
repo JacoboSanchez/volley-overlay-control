@@ -290,6 +290,121 @@ class TestActionLogRotation:
 
 
 # ---------------------------------------------------------------------------
+# Parsed-record cache
+# ---------------------------------------------------------------------------
+
+
+class TestParsedRecordCache:
+    """Appends must not force a full re-read and re-parse of the log.
+
+    ``GameService.add_point`` audits before building its state response,
+    which invalidates the live-stats memo, whose recompute calls
+    ``read_all``. Before the cache that made every scored point re-read and
+    re-parse the whole log (active file plus every rotated one).
+    """
+
+    @pytest.fixture
+    def count_file_reads(self, monkeypatch):
+        """Count how many log files get opened and parsed."""
+        calls = []
+        original = action_log._read_one_file_locked
+
+        def counting(path, oid):
+            calls.append(path)
+            return original(path, oid)
+
+        monkeypatch.setattr(action_log, "_read_one_file_locked", counting)
+        return calls
+
+    def test_append_then_read_does_not_reparse(self, count_file_reads):
+        action_log.append("cache-1", "add_point", {"team": 1}, {"x": 1})
+        # First read populates the cache from disk.
+        assert len(action_log.read_all("cache-1")) == 1
+        assert len(count_file_reads) == 1
+
+        # Steady state: each append folds itself into the cache, so the
+        # follow-up read costs zero file reads.
+        count_file_reads.clear()
+        for i in range(20):
+            action_log.append("cache-1", "add_point", {"team": 1}, {"x": i})
+            action_log.read_all("cache-1")
+        assert count_file_reads == []
+        assert len(action_log.read_all("cache-1")) == 21
+
+    def test_cached_view_matches_disk(self):
+        """The cache must never diverge from a cold read of the files."""
+        for i in range(10):
+            action_log.append("cache-2", "add_point", {"team": 1, "i": i}, {"x": i})
+        action_log.pop_last_forward("cache-2")
+        warm = action_log.read_all("cache-2")
+
+        # Drop the cache and read the same log straight from disk.
+        action_log._raw_cache.pop("cache-2", None)
+        cold = action_log.read_all("cache-2")
+        assert warm == cold
+
+    def test_rotation_invalidates_cache(self, monkeypatch):
+        """Rotation can discard the oldest file; the cache must not
+        keep serving records that are no longer on disk."""
+        monkeypatch.setattr(action_log, "AUDIT_LOG_MAX_BYTES", 200)
+        monkeypatch.setattr(action_log, "AUDIT_LOG_MAX_FILES", 2)
+        for i in range(40):
+            action_log.append("cache-3", "add_point", {"team": 1, "i": i}, {"x": i})
+            action_log.read_all("cache-3")
+
+        warm = action_log.read_all("cache-3")
+        action_log._raw_cache.pop("cache-3", None)
+        cold = action_log.read_all("cache-3")
+        assert warm == cold
+        # Rotation actually dropped records, so this is a real check.
+        assert len(cold) < 40
+
+    def test_clear_drops_cache(self):
+        action_log.append("cache-4", "add_point", {"team": 1}, {"x": 1})
+        assert len(action_log.read_all("cache-4")) == 1
+        action_log.clear("cache-4")
+        assert action_log.read_all("cache-4") == []
+        assert "cache-4" not in action_log._raw_cache
+
+    def test_evict_cache_releases_memory(self):
+        action_log.append("cache-5", "add_point", {"team": 1}, {"x": 1})
+        action_log.read_all("cache-5")
+        assert "cache-5" in action_log._raw_cache
+        action_log.evict_cache("cache-5")
+        assert "cache-5" not in action_log._raw_cache
+        # Eviction is a memory concern only — the records survive on disk.
+        assert len(action_log.read_all("cache-5")) == 1
+
+    def test_evict_cache_keeps_timestamps_monotonic(self, monkeypatch):
+        """Eviction must not drop the monotonic timestamp tracker.
+
+        The log files outlive the session, so if ``_last_ts_per_oid`` were
+        cleared here a wall-clock rollback would let the next append reuse a
+        timestamp already on disk. Tombstones reference records by ``ts``, so
+        a duplicate lets one ``_pop`` cancel two records.
+        """
+        clock = [1_000_000.0]
+        monkeypatch.setattr(action_log.time, "time", lambda: clock[0])
+
+        action_log.append("cache-7", "add_point", {"team": 1}, {"x": 1})
+        action_log.evict_cache("cache-7")
+
+        # Clock jumps backwards while the log file is still on disk.
+        clock[0] -= 60.0
+        action_log.append("cache-7", "add_point", {"team": 1}, {"x": 2})
+
+        records = action_log.read_all("cache-7")
+        assert len(records) == 2
+        assert records[1]["ts"] > records[0]["ts"]
+
+    def test_caller_cannot_mutate_the_cache(self):
+        action_log.append("cache-6", "add_point", {"team": 1}, {"x": 1})
+        records = action_log.read_all("cache-6")
+        records.append({"ts": 0, "action": "injected"})
+        assert len(action_log.read_all("cache-6")) == 1
+
+
+# ---------------------------------------------------------------------------
 # Cursor pagination (M13)
 # ---------------------------------------------------------------------------
 

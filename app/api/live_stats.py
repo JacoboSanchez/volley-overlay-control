@@ -389,11 +389,22 @@ _STATS_CACHE: dict[str, tuple[int, dict[int, dict[str, Any]]]] = {}
 def clear_cache() -> None:
     """Drop every memoized live-stats payload.
 
-    Used by the test harness for per-test isolation; production never
-    needs it (entries self-invalidate when ``action_log.version`` moves).
+    Used by the test harness for per-test isolation.
     """
     with _CACHE_LOCK:
         _STATS_CACHE.clear()
+
+
+def evict_cache(oid: str) -> None:
+    """Drop the memoized payloads for a single OID.
+
+    Entries self-invalidate on the *version* axis, but nothing ever
+    removes the key itself, so the payload for every OID the process has
+    served stays resident. Called when a session is retired (see
+    :meth:`app.api.session_manager.SessionManager.remove`).
+    """
+    with _CACHE_LOCK:
+        _STATS_CACHE.pop(oid, None)
 
 
 def compute_live_stats(

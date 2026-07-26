@@ -2,9 +2,13 @@
 
 import logging
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 from app.overlay_backends.utils import split_custom_oid
 from app.state import State
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from app.conf import Conf
 
 logger = logging.getLogger(__name__)
 
@@ -16,17 +20,23 @@ class CustomOidMixin:
     exposes the base-id / style accessors used by :class:`LocalOverlayBackend`.
     """
 
+    # Supplied by the concrete backend this mixin is combined with —
+    # ``LocalOverlayBackend.__init__`` assigns it. Declared here (annotation
+    # only, no class attribute created) so the ``self.conf`` reads below
+    # type-check instead of relying on unchecked function bodies.
+    conf: "Conf"
+
     @staticmethod
-    def get_overlay_id(oid: str):
+    def get_overlay_id(oid: str | None) -> tuple[str, str | None]:
         """Extract base_id and optional style from a custom OID."""
         return split_custom_oid(oid)
 
-    def _custom_id(self, oid=None):
+    def _custom_id(self, oid: str | None = None) -> str:
         check_oid = oid if oid is not None else self.conf.oid
         cid, _ = split_custom_oid(check_oid)
         return cid
 
-    def _style(self, oid=None):
+    def _style(self, oid: str | None = None) -> str | None:
         check_oid = oid if oid is not None else self.conf.oid
         _, style = split_custom_oid(check_oid)
         return style

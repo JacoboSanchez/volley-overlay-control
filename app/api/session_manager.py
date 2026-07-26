@@ -384,6 +384,23 @@ class SessionManager:
             return cls._sessions.get(oid)
 
     @classmethod
+    def _release_oid_caches(cls, oid):
+        """Drop the process-local caches keyed by *oid*.
+
+        Both the parsed audit records and the live-stats payload are held
+        per OID and are never otherwise evicted, so an instance that serves
+        many overlays over its lifetime retains all of them. Released here
+        rather than inside the lock-holding block above: these take their
+        own locks, and the class lock is process-global.
+        """
+        try:
+            from app.api import action_log, live_stats
+            action_log.evict_cache(oid)
+            live_stats.evict_cache(oid)
+        except Exception:
+            logger.exception("Failed to release caches for OID=%s", oid)
+
+    @classmethod
     def remove(cls, oid):
         """Remove a session (e.g. on disconnect)."""
         with cls._lock:
@@ -391,6 +408,7 @@ class SessionManager:
             if session:
                 session.shutdown()
             set_active_sessions(len(cls._sessions))
+        cls._release_oid_caches(oid)
 
     @classmethod
     def clear(cls):
@@ -416,4 +434,6 @@ class SessionManager:
                 logger.info("Expired session for OID=%s", oid)
             if expired:
                 set_active_sessions(len(cls._sessions))
+        for oid in expired:
+            cls._release_oid_caches(oid)
         return len(expired)

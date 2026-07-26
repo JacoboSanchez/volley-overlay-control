@@ -73,6 +73,10 @@ class GameService:
         try:
             return int(session.backend.obs_client_count)
         except Exception:  # pragma: no cover - defensive
+            logger.debug(
+                "Could not read obs_client_count for OID=%s",
+                getattr(session, "oid", None), exc_info=True,
+            )
             return 0
 
     @staticmethod
@@ -92,6 +96,10 @@ class GameService:
             summaries = match_archive.list_matches(oid=session.oid)
             return summaries[0]["match_id"] if summaries else None
         except Exception:  # pragma: no cover - defensive
+            logger.warning(
+                "Could not resolve last match id for OID=%s",
+                getattr(session, "oid", None), exc_info=True,
+            )
             return None
 
     @staticmethod
@@ -209,6 +217,13 @@ class GameService:
             stats = compute_live_stats(session.oid)
             points_by_set_cache = stats.get("points_by_set") or {}
         except Exception:  # pragma: no cover - defensive
+            # Degrades several fields at once (current_set_started_at,
+            # the summary-set resolution) and would otherwise be silent
+            # and permanent, so this is logged loudly.
+            logger.exception(
+                "Live-stats computation failed for OID=%s; state response "
+                "will fall back to defaults", getattr(session, "oid", None),
+            )
             points_by_set_cache = None
         response = GameStateResponse(
             current_set=session.current_set,
@@ -1064,6 +1079,10 @@ class GameService:
             ts = events[0].get("ts")
             return float(ts) if isinstance(ts, (int, float)) else None
         except Exception:  # pragma: no cover - defensive
+            logger.warning(
+                "Could not resolve current-set start for OID=%s",
+                getattr(session, "oid", None), exc_info=True,
+            )
             return None
 
     @staticmethod
@@ -1092,6 +1111,11 @@ class GameService:
                 points_by_set = stats.get("points_by_set")
             return resolve_summary_set_num(points_by_set, session.current_set)
         except Exception:  # pragma: no cover - defensive
+            logger.warning(
+                "Could not resolve summary set for OID=%s; falling back to "
+                "the previous set", getattr(session, "oid", None),
+                exc_info=True,
+            )
             return max(int(session.current_set) - 1, 1)
 
     @staticmethod

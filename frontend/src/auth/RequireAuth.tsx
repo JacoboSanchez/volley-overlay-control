@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router';
 import { useAuth } from './AuthContext';
 
 /** Neutral full-viewport placeholder shown while a route decides what to

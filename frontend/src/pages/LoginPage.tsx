@@ -1,5 +1,10 @@
+/* eslint-disable jsx-a11y/no-autofocus --
+   Deliberate: the single autoFocus below is on the first field of a
+   dedicated, single-purpose auth page, so focusing it on mount cannot
+   steal focus from other content. Scoped to this file, which has
+   exactly one such field. */
 import { FormEvent, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useI18n } from '../i18n';
