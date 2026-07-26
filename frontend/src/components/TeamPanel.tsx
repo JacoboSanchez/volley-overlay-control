@@ -224,7 +224,6 @@ function TeamPanel({
               color: readableServeColor,
               opacity: isServing ? 1 : 0.4,
               cursor: 'pointer',
-              fontSize: '2rem',
               border: 'none',
               background: 'transparent',
               padding: 0,
@@ -232,7 +231,7 @@ function TeamPanel({
             onClick={() => onChangeServe(teamId)}
             data-testid={`team-${teamId}-serve`}
           >
-            <span className="material-icons" aria-hidden="true">
+            <span className="material-icons" aria-hidden="true" style={{ fontSize: '2rem' }}>
               sports_volleyball
             </span>
           </button>

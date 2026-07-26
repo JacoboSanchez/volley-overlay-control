@@ -61,6 +61,7 @@ describe('TeamPanel', () => {
     const serve = screen.getByTestId('team-1-serve');
     expect(serve).toBeInTheDocument();
     expect(serve.style.opacity).toBe('1');
+    expect(serve.querySelector('.material-icons')).toHaveStyle({ fontSize: '2rem' });
   });
 
   it('renders serve icon dimmed when not serving', () => {
