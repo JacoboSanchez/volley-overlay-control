@@ -117,7 +117,9 @@ export default function ControlButtons({
           title={t('ctrl.reset')}
           data-testid="reset-button"
         >
-          <span className="material-icons">restart_alt</span>
+          <span className="material-icons" aria-hidden="true">
+            restart_alt
+          </span>
           <span>{t('ctrl.reset')}</span>
         </button>
       ) : (
@@ -127,7 +129,9 @@ export default function ControlButtons({
           title={t('ctrl.startMatch')}
           data-testid="start-match-button"
         >
-          <span className="material-icons">play_arrow</span>
+          <span className="material-icons" aria-hidden="true">
+            play_arrow
+          </span>
           <span>{t('ctrl.startMatch')}</span>
         </button>
       )}
@@ -141,7 +145,9 @@ export default function ControlButtons({
           title={t('ctrl.viewReport')}
           data-testid="view-report-button"
         >
-          <span className="material-icons">description</span>
+          <span className="material-icons" aria-hidden="true">
+            description
+          </span>
           <span>{t('ctrl.viewReport')}</span>
         </a>
       )}
@@ -158,7 +164,9 @@ export default function ControlButtons({
           data-testid="onair-indicator"
         >
           <span className="control-onair-dot" />
-          <span className="material-icons">podcasts</span>
+          <span className="material-icons" aria-hidden="true">
+            podcasts
+          </span>
           <span className="control-onair-count">{obsClients}</span>
         </span>
       )}
@@ -173,9 +181,12 @@ export default function ControlButtons({
         onClick={onUndoLast}
         disabled={!canUndo}
         title={t('ctrl.undoLast')}
+        aria-label={t('ctrl.undoLast')}
         data-testid="undo-button"
       >
-        <span className="material-icons">undo</span>
+        <span className="material-icons" aria-hidden="true">
+          undo
+        </span>
       </button>
 
       <button
@@ -186,9 +197,13 @@ export default function ControlButtons({
         }}
         onClick={onToggleSimpleMode}
         title={simpleMode ? t('ctrl.fullScoreboard') : t('ctrl.simpleScoreboard')}
+        aria-label={t('ctrl.simpleScoreboard')}
+        aria-pressed={simpleMode}
         data-testid="simple-mode-button"
       >
-        <span className="material-icons">{simpleMode ? 'window' : 'grid_on'}</span>
+        <span className="material-icons" aria-hidden="true">
+          {simpleMode ? 'window' : 'grid_on'}
+        </span>
       </button>
 
       <button
@@ -199,9 +214,13 @@ export default function ControlButtons({
         }}
         onClick={onTogglePreview}
         title={showPreview ? t('ctrl.hidePreview') : t('ctrl.showPreview')}
+        aria-label={t('links.preview')}
+        aria-pressed={showPreview}
         data-testid="preview-button"
       >
-        <span className="material-icons">{showPreview ? 'tv' : 'tv_off'}</span>
+        <span className="material-icons" aria-hidden="true">
+          {showPreview ? 'tv' : 'tv_off'}
+        </span>
       </button>
 
       {setSummaryEnabled && onToggleSetSummary && (
@@ -217,10 +236,13 @@ export default function ControlButtons({
           }}
           onClick={onToggleSetSummary}
           title={t('setSummary.toggle')}
+          aria-label={t('setSummary.toggle')}
           aria-pressed={!!setSummaryActive}
           data-testid="set-summary-button"
         >
-          <span className="material-icons">summarize</span>
+          <span className="material-icons" aria-hidden="true">
+            summarize
+          </span>
         </button>
       )}
 
@@ -232,9 +254,13 @@ export default function ControlButtons({
         }}
         onClick={onToggleVisibility}
         title={visible ? t('ctrl.hideOverlay') : t('ctrl.showOverlay')}
+        aria-label={t('ctrl.overlayVisibility')}
+        aria-pressed={visible}
         data-testid="visibility-button"
       >
-        <span className="material-icons">{visible ? 'visibility' : 'visibility_off'}</span>
+        <span className="material-icons" aria-hidden="true">
+          {visible ? 'visibility' : 'visibility_off'}
+        </span>
       </button>
     </div>
   );

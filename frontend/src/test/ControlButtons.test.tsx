@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 import { I18nProvider } from '../i18n';
 import { SettingsProvider } from '../hooks/useSettings';
@@ -21,6 +21,10 @@ const defaultProps = {
 };
 
 describe('ControlButtons', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it('renders the in-game control buttons', () => {
     renderWithI18n(<ControlButtons {...defaultProps} />);
     expect(screen.getByTestId('visibility-button')).toBeInTheDocument();
@@ -215,5 +219,34 @@ describe('ControlButtons', () => {
       <ControlButtons {...defaultProps} matchFinished lastMatchId="m1" showReportLink={false} />,
     );
     expect(screen.queryByTestId('view-report-button')).toBeNull();
+  });
+
+  it('localizes icon-only controls and exposes toggle state', () => {
+    localStorage.setItem('volley_lang', 'es');
+    const { container } = renderWithI18n(
+      <ControlButtons
+        {...defaultProps}
+        visible
+        simpleMode
+        showPreview={false}
+        setSummaryEnabled
+        setSummaryActive={false}
+        onToggleSetSummary={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('undo-button')).toHaveAccessibleName('Deshacer última acción');
+    expect(screen.getByTestId('simple-mode-button')).toHaveAccessibleName('Marcador simple');
+    expect(screen.getByTestId('simple-mode-button')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('preview-button')).toHaveAccessibleName('Vista previa');
+    expect(screen.getByTestId('preview-button')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByTestId('visibility-button')).toHaveAccessibleName('Visibilidad del overlay');
+    expect(screen.getByTestId('visibility-button')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('set-summary-button')).toHaveAccessibleName(
+      'Mostrar resumen del set en el overlay',
+    );
+    for (const icon of container.querySelectorAll('.material-icons')) {
+      expect(icon).toHaveAttribute('aria-hidden', 'true');
+    }
   });
 });

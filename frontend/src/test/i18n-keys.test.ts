@@ -8,6 +8,8 @@
  *    must exist in the English catalog, so a missing key can never leak the
  *    raw key string to the UI (dynamic template-literal keys are exercised
  *    by their components' own tests).
+ * 3. Accessible text is catalogued — literal aria-label / alt attributes and
+ *    visually-hidden English text cannot bypass `t()`.
  */
 import { describe, it, expect } from 'vitest';
 import { translations } from '../i18n/translations';
@@ -55,5 +57,23 @@ describe('translation catalog', () => {
     expect(used.size).toBeGreaterThan(100); // sanity: the scan found real usage
     const unresolved = [...used].filter((k) => !enKeys.has(k)).sort();
     expect(unresolved).toEqual([]);
+  });
+
+  it('does not hard-code user-facing accessible text in JSX', () => {
+    const violations: string[] = [];
+    for (const [path, text] of Object.entries(sources)) {
+      for (const match of text.matchAll(/\b(?:aria-label|alt)\s*=\s*"([^"]*[A-Za-z][^"]*)"/g)) {
+        violations.push(`${path}: ${match[1]}`);
+      }
+      for (const match of text.matchAll(/\b(?:aria-label|alt)\s*=\s*'([^']*[A-Za-z][^']*)'/g)) {
+        violations.push(`${path}: ${match[1]}`);
+      }
+      for (const match of text.matchAll(
+        /<[^>]+\bclassName\s*=\s*["'][^"']*\bvisually-hidden\b[^"']*["'][^>]*>\s*([A-Za-z][^<{]*)/g,
+      )) {
+        violations.push(`${path}: ${match[1]?.trim()}`);
+      }
+    }
+    expect(violations.sort()).toEqual([]);
   });
 });

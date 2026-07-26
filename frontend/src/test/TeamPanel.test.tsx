@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import TeamPanel, { TeamPanelProps } from '../components/TeamPanel';
 import type { TeamState } from '../api/client';
-import { mockGameState } from './helpers';
+import { mockGameState, renderWithI18n } from './helpers';
 
 const baseTeamState: TeamState = {
   sets: 1,
@@ -41,6 +41,7 @@ describe('TeamPanel', () => {
   });
   afterEach(() => {
     vi.useRealTimers();
+    localStorage.clear();
   });
 
   it('renders score for current set', () => {
@@ -60,6 +61,7 @@ describe('TeamPanel', () => {
     const serve = screen.getByTestId('team-1-serve');
     expect(serve).toBeInTheDocument();
     expect(serve.style.opacity).toBe('1');
+    expect(serve.querySelector('.material-icons')).toHaveStyle({ fontSize: '2rem' });
   });
 
   it('renders serve icon dimmed when not serving', () => {
@@ -206,5 +208,28 @@ describe('TeamPanel', () => {
     );
     const img = screen.getByTestId('team-1-logo') as HTMLImageElement;
     expect(img.src).toContain('https://example.com/logo.png');
+  });
+
+  it('localizes scoring-control names and gesture descriptions', () => {
+    localStorage.setItem('volley_lang', 'es');
+    renderWithI18n(
+      <TeamPanel
+        {...defaultProps}
+        isPortrait={true}
+        iconLogo="https://example.com/logo.png"
+        customization={{ 'Team 1 Name': 'Lobos' }}
+      />,
+    );
+
+    expect(screen.getByTestId('team-1-score')).toHaveAccessibleName('Lobos, puntuación 15');
+    expect(screen.getByTestId('team-1-score')).toHaveAccessibleDescription(
+      'Toca para sumar un punto, toca dos veces para deshacer o mantén pulsado para establecer un valor.',
+    );
+    expect(screen.getByTestId('team-1-timeout')).toHaveAccessibleName('Lobos, tiempo muerto');
+    expect(screen.getByTestId('team-1-timeout')).toHaveAccessibleDescription(
+      'Toca para sumar un tiempo muerto o toca dos veces para deshacer.',
+    );
+    expect(screen.getByTestId('team-1-serve')).toHaveAccessibleName('Lobos, saque');
+    expect(screen.getByTestId('team-1-logo')).toHaveAttribute('alt', 'Lobos');
   });
 });

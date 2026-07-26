@@ -15,12 +15,14 @@ export const translations: Record<string, TranslationDict> = {
     // Dialog
     'dialog.ok': 'OK',
     'dialog.cancel': 'Cancel',
+    'dialog.close': 'Close dialog',
     'dialog.setScore': 'Set score — Team {team}',
     'dialog.setSets': 'Set sets won — Team {team}',
 
     // Control buttons
     'ctrl.hideOverlay': 'Hide overlay',
     'ctrl.showOverlay': 'Show overlay',
+    'ctrl.overlayVisibility': 'Overlay visibility',
     'ctrl.hideControls': 'Hide controls',
     'ctrl.showControls': 'Show controls',
     'board.invalidLink.title': 'This control link is no longer valid',
@@ -81,6 +83,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Recent-audit drawer (Phase 4.2)
     'history.title': 'History',
+    'history.recentActions': 'Recent actions',
     'history.close': 'Close history',
     'history.refresh': 'Refresh',
     'history.empty': 'No recent actions yet.',
@@ -97,6 +100,12 @@ export const translations: Record<string, TranslationDict> = {
     'history.action.reset': 'Reset',
     'history.action.unknown': '(unknown action)',
     'history.action.undoSuffix': ' (undone)',
+    'history.chip.point': '{team}: +1',
+    'history.chip.typedPoint': '{team}: +1 ({type})',
+    'history.chip.setWon': '{team}: set won',
+    'history.chip.matchWon': '{team}: match won',
+    'history.chip.timeout': '{team}: timeout',
+    'history.chip.manual': '{team}: manual {value}',
     'history.legend.pointT1': 'Point T1',
     'history.legend.pointT2': 'Point T2',
     'history.legend.set': 'Set won',
@@ -194,6 +203,12 @@ export const translations: Record<string, TranslationDict> = {
     'rules.autoSwapSidesHint':
       'Mirror the scoreboard and overlays on set changes and mid-set switch points.',
     'scoreboard.swapSides': 'Swap sides',
+    'scoreboard.team': 'Team {team}',
+    'scoreboard.score': '{team}, score {score}',
+    'scoreboard.scoreHelp': 'Tap to add a point, double-tap to undo, or long-press to set a value.',
+    'scoreboard.timeout': '{team}, timeout',
+    'scoreboard.timeoutHelp': 'Tap to add a timeout or double-tap to undo.',
+    'scoreboard.serve': '{team}, serve',
     'rules.sideSwitchInN': 'Side switch in {n}',
     'rules.mode.table_tennis': 'Table tennis',
     'rules.bestOf.7': 'Best of 7',
@@ -870,12 +885,14 @@ export const translations: Record<string, TranslationDict> = {
     // Dialog
     'dialog.ok': 'OK',
     'dialog.cancel': 'Cancelar',
+    'dialog.close': 'Cerrar diálogo',
     'dialog.setScore': 'Puntuación — Equipo {team}',
     'dialog.setSets': 'Sets ganados — Equipo {team}',
 
     // Control buttons
     'ctrl.hideOverlay': 'Ocultar overlay',
     'ctrl.showOverlay': 'Mostrar overlay',
+    'ctrl.overlayVisibility': 'Visibilidad del overlay',
     'ctrl.hideControls': 'Ocultar controles',
     'ctrl.showControls': 'Mostrar controles',
     'board.invalidLink.title': 'Este enlace de control ya no es válido',
@@ -937,6 +954,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Recent-audit drawer (Phase 4.2)
     'history.title': 'Historial',
+    'history.recentActions': 'Acciones recientes',
     'history.close': 'Cerrar historial',
     'history.refresh': 'Actualizar',
     'history.empty': 'Sin acciones recientes.',
@@ -953,6 +971,12 @@ export const translations: Record<string, TranslationDict> = {
     'history.action.reset': 'Reinicio',
     'history.action.unknown': '(acción desconocida)',
     'history.action.undoSuffix': ' (deshecho)',
+    'history.chip.point': '{team}: +1',
+    'history.chip.typedPoint': '{team}: +1 ({type})',
+    'history.chip.setWon': '{team}: set ganado',
+    'history.chip.matchWon': '{team}: partido ganado',
+    'history.chip.timeout': '{team}: tiempo muerto',
+    'history.chip.manual': '{team}: ajuste manual {value}',
     'history.legend.pointT1': 'Punto E1',
     'history.legend.pointT2': 'Punto E2',
     'history.legend.set': 'Set ganado',
@@ -1051,6 +1075,13 @@ export const translations: Record<string, TranslationDict> = {
     'rules.autoSwapSidesHint':
       'Refleja el marcador y los overlays en los cambios de set y en los puntos de cambio de campo.',
     'scoreboard.swapSides': 'Cambiar de lado',
+    'scoreboard.team': 'Equipo {team}',
+    'scoreboard.score': '{team}, puntuación {score}',
+    'scoreboard.scoreHelp':
+      'Toca para sumar un punto, toca dos veces para deshacer o mantén pulsado para establecer un valor.',
+    'scoreboard.timeout': '{team}, tiempo muerto',
+    'scoreboard.timeoutHelp': 'Toca para sumar un tiempo muerto o toca dos veces para deshacer.',
+    'scoreboard.serve': '{team}, saque',
     'rules.sideSwitchInN': 'Cambio de lado en {n}',
     'rules.mode.table_tennis': 'Tenis de mesa',
     'rules.bestOf.7': 'Al mejor de 7',
@@ -1733,12 +1764,14 @@ export const translations: Record<string, TranslationDict> = {
     // Dialog
     'dialog.ok': 'OK',
     'dialog.cancel': 'Cancelar',
+    'dialog.close': 'Fechar diálogo',
     'dialog.setScore': 'Pontuação — Equipa {team}',
     'dialog.setSets': 'Sets ganhos — Equipa {team}',
 
     // Control buttons
     'ctrl.hideOverlay': 'Ocultar overlay',
     'ctrl.showOverlay': 'Mostrar overlay',
+    'ctrl.overlayVisibility': 'Visibilidade do overlay',
     'ctrl.hideControls': 'Ocultar controlos',
     'ctrl.showControls': 'Mostrar controlos',
     'board.invalidLink.title': 'Esta ligação de controlo já não é válida',
@@ -1800,6 +1833,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Recent-audit drawer (Phase 4.2)
     'history.title': 'Histórico',
+    'history.recentActions': 'Ações recentes',
     'history.close': 'Fechar histórico',
     'history.refresh': 'Atualizar',
     'history.empty': 'Sem ações recentes.',
@@ -1816,6 +1850,12 @@ export const translations: Record<string, TranslationDict> = {
     'history.action.reset': 'Reinício',
     'history.action.unknown': '(ação desconhecida)',
     'history.action.undoSuffix': ' (desfeito)',
+    'history.chip.point': '{team}: +1',
+    'history.chip.typedPoint': '{team}: +1 ({type})',
+    'history.chip.setWon': '{team}: set ganho',
+    'history.chip.matchWon': '{team}: jogo ganho',
+    'history.chip.timeout': '{team}: tempo morto',
+    'history.chip.manual': '{team}: ajuste manual {value}',
     'history.legend.pointT1': 'Ponto E1',
     'history.legend.pointT2': 'Ponto E2',
     'history.legend.set': 'Set ganho',
@@ -1914,6 +1954,14 @@ export const translations: Record<string, TranslationDict> = {
     'rules.autoSwapSidesHint':
       'Espelha o placar e os overlays nas mudanças de set e nos pontos de troca de quadra.',
     'scoreboard.swapSides': 'Trocar de lado',
+    'scoreboard.team': 'Equipa {team}',
+    'scoreboard.score': '{team}, pontuação {score}',
+    'scoreboard.scoreHelp':
+      'Toque para adicionar um ponto, toque duas vezes para desfazer ou mantenha premido para definir um valor.',
+    'scoreboard.timeout': '{team}, tempo morto',
+    'scoreboard.timeoutHelp':
+      'Toque para adicionar um tempo morto ou toque duas vezes para desfazer.',
+    'scoreboard.serve': '{team}, saque',
     'rules.sideSwitchInN': 'Troca de lado em {n}',
     'rules.mode.table_tennis': 'Tênis de mesa',
     'rules.bestOf.7': 'À melhor de 7',
@@ -2588,12 +2636,14 @@ export const translations: Record<string, TranslationDict> = {
     // Dialog
     'dialog.ok': 'OK',
     'dialog.cancel': 'Annulla',
+    'dialog.close': 'Chiudi finestra',
     'dialog.setScore': 'Punteggio — Squadra {team}',
     'dialog.setSets': 'Set vinti — Squadra {team}',
 
     // Control buttons
     'ctrl.hideOverlay': 'Nascondi overlay',
     'ctrl.showOverlay': 'Mostra overlay',
+    'ctrl.overlayVisibility': 'Visibilità overlay',
     'ctrl.hideControls': 'Nascondi controlli',
     'ctrl.showControls': 'Mostra controlli',
     'board.invalidLink.title': 'Questo link di controllo non è più valido',
@@ -2655,6 +2705,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Recent-audit drawer (Phase 4.2)
     'history.title': 'Cronologia',
+    'history.recentActions': 'Azioni recenti',
     'history.close': 'Chiudi cronologia',
     'history.refresh': 'Aggiorna',
     'history.empty': 'Nessuna azione recente.',
@@ -2671,6 +2722,12 @@ export const translations: Record<string, TranslationDict> = {
     'history.action.reset': 'Reset',
     'history.action.unknown': '(azione sconosciuta)',
     'history.action.undoSuffix': ' (annullato)',
+    'history.chip.point': '{team}: +1',
+    'history.chip.typedPoint': '{team}: +1 ({type})',
+    'history.chip.setWon': '{team}: set vinto',
+    'history.chip.matchWon': '{team}: partita vinta',
+    'history.chip.timeout': '{team}: time-out',
+    'history.chip.manual': '{team}: modifica manuale {value}',
     'history.legend.pointT1': 'Punto S1',
     'history.legend.pointT2': 'Punto S2',
     'history.legend.set': 'Set vinto',
@@ -2769,6 +2826,13 @@ export const translations: Record<string, TranslationDict> = {
     'rules.autoSwapSidesHint':
       'Specchia tabellone e overlay ai cambi di set e ai punti di cambio campo.',
     'scoreboard.swapSides': 'Cambia lato',
+    'scoreboard.team': 'Squadra {team}',
+    'scoreboard.score': '{team}, punteggio {score}',
+    'scoreboard.scoreHelp':
+      'Tocca per aggiungere un punto, tocca due volte per annullare o tieni premuto per impostare un valore.',
+    'scoreboard.timeout': '{team}, time-out',
+    'scoreboard.timeoutHelp': 'Tocca per aggiungere un time-out o tocca due volte per annullare.',
+    'scoreboard.serve': '{team}, servizio',
     'rules.sideSwitchInN': 'Cambio campo tra {n}',
     'rules.mode.table_tennis': 'Ping pong',
     'rules.bestOf.7': 'Al meglio di 7',
@@ -3443,12 +3507,14 @@ export const translations: Record<string, TranslationDict> = {
     // Dialog
     'dialog.ok': 'OK',
     'dialog.cancel': 'Annuler',
+    'dialog.close': 'Fermer la boîte de dialogue',
     'dialog.setScore': 'Score — Équipe {team}',
     'dialog.setSets': 'Sets gagnés — Équipe {team}',
 
     // Control buttons
     'ctrl.hideOverlay': 'Masquer l’overlay',
     'ctrl.showOverlay': 'Afficher l’overlay',
+    'ctrl.overlayVisibility': 'Visibilité de l’overlay',
     'ctrl.hideControls': 'Masquer les commandes',
     'ctrl.showControls': 'Afficher les commandes',
     'board.invalidLink.title': 'Ce lien de contrôle n’est plus valide',
@@ -3510,6 +3576,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Recent-audit drawer (Phase 4.2)
     'history.title': 'Historique',
+    'history.recentActions': 'Actions récentes',
     'history.close': 'Fermer l’historique',
     'history.refresh': 'Actualiser',
     'history.empty': 'Aucune action récente.',
@@ -3526,6 +3593,12 @@ export const translations: Record<string, TranslationDict> = {
     'history.action.reset': 'Réinitialisation',
     'history.action.unknown': '(action inconnue)',
     'history.action.undoSuffix': ' (annulé)',
+    'history.chip.point': '{team} : +1',
+    'history.chip.typedPoint': '{team} : +1 ({type})',
+    'history.chip.setWon': '{team} : set gagné',
+    'history.chip.matchWon': '{team} : match gagné',
+    'history.chip.timeout': '{team} : temps mort',
+    'history.chip.manual': '{team} : réglage manuel {value}',
     'history.legend.pointT1': 'Point É1',
     'history.legend.pointT2': 'Point É2',
     'history.legend.set': 'Set gagné',
@@ -3625,6 +3698,14 @@ export const translations: Record<string, TranslationDict> = {
     'rules.autoSwapSidesHint':
       'Inverse le tableau et les overlays aux changements de set et aux points de changement de côté.',
     'scoreboard.swapSides': 'Changer de côté',
+    'scoreboard.team': 'Équipe {team}',
+    'scoreboard.score': '{team}, score {score}',
+    'scoreboard.scoreHelp':
+      'Touchez pour ajouter un point, touchez deux fois pour annuler ou maintenez appuyé pour définir une valeur.',
+    'scoreboard.timeout': '{team}, temps mort',
+    'scoreboard.timeoutHelp':
+      'Touchez pour ajouter un temps mort ou touchez deux fois pour annuler.',
+    'scoreboard.serve': '{team}, service',
     'rules.sideSwitchInN': 'Changement de côté dans {n}',
     'rules.mode.table_tennis': 'Tennis de table',
     'rules.bestOf.7': 'Au meilleur des 7',
@@ -4305,12 +4386,14 @@ export const translations: Record<string, TranslationDict> = {
     // Dialog
     'dialog.ok': 'OK',
     'dialog.cancel': 'Abbrechen',
+    'dialog.close': 'Dialog schließen',
     'dialog.setScore': 'Punktestand — Team {team}',
     'dialog.setSets': 'Gewonnene Sätze — Team {team}',
 
     // Control buttons
     'ctrl.hideOverlay': 'Overlay ausblenden',
     'ctrl.showOverlay': 'Overlay einblenden',
+    'ctrl.overlayVisibility': 'Overlay-Sichtbarkeit',
     'ctrl.hideControls': 'Steuerung ausblenden',
     'ctrl.showControls': 'Steuerung einblenden',
     'board.invalidLink.title': 'Dieser Steuerungslink ist nicht mehr gültig',
@@ -4372,6 +4455,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Recent-audit drawer (Phase 4.2)
     'history.title': 'Verlauf',
+    'history.recentActions': 'Letzte Aktionen',
     'history.close': 'Verlauf schließen',
     'history.refresh': 'Aktualisieren',
     'history.empty': 'Noch keine Aktionen.',
@@ -4388,6 +4472,12 @@ export const translations: Record<string, TranslationDict> = {
     'history.action.reset': 'Reset',
     'history.action.unknown': '(unbekannte Aktion)',
     'history.action.undoSuffix': ' (rückgängig)',
+    'history.chip.point': '{team}: +1',
+    'history.chip.typedPoint': '{team}: +1 ({type})',
+    'history.chip.setWon': '{team}: Satz gewonnen',
+    'history.chip.matchWon': '{team}: Spiel gewonnen',
+    'history.chip.timeout': '{team}: Auszeit',
+    'history.chip.manual': '{team}: manuell {value}',
     'history.legend.pointT1': 'Punkt T1',
     'history.legend.pointT2': 'Punkt T2',
     'history.legend.set': 'Satzgewinn',
@@ -4487,6 +4577,13 @@ export const translations: Record<string, TranslationDict> = {
     'rules.autoSwapSidesHint':
       'Spiegelt Anzeigetafel und Overlays bei Satzwechseln und Seitenwechselpunkten.',
     'scoreboard.swapSides': 'Seiten tauschen',
+    'scoreboard.team': 'Team {team}',
+    'scoreboard.score': '{team}, Punktestand {score}',
+    'scoreboard.scoreHelp':
+      'Tippen fügt einen Punkt hinzu, Doppeltippen macht rückgängig und Gedrückthalten legt einen Wert fest.',
+    'scoreboard.timeout': '{team}, Auszeit',
+    'scoreboard.timeoutHelp': 'Tippen fügt eine Auszeit hinzu, Doppeltippen macht sie rückgängig.',
+    'scoreboard.serve': '{team}, Aufschlag',
     'rules.sideSwitchInN': 'Seitenwechsel in {n}',
     'rules.mode.table_tennis': 'Tischtennis',
     'rules.bestOf.7': 'Best of 7',

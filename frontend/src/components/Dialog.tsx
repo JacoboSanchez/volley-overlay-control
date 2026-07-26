@@ -1,4 +1,5 @@
 import { useEffect, useRef, ReactNode } from 'react';
+import { useI18n } from '../i18n';
 
 export interface DialogProps {
   /** Whether the dialog is currently visible. */
@@ -29,6 +30,7 @@ export default function Dialog({
   ariaLabelledBy,
   children,
 }: DialogProps) {
+  const { t } = useI18n();
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Focus the card on the open transition only. Splitting this from the
@@ -101,7 +103,7 @@ export default function Dialog({
         type="button"
         className="dialog-backdrop"
         onClick={onClose}
-        aria-label="Close dialog"
+        aria-label={t('dialog.close')}
         tabIndex={-1}
       />
       <div

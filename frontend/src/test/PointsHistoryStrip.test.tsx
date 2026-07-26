@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import PointsHistoryStrip from '../components/PointsHistoryStrip';
 import type { RecentEvent } from '../hooks/useRecentEvents';
+import { renderWithI18n } from './helpers';
 
 const COMMON = {
   team1Color: '#1a73e8',
@@ -130,5 +131,26 @@ describe('PointsHistoryStrip', () => {
     );
     expect(screen.getByTestId('phs-chip-1-0')).toHaveAttribute('aria-label', 'Home: set won');
     expect(screen.getByTestId('phs-chip-2-1')).toHaveAttribute('aria-label', 'Away: match won');
+  });
+
+  it('localizes the strip and every computed event label', () => {
+    localStorage.setItem('volley_lang', 'es');
+    renderWithI18n(
+      strip([
+        { ts: 1, team: 1, kind: 'point_add', pointType: 'kill' },
+        { ts: 2, team: 1, kind: 'set_won' },
+        { ts: 3, team: 2, kind: 'match_won' },
+        { ts: 4, team: 2, kind: 'timeout' },
+        { ts: 5, team: 1, kind: 'manual', value: 7 },
+      ]),
+    );
+
+    expect(screen.getByTestId('points-history-strip')).toHaveAccessibleName('Acciones recientes');
+    expect(screen.getByTestId('phs-chip-1-0')).toHaveAccessibleName('Home: +1 (Ataque)');
+    expect(screen.getByTestId('phs-chip-1-1')).toHaveAccessibleName('Home: set ganado');
+    expect(screen.getByTestId('phs-chip-2-2')).toHaveAccessibleName('Away: partido ganado');
+    expect(screen.getByTestId('phs-chip-2-3')).toHaveAccessibleName('Away: tiempo muerto');
+    expect(screen.getByTestId('phs-chip-1-4')).toHaveAccessibleName('Home: ajuste manual 7');
+    localStorage.clear();
   });
 });

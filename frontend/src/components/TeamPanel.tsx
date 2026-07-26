@@ -7,6 +7,7 @@ import { toNumber, asString } from '../utils/coerce';
 import { getReadableOnSurface } from '../utils/contrast';
 import { useDoubleTap } from '../hooks/useDoubleTap';
 import { useSurfaceColor } from '../hooks/useSurfaceColor';
+import { useI18n } from '../i18n';
 
 export interface TeamPanelProps {
   teamId: 1 | 2;
@@ -76,6 +77,7 @@ function TeamPanel({
   onDoubleTapTimeout,
   onLongPressScore,
 }: TeamPanelProps) {
+  const { t } = useI18n();
   const score = toNumber(teamState?.scores?.[`set_${currentSet}`]);
   const timeouts = teamState?.timeouts ?? 0;
   const isServing = teamState?.serving ?? false;
@@ -110,8 +112,8 @@ function TeamPanel({
   const teamNameLabel =
     asString(customization?.[`Team ${teamId} Name`]) ||
     asString(customization?.[`Team ${teamId} Text Name`]) ||
-    `Team ${teamId === 1 ? 'A' : 'B'}`;
-  const scoreAriaLabel = `${teamNameLabel} score ${score}`;
+    t('scoreboard.team', { team: teamId });
+  const scoreAriaLabel = t('scoreboard.score', { team: teamNameLabel, score });
   const scoreDescId = `team-${teamId}-score-help`;
 
   const timeoutDots: ReactElement[] = [];
@@ -158,7 +160,7 @@ function TeamPanel({
             {safeIconLogo && (
               <img
                 src={safeIconLogo}
-                alt={`Team ${teamId}`}
+                alt={teamNameLabel}
                 className="team-logo"
                 data-testid={`team-${teamId}-logo`}
               />
@@ -186,7 +188,7 @@ function TeamPanel({
           data-testid={`team-${teamId}-score`}
         />
         <span id={scoreDescId} className="visually-hidden">
-          Tap to add point, double-tap to undo, long-press to set value.
+          {t('scoreboard.scoreHelp')}
         </span>
         <div className={isPortrait ? 'team-side-col' : 'team-side-row'}>
           <div className={isPortrait ? 'team-side-group-col' : 'team-side-group-row'}>
@@ -194,14 +196,16 @@ function TeamPanel({
               className="timeout-button"
               style={{ borderColor: readableTimeoutColor, color: readableTimeoutColor }}
               {...timeoutHandlers}
-              aria-label={`Team ${teamId} timeout`}
+              aria-label={t('scoreboard.timeout', { team: teamNameLabel })}
               aria-describedby={`team-${teamId}-timeout-help`}
               data-testid={`team-${teamId}-timeout`}
             >
-              <span className="material-icons">timer</span>
+              <span className="material-icons" aria-hidden="true">
+                timer
+              </span>
             </button>
             <span id={`team-${teamId}-timeout-help`} className="visually-hidden">
-              Tap to add timeout, double-tap to undo.
+              {t('scoreboard.timeoutHelp')}
             </span>
             <div
               className={`timeout-dots ${isPortrait ? 'timeout-dots-col' : 'timeout-dots-row'}`}
@@ -213,14 +217,13 @@ function TeamPanel({
           {!isPortrait && <div className="spacer" />}
           <button
             type="button"
-            className="material-icons serve-icon"
-            aria-label={`Team ${teamId} serve`}
+            className="serve-icon"
+            aria-label={t('scoreboard.serve', { team: teamNameLabel })}
             aria-pressed={isServing}
             style={{
               color: readableServeColor,
               opacity: isServing ? 1 : 0.4,
               cursor: 'pointer',
-              fontSize: '2rem',
               border: 'none',
               background: 'transparent',
               padding: 0,
@@ -228,7 +231,9 @@ function TeamPanel({
             onClick={() => onChangeServe(teamId)}
             data-testid={`team-${teamId}-serve`}
           >
-            sports_volleyball
+            <span className="material-icons" aria-hidden="true" style={{ fontSize: '2rem' }}>
+              sports_volleyball
+            </span>
           </button>
         </div>
       </div>
