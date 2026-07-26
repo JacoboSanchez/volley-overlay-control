@@ -72,6 +72,11 @@ once a first tagged release ships.
 
 ### Security
 
+- **Frontend build tooling now uses `fast-uri` 3.1.4.** The transitive
+  dependency (via `vite-plugin-pwa` / Workbox / `ajv`) is bumped from
+  3.1.2 to include the fixes for GHSA-4c8g-83qw-93j6 and
+  GHSA-v2hh-gcrm-f6hx.
+
 - **`requirements.lock` no longer ships versions below the floors declared
   in `requirements.txt`.** CI and the Dockerfile install from the lock
   only, so the declared minimums were not being enforced: the lock carried
