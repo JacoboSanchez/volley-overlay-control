@@ -207,6 +207,10 @@ class OverlayStateStore:
         self._templates_dir = templates_dir
         self._overlays: dict[str, dict] = {}
         self._lock = threading.RLock()
+        # Serializes each overlay's mutation -> snapshot -> disk-write sequence
+        # without making unrelated overlays wait on one another. These locks
+        # are always acquired before ``self._lock``.
+        self._persistence_locks: dict[str, threading.Lock] = {}
         self._broadcast_callback: Callable | None = None
         self._available_styles: list | None = None
         self._renderable_styles: list | None = None
@@ -289,11 +293,10 @@ class OverlayStateStore:
         return state if state is not None else get_default_state()
 
     async def load_persisted_state_async(self, overlay_id: str) -> dict:
-        path = self.get_state_file_path(overlay_id)
-        state = await asyncio.to_thread(self._read_state_sync, path)
-        return state if state is not None else get_default_state()
+        return await asyncio.to_thread(self.load_persisted_state, overlay_id)
 
-    def save_persisted_state(self, overlay_id: str, state: dict) -> None:
+    def _save_persisted_state_unlocked(self, overlay_id: str, state: dict) -> None:
+        """Persist *state* while the caller holds the overlay's write lock."""
         path = self.get_state_file_path(overlay_id)
         self._stamp_meta(state, overlay_id)
         try:
@@ -303,13 +306,17 @@ class OverlayStateStore:
             # are filesystem-level (no space, permissions, missing dir).
             logger.warning("Failed to save state for '%s': %s", overlay_id, exc)
 
+    def save_persisted_state(self, overlay_id: str, state: dict) -> None:
+        with self._get_persistence_lock(overlay_id):
+            self._save_persisted_state_unlocked(overlay_id, state)
+
     async def save_persisted_state_async(self, overlay_id: str, state: dict) -> None:
-        path = self.get_state_file_path(overlay_id)
-        self._stamp_meta(state, overlay_id)
-        try:
-            await asyncio.to_thread(self._write_state_sync, path, state)
-        except OSError as exc:
-            logger.warning("Failed to save state for '%s': %s", overlay_id, exc)
+        await asyncio.to_thread(self.save_persisted_state, overlay_id, state)
+
+    def _get_persistence_lock(self, overlay_id: str) -> threading.Lock:
+        """Return the stable per-overlay lock used to order disk snapshots."""
+        with self._lock:
+            return self._persistence_locks.setdefault(overlay_id, threading.Lock())
 
     # -- In-memory context -------------------------------------------------
 
@@ -537,13 +544,14 @@ class OverlayStateStore:
         except ValueError:
             logger.warning("create_overlay rejected invalid id: %r", overlay_id)
             return False
-        with self._lock:
-            # Hold the (reentrant) lock across the existence check AND the
-            # write so two concurrent first-touches can't both write default
-            # state (the check-then-write was previously a TOCTOU race).
+        with self._get_persistence_lock(overlay_id), self._lock:
+            # Hold both locks across the existence check and write so two
+            # concurrent first-touches cannot both create default state.
             if os.path.exists(path):
                 return False
-            self.save_persisted_state(overlay_id, get_default_state())
+            self._save_persisted_state_unlocked(
+                overlay_id, get_default_state()
+            )
             self._output_key_cache[overlay_id] = overlay_id
             self._output_key_cache[self.get_output_key(overlay_id)] = overlay_id
         logger.info("Overlay '%s' created", overlay_id)
@@ -562,15 +570,16 @@ class OverlayStateStore:
             logger.warning("delete_overlay rejected invalid id: %r", overlay_id)
             return False
         existed = False
-        if os.path.exists(path):
-            os.remove(path)
-            existed = True
-        with self._lock:
-            if overlay_id in self._overlays:
-                del self._overlays[overlay_id]
+        with self._get_persistence_lock(overlay_id):
+            if os.path.exists(path):
+                os.remove(path)
                 existed = True
-            self._output_key_cache.pop(overlay_id, None)
-            self._output_key_cache.pop(self.get_output_key(overlay_id), None)
+            with self._lock:
+                if overlay_id in self._overlays:
+                    del self._overlays[overlay_id]
+                    existed = True
+                self._output_key_cache.pop(overlay_id, None)
+                self._output_key_cache.pop(self.get_output_key(overlay_id), None)
         if existed:
             logger.info("Overlay '%s' deleted", overlay_id)
         return existed
@@ -594,13 +603,16 @@ class OverlayStateStore:
         """
         if not self.overlay_exists(source_id):
             return False
-        if self.overlay_exists(target_id):
-            return False
         source_state = self.load_persisted_state(source_id)
-        self.save_persisted_state(target_id, copy.deepcopy(source_state))
-        with self._lock:
-            self._output_key_cache[target_id] = target_id
-            self._output_key_cache[self.get_output_key(target_id)] = target_id
+        with self._get_persistence_lock(target_id):
+            if self.overlay_exists(target_id):
+                return False
+            self._save_persisted_state_unlocked(
+                target_id, copy.deepcopy(source_state)
+            )
+            with self._lock:
+                self._output_key_cache[target_id] = target_id
+                self._output_key_cache[self.get_output_key(target_id)] = target_id
         logger.info("Overlay '%s' copied from '%s'", target_id, source_id)
         return True
 
@@ -621,9 +633,7 @@ class OverlayStateStore:
         customization: dict | None = None,
     ) -> None:
         """Persist raw model/customization data into the overlay state."""
-        with self._lock:
-            ctx = self.get_overlay_context(overlay_id)
-            state = ctx["state"]
+        def apply(state: dict) -> None:
             if model is not None:
                 state["raw_remote_model"] = model
             if customization is not None:
@@ -631,43 +641,50 @@ class OverlayStateStore:
                 ps = customization.get("preferredStyle")
                 if ps is not None:
                     state.setdefault("overlay_control", {})["preferredStyle"] = ps
-            snapshot = copy.deepcopy(state)
-        self.save_persisted_state(overlay_id, snapshot)
+
+        self._mutate_and_persist(overlay_id, apply)
         if self._broadcast_callback:
             self._broadcast_callback(overlay_id)
 
     # -- State updates -----------------------------------------------------
 
+    def _mutate_and_persist(
+        self, overlay_id: str, mutation: Callable[[dict], None],
+    ) -> None:
+        """Apply *mutation* and persist its snapshot in per-overlay order."""
+        with self._get_persistence_lock(overlay_id):
+            with self._lock:
+                state = self.get_overlay_context(overlay_id)["state"]
+                mutation(state)
+                snapshot = copy.deepcopy(state)
+            self._save_persisted_state_unlocked(overlay_id, snapshot)
+
+    def _update_state_and_persist(self, overlay_id: str, payload: dict) -> None:
+        """Shared implementation for synchronous and asynchronous updates."""
+        def apply(state: dict) -> None:
+            deep_merge(state, payload)
+            _replace_subtrees(state, payload)
+            normalize_state(state)
+
+        self._mutate_and_persist(overlay_id, apply)
+
     async def update_state(self, overlay_id: str, payload: dict) -> None:
         """Deep-merge *payload* into overlay state, normalize, persist, broadcast."""
-        with self._lock:
-            ctx = self.get_overlay_context(overlay_id)
-            deep_merge(ctx["state"], payload)
-            _replace_subtrees(ctx["state"], payload)
-            normalize_state(ctx["state"])
-            snapshot = copy.deepcopy(ctx["state"])
-        await self.save_persisted_state_async(overlay_id, snapshot)
+        await asyncio.to_thread(self._update_state_and_persist, overlay_id, payload)
         if self._broadcast_callback:
             self._broadcast_callback(overlay_id)
 
     def update_state_sync(self, overlay_id: str, payload: dict) -> None:
         """Synchronous version of :meth:`update_state`."""
-        with self._lock:
-            ctx = self.get_overlay_context(overlay_id)
-            deep_merge(ctx["state"], payload)
-            _replace_subtrees(ctx["state"], payload)
-            normalize_state(ctx["state"])
-            snapshot = copy.deepcopy(ctx["state"])
-        self.save_persisted_state(overlay_id, snapshot)
+        self._update_state_and_persist(overlay_id, payload)
         if self._broadcast_callback:
             self._broadcast_callback(overlay_id)
 
     def set_visibility(self, overlay_id: str, show: bool) -> None:
         """Update ``overlay_control.show_main_scoreboard``."""
-        with self._lock:
-            ctx = self.get_overlay_context(overlay_id)
-            ctx["state"].setdefault("overlay_control", {})["show_main_scoreboard"] = show
-            snapshot = copy.deepcopy(ctx["state"])
-        self.save_persisted_state(overlay_id, snapshot)
+        def apply(state: dict) -> None:
+            state.setdefault("overlay_control", {})["show_main_scoreboard"] = show
+
+        self._mutate_and_persist(overlay_id, apply)
         if self._broadcast_callback:
             self._broadcast_callback(overlay_id)

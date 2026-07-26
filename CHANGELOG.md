@@ -10,6 +10,13 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Concurrent overlay updates can no longer roll back persisted state.**
+  Mutations and atomic JSON writes are now ordered per overlay across both
+  synchronous and asynchronous callers, so a delayed older snapshot cannot
+  replace a newer one on disk. The shared persistence cores also keep the
+  sync and async paths on the same locking behavior. Fixes
+  [#429](https://github.com/JacoboSanchez/volley-overlay-control/issues/429).
+
 - **Screen readers now follow the selected language throughout the scoring
   controls.** Score, timeout, serve, dialog, and recent-action accessible
   labels and gesture instructions now use the six-locale catalog. Icon-only
