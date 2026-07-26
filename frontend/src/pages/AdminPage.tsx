@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import CopyField from '../components/CopyField';

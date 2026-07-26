@@ -4,7 +4,7 @@
    steal focus from other content. Scoped to this file, which has
    exactly one such field. */
 import { FormEvent, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useI18n } from '../i18n';

@@ -81,6 +81,23 @@ once a first tagged release ships.
   The lock has been recompiled, and CI now fails when it cannot satisfy
   `requirements.txt`.
 
+- **Migrated the router off the vulnerable `react-router-dom`.**
+  `react-router-dom@7.18.1` is affected by GHSA-qwww-vcr4-c8h2 (high, RSC
+  Mode CSRF bypass) and no patched release exists — 7.18.1 is the last
+  version ever published, because React Router v8 folded DOM support into
+  the core `react-router` package. The dependency is now
+  `react-router@8.3.0`, which is above the advisory range.
+
+  This SPA only uses the declarative API (`BrowserRouter`, `Routes`,
+  `Route`, `Link`, `NavLink`, `Navigate`, `Outlet`, `MemoryRouter`,
+  `useLocation`, `useNavigate`), all of which v8 exports unchanged, so the
+  migration is the package swap plus the import specifier in 20 files.
+  Verified by driving the built SPA in a real browser: anonymous access to
+  a protected route still redirects to login, in-app links still navigate
+  client-side without a full reload, the browser back button is still
+  handled by the router, and `/board` still loads — with no
+  module-resolution or router errors in the console.
+
 ### Changed
 
 - **Type checking now covers the bodies of unannotated functions.**

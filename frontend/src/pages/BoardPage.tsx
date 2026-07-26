@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 import { useAuth } from '../auth/AuthContext';
 import RequireAuth, { RouteLoading } from '../auth/RequireAuth';
 import { SettingsProvider } from '../hooks/useSettings';
