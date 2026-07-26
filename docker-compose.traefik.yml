@@ -31,6 +31,11 @@ services:
       context: ./
       dockerfile: Dockerfile
     restart: unless-stopped
+    # Load every app knob from .env; the explicit entries below only provide
+    # deployment-specific defaults/overrides such as secure cookies behind TLS.
+    env_file:
+      - path: .env
+        required: false
     environment:
       APP_PORT: ${APP_PORT:-8080}
       APP_TITLE: ${APP_TITLE:-Scoreboard}
@@ -55,6 +60,9 @@ services:
       # Public base URL used to build OBS-friendly overlay links.
       OVERLAY_PUBLIC_URL: https://${TRAEFIK_HOST}
       # ---- Hardening (optional) ----
+      # All hardening knobs from .env.example (SECURITY_*, CORS_ALLOWED_ORIGINS,
+      # AUTH_RATE_LIMIT_*, REQUEST_MAX_BODY_BYTES, etc.) are already passed
+      # through by env_file above; only Traefik-specific guidance stays here.
       # Host-header allow-list. Traefik already routes only ${TRAEFIK_HOST} here,
       # so this is optional defence-in-depth. If you set it, include localhost so
       # the in-container healthcheck still passes, e.g.
@@ -70,8 +78,8 @@ services:
       # ---- Logging ----
       LOGGING_LEVEL: ${LOGGING_LEVEL:-warning}
       LOG_FORMAT: ${LOG_FORMAT:-text}
-      # See .env.example / docker-compose.yml for the full list of optional
-      # knobs (overlays.uno, custom overlay backend, webhooks, etc.).
+      # See .env.example for the full list of optional app knobs. New settings
+      # added there do not need a matching entry in this Compose file.
     volumes:
       # SQLite DB + session secret + bootstrap / overlay-server tokens.
       - overlay_data:/app/data

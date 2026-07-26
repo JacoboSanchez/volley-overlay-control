@@ -10,6 +10,14 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Docker Compose no longer drops unlisted application settings from
+  `.env`.** Both the host-port and Traefik deployment files now pass the full
+  optional `.env` through to the container, including security headers, auth
+  rate limits, request caps, icon limits, webhook retries, WebSocket limits,
+  and future settings. Environment documentation guards now also catch stale
+  example entries and indirect `_env_*` readers. Fixes
+  [#445](https://github.com/JacoboSanchez/volley-overlay-control/issues/445).
+
 - **Concurrent overlay updates can no longer roll back persisted state.**
   Mutations and atomic JSON writes are now ordered per overlay across both
   synchronous and asynchronous callers, so a delayed older snapshot cannot

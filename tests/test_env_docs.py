@@ -13,21 +13,25 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # Variables intentionally undocumented: test-only knobs, values managed by
 # the runtime itself, or vars surfaced through other docs.
-#
-# Empty by design. The guard only inspects reads under ``app/``, so a var
-# the backend never reads can never reach this check — an entry here would
-# be inert and, worse, could imply the runtime honours something it does
-# not. ``PUID``/``PGID`` used to sit here described as "set by
-# docker-entrypoint.sh"; the entrypoint never read them (it hardcodes
-# uid/gid 1000), so both the compose knob and this entry were removed.
 ALLOWLIST: set[str] = set()
 
-# Also matches the local ``_env*("NAME", default)`` helper wrappers used in
-# app/constants.py and the middlewares, so indirected reads cannot slip past
-# the docs guard.
+# Variables consumed by Docker Compose itself rather than the application.
+COMPOSE_ONLY = {
+    "DOCKER_LOG_MAX_FILE",
+    "DOCKER_LOG_MAX_SIZE",
+    "EXTERNAL_PORT",
+}
+
+# Also matches local ``_env_*("NAME", default)`` helper wrappers used in the
+# constants, settings, logging, and middleware modules. The reverse guard
+# below makes a newly-documented variable fail as stale if a new helper naming
+# pattern is not represented here.
 _READ_PATTERN = re.compile(
-    r"(?:get_env_var|get_bool_env|environ\.get|getenv|environ\[|_env(?:_int|_float(?:_nonneg)?)?)"
+    r"(?:get_env_var|get_bool_env|environ\.get|getenv|environ\[|_env(?:_[a-z]+)*)"
     r"\(?\s*\(?\s*['\"]([A-Z][A-Z0-9_]+)['\"]"
+)
+_EXAMPLE_DECLARATION_PATTERN = re.compile(
+    r"(?m)^\s*#?\s*([A-Z][A-Z0-9_]+)\s*="
 )
 
 
@@ -55,4 +59,15 @@ def test_every_env_var_is_documented():
         "Environment variables read by the backend but missing from "
         f"README.md / .env.example: {sorted(undocumented)}. Document them "
         "or add them to the allowlist in tests/test_env_docs.py."
+    )
+
+
+def test_every_example_env_var_is_used_or_compose_only():
+    example = (REPO_ROOT / ".env.example").read_text(encoding="utf-8")
+    documented = set(_EXAMPLE_DECLARATION_PATTERN.findall(example))
+    stale = documented - _env_vars_read_by_app() - COMPOSE_ONLY
+    assert not stale, (
+        "Environment variables declared in .env.example but not read by the "
+        f"backend or Compose: {sorted(stale)}. Remove stale knobs or teach "
+        "the read-pattern guard about the helper that consumes them."
     )
