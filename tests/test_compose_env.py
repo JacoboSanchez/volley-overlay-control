@@ -19,3 +19,8 @@ def test_app_service_loads_optional_dotenv(filename):
     )
     env_files = document["services"]["app"]["env_file"]
     assert {"path": ".env", "required": False} in env_files
+
+
+def test_optional_env_file_compose_version_is_documented():
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    assert "Docker Compose 2.24.0+" in readme

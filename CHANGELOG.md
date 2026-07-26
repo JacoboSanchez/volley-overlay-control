@@ -14,7 +14,8 @@ once a first tagged release ships.
   `.env`.** Both the host-port and Traefik deployment files now pass the full
   optional `.env` through to the container, including security headers, auth
   rate limits, request caps, icon limits, webhook retries, WebSocket limits,
-  and future settings. Environment documentation guards now also catch stale
+  and future settings. This optional-file support requires Docker Compose
+  2.24.0 or newer. Environment documentation guards now also catch stale
   example entries and indirect `_env_*` readers. Fixes
   [#445](https://github.com/JacoboSanchez/volley-overlay-control/issues/445).
 

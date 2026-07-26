@@ -187,6 +187,10 @@ WebSocket at `/ws/{public_token}`.
 
 The Dockerfile uses a multi-stage build: Node.js builds the React frontend, then the result is copied into the Python image. No separate frontend container or nginx is needed.
 
+> Requires **Docker Compose 2.24.0+**. Both shipped Compose files use the
+> `env_file.required` attribute introduced in that release so `.env` can stay
+> optional; legacy `docker-compose` and older v2 plugins are not supported.
+>
 > Deploying behind a **Traefik** reverse proxy? Use [`docker-compose.traefik.yml`](docker-compose.traefik.yml) + [`.env.traefik.example`](.env.traefik.example) instead — it publishes the app through Traefik (TLS, HTTP→HTTPS redirect, WebSocket pass-through) with no host ports, SQLite on a volume by default and an optional PostgreSQL service.
 
 1.  Create a `.env` file (everything here is optional; Compose passes every
