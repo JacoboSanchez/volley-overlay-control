@@ -406,8 +406,12 @@ writing a second explanation of an owned topic, replace it with a link.
 
 Cross-cutting rules that follow from the table:
 
-- **Auth**: any doc that needs the model gives a one-line summary and links to
-  `AUTHENTICATION.md`. It never enumerates credentials, statuses, or flags.
+- **Auth**: `AUTHENTICATION.md` owns the *model* — why a credential exists,
+  what it grants, what each failure returns, the security trade-offs. Other
+  docs may give operating instructions ("here is the link, here is how to
+  revoke it") and a one-line safety note, then link. They must not restate the
+  reasoning or re-enumerate statuses and flags; if you are explaining *why*
+  rather than *how to*, it belongs in `AUTHENTICATION.md`.
 - **Env vars**: only `README.md`'s table lists defaults.
   `tests/test_env_docs.py` enforces that every var read by the backend appears
   there.

@@ -158,7 +158,12 @@ CI_GATES = {
     "eslint": ("npm run lint",),
     "prettier --check": ("npm run format:check",),
     "npm audit": ("npm audit ",),
-    "OpenAPI schema": ("git diff --exit-code -- frontend/schema/openapi.json",),
+    # The table promises "OpenAPI schema + generated types"; the drift step
+    # diffs both paths, so both must stay in the command.
+    "OpenAPI schema": (
+        "git diff --exit-code -- frontend/schema/openapi.json",
+        "frontend/src/api/schema.d.ts",
+    ),
     "docker build": ("docker build",),
 }
 
@@ -209,6 +214,41 @@ def _documented_gate_table() -> str:
             break
         rows.append(line)
     return "\n".join(rows)
+
+
+def _table_gate_entries() -> list[str]:
+    """The individual gates listed in AGENTS.md's table, split on the bullet."""
+    entries = []
+    for row in _documented_gate_table().splitlines():
+        cells = row.split("|")
+        if len(cells) < 3:
+            continue
+        cell = cells[2].strip()
+        if not cell or set(cell) <= set("-: "):  # markdown separator row
+            continue
+        entries.extend(e.strip() for e in cell.split("·") if e.strip())
+    return entries
+
+
+def test_every_table_gate_is_mapped():
+    """A gate added to the table must be wired to a real CI command.
+
+    Without this, the docs→CI direction only ever checks the hard-coded
+    ``CI_GATES``: someone could add a row to the table promising a gate that
+    neither CI runs nor this file knows about, and nothing would notice.
+    """
+    entries = _table_gate_entries()
+    assert len(entries) >= 10, (
+        "Could not split AGENTS.md's gate table into individual gates "
+        f"(found {entries}). The rows are '·'-separated; update this helper "
+        "if that changed."
+    )
+    unmapped = [e for e in entries if not any(g in e for g in CI_GATES)]
+    assert not unmapped, (
+        f"AGENTS.md's gate table lists gates with no CI_GATES mapping: "
+        f"{unmapped}. Add each to CI_GATES with the command that enforces it "
+        "(and make sure ci.yml actually runs it), or stop promising it."
+    )
 
 
 def test_documented_gates_are_actually_run_by_ci():

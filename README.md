@@ -171,23 +171,15 @@ To revoke it, mint a fresh token from the overlay's dashboard entry (or
 working immediately** — do this when a season ends or a volunteer moves on.
 Treat the link like a password: anyone who has it can change the score.
 
-**Public bookmark (off by default, read the warning).** Enabling
-`public_control` on an overlay also accepts a **stable, guessable** URL:
+**Public bookmark — off by default; leave it off unless you need it.** An
+overlay can also opt into a permanent `?u=<username>&oid=<overlay-id>` URL,
+toggled per overlay from the dashboard.
 
-```
-https://your-host/board?u=<username>&oid=<overlay-id>
-```
-
-> ⚠️ This URL contains no secret. **Anyone who guesses your username and the
-> overlay id gets full control of that board**, including resetting the score
-> mid-match — and both halves are easy to guess (`court1`, `main`). The only
-> reason it exists is that it survives a token rotation, so a kiosk browser can
-> bookmark one permanent URL and never be re-provisioned.
->
-> Turn it on only on a trusted network, and prefer the operator link everywhere
-> else. Toggle it per overlay from the dashboard (or
-> `PATCH /api/v1/overlays/{oid}` with `{"public_control": false}` to turn it
-> back off). If you do enable it, pick a non-obvious overlay id.
+> ⚠️ Unlike the operator link, **this URL contains no secret** — anyone who
+> guesses your username and overlay id gets full control of the board. Only
+> turn it on when a kiosk needs a URL that survives token rotation, and only on
+> a trusted network. [AUTHENTICATION.md §1.2](AUTHENTICATION.md) explains the
+> trade-off and how it is enforced.
 
 The OBS output link (`/overlay/{public_token}`) is a third, separate token. It
 is **output only** — it renders the scoreboard and cannot change anything — so
