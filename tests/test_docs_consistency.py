@@ -305,7 +305,7 @@ def test_every_ci_gate_is_documented():
 
 # Paths the committed OpenAPI schema legitimately does not carry.
 # WebSockets have no OpenAPI representation at all.
-ROUTES_NOT_IN_SCHEMA = {"/ws"}
+ROUTES_NOT_IN_SCHEMA = {"/api/v1/ws"}
 
 
 def _normalise_path(path: str) -> str:
@@ -318,40 +318,81 @@ def _normalise_path(path: str) -> str:
     return re.sub(r"\{[^}]*\}", "{}", path)
 
 
+def _registered_api_paths() -> set[str]:
+    spec = json.loads(_read("frontend/schema/openapi.json"))
+    return {p for p in spec["paths"] if p.startswith("/api/v1")}
+
+
+def _inventoried_paths() -> set[str]:
+    """Every route AUTHENTICATION.md §2 lists, resolved against its prefix.
+
+    Each subsection declares its own ``Prefix `/api/v1/...` `` line, and the
+    table rows are relative to it, so the prefix has to be applied per
+    subsection rather than assumed.
+    """
+    text = _read("AUTHENTICATION.md")
+    section = text[text.index("## 2. Route inventory"):text.index("## 3. Findings")]
+    paths: set[str] = set()
+    for part in re.split(r"(?m)^### ", section)[1:]:
+        prefix_match = re.search(r"Prefix `([^`]+)`", part)
+        prefix = prefix_match.group(1).rstrip("/") if prefix_match else ""
+        for line in part.splitlines():
+            if not line.startswith("| `"):
+                continue
+            cells = [c.strip() for c in line.split("|")]
+            if len(cells) < 3:
+                continue
+            paths.update(prefix + p for p in re.findall(r"`(/[^`]*)`", cells[2]))
+    return paths
+
+
 def test_documented_api_routes_exist():
-    """Every ``/api/v1`` path in AUTHENTICATION.md §2.3 must be registered.
+    """Nothing in the inventory may point at a route that is not registered.
 
     A route inventory that invents a path is worse than no inventory: it
     sends integrators to a 404 while claiming to be the source of truth.
     The committed OpenAPI schema is the reference because CI already fails
     when it drifts from the app.
     """
-    spec = json.loads(_read("frontend/schema/openapi.json"))
-    registered = {_normalise_path(p) for p in spec["paths"]}
+    registered = {_normalise_path(p) for p in _registered_api_paths()}
+    documented = _inventoried_paths()
 
-    text = _read("AUTHENTICATION.md")
-    section = text[text.index("### 2.3"):text.index("### 2.4")]
-    documented = []
-    for line in section.splitlines():
-        if not line.startswith("| `"):
-            continue
-        cells = [c.strip() for c in line.split("|")]
-        documented.extend(re.findall(r"`(/[^`]*)`", cells[2]))
-
-    assert len(documented) > 20, (
-        "Could not parse the route rows out of AUTHENTICATION.md §2.3 "
+    assert len(documented) > 40, (
+        "Could not parse the route rows out of AUTHENTICATION.md §2 "
         f"(found {len(documented)}). Update this guard rather than letting "
         "it check nothing."
     )
     missing = sorted(
-        p for p in set(documented)
-        if p not in ROUTES_NOT_IN_SCHEMA
-        and _normalise_path("/api/v1" + p) not in registered
+        p for p in documented
+        if p.startswith("/api/v1")
+        and p not in ROUTES_NOT_IN_SCHEMA
+        and _normalise_path(p) not in registered
     )
     assert not missing, (
-        f"AUTHENTICATION.md §2.3 documents unregistered routes: {missing}. "
+        f"AUTHENTICATION.md §2 documents unregistered routes: {missing}. "
         "Fix the path (check the decorator in app/api/routes/), or add it to "
         "ROUTES_NOT_IN_SCHEMA if it genuinely has no OpenAPI entry."
+    )
+
+
+def test_api_route_inventory_is_complete():
+    """...and the inverse: every registered route must be inventoried.
+
+    This is the direction that decays silently. ``AUTHENTICATION.md`` calls
+    itself the per-route inventory, so a route added without a row leaves it
+    quietly incomplete — which is exactly what happened: 36 registered
+    routes were missing when this check was written.
+    """
+    documented = {_normalise_path(p) for p in _inventoried_paths()}
+    undocumented = sorted(
+        p for p in _registered_api_paths()
+        if _normalise_path(p) not in documented
+    )
+    assert not undocumented, (
+        f"Routes registered but absent from AUTHENTICATION.md §2: "
+        f"{undocumented}. Add a row under the matching subsection with its "
+        "auth class (Y / A / B / —). The document is the per-route auth "
+        "inventory; a route missing from it is an undocumented access path."
     )
 
 

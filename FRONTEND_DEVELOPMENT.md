@@ -548,16 +548,20 @@ ws.onopen = () => {
 ```
 
 The control WebSocket accepts **all three board credentials, same as the REST
-control surface** — bookmark-mode clients get real-time updates too:
+control surface** — bookmark-mode clients get real-time updates too. Listed in
+the order the server tries them, which matters when a client has more than one:
 
-| Credential | On the WS URL |
-| :--- | :--- |
-| Owner session | nothing to add — browsers send the cookie automatically on same-origin upgrades |
-| Control token | `?c=<token>`. The `X-Control-Token` header form is *not* available: a browser `WebSocket` cannot set request headers |
-| Public bookmark | `?u=<username>&oid=<oid>` |
+| # | Credential | On the WS URL |
+| :-- | :--- | :--- |
+| 1 | Control token | `?c=<token>`. The `X-Control-Token` header form is *not* available: a browser `WebSocket` cannot set request headers |
+| 2 | Public bookmark | `?u=<username>&oid=<oid>` |
+| 3 | Owner session | nothing to add — browsers send the cookie automatically on same-origin upgrades |
 
-Each resolves to the board's storage key. The bundled client picks one in that
-same precedence order (`createWebSocket` in `frontend/src/api/websocket.ts`).
+Each resolves to the board's storage key. **A `?c=` token wins over a logged-in
+cookie**, so a signed-in owner who opens someone else's control link streams
+*that* board, not their own. The bundled client applies the same order
+(`createWebSocket` in `frontend/src/api/websocket.ts`), and it matches
+`resolve_board_skey` on the REST side.
 
 Close codes: `4400` when neither `oid` nor `c` was supplied, `4003` when the
 credential does not resolve, `4004` when the board has no session yet. There is

@@ -210,6 +210,10 @@ board and cannot touch the owner's account.
 | `POST` | `/game/undo` | B | |
 | `POST` | `/display/visibility` | B | |
 | `POST` | `/display/simple-mode` | B | |
+| `POST` | `/display/swap-sides` | B | |
+| `POST` | `/display/auto-swap-sides` | B | |
+| `POST` | `/display/set-summary` | B | |
+| `POST` | `/display/set-summary-style` | B | |
 | `PUT` | `/customization` | B | |
 | `GET` | `/links` | B | |
 | `GET` | `/styles`, `/style-capabilities` | B | |
@@ -221,6 +225,17 @@ board and cannot touch the owner's account.
 | `DELETE` | `/overlays/{oid}` | Y | |
 | `POST` | `/overlays/{oid}/regenerate-control-token` | Y | Owner-only revocation of credential 2 — the previously-shared `/board?c=` link stops working immediately. |
 | `GET` | `/teams` | Y | |
+| `GET` | `/teams/mine`, `/teams/catalog` | Y | The caller's own list, and the global catalog they can pick from. |
+| `POST` | `/teams/mine`, `/teams/mine/custom`, `/teams/mine/remove` | Y | Add to / create in / remove from the caller's list. |
+| `PATCH` / `DELETE` | `/teams/mine/custom/{id}`, `/teams/mine/{id}` | Y | Scoped to the caller's own rows. |
+| `GET` | `/team-groups` | Y | Admin-published groups visible to the caller. |
+| `POST` | `/team-groups/{id}/copy-to-mine` | Y | |
+| `GET` / `POST` | `/my/groups` | Y | The caller's own team groups. |
+| `PATCH` / `DELETE` | `/my/groups/{id}` | Y | |
+| `POST` / `DELETE` | `/my/groups/{id}/teams`, `/my/groups/{id}/teams/{team_id}` | Y | |
+| `GET` / `POST` | `/customization/presets` | Y | The caller's saved theme presets. |
+| `DELETE` | `/customization/presets/{slug}` | Y | |
+| `GET` | `/matches` | Y | Lists only the caller's archived matches. |
 | `GET` | `/matches/{id}` | Y | Owner-only (`404` otherwise). |
 | `DELETE` | `/matches/{id}` | Y | Owner-only delete (§8 / §7.1). |
 | `POST` | `/matches/{id}/sign-url` | Y | Owner mints an HMAC capability URL for the gated match report. Body: `{"ttl_seconds": int}`. Response embeds `?exp=&sig=` — never a credential. Key is `SESSION_SECRET`. |
@@ -229,7 +244,23 @@ board and cannot touch the owner's account.
 | `PATCH` / `DELETE` | `/icons/mine/{id}` | Y | Rename / delete an own icon (delete also clears referencing teams). `404` for ids outside the caller's scope. |
 | `GET` | `/icons/mine/{id}/usage` | Y | How many teams reference the icon (pre-delete count). |
 | `POST` | `/icons/mine/import-from-teams` | Y | Convert the caller's own teams' external logo URLs into hosted icons (SSRF-guarded download; scope re-checked server-side). |
-| `POST` | `/admin/icons` | A | Upload a global icon; `PATCH`/`DELETE /admin/icons/{id}`, `GET /admin/icons/{id}/usage` and `POST /admin/icons/import-from-teams` mirror the personal shapes for the global scope. |
+| `POST` | `/admin/icons` | A | Upload a global icon. |
+| `PATCH` / `DELETE` | `/admin/icons/{icon_id}` | A | Mirrors the personal shapes for the global scope. |
+| `GET` | `/admin/icons/{icon_id}/usage` | A | |
+| `POST` | `/admin/icons/import-from-teams` | A | |
+| `GET` / `POST` | `/admin/teams` | A | Global team catalog. |
+| `GET` | `/admin/teams/export` | A | Dump the catalog as JSON. |
+| `POST` | `/admin/teams/import` | A | Load a catalog JSON map. |
+| `PATCH` / `DELETE` | `/admin/teams/{team_id}` | A | |
+| `GET` / `POST` | `/admin/team-groups` | A | Publishable team groups. |
+| `PATCH` / `DELETE` | `/admin/team-groups/{group_id}` | A | |
+| `POST` / `DELETE` | `/admin/team-groups/{group_id}/members`, `/admin/team-groups/{group_id}/members/{team_id}` | A | |
+| `GET` / `POST` | `/admin/presets` | A | Global theme presets. |
+| `GET` | `/admin/presets/export` | A | Dump them as an `APP_THEMES` JSON map. |
+| `POST` | `/admin/presets/import` | A | Load an `APP_THEMES` JSON map. |
+| `PATCH` / `DELETE` | `/admin/presets/{slug}` | A | `PATCH` activates/deactivates a global preset. |
+| `GET` | `/app-config` | — | Runtime config the SPA reads on load (title, feature flags). Carries no secrets. |
+| `POST` | `/_log` | — | Client error reports from the SPA. Unauthenticated by design — an anonymous visitor hitting a crash still needs to report it — so a per-IP rate limit, a body cap and PII redaction do the safety work instead. |
 | `WS` | `/ws` | B | Accepts the same three board credentials: `?c=<token>`, `?u=&oid=`, or the `vsession` cookie (browsers send cookies on same-origin WS upgrades, so no subprotocol token is needed). Closes `4400` with neither `oid` nor `c`, `4003` when the credential does not resolve, `4004` when no session exists. |
 
 ### 2.4 Admin user management — `app/api/routes/admin_users.py`

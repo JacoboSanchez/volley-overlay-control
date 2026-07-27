@@ -126,6 +126,15 @@ archive by hand.
   previously listed "password change" as a revocation without the caveat,
   contradicting §2.2 of the same file.
 
+- **The route inventory is complete for the first time.** 36 registered
+  `/api/v1` routes had no row in `AUTHENTICATION.md` — including every
+  `/teams/mine*`, `/my/groups*` and `/customization/presets*` route, four
+  `display/*` board actions, the whole admin teams/groups/presets surface,
+  and the two unauthenticated endpoints (`/app-config`, `/_log`). A document
+  that calls itself the per-route auth inventory while omitting 43% of the
+  API is worse than none, so the guard now checks **both** directions: a
+  documented route must exist, and a registered route must be documented.
+
 - **The route inventory now distinguishes "needs a login" from "needs a
   board credential".** `AUTHENTICATION.md` §2.3 marked the whole scoring
   surface `Y + OID` ("requires a logged-in user"), which was wrong: those
