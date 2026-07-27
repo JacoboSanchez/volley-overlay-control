@@ -469,6 +469,27 @@ def test_exempt_websocket_routes_exist():
     )
 
 
+def test_exempt_paths_stay_inventoried():
+    """Exempting a path from the schema checks must not un-document it.
+
+    Being exempt removes a route from *both* schema-driven directions, so
+    without this the inventory could drop the WebSocket and static-mount
+    rows entirely and stay green: the forward check skips them and the
+    inverse check never sees them. The exemption is from the *schema*, not
+    from the documentation.
+    """
+    inventoried = {p for _, p in _inventoried_operations()}
+    should_be_documented = (
+        WEBSOCKET_EXEMPTIONS | MOUNT_EXEMPTIONS | UNVERIFIABLE_EXEMPTIONS
+    )
+    missing = sorted(should_be_documented - inventoried)
+    assert not missing, (
+        f"Schema-exempt paths with no row in AUTHENTICATION.md §2: {missing}. "
+        "An exemption only means 'absent from the OpenAPI schema'; these are "
+        "still reachable surfaces and still need documenting."
+    )
+
+
 def test_exempt_mounts_exist():
     """Same argument for the static mounts the inventory lists."""
     import tempfile

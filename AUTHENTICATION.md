@@ -137,11 +137,16 @@ Legend: `Y` = requires a logged-in user (cookie session); `A` = requires
 an admin session; `B` = **board credential** — any of the three control
 credentials in §1.2 (control token, opted-in public bookmark, or the
 owner's cookie session), always scoped to the resolved storage key
-`"<user_id>:<oid>"`; `—` = always public (capability URL or intentionally
-open).
+`"<user_id>:<oid>"`; `G` = **gated, but not by a session** — admitted by
+any of several non-session credentials, currently only the match report
+(§7.1); `—` = always public (capability URL or intentionally open).
 
 `B` is deliberately not `Y`: those routes are reachable with no login at
 all when a valid `?c=` token or an opted-in `?u=` bookmark is present.
+
+`G` is deliberately not `—`: an anonymous request with no credential is
+**rejected**, so listing those routes as public would misdescribe them in
+the document whose whole job is being unambiguous about access.
 
 ### 2.1 Cookie sessions — the `vsession` cookie
 
@@ -339,14 +344,16 @@ state, and cannot mutate anything. Control needs one of credentials 1–3.
 | `GET` | `/health` | — | Health check |
 | `GET` | `/health/ready` | — | Readiness probe: additionally touches the DB and the data dir, so an orchestrator does not route traffic to a pod that cannot serve. Reports status only, never configuration. |
 | `GET` | `/metrics` | — | Prometheus exposition. Unauthenticated by deliberate choice — aggregates only, no payloads and no per-OID labels (§10). |
-| `GET` | `/match/{match_id}/report` | — * | Print-friendly match report. *Not* open: gated by owner cookie, HMAC-signed URL, or `MATCH_REPORT_PUBLIC=true` (§7.1). |
-| `GET` | `/match/{match_id}/report.csv` | — * | Point-log CSV for the same match, gated identically. A signed *report* link's `exp`/`sig` open the CSV too — the signature covers `match_id\|exp`, not the path. |
+| `GET` | `/match/{match_id}/report` | G | Print-friendly match report. `check_read_access` admits `MATCH_REPORT_PUBLIC=true`, then a valid HMAC signature, then the owner's cookie; otherwise **401** (§7.1). |
+| `GET` | `/match/{match_id}/report.csv` | G | Point-log CSV for the same match, gated identically. A signed *report* link's `exp`/`sig` open the CSV too — the signature covers `match_id\|exp`, not the path. |
 | `GET` | `/matches/{public_token}` | — | Public per-overlay archived-match listing, addressed by the overlay's `public_token` (credential 4, §1.2) — the spectator counterpart to `/follow/`. |
 | `GET` | `/**` (SPA fallback) | — | Serves `index.html` for unknown paths |
 
-All of these are intentionally public. If a future change needs to gate
-static assets (e.g. hiding the SPA behind a login wall), add a custom
-`BaseHTTPMiddleware` at that point — there is no longer a pre-wired hook.
+Everything marked `—` above is intentionally public; the two `G` rows are
+not, and are listed here only because they hang off the root rather than a
+prefixed router. If a future change needs to gate static assets (e.g.
+hiding the SPA behind a login wall), add a custom `BaseHTTPMiddleware` at
+that point — there is no longer a pre-wired hook.
 
 ## 3. Findings
 
