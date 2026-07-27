@@ -323,13 +323,21 @@ def test_every_ci_gate_is_documented():
 # verified against the real routers by test_exempt_websocket_routes_exist
 # rather than trusted. The static mounts are checked there too.
 WEBSOCKET_EXEMPTIONS = {"/api/v1/ws", "/ws/{public_token}"}
+# Registered with ``include_in_schema=False``: genuinely absent from the
+# schema, but an ordinary route object and therefore enumerable. "Not in the
+# schema" and "not verifiable" are different claims, and conflating them is
+# how /favicon.ico ended up in the unverifiable set below.
+SCHEMA_HIDDEN_EXEMPTIONS = {"/favicon.ico"}
 MOUNT_EXEMPTIONS = {"/fonts/**", "/static/**", "/media/**", "/pwa/**"}
-# Served by the SPA catch-all / a sub-application, so there is no route object
-# to enumerate. Kept minimal.
-UNVERIFIABLE_EXEMPTIONS = {"/favicon.ico", "/assets/**"}
+# Served by the SPA catch-all, so there is no route object to enumerate.
+# Anything added here is unguarded — justify it or find a way to check it.
+UNVERIFIABLE_EXEMPTIONS = {"/assets/**"}
 
 OPERATIONS_NOT_IN_SCHEMA = (
-    WEBSOCKET_EXEMPTIONS | MOUNT_EXEMPTIONS | UNVERIFIABLE_EXEMPTIONS
+    WEBSOCKET_EXEMPTIONS
+    | SCHEMA_HIDDEN_EXEMPTIONS
+    | MOUNT_EXEMPTIONS
+    | UNVERIFIABLE_EXEMPTIONS
 )
 
 # Inventory rows that describe a family rather than one route.
@@ -452,6 +460,20 @@ def test_exempt_websocket_routes_exist():
     )
     registered = ws_paths(websocket_routes.router, api_router.prefix)
     registered |= ws_paths(overlay_router)
+
+    # Routes hidden from the schema are still ordinary route objects, so hold
+    # them to the same standard rather than taking them on trust.
+    hidden = {
+        r.path
+        for r in overlay_router.routes
+        if type(r).__name__ == "APIRoute" and not r.include_in_schema
+    }
+    assert hidden == SCHEMA_HIDDEN_EXEMPTIONS, (
+        f"include_in_schema=False routes {sorted(hidden)} do not match "
+        f"SCHEMA_HIDDEN_EXEMPTIONS {sorted(SCHEMA_HIDDEN_EXEMPTIONS)}. A route "
+        "hidden from the schema is invisible to both inventory directions, so "
+        "it must be listed here *and* documented in AUTHENTICATION.md §2."
+    )
 
     missing = sorted(WEBSOCKET_EXEMPTIONS - registered)
     assert not missing, (
