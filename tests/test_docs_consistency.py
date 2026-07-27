@@ -39,6 +39,7 @@ review found this file asserting less than it advertised:
 """
 
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -316,16 +317,20 @@ def test_every_ci_gate_is_documented():
 # Paths the committed OpenAPI schema legitimately does not carry: WebSockets
 # have no OpenAPI representation, and the static mounts are Starlette mounts
 # rather than routes.
-OPERATIONS_NOT_IN_SCHEMA = {
-    "/api/v1/ws",
-    "/ws/{public_token}",
-    "/favicon.ico",
-    "/fonts/**",
-    "/static/**",
-    "/media/**",
-    "/pwa/**",
-    "/assets/**",
-}
+#
+# An exemption is a hole in both directions at once — the forward check skips
+# it and the inverse check never sees it — so the WebSocket entries are
+# verified against the real routers by test_exempt_websocket_routes_exist
+# rather than trusted. The static mounts are checked there too.
+WEBSOCKET_EXEMPTIONS = {"/api/v1/ws", "/ws/{public_token}"}
+MOUNT_EXEMPTIONS = {"/fonts/**", "/static/**", "/media/**", "/pwa/**"}
+# Served by the SPA catch-all / a sub-application, so there is no route object
+# to enumerate. Kept minimal.
+UNVERIFIABLE_EXEMPTIONS = {"/favicon.ico", "/assets/**"}
+
+OPERATIONS_NOT_IN_SCHEMA = (
+    WEBSOCKET_EXEMPTIONS | MOUNT_EXEMPTIONS | UNVERIFIABLE_EXEMPTIONS
+)
 
 # Inventory rows that describe a family rather than one route.
 WILDCARD_INVENTORY_PATHS = {"/**"}
@@ -414,6 +419,74 @@ def test_documented_api_routes_exist():
         f"{missing}. Check the decorator in app/ — a row listing 'GET / POST' "
         "against a POST-only route is the usual cause. Add to "
         "OPERATIONS_NOT_IN_SCHEMA only if it genuinely has no OpenAPI entry."
+    )
+
+
+def test_exempt_websocket_routes_exist():
+    """The exemptions must name routes that are actually registered.
+
+    Exempting a path punches a hole in *both* directions: the forward check
+    skips it, and the inverse check never sees it because WebSockets have no
+    OpenAPI entry. So AUTHENTICATION.md could keep advertising a WebSocket
+    that had been renamed away with the whole suite green. Enumerate them
+    from the routers instead of assuming they are there.
+    """
+    from fastapi.templating import Jinja2Templates
+
+    from app.api.routes import api_router
+    from app.api.routes import websocket as websocket_routes
+    from app.overlay import obs_broadcast_hub, overlay_state_store
+    from app.overlay.routes import create_overlay_router
+
+    def ws_paths(router, prefix: str = "") -> set[str]:
+        return {
+            prefix + r.path
+            for r in router.routes
+            if type(r).__name__ == "APIWebSocketRoute"
+        }
+
+    overlay_router = create_overlay_router(
+        overlay_state_store,
+        obs_broadcast_hub,
+        Jinja2Templates(directory=str(TEMPLATES_DIR)),
+    )
+    registered = ws_paths(websocket_routes.router, api_router.prefix)
+    registered |= ws_paths(overlay_router)
+
+    missing = sorted(WEBSOCKET_EXEMPTIONS - registered)
+    assert not missing, (
+        f"WEBSOCKET_EXEMPTIONS names routes that are not registered: "
+        f"{missing} (found {sorted(registered)}). Either the route was "
+        "renamed — in which case AUTHENTICATION.md is advertising a dead "
+        "path — or the exemption is stale and should be dropped."
+    )
+    unexempted = sorted(registered - WEBSOCKET_EXEMPTIONS)
+    assert not unexempted, (
+        f"WebSocket routes with no exemption entry: {unexempted}. They have "
+        "no OpenAPI entry, so the inverse inventory check cannot see them; "
+        "add them to WEBSOCKET_EXEMPTIONS *and* give them a row in "
+        "AUTHENTICATION.md §2."
+    )
+
+
+def test_exempt_mounts_exist():
+    """Same argument for the static mounts the inventory lists."""
+    import tempfile
+
+    from starlette.routing import Mount
+
+    from app.bootstrap import create_app
+
+    with tempfile.TemporaryDirectory() as tmp:
+        os.environ["DATABASE_URL"] = f"sqlite:///{tmp}/docs_guard.db"
+        app = create_app()
+        mounted = {r.path + "/**" for r in app.routes if isinstance(r, Mount)}
+
+    missing = sorted(MOUNT_EXEMPTIONS - mounted)
+    assert not missing, (
+        f"MOUNT_EXEMPTIONS names mounts that do not exist: {missing} "
+        f"(found {sorted(mounted)}). AUTHENTICATION.md §2.6 would be listing "
+        "a static surface the app no longer serves."
     )
 
 
@@ -544,6 +617,19 @@ def test_changelog_archive_split_is_clean():
         "covering the current major only. Archive the superseded major(s) into "
         "docs/CHANGELOG-archive.md — see the 'Archiving a superseded major' "
         "procedure in CONTRIBUTING.md — and update the header sentence."
+    )
+
+    # Ordering plus single-live-major still allows the current major to be
+    # *split*: archiving 6.0.0 while live starts at 6.1.0 keeps
+    # (6,0,0) < (6,1,0) true and leaves one live major. The invariant is that
+    # the archive holds only *superseded* majors, so compare majors directly.
+    straddling = sorted(
+        {v for v in archive_versions if _parsed(v)[0] >= live_majors[0]}
+    )
+    assert not straddling, (
+        f"Archived versions {straddling} are in the live major "
+        f"({live_majors[0]}.x), so the current major is split across both "
+        "files. The archive holds superseded majors only — move them back."
     )
     assert f"({live_majors[0]}.x)" in live, (
         f"CHANGELOG.md's header must name the major it covers as "
