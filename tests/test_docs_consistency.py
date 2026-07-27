@@ -12,25 +12,35 @@ Five families of check live here:
 
 * **Quoted counts** — overlay template / selectable-style numbers against
   what is on disk, and README's explicit style list against the real one.
-* **CI gates** — the documented gate table against the steps in
+* **CI gates** — ``AGENTS.md``'s gate table against the steps in
   ``ci.yml``, in *both* directions, because the interesting failure was a
   gate CI runs that no doc mentioned.
-* **Route inventory** — every path in ``AUTHENTICATION.md`` §2.3 against
-  the committed OpenAPI schema, so the auth source of truth cannot send an
-  integrator to a 404.
+* **Route inventory** — ``AUTHENTICATION.md`` §2 against the committed
+  OpenAPI schema, comparing ``(method, path)`` pairs in both directions,
+  so the auth source of truth can neither send an integrator to a 404/405
+  nor quietly omit an access path.
 * **Cross-document links** — the "one home per topic, link don't restate"
   rule (see the ownership table in ``AGENTS.md``) is only worth anything
   while the links resolve, anchors included.
-* **Changelog split** — the live changelog holds the current major, the
+* **Changelog split** — the live changelog holds exactly one major, the
   archive holds the rest, and no version appears in both.
 
-Each check asserts that its own pattern still matched *something* before
-asserting the value, so a reworded doc fails loudly instead of silently
-turning the guard into a no-op.
+Two properties every check here must keep, both learned the hard way when
+review found this file asserting less than it advertised:
+
+1. **Assert the pattern matched something before asserting the value.** A
+   reworded doc must fail loudly rather than silently reduce a check to
+   comparing two empty sets.
+2. **Compare whole sets in both directions, and derive the input rather
+   than hand-listing it.** Every hole found so far was a narrowing: one
+   direction instead of two, paths instead of ``(method, path)``, a prefix
+   filter that excluded the routes it should have covered, an inclusion
+   list that stopped matching reality.
 """
 
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -41,20 +51,20 @@ from app.overlay.state_store import OverlayStateStore
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = REPO_ROOT / "overlay_templates"
 
-# Docs checked for link integrity. Kept explicit rather than globbed so a new
-# top-level document is a deliberate addition to the ownership table too.
-DOC_FILES = (
-    "README.md",
-    "AGENTS.md",
-    "CLAUDE.md",
-    "CONTRIBUTING.md",
-    "DEVELOPER_GUIDE.md",
-    "FRONTEND_DEVELOPMENT.md",
-    "AUTHENTICATION.md",
-    "SECURITY.md",
-    "CHANGELOG.md",
-    "docs/CHANGELOG-archive.md",
-)
+# Markdown excluded from the link check. Keep this list tiny and justified:
+# a hand-maintained *inclusion* list was the previous shape here, and it had
+# silently stopped covering five tracked files — the same "the guard checks
+# less than it claims" failure this module keeps finding elsewhere.
+UNCHECKED_MARKDOWN: set[str] = set()
+
+
+def _markdown_files() -> list[str]:
+    """Every tracked markdown file, so a new doc is covered automatically."""
+    listed = subprocess.run(
+        ["git", "ls-files", "*.md"],
+        cwd=REPO_ROOT, capture_output=True, text=True, check=True,
+    ).stdout.split()
+    return [f for f in listed if f not in UNCHECKED_MARKDOWN]
 
 
 @pytest.fixture(scope="module")
@@ -454,8 +464,13 @@ def test_relative_doc_links_resolve():
     The de-duplication in #448 replaced restated prose with cross-links, so a
     dangling link now loses information rather than merely annoying a reader.
     """
+    docs = _markdown_files()
+    assert len(docs) >= 10, (
+        f"Only found {len(docs)} tracked markdown files — the git ls-files "
+        "lookup is not seeing the docs, so this guard is checking nothing."
+    )
     broken: list[str] = []
-    for doc in DOC_FILES:
+    for doc in docs:
         path = REPO_ROOT / doc
         text = path.read_text(encoding="utf-8")
         for target in _LINK_RE.findall(text):
