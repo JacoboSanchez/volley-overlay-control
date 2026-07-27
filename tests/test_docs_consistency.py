@@ -303,9 +303,22 @@ def test_every_ci_gate_is_documented():
 # Route inventory
 # --------------------------------------------------------------------------
 
-# Paths the committed OpenAPI schema legitimately does not carry.
-# WebSockets have no OpenAPI representation at all.
-ROUTES_NOT_IN_SCHEMA = {"/api/v1/ws"}
+# Paths the committed OpenAPI schema legitimately does not carry: WebSockets
+# have no OpenAPI representation, and the static mounts are Starlette mounts
+# rather than routes.
+OPERATIONS_NOT_IN_SCHEMA = {
+    "/api/v1/ws",
+    "/ws/{public_token}",
+    "/favicon.ico",
+    "/fonts/**",
+    "/static/**",
+    "/media/**",
+    "/pwa/**",
+    "/assets/**",
+}
+
+# Inventory rows that describe a family rather than one route.
+WILDCARD_INVENTORY_PATHS = {"/**"}
 
 
 def _normalise_path(path: str) -> str:
@@ -318,21 +331,33 @@ def _normalise_path(path: str) -> str:
     return re.sub(r"\{[^}]*\}", "{}", path)
 
 
-def _registered_api_paths() -> set[str]:
+def _registered_operations() -> set[tuple[str, str]]:
+    """Every ``(method, path)`` the committed schema exposes.
+
+    Deliberately *not* filtered to ``/api/v1``: the report, spectator,
+    metrics and health surfaces are registered routes with real auth
+    postures, and scoping the check to the API prefix would let them drift
+    while the guard stayed green.
+    """
     spec = json.loads(_read("frontend/schema/openapi.json"))
-    return {p for p in spec["paths"] if p.startswith("/api/v1")}
+    return {
+        (method.lower(), path)
+        for path, operations in spec["paths"].items()
+        for method in operations
+    }
 
 
-def _inventoried_paths() -> set[str]:
-    """Every route AUTHENTICATION.md §2 lists, resolved against its prefix.
+def _inventoried_operations() -> set[tuple[str, str]]:
+    """Every ``(method, path)`` AUTHENTICATION.md §2 lists.
 
-    Each subsection declares its own ``Prefix `/api/v1/...` `` line, and the
-    table rows are relative to it, so the prefix has to be applied per
-    subsection rather than assumed.
+    Each subsection declares its own ``Prefix `/api/v1/...` `` line and the
+    rows are relative to it, so the prefix is applied per subsection. Methods
+    come from the row's first column: comparing paths alone let a row claim
+    ``GET`` on a POST-only route and pass.
     """
     text = _read("AUTHENTICATION.md")
     section = text[text.index("## 2. Route inventory"):text.index("## 3. Findings")]
-    paths: set[str] = set()
+    operations: set[tuple[str, str]] = set()
     for part in re.split(r"(?m)^### ", section)[1:]:
         prefix_match = re.search(r"Prefix `([^`]+)`", part)
         prefix = prefix_match.group(1).rstrip("/") if prefix_match else ""
@@ -342,54 +367,62 @@ def _inventoried_paths() -> set[str]:
             cells = [c.strip() for c in line.split("|")]
             if len(cells) < 3:
                 continue
-            paths.update(prefix + p for p in re.findall(r"`(/[^`]*)`", cells[2]))
-    return paths
+            methods = re.findall(r"`([A-Z]+)`", cells[1])
+            paths = re.findall(r"`(/[^`]*)`", cells[2])
+            operations.update(
+                (method.lower(), prefix + path)
+                for method in methods
+                for path in paths
+            )
+    return operations
 
 
 def test_documented_api_routes_exist():
-    """Nothing in the inventory may point at a route that is not registered.
+    """Nothing in the inventory may claim a method/path that is not registered.
 
-    A route inventory that invents a path is worse than no inventory: it
-    sends integrators to a 404 while claiming to be the source of truth.
-    The committed OpenAPI schema is the reference because CI already fails
-    when it drifts from the app.
+    A route inventory that invents an operation is worse than no inventory:
+    it sends integrators to a 404 (or a 405) while claiming to be the source
+    of truth. The committed OpenAPI schema is the reference because CI
+    already fails when it drifts from the app.
     """
-    registered = {_normalise_path(p) for p in _registered_api_paths()}
-    documented = _inventoried_paths()
+    registered = {(m, _normalise_path(p)) for m, p in _registered_operations()}
+    documented = _inventoried_operations()
 
-    assert len(documented) > 40, (
+    assert len(documented) > 80, (
         "Could not parse the route rows out of AUTHENTICATION.md §2 "
         f"(found {len(documented)}). Update this guard rather than letting "
         "it check nothing."
     )
     missing = sorted(
-        p for p in documented
-        if p.startswith("/api/v1")
-        and p not in ROUTES_NOT_IN_SCHEMA
-        and _normalise_path(p) not in registered
+        f"{m.upper()} {p}" for m, p in documented
+        if p not in OPERATIONS_NOT_IN_SCHEMA
+        and p not in WILDCARD_INVENTORY_PATHS
+        and (m, _normalise_path(p)) not in registered
     )
     assert not missing, (
-        f"AUTHENTICATION.md §2 documents unregistered routes: {missing}. "
-        "Fix the path (check the decorator in app/api/routes/), or add it to "
-        "ROUTES_NOT_IN_SCHEMA if it genuinely has no OpenAPI entry."
+        f"AUTHENTICATION.md §2 documents operations that are not registered: "
+        f"{missing}. Check the decorator in app/ — a row listing 'GET / POST' "
+        "against a POST-only route is the usual cause. Add to "
+        "OPERATIONS_NOT_IN_SCHEMA only if it genuinely has no OpenAPI entry."
     )
 
 
 def test_api_route_inventory_is_complete():
-    """...and the inverse: every registered route must be inventoried.
+    """...and the inverse: every registered operation must be inventoried.
 
     This is the direction that decays silently. ``AUTHENTICATION.md`` calls
     itself the per-route inventory, so a route added without a row leaves it
-    quietly incomplete — which is exactly what happened: 36 registered
-    routes were missing when this check was written.
+    quietly incomplete — which is exactly what happened: 36 routes were
+    missing when this check was written, and five non-``/api/v1`` ones
+    survived the first version because it only looked at the API prefix.
     """
-    documented = {_normalise_path(p) for p in _inventoried_paths()}
+    documented = {(m, _normalise_path(p)) for m, p in _inventoried_operations()}
     undocumented = sorted(
-        p for p in _registered_api_paths()
-        if _normalise_path(p) not in documented
+        f"{m.upper()} {p}" for m, p in _registered_operations()
+        if (m, _normalise_path(p)) not in documented
     )
     assert not undocumented, (
-        f"Routes registered but absent from AUTHENTICATION.md §2: "
+        f"Operations registered but absent from AUTHENTICATION.md §2: "
         f"{undocumented}. Add a row under the matching subsection with its "
         "auth class (Y / A / B / —). The document is the per-route auth "
         "inventory; a route missing from it is an undocumented access path."

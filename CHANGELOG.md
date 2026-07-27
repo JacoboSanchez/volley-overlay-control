@@ -126,14 +126,22 @@ archive by hand.
   previously listed "password change" as a revocation without the caveat,
   contradicting §2.2 of the same file.
 
-- **The route inventory is complete for the first time.** 36 registered
-  `/api/v1` routes had no row in `AUTHENTICATION.md` — including every
-  `/teams/mine*`, `/my/groups*` and `/customization/presets*` route, four
-  `display/*` board actions, the whole admin teams/groups/presets surface,
-  and the two unauthenticated endpoints (`/app-config`, `/_log`). A document
-  that calls itself the per-route auth inventory while omitting 43% of the
-  API is worse than none, so the guard now checks **both** directions: a
-  documented route must exist, and a registered route must be documented.
+- **The route inventory is complete and method-accurate for the first
+  time.** 36 registered `/api/v1` routes had no row in `AUTHENTICATION.md`
+  — every `/teams/mine*`, `/my/groups*` and `/customization/presets*`
+  route, four `display/*` board actions, the whole admin
+  teams/groups/presets surface, and the two unauthenticated endpoints
+  (`/app-config`, `/_log`). Five non-API surfaces were missing too
+  (`/metrics`, `/health/ready`, both `/match/{id}/report*` routes, and the
+  public `/matches/{public_token}` listing). A document calling itself the
+  per-route auth inventory while omitting 43% of the API is worse than
+  none: a reader takes absence for "not an access path".
+
+  The guard now compares **`(method, path)` pairs across the whole schema**,
+  in both directions. Path-only comparison had let rows advertise methods
+  that 405 — `GET /api/v1/admin/teams` among seven such claims, all from
+  over-compressed rows that listed two methods against two paths where each
+  method belonged to only one.
 
 - **The route inventory now distinguishes "needs a login" from "needs a
   board credential".** `AUTHENTICATION.md` §2.3 marked the whole scoring

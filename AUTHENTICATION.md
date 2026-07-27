@@ -227,12 +227,14 @@ board and cannot touch the owner's account.
 | `GET` | `/teams` | Y | |
 | `GET` | `/teams/mine`, `/teams/catalog` | Y | The caller's own list, and the global catalog they can pick from. |
 | `POST` | `/teams/mine`, `/teams/mine/custom`, `/teams/mine/remove` | Y | Add to / create in / remove from the caller's list. |
-| `PATCH` / `DELETE` | `/teams/mine/custom/{id}`, `/teams/mine/{id}` | Y | Scoped to the caller's own rows. |
+| `PATCH` | `/teams/mine/custom/{team_id}` | Y | Edit one of the caller's own custom teams. |
+| `DELETE` | `/teams/mine/{team_id}` | Y | Scoped to the caller's own rows. |
 | `GET` | `/team-groups` | Y | Admin-published groups visible to the caller. |
 | `POST` | `/team-groups/{id}/copy-to-mine` | Y | |
 | `GET` / `POST` | `/my/groups` | Y | The caller's own team groups. |
 | `PATCH` / `DELETE` | `/my/groups/{id}` | Y | |
-| `POST` / `DELETE` | `/my/groups/{id}/teams`, `/my/groups/{id}/teams/{team_id}` | Y | |
+| `POST` | `/my/groups/{group_id}/teams` | Y | Add a team to one of the caller's groups. |
+| `DELETE` | `/my/groups/{group_id}/teams/{team_id}` | Y | Remove one. |
 | `GET` / `POST` | `/customization/presets` | Y | The caller's saved theme presets. |
 | `DELETE` | `/customization/presets/{slug}` | Y | |
 | `GET` | `/matches` | Y | Lists only the caller's archived matches. |
@@ -248,13 +250,14 @@ board and cannot touch the owner's account.
 | `PATCH` / `DELETE` | `/admin/icons/{icon_id}` | A | Mirrors the personal shapes for the global scope. |
 | `GET` | `/admin/icons/{icon_id}/usage` | A | |
 | `POST` | `/admin/icons/import-from-teams` | A | |
-| `GET` / `POST` | `/admin/teams` | A | Global team catalog. |
+| `POST` | `/admin/teams` | A | Add to the global team catalog. There is no `GET` here — the catalog is read through `/teams/catalog`. |
 | `GET` | `/admin/teams/export` | A | Dump the catalog as JSON. |
 | `POST` | `/admin/teams/import` | A | Load a catalog JSON map. |
 | `PATCH` / `DELETE` | `/admin/teams/{team_id}` | A | |
 | `GET` / `POST` | `/admin/team-groups` | A | Publishable team groups. |
 | `PATCH` / `DELETE` | `/admin/team-groups/{group_id}` | A | |
-| `POST` / `DELETE` | `/admin/team-groups/{group_id}/members`, `/admin/team-groups/{group_id}/members/{team_id}` | A | |
+| `POST` | `/admin/team-groups/{group_id}/members` | A | Add a team to a group. |
+| `DELETE` | `/admin/team-groups/{group_id}/members/{team_id}` | A | Remove one. |
 | `GET` / `POST` | `/admin/presets` | A | Global theme presets. |
 | `GET` | `/admin/presets/export` | A | Dump them as an `APP_THEMES` JSON map. |
 | `POST` | `/admin/presets/import` | A | Load an `APP_THEMES` JSON map. |
@@ -334,6 +337,11 @@ state, and cannot mutate anything. Control needs one of credentials 1–3.
 | `GET` | `/manifest.webmanifest` | — | PWA manifest |
 | `GET` | `/manifest.json` | — | PWA manifest |
 | `GET` | `/health` | — | Health check |
+| `GET` | `/health/ready` | — | Readiness probe: additionally touches the DB and the data dir, so an orchestrator does not route traffic to a pod that cannot serve. Reports status only, never configuration. |
+| `GET` | `/metrics` | — | Prometheus exposition. Unauthenticated by deliberate choice — aggregates only, no payloads and no per-OID labels (§10). |
+| `GET` | `/match/{match_id}/report` | — * | Print-friendly match report. *Not* open: gated by owner cookie, HMAC-signed URL, or `MATCH_REPORT_PUBLIC=true` (§7.1). |
+| `GET` | `/match/{match_id}/report.csv` | — * | Point-log CSV for the same match, gated identically. A signed *report* link's `exp`/`sig` open the CSV too — the signature covers `match_id\|exp`, not the path. |
+| `GET` | `/matches/{public_token}` | — | Public per-overlay archived-match listing, addressed by the overlay's `public_token` (credential 4, §1.2) — the spectator counterpart to `/follow/`. |
 | `GET` | `/**` (SPA fallback) | — | Serves `index.html` for unknown paths |
 
 All of these are intentionally public. If a future change needs to gate
