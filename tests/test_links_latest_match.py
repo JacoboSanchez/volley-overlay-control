@@ -169,29 +169,41 @@ class TestOverlayLinkHost:
         )
         return fake_backend_cls
 
+    @staticmethod
+    def _public_token(client, oid: str) -> str:
+        """The overlay's real capability token, as ``/overlays`` reports it."""
+        rows = client.get("/api/v1/overlays").json()
+        for row in rows:
+            if row["oid"] == oid:
+                return row["public_token"]
+        raise AssertionError(f"overlay {oid!r} not in {rows}")
+
     def test_overlay_link_follows_request_host(
             self, client, localhost_backend, monkeypatch):
         monkeypatch.delenv("OVERLAY_PUBLIC_URL", raising=False)
         _init_session(client, oid="links-host")
         body = client.get("/api/v1/links?oid=links-host").json()
         # TestClient requests arrive at http://testserver — the localhost
-        # guess must be rewritten to it, token path intact.
-        assert body["overlay"] == "http://testserver/overlay/tok123"
+        # guess must not survive into the payload.
+        token = self._public_token(client, "links-host")
+        assert body["overlay"] == f"http://testserver/overlay/{token}"
 
-    def test_preview_link_embeds_the_rebased_output(
+    def test_preview_link_embeds_the_same_output(
             self, client, localhost_backend, monkeypatch):
         """The preview page frames whatever ``output`` names, so the
-        rewrite has to reach it too — this is the value that has to
-        satisfy ``frame-src 'self'``."""
+        rebuild has to reach it too — this is the value that has to
+        satisfy ``frame-src``."""
         monkeypatch.delenv("OVERLAY_PUBLIC_URL", raising=False)
         _init_session(client, oid="links-preview")
         body = client.get("/api/v1/links?oid=links-preview").json()
         params = urllib.parse.parse_qs(
             urllib.parse.urlsplit(body["preview"]).query,
         )
-        assert params["output"] == ["http://testserver/overlay/tok123"]
+        assert params["output"] == [body["overlay"]]
+        token = self._public_token(client, "links-preview")
+        assert params["output"] == [f"http://testserver/overlay/{token}"]
 
-    def test_configured_public_url_is_left_alone(
+    def test_configured_public_url_wins_over_the_request_host(
             self, client, localhost_backend, monkeypatch):
         """An explicit ``OVERLAY_PUBLIC_URL`` is the operator's choice and
         may deliberately name a different host than the control UI."""
@@ -201,7 +213,33 @@ class TestOverlayLinkHost:
         )
         _init_session(client, oid="links-configured")
         body = client.get("/api/v1/links?oid=links-configured").json()
-        assert body["overlay"] == "https://overlay.example.com/overlay/tok123"
+        token = self._public_token(client, "links-configured")
+        assert body["overlay"] == f"https://overlay.example.com/overlay/{token}"
+
+    def test_link_tracks_a_base_that_changes_under_a_live_session(
+            self, client, localhost_backend, monkeypatch):
+        """A cached ``conf.output`` must not outlive the configured base.
+
+        ``OVERLAY_PUBLIC_URL`` can be served by the refreshable
+        ``REMOTE_CONFIG_URL``, and ``conf.output`` is only ever resolved at
+        session init. The CSP's ``frame-src`` is recomputed per response,
+        so a stale link would name an origin the policy no longer permits —
+        the preview iframe would be blocked outright.
+        """
+        monkeypatch.setenv("OVERLAY_PUBLIC_URL", "https://old.example.com")
+        localhost_backend.fetch_output_token.return_value = (
+            "https://old.example.com/overlay/tok123"
+        )
+        _init_session(client, oid="links-moved")
+        # The base moves while the session stays up.
+        monkeypatch.setenv("OVERLAY_PUBLIC_URL", "https://new.example.com")
+        body = client.get("/api/v1/links?oid=links-moved").json()
+        token = self._public_token(client, "links-moved")
+        assert body["overlay"] == f"https://new.example.com/overlay/{token}"
+        # And /api/v1/overlays agrees — one origin, not two.
+        rows = client.get("/api/v1/overlays").json()
+        row = next(r for r in rows if r["oid"] == "links-moved")
+        assert row["output_url"] == body["overlay"]
 
     def test_missing_output_stays_missing(
             self, client, fake_backend_cls, monkeypatch):

@@ -62,31 +62,45 @@ def _link_base(request: Request) -> str:
     return _configured_public_url() or str(request.base_url).rstrip("/")
 
 
-def _rebase_output_url(request: Request, output: str | None) -> str | None:
-    """Re-point a backend-built overlay URL at the operator's own host.
+def _session_output_url(request: Request, session: GameSession) -> str | None:
+    """The overlay output URL, built against the *current* link base.
 
-    ``LocalOverlayBackend.fetch_output_token`` has no request in scope, so
-    with no ``OVERLAY_PUBLIC_URL`` configured it can only guess
+    ``session.conf.output`` is resolved once, at session init, by
+    ``LocalOverlayBackend.fetch_output_token`` — which has no request in
+    scope, so with no ``OVERLAY_PUBLIC_URL`` configured it can only guess
     ``http://localhost:<APP_PORT>``. That guess is wrong for every operator
-    who reaches the app on any other host: the OBS link it produces is
-    unreachable, and the preview iframe it feeds becomes cross-origin (so
-    ``frame-src 'self'`` blocks it). ``/api/v1/overlays`` has always built
-    the same link from ``request.base_url``; this brings ``/links`` in line.
+    reaching the app on any other host.
 
-    When a public URL *is* configured the value is returned untouched —
-    that host is the operator's deliberate choice.
+    Being a snapshot, it also goes stale when the base changes under a live
+    session: ``OVERLAY_PUBLIC_URL`` can arrive from the refreshable
+    ``REMOTE_CONFIG_URL``. The CSP's ``frame-src`` is recomputed per
+    response from the current value, so returning the cached string could
+    hand the SPA an overlay origin its own policy no longer allows — a
+    blocked preview iframe and an OBS link pointing at the old host.
+
+    Rebuilding on every call keeps this link, the CSP, and
+    ``GET /api/v1/overlays`` in agreement, whichever way the base is
+    configured.
     """
-    if not output or _configured_public_url():
-        return output
+    output = session.conf.output
+    if not output:
+        return None
+    base = _link_base(request)
+    if session.public_token:
+        # Same shape ``_overlay_out`` produces, so both endpoints agree.
+        return f"{base}/overlay/{session.public_token}"
+    # Legacy/standalone sessions carry no capability token: the backend
+    # derived the path itself, so keep it and swap only the origin.
     try:
         parsed = urllib.parse.urlsplit(output)
-        base = urllib.parse.urlsplit(str(request.base_url))
+        base_parts = urllib.parse.urlsplit(base)
     except ValueError:
         return output
-    if not parsed.netloc or not base.netloc:
+    if not parsed.netloc or not base_parts.netloc:
         return output
     return urllib.parse.urlunsplit((
-        base.scheme, base.netloc, parsed.path, parsed.query, parsed.fragment,
+        base_parts.scheme, base_parts.netloc, parsed.path,
+        parsed.query, parsed.fragment,
     ))
 
 
@@ -227,7 +241,7 @@ async def get_links(request: Request,
     # per-user archive lookups.
     oid = session.raw_oid
     skey = session.oid
-    output = _rebase_output_url(request, session.conf.output)
+    output = _session_output_url(request, session)
     links = {}
 
     if output and output.strip():
