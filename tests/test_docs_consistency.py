@@ -18,7 +18,10 @@ Five families of check live here:
 * **Route inventory** — ``AUTHENTICATION.md`` §2 against the committed
   OpenAPI schema, comparing ``(method, path)`` pairs in both directions,
   so the auth source of truth can neither send an integrator to a 404/405
-  nor quietly omit an access path.
+  nor quietly omit an access path. Routes the schema cannot carry
+  (WebSockets, ``include_in_schema=False``, static mounts) are exempt from
+  *that* comparison and checked against the real routers instead — an
+  unchecked exemption is invisible to both directions at once.
 * **Cross-document links** — the "one home per topic, link don't restate"
   rule (see the ownership table in ``AGENTS.md``) is only worth anything
   while the links resolve, anchors included.
@@ -35,7 +38,15 @@ review found this file asserting less than it advertised:
    than hand-listing it.** Every hole found so far was a narrowing: one
    direction instead of two, paths instead of ``(method, path)``, a prefix
    filter that excluded the routes it should have covered, an inclusion
-   list that stopped matching reality.
+   list that stopped matching reality, an exemption nothing validated, and
+   "absent from the schema" mistaken for "impossible to check".
+
+The third rule follows from how those were found — all by review, several
+immediately after the two rules above were written down here. **A check
+that has never been seen to fail has not been tested.** Every check in
+this file was confirmed by breaking the thing it guards and watching it
+go red; do the same for anything added, because several of these passed
+happily while guarding nothing.
 """
 
 import json
