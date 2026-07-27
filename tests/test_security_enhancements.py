@@ -349,6 +349,137 @@ def test_rate_limit_ignores_unwatched_paths(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# Rate limiter: capability-token surface, split keyspaces, live tunables
+# ---------------------------------------------------------------------------
+
+
+def _limiter_app(routes: dict[str, int]) -> TestClient:
+    """App whose *routes* map a path to the status it always returns."""
+    app = FastAPI()
+    app.add_middleware(AuthRateLimitMiddleware)
+    for path, status in routes.items():
+        def _make(status_code: int):
+            def _handler():
+                from fastapi import HTTPException
+                raise HTTPException(status_code=status_code, detail="nope")
+            return _handler
+        app.get(path)(_make(status))
+    return TestClient(app)
+
+
+def test_tunables_are_read_without_reimporting_the_module(monkeypatch):
+    """Env overrides must apply to an already-imported limiter.
+
+    The tunables used to be evaluated at import time, so a limit set after
+    first import silently did nothing — which is why the older tests above
+    have to ``importlib.reload``. No reload here on purpose: that is the
+    behaviour under test.
+    """
+    auth_rate_limit._reset_for_tests()
+    monkeypatch.setenv("AUTH_RATE_LIMIT_MAX_FAILURES", "2")
+    monkeypatch.setenv("AUTH_RATE_LIMIT_BLOCK_SECONDS", "45")
+
+    client = _limiter_app({"/api/v1/thing": 401})
+    assert client.get("/api/v1/thing").status_code == 401
+    assert client.get("/api/v1/thing").status_code == 401
+    res = client.get("/api/v1/thing")
+    assert res.status_code == 429
+    # Retry-After also comes from the live value, not an import-time copy.
+    assert res.headers["retry-after"] == "45"
+
+
+def test_capability_surface_counts_404_token_misses(monkeypatch):
+    """An unknown overlay token is a 404, and must now be throttled.
+
+    ``/overlay/<token>`` reports an unknown capability token as 404
+    (app/overlay/routes.py), and the limiter previously watched only
+    ``/api/v1/`` and counted only 401/403 — so token guessing incremented
+    nothing whatsoever.
+    """
+    auth_rate_limit._reset_for_tests()
+    monkeypatch.setenv("AUTH_RATE_LIMIT_MAX_FAILURES", "3")
+
+    client = _limiter_app({"/overlay/{token}": 404})
+    for _ in range(3):
+        assert client.get("/overlay/guess").status_code == 404
+    assert client.get("/overlay/guess").status_code == 429
+
+
+def test_api_surface_still_ignores_404(monkeypatch):
+    """404 must stay harmless on /api/v1/ — there it is a missing resource,
+    not a credential probe, so counting it would lock operators out for
+    ordinary navigation."""
+    auth_rate_limit._reset_for_tests()
+    monkeypatch.setenv("AUTH_RATE_LIMIT_MAX_FAILURES", "3")
+
+    client = _limiter_app({"/api/v1/missing": 404})
+    for _ in range(20):
+        assert client.get("/api/v1/missing").status_code == 404
+
+
+def test_surfaces_have_separate_keyspaces(monkeypatch):
+    """Exhausting one surface must not throttle the other.
+
+    This is what makes widening the watched set safe: a shared per-IP bucket
+    would let 403s from somebody's SPA take an on-air /overlay/ browser
+    source down with it.
+    """
+    auth_rate_limit._reset_for_tests()
+    monkeypatch.setenv("AUTH_RATE_LIMIT_MAX_FAILURES", "3")
+
+    client = _limiter_app({"/api/v1/thing": 401, "/overlay/{token}": 404})
+
+    for _ in range(3):
+        client.get("/api/v1/thing")
+    assert client.get("/api/v1/thing").status_code == 429
+    # Same IP, different surface — must still be served.
+    assert client.get("/overlay/tok").status_code == 404
+
+
+def test_blocks_are_counted_per_surface(monkeypatch):
+    """A 429 increments voc_rate_limit_blocks_total{surface}.
+
+    Without it a brute-force attempt and a shared-NAT lockout of real
+    operators are indistinguishable in /metrics.
+    """
+    pytest.importorskip("prometheus_client")
+    auth_rate_limit._reset_for_tests()
+    monkeypatch.setenv("AUTH_RATE_LIMIT_MAX_FAILURES", "2")
+
+    from app.metrics import rate_limit_blocks_total
+
+    def _count() -> float:
+        return rate_limit_blocks_total.labels(surface="capability")._value.get()
+
+    before = _count()
+    client = _limiter_app({"/follow/{token}": 404})
+    for _ in range(2):
+        client.get("/follow/tok")
+    assert client.get("/follow/tok").status_code == 429
+    assert _count() == before + 1
+
+
+def test_websocket_scope_is_passed_through(monkeypatch):
+    """The limiter must not attempt to gate a WebSocket handshake.
+
+    A handshake arrives as ASGI scope type "websocket", which this
+    middleware deliberately ignores — the docstring says so rather than
+    implying /ws/ is covered.
+    """
+    auth_rate_limit._reset_for_tests()
+    seen = []
+
+    async def inner(scope, receive, send):
+        seen.append(scope["type"])
+
+    mw = AuthRateLimitMiddleware(inner)
+    import asyncio as _asyncio
+
+    _asyncio.run(mw({"type": "websocket", "path": "/ws/tok"}, None, None))
+    assert seen == ["websocket"]
+
+
+# ---------------------------------------------------------------------------
 # Logo URL allow-list
 # ---------------------------------------------------------------------------
 

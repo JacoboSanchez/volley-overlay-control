@@ -8,6 +8,45 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Security
+
+- **The rate limiter now covers the capability-token routes, and counts
+  the status a token miss actually returns.** It watched only `/api/v1/`
+  and counted only 401/403 — but an unknown `public_token` on
+  `/overlay/*` or `/follow/*` is reported as **404**, so token guessing
+  incremented nothing at all and was never throttled. A second `capability`
+  surface now covers `/overlay/*`, `/follow/*` and `/match/*`, counting
+  401/403/404. `/api/v1/` still ignores 404, where it means an ordinary
+  missing resource rather than a credential probe.
+
+  Buckets are keyed on `(surface, IP)` rather than IP alone. This is what
+  makes widening the watched set safe: with one shared bucket, 403s
+  collected by somebody's SPA against `/api/v1/` could have taken an
+  on-air `/overlay/` browser source off the air — trading a brute-force
+  risk for an availability one.
+
+  `/ws/*`, `/media/**` and `/metrics` are deliberately still unwatched,
+  and `AUTHENTICATION.md` now says why for each: a WebSocket handshake is
+  ASGI scope type `websocket` and is structurally invisible to this
+  middleware; `/media` carries no credential, so counting its 404s would
+  risk blocking a venue's icons after an ordinary delete without
+  addressing the actual concern (volume); and `/metrics` needs
+  authentication, not throttling.
+
+- **`AUTH_RATE_LIMIT_*` overrides now take effect.** They were evaluated
+  at module import, so they only applied if the variable was set before
+  the limiter was first imported — a footgun in tests and embedded use,
+  and the reason the existing suite had to `importlib.reload` the module
+  to change a limit. They are read per call now.
+
+### Added
+
+- **`voc_rate_limit_blocks_total{surface}`** — counts requests
+  short-circuited with 429. Previously a brute-force attempt and a
+  shared-NAT lockout of legitimate operators were indistinguishable in
+  `/metrics`: both were just a `status="429"` label on the latency
+  histogram, so an operator could not alert on either.
+
 ### Fixed
 
 - **Docker Compose no longer drops unlisted application settings from
