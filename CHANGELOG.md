@@ -138,12 +138,17 @@ archive by hand.
   none: a reader takes absence for "not an access path".
 
   The legend also gained a `G` class for routes that are gated by something
-  other than a session — currently the two match-report routes, which were
+  other than a session — the two match-report routes and the
+  `/matches/{public_token}` history listing, which were
   listed as `—` ("always public") under a section that closes by calling
   everything in it intentionally public, while `check_read_access` in fact
   returns `401` to an anonymous caller. Marking a protected route public in
   the document whose job is being unambiguous about access is the worst
-  single error this file can contain.
+  single error this file can contain. The history listing carried a second
+  trap: a `{public_token}` in the path does not make the token the
+  credential — there it only selects the overlay, and access still needs
+  the owner's cookie or `MATCH_REPORT_PUBLIC`. Every remaining `—` row was
+  audited against its handler.
 
   The guard now compares **`(method, path)` pairs across the whole schema**,
   in both directions. Path-only comparison had let rows advertise methods

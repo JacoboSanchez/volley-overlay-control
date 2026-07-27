@@ -148,6 +148,12 @@ all when a valid `?c=` token or an opted-in `?u=` bookmark is present.
 **rejected**, so listing those routes as public would misdescribe them in
 the document whose whole job is being unambiguous about access.
 
+All three `G` routes today are the match-history surface, and they share
+one trap: a `{public_token}` in the path does **not** imply the token is
+the credential. On `/overlay/` and `/follow/` it is; on `/matches/` it
+only selects the overlay, and access still needs the owner's cookie or
+`MATCH_REPORT_PUBLIC`. Read the gate, not the path shape.
+
 ### 2.1 Cookie sessions — the `vsession` cookie
 
 Every `Y`/`A` route below is gated by the `vsession` HttpOnly cookie, not
@@ -346,7 +352,7 @@ state, and cannot mutate anything. Control needs one of credentials 1–3.
 | `GET` | `/metrics` | — | Prometheus exposition. Unauthenticated by deliberate choice — aggregates only, no payloads and no per-OID labels (§10). |
 | `GET` | `/match/{match_id}/report` | G | Print-friendly match report. `check_read_access` admits `MATCH_REPORT_PUBLIC=true`, then a valid HMAC signature, then the owner's cookie; otherwise **401** (§7.1). |
 | `GET` | `/match/{match_id}/report.csv` | G | Point-log CSV for the same match, gated identically. A signed *report* link's `exp`/`sig` open the CSV too — the signature covers `match_id\|exp`, not the path. |
-| `GET` | `/matches/{public_token}` | — | Public per-overlay archived-match listing, addressed by the overlay's `public_token` (credential 4, §1.2) — the spectator counterpart to `/follow/`. |
+| `GET` | `/matches/{public_token}` | G | Per-overlay archived-match listing. **The token is an identifier here, not a credential**: it selects the overlay (`404` if unknown), then the same gate as the report runs — `MATCH_REPORT_PUBLIC=true` or the owner's cookie, else `401`. Unlike `/follow/{public_token}`, holding the token is not sufficient. |
 | `GET` | `/**` (SPA fallback) | — | Serves `index.html` for unknown paths |
 
 Everything marked `—` above is intentionally public; the two `G` rows are
