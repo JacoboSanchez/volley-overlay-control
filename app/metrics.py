@@ -138,6 +138,15 @@ webhook_dead_letter_size = Gauge(
     "Records currently parked in data/webhooks_dead_letter.jsonl.",
 )
 
+rate_limit_blocks_total = Counter(
+    "voc_rate_limit_blocks_total",
+    "Requests short-circuited with 429 by the per-IP failure limiter, "
+    "labelled by watched surface. Without this a brute-force attempt and a "
+    "shared-NAT lockout of legitimate operators look identical from the "
+    "outside — both are just a status=429 label on the latency histogram.",
+    labelnames=("surface",),
+)
+
 
 # ---------------------------------------------------------------------------
 # Helpers used from hot paths (kept tiny so the bookkeeping cost stays
@@ -170,3 +179,8 @@ def set_active_sessions(count: int) -> None:
 def set_dead_letter_size(count: int) -> None:
     """Refresh the webhook dead-letter gauge after a write/clear."""
     webhook_dead_letter_size.set(count)
+
+
+def record_rate_limit_block(surface: str) -> None:
+    """Count one 429 emitted by the per-IP failure limiter."""
+    rate_limit_blocks_total.labels(surface=surface or "unknown").inc()

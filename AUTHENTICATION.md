@@ -330,14 +330,50 @@ operators don't need to opt in.
 
 ### 6.1 `AuthRateLimitMiddleware` — brute-force backstop
 
-Located in `app/api/middleware/auth_rate_limit.py`. Watches the
-`/api/v1/` prefix (the `/auth/login` and `/auth/claim-admin`
-endpoints are the meaningful targets now; a stale `/manage` prefix is
-also still listed but matches no live route); when a response carries a
-401 or 403 status, the caller's IP is recorded in a sliding-window
-counter. Once the bucket exceeds the configured threshold the next
-request from that IP is short-circuited with `429 Too Many
-Requests` and a `Retry-After` header before reaching the handler.
+Located in `app/api/middleware/auth_rate_limit.py`. Watches two
+surfaces, each with its **own keyspace** and its own set of statuses
+that count as a failure:
+
+| Surface | Paths | Counted as failure |
+| :--- | :--- | :--- |
+| `api` | `/api/v1/*` | 401, 403 |
+| `capability` | `/overlay/*`, `/follow/*`, `/match/*` | 401, 403, **404** |
+
+404 counts on the capability surface because an unknown capability
+token is reported as "not found" (`app/overlay/routes.py`) — it is the
+only signal a token-guessing attempt produces. It deliberately does
+**not** count on `/api/v1/`, where a 404 is an ordinary missing
+resource and counting it would lock operators out during normal
+navigation.
+
+Buckets are keyed on `(surface, IP)`, not IP alone. A single shared
+bucket would mean 403s collected by somebody's SPA against `/api/v1/`
+could take an on-air `/overlay/` browser source off the air — trading a
+brute-force risk for an availability one. Split keyspaces let a surface
+throttle only itself.
+
+When a response carries one of the surface's failure statuses, the
+caller's IP is recorded in a sliding-window counter. Once the bucket
+exceeds the configured threshold the next matching request from that IP
+is short-circuited with `429 Too Many Requests` and a `Retry-After`
+header before reaching the handler, and
+`voc_rate_limit_blocks_total{surface}` is incremented so a lockout is
+visible in `/metrics` rather than hiding as a `status="429"` label on
+the latency histogram.
+
+Three surfaces are deliberately **not** watched:
+
+* **`/ws/*` and the control WebSocket** — a handshake arrives as ASGI
+  scope type `websocket`, not `http`, so this middleware structurally
+  cannot observe it. Listing the prefix would imply protection that does
+  not exist.
+* **`/media/**`** — carries no credential (filenames embed a content
+  hash). The exposure is request *volume*, which a failure-based limiter
+  does nothing about, while counting its 404s would risk blocking a
+  venue's icons after an ordinary delete. Volume limiting belongs at the
+  proxy.
+* **`/metrics`** — the concern there is that it is unauthenticated, not
+  that it is brute-forceable.
 The bucket is reset only by the sliding window — non-failure
 responses are intentionally ignored so an attacker cannot launder
 failures by interleaving login attempts (`POST /api/v1/auth/login`)
@@ -355,13 +391,23 @@ all legitimate users.
 
 | Env var | Default | Meaning |
 | :--- | :--- | :--- |
-| `AUTH_RATE_LIMIT_MAX_FAILURES` | `10` | 401/403 responses per window before blocking |
+| `AUTH_RATE_LIMIT_MAX_FAILURES` | `10` | failure responses per window before blocking |
 | `AUTH_RATE_LIMIT_WINDOW_SECONDS` | `60` | sliding-window length |
 | `AUTH_RATE_LIMIT_BLOCK_SECONDS` | `60` | how long the IP stays blocked once the threshold trips |
+
+These are read per call, so setting them at any point takes effect —
+they used to be evaluated at module import, which made them apply only
+if the variable was set before the first import.
 
 State is process-local. Multi-replica deployments should still front
 the app with a layer-7 limiter (Cloudflare, Nginx, etc.) — this
 middleware is the single-replica self-hosted backstop.
+
+Note also that keying on IP cannot distinguish several operators behind
+one NAT from a single attacker. The split keyspaces bound the blast
+radius and the metric makes a lockout visible, but that tradeoff is
+inherent to per-IP limiting; a deployment with many operators behind one
+address should raise `AUTH_RATE_LIMIT_MAX_FAILURES` accordingly.
 
 ### 6.2 `TrustedHostMiddleware` — Host-header poisoning defence (opt-in)
 
