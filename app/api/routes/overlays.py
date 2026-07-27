@@ -45,9 +45,53 @@ class UpdateOverlayRequest(BaseModel):
     public_control: bool | None = Field(None, description="Toggle no-login username+oid control")
 
 
+def _configured_public_url() -> str:
+    """Operator-configured public base for overlay links (may be empty)."""
+    return (EnvVarsManager.get_env_var("OVERLAY_PUBLIC_URL", "") or "").rstrip("/")
+
+
+def _link_base(request: Request) -> str:
+    """Base URL for operator-facing links.
+
+    ``OVERLAY_PUBLIC_URL`` wins when set — it is an explicit choice and may
+    deliberately name a different host than the control UI (overlay reverse-
+    proxied on its own subdomain). Otherwise the links follow the host the
+    operator actually reached us on, which is the only host we know is
+    reachable from their browser.
+    """
+    return _configured_public_url() or str(request.base_url).rstrip("/")
+
+
+def _rebase_output_url(request: Request, output: str | None) -> str | None:
+    """Re-point a backend-built overlay URL at the operator's own host.
+
+    ``LocalOverlayBackend.fetch_output_token`` has no request in scope, so
+    with no ``OVERLAY_PUBLIC_URL`` configured it can only guess
+    ``http://localhost:<APP_PORT>``. That guess is wrong for every operator
+    who reaches the app on any other host: the OBS link it produces is
+    unreachable, and the preview iframe it feeds becomes cross-origin (so
+    ``frame-src 'self'`` blocks it). ``/api/v1/overlays`` has always built
+    the same link from ``request.base_url``; this brings ``/links`` in line.
+
+    When a public URL *is* configured the value is returned untouched —
+    that host is the operator's deliberate choice.
+    """
+    if not output or _configured_public_url():
+        return output
+    try:
+        parsed = urllib.parse.urlsplit(output)
+        base = urllib.parse.urlsplit(str(request.base_url))
+    except ValueError:
+        return output
+    if not parsed.netloc or not base.netloc:
+        return output
+    return urllib.parse.urlunsplit((
+        base.scheme, base.netloc, parsed.path, parsed.query, parsed.fragment,
+    ))
+
+
 def _overlay_out(request: Request, overlay, *, username: str | None = None) -> OverlayOut:
-    public_url = (EnvVarsManager.get_env_var("OVERLAY_PUBLIC_URL", "") or "").rstrip("/")
-    base = public_url or str(request.base_url).rstrip("/")
+    base = _link_base(request)
     local_url = f"{base}/overlay/{overlay.public_token}"
     control_url = (
         f"{base}/board?c={overlay.control_token}" if overlay.control_token else None
@@ -183,7 +227,7 @@ async def get_links(request: Request,
     # per-user archive lookups.
     oid = session.raw_oid
     skey = session.oid
-    output = session.conf.output
+    output = _rebase_output_url(request, session.conf.output)
     links = {}
 
     if output and output.strip():

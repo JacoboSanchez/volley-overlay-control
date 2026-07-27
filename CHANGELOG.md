@@ -35,6 +35,18 @@ once a first tagged release ships.
   no host list can be derived ahead of time. Operators who serve logos
   from a known origin can pin it with `SECURITY_CSP`.
 
+### Fixed
+
+- **`GET /api/v1/links` now returns an overlay URL on the host the
+  operator is actually using.** `LocalOverlayBackend.fetch_output_token`
+  has no request in scope, so with no `OVERLAY_PUBLIC_URL` configured it
+  falls back to `http://localhost:<APP_PORT>` — a URL that resolves to the
+  wrong machine for anyone reaching the app on any other host. The OBS
+  link was unreachable and the preview iframe it feeds was cross-origin.
+  `/links` now rebases the URL onto `request.base_url`, matching what
+  `/api/v1/overlays` has always done for the same link. An explicitly
+  configured `OVERLAY_PUBLIC_URL` is still returned untouched.
+
 - **The rate limiter now covers the capability-token routes, and counts
   the status a token miss actually returns.** It watched only `/api/v1/`
   and counted only 401/403 — but an unknown `public_token` on

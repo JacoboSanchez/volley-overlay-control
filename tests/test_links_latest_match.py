@@ -8,6 +8,7 @@ The field is added by ``app/api/routes/overlays.py`` only when:
 Archives are keyed per-user (``<user_id>:<oid>``) post-cutover, so the
 "other oids don't leak" guarantee now also covers other *users*.
 """
+import urllib.parse
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -149,3 +150,65 @@ class TestLatestMatchReportLink:
         response = client.get("/api/v1/links?oid=links-private")
         assert "match_history" not in response.json()
         _ = SessionManager
+
+
+class TestOverlayLinkHost:
+    """``links.overlay`` must point at a host the operator can reach.
+
+    ``LocalOverlayBackend.fetch_output_token`` has no request in scope, so
+    with no ``OVERLAY_PUBLIC_URL`` it guesses ``http://localhost:<APP_PORT>``.
+    ``/api/v1/overlays`` has always built the same link from
+    ``request.base_url``; ``/links`` used to hand the raw guess to the SPA,
+    which fed it straight into the OverlayPreview iframe.
+    """
+
+    @pytest.fixture
+    def localhost_backend(self, fake_backend_cls):
+        fake_backend_cls.fetch_output_token.return_value = (
+            "http://localhost:8080/overlay/tok123"
+        )
+        return fake_backend_cls
+
+    def test_overlay_link_follows_request_host(
+            self, client, localhost_backend, monkeypatch):
+        monkeypatch.delenv("OVERLAY_PUBLIC_URL", raising=False)
+        _init_session(client, oid="links-host")
+        body = client.get("/api/v1/links?oid=links-host").json()
+        # TestClient requests arrive at http://testserver — the localhost
+        # guess must be rewritten to it, token path intact.
+        assert body["overlay"] == "http://testserver/overlay/tok123"
+
+    def test_preview_link_embeds_the_rebased_output(
+            self, client, localhost_backend, monkeypatch):
+        """The preview page frames whatever ``output`` names, so the
+        rewrite has to reach it too — this is the value that has to
+        satisfy ``frame-src 'self'``."""
+        monkeypatch.delenv("OVERLAY_PUBLIC_URL", raising=False)
+        _init_session(client, oid="links-preview")
+        body = client.get("/api/v1/links?oid=links-preview").json()
+        params = urllib.parse.parse_qs(
+            urllib.parse.urlsplit(body["preview"]).query,
+        )
+        assert params["output"] == ["http://testserver/overlay/tok123"]
+
+    def test_configured_public_url_is_left_alone(
+            self, client, localhost_backend, monkeypatch):
+        """An explicit ``OVERLAY_PUBLIC_URL`` is the operator's choice and
+        may deliberately name a different host than the control UI."""
+        monkeypatch.setenv("OVERLAY_PUBLIC_URL", "https://overlay.example.com")
+        localhost_backend.fetch_output_token.return_value = (
+            "https://overlay.example.com/overlay/tok123"
+        )
+        _init_session(client, oid="links-configured")
+        body = client.get("/api/v1/links?oid=links-configured").json()
+        assert body["overlay"] == "https://overlay.example.com/overlay/tok123"
+
+    def test_missing_output_stays_missing(
+            self, client, fake_backend_cls, monkeypatch):
+        """A backend that reports no output URL must not gain one."""
+        monkeypatch.delenv("OVERLAY_PUBLIC_URL", raising=False)
+        fake_backend_cls.fetch_output_token.return_value = None
+        _init_session(client, oid="links-none")
+        body = client.get("/api/v1/links?oid=links-none").json()
+        assert "overlay" not in body
+        assert "preview" not in body
