@@ -440,10 +440,11 @@ effect can be skipped — when in doubt, add the entry.
 
 `CHANGELOG.md` holds **only the current major plus `[Unreleased]`** so it
 stays readable at this cadence; older releases are in
-`docs/CHANGELOG-archive.md`. Never append there, and never move a version
-down as part of another change — archiving happens once per major, as its
-own commit (procedure in
-[CONTRIBUTING.md](CONTRIBUTING.md#archiving-a-superseded-major)).
+`docs/CHANGELOG-archive.md`. Never append there. When a **new major ships**,
+move the superseded one down in a commit that does nothing else — an
+archive move is a few thousand lines, and burying it inside a feature diff
+makes both unreviewable. Procedure in
+[CONTRIBUTING.md](CONTRIBUTING.md#archiving-a-superseded-major).
 
 ### 2. Regenerate the OpenAPI Schema + Frontend Types
 

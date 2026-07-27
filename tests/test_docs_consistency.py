@@ -280,14 +280,18 @@ def test_every_ci_gate_is_documented():
     )
     undocumented = []
     for name, run in _ci_gate_steps():
-        gate = next(
-            (g for g, markers in CI_GATES.items() if any(m in run for m in markers)),
-            None,
-        )
-        if gate is None:
+        # Every gate the step runs, not just the first match: a single step
+        # invoking both `ruff check .` and `mypy` would otherwise be recorded
+        # as "ruff" alone, and dropping mypy from the table would go unnoticed
+        # while CI still enforced it.
+        gates = [g for g, markers in CI_GATES.items() if any(m in run for m in markers)]
+        if not gates:
             undocumented.append(name)
-        elif gate not in documented:
-            undocumented.append(f"{name} (gate {gate!r} missing from the table)")
+        undocumented.extend(
+            f"{name} (gate {g!r} missing from the table)"
+            for g in gates
+            if g not in documented
+        )
     assert not undocumented, (
         "ci.yml has failing steps that AGENTS.md's quality-gate table does "
         f"not cover: {undocumented}. Add them to the table (and to CI_GATES "
