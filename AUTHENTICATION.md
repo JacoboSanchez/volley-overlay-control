@@ -85,10 +85,23 @@ credential can ever reach an overlay it was not issued for.
 
 | # | Credential | Carried as | Grants | Guessable? | Revoke by |
 | :-- | :--- | :--- | :--- | :--- | :--- |
-| 1 | **Owner session** — `vsession` cookie | HttpOnly cookie (§2.1) | Full control of every overlay the user owns, plus account/admin surfaces | No | Logout, password change, admin reset |
+| 1 | **Owner session** — `vsession` cookie | HttpOnly cookie (§2.1) | Full control of every overlay the user owns, plus account/admin surfaces | No | Logout (this session), self password change (**every other** session), admin password reset or account delete (**all** sessions) — see below |
 | 2 | **`control_token`** — shareable operator link | `?c=<token>` query or `X-Control-Token` header | Full control of **that one** overlay, with no login | No — `secrets.token_urlsafe(18)`, unique per overlay | `POST /api/v1/overlays/{oid}/regenerate-control-token` (mints a new token; every previously-shared link dies instantly) |
 | 3 | **Public bookmark** — `public_control` | `?u=<username>&oid=<oid>` query | Full control of that one overlay, with no login | **Yes — by design** (see below) | `PATCH /api/v1/overlays/{oid}` with `{"public_control": false}` |
 | 4 | **`public_token`** — OBS output | Path segment (`/overlay/{token}`) | Read-only render feed; no control (§2.5) | No — same 24-char url-safe shape | Not revocable independently; delete/recreate the overlay |
+
+**Session revocation is not all-or-nothing, and the difference matters after
+a cookie theft.** `POST /api/v1/auth/change-password` deliberately keeps the
+caller's own session alive — it passes that cookie's hash as
+`except_token_hash` (`app/auth/routes.py`) so changing your password does not
+log you out of the tab you changed it in. The consequence: if an attacker
+holds a *copy* of the cookie you are currently using, changing your password
+from that same browser does **not** lock them out. Log out (which revokes the
+session row itself, invalidating every copy of that cookie) or have an admin
+run `POST /api/v1/admin/users/{id}/reset-password`, which calls
+`revoke_all_for_user` with no exception and kills every session including the
+current one. Password change alone is the right tool for "someone may have
+learned my password", not for "someone may have my cookie".
 
 Precedence in `resolve_board_skey` (`app/api/dependencies.py`): control
 token → public bookmark → cookie user. A present-but-invalid token or a

@@ -162,22 +162,48 @@ NON_GATE_STEPS = {
 }
 
 
-def _ci_run_steps() -> list[tuple[str, str]]:
-    """Every ``(step name, run command)`` pair in the CI workflow."""
+def _ci_gate_steps() -> list[tuple[str, str]]:
+    """Every ``(step name, run command)`` pair that can fail the build.
+
+    Setup steps are excluded, and that exclusion is load-bearing rather than
+    cosmetic: the dependency-install step pins ``ruff==…`` and ``mypy==…``, so
+    searching every ``run:`` block would find "mypy" even with the
+    ``Type-check with mypy`` step deleted.
+    """
     workflow = yaml.safe_load(_read(".github/workflows/ci.yml"))
     steps = []
     for job in workflow["jobs"].values():
         for step in job.get("steps", []):
-            if "run" in step:
+            if "run" in step and step.get("name") not in NON_GATE_STEPS:
                 steps.append((step.get("name", "<unnamed>"), step["run"]))
     return steps
 
 
+def _documented_gate_table() -> str:
+    """The rows of AGENTS.md's quality-gate table, and nothing else.
+
+    Scoped to the table on purpose: most gate names also appear in the
+    tech-stack line and the example commands further down, so searching the
+    whole file would let a gate be dropped from the table without failing.
+    """
+    lines = _read("AGENTS.md").splitlines()
+    try:
+        header = next(i for i, ln in enumerate(lines) if ln.startswith("| Surface | Gates |"))
+    except StopIteration:  # pragma: no cover - guarded by the assert below
+        return ""
+    rows = []
+    for line in lines[header + 1:]:
+        if not line.startswith("|"):
+            break
+        rows.append(line)
+    return "\n".join(rows)
+
+
 def test_documented_gates_are_actually_run_by_ci():
     """No doc may promise a gate the pipeline does not enforce."""
-    all_commands = "\n".join(run for _, run in _ci_run_steps())
+    gate_commands = "\n".join(run for _, run in _ci_gate_steps())
     missing = sorted(
-        gate for gate, marker in CI_GATES.items() if marker not in all_commands
+        gate for gate, marker in CI_GATES.items() if marker not in gate_commands
     )
     assert not missing, (
         f"AGENTS.md documents gates that ci.yml no longer runs: {missing}. "
@@ -191,16 +217,19 @@ def test_every_ci_gate_is_documented():
     AGENTS.md's table previously omitted six of these, so contributors
     satisfied a subset and still got a red PR.
     """
-    documented = _read("AGENTS.md")
+    documented = _documented_gate_table()
+    assert documented.count("\n") >= 3, (
+        "Could not find AGENTS.md's '| Surface | Gates |' table (or it lost "
+        "its rows). Restore it or update _documented_gate_table() — this "
+        "guard is worthless if it searches an empty string."
+    )
     undocumented = []
-    for name, run in _ci_run_steps():
-        if name in NON_GATE_STEPS:
-            continue
+    for name, run in _ci_gate_steps():
         gate = next((g for g, marker in CI_GATES.items() if marker in run), None)
         if gate is None:
             undocumented.append(name)
         elif gate not in documented:
-            undocumented.append(f"{name} (gate {gate!r} missing from AGENTS.md)")
+            undocumented.append(f"{name} (gate {gate!r} missing from the table)")
     assert not undocumented, (
         "ci.yml has failing steps that AGENTS.md's quality-gate table does "
         f"not cover: {undocumented}. Add them to the table (and to CI_GATES "

@@ -101,6 +101,17 @@ archive.
   belongs on trusted networks only. Fixes
   [#430](https://github.com/JacoboSanchez/volley-overlay-control/issues/430).
 
+- **Session revocation is documented per mechanism, because they differ.**
+  `AUTHENTICATION.md` §1.2 now spells out that logout revokes the current
+  session, a **self password change deliberately keeps it alive** (every
+  *other* session is revoked), and only an admin password reset or account
+  delete kills all of them. The distinction matters after a cookie theft: if
+  an attacker holds a copy of the cookie you are currently using, changing
+  your password from that same browser does not lock them out — log out, or
+  have an admin reset the account. Behaviour is unchanged; the docs
+  previously listed "password change" as a revocation without the caveat,
+  contradicting §2.2 of the same file.
+
 - **The route inventory now distinguishes "needs a login" from "needs a
   board credential".** `AUTHENTICATION.md` §2.3 marked the whole scoring
   surface `Y + OID` ("requires a logged-in user"), which was wrong: those
