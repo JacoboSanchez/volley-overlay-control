@@ -119,6 +119,30 @@ be rejected. The changelog transform itself lives in
 and is unit-tested in `tests/test_release_script.py`, so it can also
 be run locally for a manual release.
 
+### Archiving a superseded major
+
+`CHANGELOG.md` holds only the current major plus `## [Unreleased]`;
+older releases live in
+[`docs/CHANGELOG-archive.md`](./docs/CHANGELOG-archive.md). Every
+contributor and every agent reads and appends to the live file, so it is
+kept short deliberately.
+
+When a new major ships, move the superseded one down **once**, as its own
+commit:
+
+1. Cut everything from the newly-superseded major's highest `## [X.Y.Z]`
+   heading to the end of `CHANGELOG.md`.
+2. Paste it directly under the `---` rule at the top of
+   `docs/CHANGELOG-archive.md`, and update that file's heading and
+   version range.
+3. Update the "current major" sentence at the top of `CHANGELOG.md`.
+
+`cut_changelog.py` only ever reads the `## [Unreleased]` section, so
+archiving does not affect the release workflow.
+`tests/test_docs_consistency.py` checks that the split stayed clean: no
+version appears in both files, and the archive stays strictly older than
+everything the live file lists.
+
 ---
 
 ## Coding conventions

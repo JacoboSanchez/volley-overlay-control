@@ -128,11 +128,12 @@ For the full endpoint reference, request/response schemas, and WebSocket protoco
 > (`data/app.db`), PostgreSQL supported (`postgresql+psycopg://…`). The schema
 > migrates to head automatically on startup; nothing to run by hand.
 >
-> **Sessions:** HttpOnly cookies (the old `SCOREBOARD_USERS` Bearer auth is
-> gone). The public OBS output URL for each overlay uses an unguessable token,
-> so usernames/oids never appear in it. See the session-related env vars in
-> the *Configuration* table below (`SESSION_SECRET`, `SESSION_TTL_HOURS`,
-> `REGISTRATION_OPEN`, `ADMIN_BOOTSTRAP_TOKEN`, …).
+> **Sessions:** HttpOnly cookies — no API keys or Bearer tokens. The
+> session-related env vars are in the *Configuration* table below
+> (`SESSION_SECRET`, `SESSION_TTL_HOURS`, `REGISTRATION_OPEN`,
+> `ADMIN_BOOTSTRAP_TOKEN`, …). A login is not the only way to reach a board;
+> see *[Sharing board control](#sharing-board-control)* below, and
+> [AUTHENTICATION.md](AUTHENTICATION.md) for the full model.
 
 ### Prerequisites
 
@@ -147,6 +148,50 @@ cloud account. Once signed in, create an overlay from your account dashboard
 an unguessable `public_token`: point OBS at `/overlay/{public_token}` (plus the
 `mosaic` preview grid via `?style=mosaic`) and it receives state updates over
 WebSocket at `/ws/{public_token}`.
+
+### Sharing board control
+
+The person running the scoreboard is often not you. Two ways to give them the
+board without giving them your account:
+
+**Operator link (recommended).** Every overlay carries a second unguessable
+token, and the dashboard shows the resulting link:
+
+```
+https://your-host/board?c=<control-token>
+```
+
+Anyone who opens it gets the full control board for **that one overlay** — no
+login, no account. It cannot touch your other overlays, your teams and presets,
+or your account settings. Hand it to the volunteer on the bench, bookmark it on
+a courtside tablet, or paste it into a stream-deck button.
+
+To revoke it, mint a fresh token from the overlay's dashboard entry (or
+`POST /api/v1/overlays/{oid}/regenerate-control-token`). **The old link stops
+working immediately** — do this when a season ends or a volunteer moves on.
+Treat the link like a password: anyone who has it can change the score.
+
+**Public bookmark (off by default, read the warning).** Enabling
+`public_control` on an overlay also accepts a **stable, guessable** URL:
+
+```
+https://your-host/board?u=<username>&oid=<overlay-id>
+```
+
+> ⚠️ This URL contains no secret. **Anyone who guesses your username and the
+> overlay id gets full control of that board**, including resetting the score
+> mid-match — and both halves are easy to guess (`court1`, `main`). The only
+> reason it exists is that it survives a token rotation, so a kiosk browser can
+> bookmark one permanent URL and never be re-provisioned.
+>
+> Turn it on only on a trusted network, and prefer the operator link everywhere
+> else. Toggle it per overlay from the dashboard (or
+> `PATCH /api/v1/overlays/{oid}` with `{"public_control": false}` to turn it
+> back off). If you do enable it, pick a non-obvious overlay id.
+
+The OBS output link (`/overlay/{public_token}`) is a third, separate token. It
+is **output only** — it renders the scoreboard and cannot change anything — so
+it is safe to embed in a browser source or share with a streaming partner.
 
 ---
 

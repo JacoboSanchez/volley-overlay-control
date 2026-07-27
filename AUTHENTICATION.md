@@ -18,17 +18,22 @@
 
 Last audited: 2026-06-19 (multi-user cookie-session refactor).
 
-This document is the single source of truth for **which routes are
-protected, which are intentionally public, and where the gaps are**. It
-complements `README.md` (user-facing env var setup) and
-`DEVELOPER_GUIDE.md` (code organisation) with a route-by-route inventory.
+This document is the single source of truth for **the auth model and
+which routes are protected, which are intentionally public, and where
+the gaps are**. The other docs deliberately do not restate the model —
+they link here (see the documentation ownership table in
+[`AGENTS.md`](AGENTS.md#documentation-files)). `README.md` owns
+operator-facing env var setup and `DEVELOPER_GUIDE.md` owns code
+organisation; both point at this file for the model itself.
 
 ## 1. Auth mechanisms in use
 
-The codebase has a single kind of auth: a **cookie-session layer for
-human users** (the scoreboard, the SPA, and account self-service). The
-app is purely in-process, so there is no machine-to-machine Bearer layer
-to gate any external overlay server.
+Two kinds of credential exist: a **cookie-session layer for human users**
+(the SPA, account self-service, and everything a signed-in owner does) and
+**per-overlay capability tokens** for the two surfaces that must work with
+no login — the shareable operator board link and the OBS output pages
+(§1.2). The app is purely in-process, so there is no machine-to-machine
+Bearer layer to gate any external overlay server.
 
 | Layer | Credential | How it's enforced | Where |
 | :--- | :--- | :--- | :--- |
@@ -71,17 +76,65 @@ change-password, logout, and the context endpoints are exempt). The
 **admin role + the SPA `/admin` page** replace the old `/manage` admin
 console; there is no separate admin password.
 
+### 1.2 Board credentials — the four ways to reach one overlay
+
+A login is **not** the only way to drive a board. Three credentials grant
+control, and a fourth grants read-only output. Every one of them resolves
+to the same per-overlay storage key `skey = "<user_id>:<oid>"`, so no
+credential can ever reach an overlay it was not issued for.
+
+| # | Credential | Carried as | Grants | Guessable? | Revoke by |
+| :-- | :--- | :--- | :--- | :--- | :--- |
+| 1 | **Owner session** — `vsession` cookie | HttpOnly cookie (§2.1) | Full control of every overlay the user owns, plus account/admin surfaces | No | Logout, password change, admin reset |
+| 2 | **`control_token`** — shareable operator link | `?c=<token>` query or `X-Control-Token` header | Full control of **that one** overlay, with no login | No — `secrets.token_urlsafe(18)`, unique per overlay | `POST /api/v1/overlays/{oid}/regenerate-control-token` (mints a new token; every previously-shared link dies instantly) |
+| 3 | **Public bookmark** — `public_control` | `?u=<username>&oid=<oid>` query | Full control of that one overlay, with no login | **Yes — by design** (see below) | `PATCH /api/v1/overlays/{oid}` with `{"public_control": false}` |
+| 4 | **`public_token`** — OBS output | Path segment (`/overlay/{token}`) | Read-only render feed; no control (§2.5) | No — same 24-char url-safe shape | Not revocable independently; delete/recreate the overlay |
+
+Precedence in `resolve_board_skey` (`app/api/dependencies.py`): control
+token → public bookmark → cookie user. A present-but-invalid token or a
+bookmark for an overlay that has not opted in both fail closed with `403`
+and the same opaque `"Invalid or revoked control link."` detail — the
+message deliberately does not distinguish "no such token" from "revoked",
+so a prober learns nothing from it. Only when neither is supplied does the
+cookie path run, returning `401` when anonymous and `409` when a forced
+password change is pending.
+
+> ⚠️ **`public_control` trades unguessability for a stable URL.** The rest
+> of this document stresses that the capability tokens are unguessable;
+> credential 3 is the deliberate exception. `/board?u=alice&oid=court1`
+> contains no secret — **anyone who can guess a username and an overlay id
+> gets full control of that board**, including resetting the score
+> mid-match. Both halves are routinely guessable: usernames are short and
+> overlay ids tend to describe the venue (`court1`, `main`). It exists
+> because a token link cannot be bookmarked usefully across a token
+> rotation, and a tablet in a gym wants one permanent URL.
+>
+> It is **off by default**, per overlay, and the SPA shows a warning when
+> enabling it. Prefer credential 2 (`?c=`) for anything shared outside a
+> trusted room; reach for `public_control` only on a private network, and
+> pick a non-obvious `oid` if you do.
+
+Both credential-less paths are exercised by
+`tests/test_control_token.py` (token accepted, revoked token rejected,
+`public_control` off → `403`).
+
 ## 2. Route inventory
 
 Legend: `Y` = requires a logged-in user (cookie session); `A` = requires
-an admin session; `OID` = additionally scoped to the caller's per-user
-session key `"<user_id>:<oid>"`; `—` = always public (capability URL or
-intentionally open).
+an admin session; `B` = **board credential** — any of the three control
+credentials in §1.2 (control token, opted-in public bookmark, or the
+owner's cookie session), always scoped to the resolved storage key
+`"<user_id>:<oid>"`; `—` = always public (capability URL or intentionally
+open).
+
+`B` is deliberately not `Y`: those routes are reachable with no login at
+all when a valid `?c=` token or an opted-in `?u=` bookmark is present.
 
 ### 2.1 Cookie sessions — the `vsession` cookie
 
-Every `Y`/`A`/`OID` route below is gated by the `vsession` HttpOnly
-cookie, not a Bearer token. The cookie value is an opaque
+Every `Y`/`A` route below is gated by the `vsession` HttpOnly cookie, not
+a Bearer token (a `B` route accepts it too, as credential 1 of §1.2, but
+does not require it). The cookie value is an opaque
 `secrets.token_urlsafe(32)` minted by `app/auth/sessions.py`; the
 `auth_sessions` table stores only its SHA-256 (`token_hash`), with
 `user_id`, `expires_at`, and `last_seen_at`. `resolve_session` validates
@@ -109,34 +162,52 @@ Prefix `/api/v1/auth`.
 
 ### 2.3 Scoreboard REST API — `api_router` (`app/api/routes/*`)
 
-Prefix `/api/v1`. Every board route below authorizes through its
-`Depends(get_session)` parameter, which resolves the control token,
-public bookmark, or cookie user to the storage key
-`make_skey(user.id, oid)` — so passing another user's `oid` simply
-resolves to a different key with no session (404), never another user's
-data. There is no second-level `check_oid_access`: isolation is
-structural in the session key.
+Prefix `/api/v1`. Every `B` route below authorizes through its
+`Depends(get_session)` parameter, which resolves whichever board
+credential is present (§1.2) to the storage key `"<user_id>:<oid>"` — so
+passing another user's `oid` simply resolves to a different key with no
+session (404), never another user's data. There is no second-level
+`check_oid_access`: isolation is structural in the session key.
+
+Note what `B` implies: the whole scoring surface is reachable **without a
+login** by anyone holding the overlay's control token or, when
+`public_control` is on, anyone who can guess `username` + `oid`. That is
+the intended design (an operator running the match is usually not the
+account owner), and §1.2 covers the trade-off. Account-level routes —
+overlay CRUD, teams, matches, icons — stay `Y`: a control link drives one
+board and cannot touch the owner's account.
 
 | Method | Path | Auth | Notes |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/session/init` | Y + OID | Creates the caller's `"<user_id>:<oid>"` session. |
-| `GET` | `/state` | Y + OID | Via `get_session`. |
-| `GET` | `/customization` | Y + OID | |
-| `GET` | `/config` | Y + OID | |
-| `POST` | `/game/add-point` | Y + OID | |
-| `POST` | `/game/add-set` | Y + OID | |
-| `POST` | `/game/add-timeout` | Y + OID | |
-| `POST` | `/game/change-serve` | Y + OID | |
-| `POST` | `/game/set-score` | Y + OID | |
-| `POST` | `/game/set-sets` | Y + OID | |
-| `POST` | `/game/reset` | Y + OID | |
-| `POST` | `/display/visibility` | Y + OID | |
-| `POST` | `/display/simple-mode` | Y + OID | |
-| `PUT` | `/customization` | Y + OID | |
-| `GET` | `/overlays` | Y | Scoped to the caller's overlays. |
+| `POST` | `/session/init` | B | Creates/reuses the board's `"<user_id>:<oid>"` session. In owner (cookie) mode only, a missing `oid` is auto-registered as a new overlay; token and bookmark modes require the overlay to exist. |
+| `GET` | `/state` | B | Via `get_session`. |
+| `GET` | `/customization` | B | |
+| `GET` | `/config` | B | |
+| `GET` | `/audit` | B | Most-recent records from the board's audit log. |
+| `GET` | `/live-stats` | B | |
+| `POST` | `/session/rules` | B | Update the board's match rules (mode, points, sets). |
+| `POST` | `/game/add-point` | B | |
+| `POST` | `/game/add-set` | B | |
+| `POST` | `/game/add-timeout` | B | |
+| `POST` | `/game/change-serve` | B | |
+| `POST` | `/game/set-score` | B | |
+| `POST` | `/game/set-sets` | B | |
+| `POST` | `/game/reset` | B | |
+| `POST` | `/game/start-match` | B | |
+| `POST` | `/game/undo` | B | |
+| `POST` | `/display/visibility` | B | |
+| `POST` | `/display/simple-mode` | B | |
+| `PUT` | `/customization` | B | |
+| `GET` | `/links` | B | |
+| `GET` | `/styles`, `/style-capabilities` | B | |
+| `GET` | `/board/team-groups`, `/board/team-groups/{key}/teams` | B | Team pickers for the board UI, so a no-login operator can set team names. |
+| `PUT` | `/board/selected-group` | B | |
+| `GET` | `/overlays` | Y | Scoped to the caller's overlays. Response includes each overlay's `control_token` / `control_url` and `public_control` flag (§1.2) — it is the owner's own credential list, so it is owner-only by cookie. |
+| `POST` | `/overlays` | Y | Mints `public_token` **and** `control_token`. |
+| `PATCH` | `/overlays/{oid}` | Y | Owner-only; this is where `public_control` is toggled. |
+| `DELETE` | `/overlays/{oid}` | Y | |
+| `POST` | `/overlays/{oid}/regenerate-control-token` | Y | Owner-only revocation of credential 2 — the previously-shared `/board?c=` link stops working immediately. |
 | `GET` | `/teams` | Y | |
-| `GET` | `/links` | Y + OID | |
-| `GET` | `/styles` | Y + OID | |
 | `GET` | `/matches/{id}` | Y | Owner-only (`404` otherwise). |
 | `DELETE` | `/matches/{id}` | Y | Owner-only delete (§8 / §7.1). |
 | `POST` | `/matches/{id}/sign-url` | Y | Owner mints an HMAC capability URL for the gated match report. Body: `{"ttl_seconds": int}`. Response embeds `?exp=&sig=` — never a credential. Key is `SESSION_SECRET`. |
@@ -146,7 +217,7 @@ structural in the session key.
 | `GET` | `/icons/mine/{id}/usage` | Y | How many teams reference the icon (pre-delete count). |
 | `POST` | `/icons/mine/import-from-teams` | Y | Convert the caller's own teams' external logo URLs into hosted icons (SSRF-guarded download; scope re-checked server-side). |
 | `POST` | `/admin/icons` | A | Upload a global icon; `PATCH`/`DELETE /admin/icons/{id}`, `GET /admin/icons/{id}/usage` and `POST /admin/icons/import-from-teams` mirror the personal shapes for the global scope. |
-| `WS` | `/ws` | Y + OID | Authenticated by the same `vsession` cookie — browsers send cookies on same-origin WS upgrades, so no subprotocol/query-param token is needed. Resolves to `make_skey(user.id, oid)`; closes `4003` when anonymous, `4004` when no session exists. |
+| `WS` | `/ws` | B | Accepts the same three board credentials: `?c=<token>`, `?u=&oid=`, or the `vsession` cookie (browsers send cookies on same-origin WS upgrades, so no subprotocol token is needed). Closes `4400` with neither `oid` nor `c`, `4003` when the credential does not resolve, `4004` when no session exists. |
 
 ### 2.4 Admin user management — `app/api/routes/admin_users.py`
 
@@ -171,9 +242,11 @@ This router powers the **in-process overlay server**
 `_register_overlay_routes()` finds the `overlay_templates/` directory.
 Every endpoint it exposes is intentionally public: the OBS output
 surface is addressed by an unguessable per-overlay `public_token`
-(a capability URL), and the theme name list is not sensitive. There are
-no machine-to-machine peer endpoints — the app is purely in-process, so
-there is nothing here for an external overlay server to call.
+(credential 4 in §1.2), and the theme name list is not sensitive. There
+are no machine-to-machine peer endpoints — the app is purely in-process,
+so there is nothing here for an external overlay server to call. Note
+that `public_token` is **output only**: it renders the board and streams
+state, and cannot mutate anything. Control needs one of credentials 1–3.
 
 | Method | Path | Auth | Classification |
 | :--- | :--- | :--- | :--- |
