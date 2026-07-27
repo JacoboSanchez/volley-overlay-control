@@ -260,3 +260,26 @@ def test_cli_dry_run_writes_neither_file(tmp_path):
     assert rc == 0
     assert changelog.read_text(encoding="utf-8") == LIVE_6X
     assert archive.read_text(encoding="utf-8") == ARCHIVE_5X
+
+
+def test_rejects_a_version_older_than_the_newest_release():
+    """A typo'd lower major would otherwise commit a two-major changelog."""
+    live, _ = cut_changelog.cut_unreleased(LIVE_6X, "5.10.0", "2026-08-01")
+    with pytest.raises(cut_changelog.ChangelogError, match="older than"):
+        cut_changelog.archive_superseded_majors(live, ARCHIVE_5X, "5.10.0")
+
+
+def test_cli_refuses_the_older_version_without_writing(tmp_path, capsys):
+    changelog = tmp_path / "CHANGELOG.md"
+    archive = tmp_path / "CHANGELOG-archive.md"
+    changelog.write_text(LIVE_6X, encoding="utf-8")
+    archive.write_text(ARCHIVE_5X, encoding="utf-8")
+
+    rc = cut_changelog.main(
+        ["5.10.0", "--changelog", str(changelog), "--archive", str(archive)],
+    )
+
+    assert rc == 1
+    assert "older than" in capsys.readouterr().err
+    assert changelog.read_text(encoding="utf-8") == LIVE_6X
+    assert archive.read_text(encoding="utf-8") == ARCHIVE_5X

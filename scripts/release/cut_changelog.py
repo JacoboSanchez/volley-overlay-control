@@ -50,6 +50,10 @@ class ChangelogError(ValueError):
     """Raised when the changelog cannot be cut as requested."""
 
 
+def _parse_version(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split("."))
+
+
 def cut_unreleased(text: str, version: str, today: str) -> tuple[str, str]:
     """Return ``(new_changelog_text, release_notes)``.
 
@@ -123,12 +127,35 @@ def archive_superseded_majors(
             moved.append(line.strip())
         elif cut_at is not None:
             # A newer major below an older one means the file is already
-            # out of order; refuse rather than silently interleave.
+            # out of order; refuse rather than silently interleave. Checked
+            # before the version-ordering guard below because a scrambled
+            # file is the more useful thing to report.
             raise ChangelogError(
                 f"{line.strip()} appears below an older major — CHANGELOG.md "
                 "is not in descending version order, so archiving would "
                 "scramble it. Fix the ordering by hand."
             )
+
+    # A version older than what is already released archives nothing (there is
+    # no *older* major to move), so without this it would sail through the
+    # early return below and the workflow would commit a changelog spanning two
+    # majors — failing the single-live-major guard on main right after tagging.
+    requested = _parse_version(version)
+    newest = max(
+        (
+            _parse_version(m.group(1))
+            for line in lines
+            if (m := re.match(r"^## \[(\d+\.\d+\.\d+)\]", line))
+            and _parse_version(m.group(1)) != requested
+        ),
+        default=None,
+    )
+    if newest is not None and requested < newest:
+        raise ChangelogError(
+            f"Version {version} is older than the newest release already in "
+            f"the changelog ({'.'.join(str(p) for p in newest)}). Releases only "
+            "move forward; check the version passed to the workflow."
+        )
 
     if cut_at is None:
         return live, archive, []

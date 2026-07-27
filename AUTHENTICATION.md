@@ -137,22 +137,33 @@ Legend: `Y` = requires a logged-in user (cookie session); `A` = requires
 an admin session; `B` = **board credential** — any of the three control
 credentials in §1.2 (control token, opted-in public bookmark, or the
 owner's cookie session), always scoped to the resolved storage key
-`"<user_id>:<oid>"`; `G` = **gated, but not by a session** — admitted by
-any of several non-session credentials, currently only the match report
-(§7.1); `—` = always public (capability URL or intentionally open).
+`"<user_id>:<oid>"`; `G` = **gated, multi-mode** — no `require_user`
+dependency, but a hand-rolled gate admitting any of several credentials,
+which differ per route (table below); `—` = always public (capability URL
+or intentionally open).
 
 `B` is deliberately not `Y`: those routes are reachable with no login at
 all when a valid `?c=` token or an opted-in `?u=` bookmark is present.
 
 `G` is deliberately not `—`: an anonymous request with no credential is
 **rejected**, so listing those routes as public would misdescribe them in
-the document whose whole job is being unambiguous about access.
+the document whose whole job is being unambiguous about access. It is also
+not `Y`: the owner's cookie is *one* accepted mode, not a requirement, and
+there is no `require_user` dependency to point at.
 
-All three `G` routes today are the match-history surface, and they share
-one trap: a `{public_token}` in the path does **not** imply the token is
-the credential. On `/overlay/` and `/follow/` it is; on `/matches/` it
-only selects the overlay, and access still needs the owner's cookie or
-`MATCH_REPORT_PUBLIC`. Read the gate, not the path shape.
+The accepted modes differ per route — the signed-URL mode exists only for
+the report pair, so a signed report link does **not** open match history:
+
+| Route | `MATCH_REPORT_PUBLIC=true` | Signed URL (`?exp=&sig=`) | Owner cookie | Otherwise |
+| :--- | :-: | :-: | :-: | :--- |
+| `/match/{id}/report` | ✅ | ✅ | ✅ | `401` |
+| `/match/{id}/report.csv` | ✅ | ✅ (same signature) | ✅ | `401` |
+| `/matches/{public_token}` | ✅ | — none | ✅ | `401` |
+
+One trap worth stating: a `{public_token}` in the path does **not** imply
+the token is the credential. On `/overlay/` and `/follow/` it is; on
+`/matches/` it only selects the overlay, and with public mode off the
+owner's cookie is the *only* way in. Read the gate, not the path shape.
 
 ### 2.1 Cookie sessions — the `vsession` cookie
 

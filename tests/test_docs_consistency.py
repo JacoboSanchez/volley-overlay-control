@@ -512,10 +512,11 @@ def test_exempt_paths_stay_inventoried():
     from the documentation.
     """
     inventoried = {p for _, p in _inventoried_operations()}
-    should_be_documented = (
-        WEBSOCKET_EXEMPTIONS | MOUNT_EXEMPTIONS | UNVERIFIABLE_EXEMPTIONS
-    )
-    missing = sorted(should_be_documented - inventoried)
+    # Derived from OPERATIONS_NOT_IN_SCHEMA rather than re-listing the sets:
+    # re-listing them is how SCHEMA_HIDDEN_EXEMPTIONS was added without being
+    # added here, silently un-guarding /favicon.ico one commit after it was
+    # guarded. Any new exemption set is covered automatically.
+    missing = sorted(OPERATIONS_NOT_IN_SCHEMA - inventoried)
     assert not missing, (
         f"Schema-exempt paths with no row in AUTHENTICATION.md §2: {missing}. "
         "An exemption only means 'absent from the OpenAPI schema'; these are "
