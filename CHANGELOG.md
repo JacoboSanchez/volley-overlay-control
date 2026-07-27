@@ -27,8 +27,10 @@ once a first tagged release ships.
   own `/overlay/<public_token>` page. `frame-src` is now `'self'` plus the
   origin of `OVERLAY_PUBLIC_URL` when one is configured, which keeps
   split-host deployments (overlay reverse-proxied on its own subdomain)
-  working while dropping the wildcard. A malformed or non-`http(s)`
-  `OVERLAY_PUBLIC_URL` is ignored rather than widening the policy.
+  working while dropping the wildcard. The value resolves through
+  `EnvVarsManager`, matching the two builders of the framed URL, so a
+  `REMOTE_CONFIG_URL`-supplied host reaches the policy too. A malformed or
+  non-`http(s)` `OVERLAY_PUBLIC_URL` is ignored rather than widening it.
 
   `img-src 'self' data: https:` is unchanged and now carries a comment
   saying why: team logos are operator-supplied URLs on arbitrary CDNs, so

@@ -14,6 +14,7 @@ Pins:
 
 from __future__ import annotations
 
+import time
 import urllib.parse
 
 import pytest
@@ -135,6 +136,40 @@ def test_frame_src_names_configured_overlay_origin(monkeypatch):
     ]
     # The bare wildcard must not come back with it.
     assert "https:" not in frame_src_directive.split()
+
+
+def test_frame_src_reads_overlay_url_from_remote_config(monkeypatch):
+    """``OVERLAY_PUBLIC_URL`` may arrive via ``REMOTE_CONFIG_URL``.
+
+    Both builders of the framed URL (``app/api/routes/overlays.py`` and
+    ``LocalOverlayBackend.fetch_output_token``) resolve it through
+    ``EnvVarsManager``. If the CSP read ``os.environ`` directly it would
+    emit ``frame-src 'self'`` while the SPA was handed a cross-origin
+    overlay URL, blocking the preview iframe on exactly the split-host
+    deployment the directive exists for.
+    """
+    from app.env_vars_manager import EnvVarsManager
+
+    # Remote values live in the manager's cache, never in os.environ.
+    monkeypatch.delenv("OVERLAY_PUBLIC_URL", raising=False)
+    monkeypatch.setenv("REMOTE_CONFIG_URL", "https://config.example.com/app.json")
+    monkeypatch.setattr(
+        EnvVarsManager, "_remote_config_cache",
+        {"OVERLAY_PUBLIC_URL": "https://remote-overlay.example.com"},
+    )
+    # Fresh timestamp keeps ``_load_remote_config_if_needed`` on its
+    # no-op fast path, so the test never makes a network call.
+    monkeypatch.setattr(EnvVarsManager, "_cache_timestamp", time.time())
+
+    client = TestClient(_build_headers_app())
+    csp = client.get("/manage").headers.get("content-security-policy", "")
+    frame_src_directive = next(
+        (p.strip() for p in csp.split(";") if p.strip().startswith("frame-src")),
+        "",
+    )
+    assert frame_src_directive.split() == [
+        "frame-src", "'self'", "https://remote-overlay.example.com",
+    ]
 
 
 @pytest.mark.parametrize("value", [

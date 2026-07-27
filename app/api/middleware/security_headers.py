@@ -44,6 +44,8 @@ import os
 import urllib.parse
 from collections.abc import Iterable
 
+from app.env_vars_manager import EnvVarsManager
+
 
 def _env(name: str, default: str) -> str:
     raw = os.environ.get(name)
@@ -66,8 +68,15 @@ def _overlay_frame_origin() -> str | None:
     Only the origin is kept: CSP source expressions match on
     scheme/host/port, so any path in the env var is irrelevant (and a
     trailing path would make the source *narrower* than intended).
+
+    Read through ``EnvVarsManager`` rather than ``os.environ`` (the local
+    ``_env``): ``OVERLAY_PUBLIC_URL`` can arrive from ``REMOTE_CONFIG_URL``,
+    and both builders of the framed URL resolve it that way. A direct
+    environ read would emit ``frame-src 'self'`` while the SPA was handed a
+    cross-origin overlay URL — blocking the preview iframe in exactly the
+    split-host deployment this branch exists to support.
     """
-    raw = _env("OVERLAY_PUBLIC_URL", "")
+    raw = (EnvVarsManager.get_env_var("OVERLAY_PUBLIC_URL", "") or "").strip()
     if not raw:
         return None
     try:
