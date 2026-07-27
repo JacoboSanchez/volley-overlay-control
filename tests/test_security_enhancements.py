@@ -93,17 +93,67 @@ def test_html_response_carries_csp_and_xframe(headers_client):
     )
     assert " http:" not in f" {img_directive} "
     assert "https:" in img_directive
-    # ``frame-src`` must allow cross-origin HTTPS sources so the
-    # OverlayPreview iframe can render UNO overlays and custom overlays
-    # served from a different host (``OVERLAY_PUBLIC_URL`` split-host
-    # deployments).
+    # With no ``OVERLAY_PUBLIC_URL`` configured the only framed page is
+    # this app's own /overlay/<token>, so ``frame-src`` must be exactly
+    # ``'self'`` — the old bare ``https:`` wildcard allowed every site on
+    # the internet to be framed by the control UI.
     frame_src_directive = next(
         (p.strip() for p in csp.split(";") if p.strip().startswith("frame-src")),
         "",
     )
-    assert "https:" in frame_src_directive
-    assert "'self'" in frame_src_directive
+    assert frame_src_directive.split() == ["frame-src", "'self'"]
+    # ``script-src`` must not carry ``'unsafe-eval'``: nothing the app
+    # ships evaluates strings, and granting it alongside
+    # ``'unsafe-inline'`` leaves script-src with no mitigation at all.
+    script_directive = next(
+        (p.strip() for p in csp.split(";") if p.strip().startswith("script-src")),
+        "",
+    )
+    assert "'unsafe-eval'" not in script_directive
+    # ...while ``'unsafe-inline'`` stays — the match report and three
+    # overlay templates ship inline <script> blocks.
+    assert "'unsafe-inline'" in script_directive
     assert res.headers.get("x-frame-options") == "SAMEORIGIN"
+
+
+def test_frame_src_names_configured_overlay_origin(monkeypatch):
+    """A split-host deployment must still be able to frame its overlay.
+
+    ``OVERLAY_PUBLIC_URL`` is what the OverlayPreview iframe's ``src`` is
+    built from, so its origin — and only its origin — joins ``frame-src``.
+    """
+    monkeypatch.setenv("OVERLAY_PUBLIC_URL", "https://overlay.example.com/base/")
+    client = TestClient(_build_headers_app())
+    csp = client.get("/manage").headers.get("content-security-policy", "")
+    frame_src_directive = next(
+        (p.strip() for p in csp.split(";") if p.strip().startswith("frame-src")),
+        "",
+    )
+    # Path components are dropped — CSP sources match scheme/host/port.
+    assert frame_src_directive.split() == [
+        "frame-src", "'self'", "https://overlay.example.com",
+    ]
+    # The bare wildcard must not come back with it.
+    assert "https:" not in frame_src_directive.split()
+
+
+@pytest.mark.parametrize("value", [
+    "not a url",
+    "javascript:alert(1)",
+    "ftp://overlay.example.com",
+    "   ",
+])
+def test_frame_src_ignores_unusable_overlay_url(monkeypatch, value):
+    """A malformed / non-http(s) ``OVERLAY_PUBLIC_URL`` must not widen
+    the policy (nor inject a junk token that invalidates the directive)."""
+    monkeypatch.setenv("OVERLAY_PUBLIC_URL", value)
+    client = TestClient(_build_headers_app())
+    csp = client.get("/manage").headers.get("content-security-policy", "")
+    frame_src_directive = next(
+        (p.strip() for p in csp.split(";") if p.strip().startswith("frame-src")),
+        "",
+    )
+    assert frame_src_directive.split() == ["frame-src", "'self'"]
 
 
 def test_overlay_html_relaxes_frame_ancestors(headers_client):

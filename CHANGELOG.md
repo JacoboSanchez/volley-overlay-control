@@ -10,6 +10,31 @@ once a first tagged release ships.
 
 ### Security
 
+- **The default CSP no longer grants `'unsafe-eval'`, and `frame-src` no
+  longer allows every HTTPS origin**
+  ([#431](https://github.com/JacoboSanchez/volley-overlay-control/issues/431)).
+  With both `'unsafe-inline'`
+  and `'unsafe-eval'` present, `script-src` provided essentially no XSS
+  mitigation. Nothing the app ships evaluates strings — there is no
+  `eval`/`Function` in the built SPA, the overlay JS, or the bundled GSAP
+  — so the token was a carry-over and is now dropped. `'unsafe-inline'`
+  stays: the match report and three overlay templates ship inline
+  `<script>` blocks.
+
+  `frame-src 'self' https:` was justified by a comment describing an
+  overlays.uno integration that no longer exists — the only iframe the
+  control UI creates is the OverlayPreview card, which loads this app's
+  own `/overlay/<public_token>` page. `frame-src` is now `'self'` plus the
+  origin of `OVERLAY_PUBLIC_URL` when one is configured, which keeps
+  split-host deployments (overlay reverse-proxied on its own subdomain)
+  working while dropping the wildcard. A malformed or non-`http(s)`
+  `OVERLAY_PUBLIC_URL` is ignored rather than widening the policy.
+
+  `img-src 'self' data: https:` is unchanged and now carries a comment
+  saying why: team logos are operator-supplied URLs on arbitrary CDNs, so
+  no host list can be derived ahead of time. Operators who serve logos
+  from a known origin can pin it with `SECURITY_CSP`.
+
 - **The rate limiter now covers the capability-token routes, and counts
   the status a token miss actually returns.** It watched only `/api/v1/`
   and counted only 401/403 — but an unknown `public_token` on

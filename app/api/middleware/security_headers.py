@@ -18,11 +18,16 @@ Headers applied to every response:
 Headers applied only to HTML responses:
 
 * ``Content-Security-Policy`` — locks ``default-src``/``script-src`` to
-  ``'self'`` plus ``'unsafe-inline'`` so the existing inline match-report
-  styles keep rendering. ``img-src`` allows ``https:`` and ``data:`` so
-  team logos still load from arbitrary CDNs and embedded data URLs.
-  Overlay routes (``/overlay/*``) get a relaxed ``frame-ancestors *``
-  because OBS browser sources embed them off-origin.
+  ``'self'`` plus ``'unsafe-inline'`` so the inline ``<script>`` and
+  ``<style>`` blocks in the match report and the overlay templates keep
+  working. ``'unsafe-eval'`` is deliberately **not** granted: nothing the
+  app ships evaluates strings (no ``eval``/``Function`` in the built SPA,
+  the overlay JS, or GSAP). ``img-src`` allows ``https:`` and ``data:``
+  so team logos still load from arbitrary CDNs and embedded data URLs.
+  ``frame-src`` names the overlay origin instead of allowing every HTTPS
+  site. Overlay routes (``/overlay/*``) get a relaxed
+  ``frame-ancestors *`` because OBS browser sources embed them
+  off-origin.
 * ``X-Frame-Options: SAMEORIGIN`` for non-overlay routes (legacy
   fallback for browsers that ignore CSP ``frame-ancestors``).
 
@@ -36,6 +41,7 @@ Headers applied to ``/api/v1/`` responses:
 from __future__ import annotations
 
 import os
+import urllib.parse
 from collections.abc import Iterable
 
 
@@ -46,29 +52,75 @@ def _env(name: str, default: str) -> str:
     return str(raw).strip()
 
 
-_DEFAULT_CSP = (
-    "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-    "style-src 'self' 'unsafe-inline'; "
-    # ``http:`` deliberately omitted: HTTPS deployments would block
-    # mixed-content images anyway, and ``'self'`` already covers
-    # plain-HTTP localhost dev servers. Operators that genuinely need
-    # third-party HTTP logos can override via ``SECURITY_CSP``.
-    "img-src 'self' data: https:; "
-    "font-src 'self' data:; "
-    "connect-src 'self' ws: wss: https:; "
-    # ``frame-src`` covers iframes the control UI embeds: the OverlayPreview
-    # card loads UNO overlays from ``overlays.uno`` and custom overlays from
-    # whichever host ``OVERLAY_PUBLIC_URL`` points at (which can be a separate
-    # subdomain when the overlay is reverse-proxied independently of the
-    # control UI). Without an explicit ``frame-src``, browsers fall back to
-    # ``default-src 'self'`` and silently block both cases.
-    "frame-src 'self' https:; "
-    "object-src 'none'; "
-    "base-uri 'self'; "
-    "form-action 'self'; "
-    "frame-ancestors 'self'"
-)
+def _overlay_frame_origin() -> str | None:
+    """Return the scheme+host of ``OVERLAY_PUBLIC_URL``, or ``None``.
+
+    The only cross-origin iframe the control UI ever creates is the
+    OverlayPreview card, whose ``src`` is always ``<base>/overlay/<token>``
+    where ``<base>`` is ``OVERLAY_PUBLIC_URL`` when set (see
+    ``_overlay_out`` in ``app/api/routes/overlays.py`` and
+    ``LocalOverlayBackend.fetch_output_token``). When it is unset — or
+    points at the same host as the control UI — ``'self'`` already covers
+    the iframe and nothing extra is needed.
+
+    Only the origin is kept: CSP source expressions match on
+    scheme/host/port, so any path in the env var is irrelevant (and a
+    trailing path would make the source *narrower* than intended).
+    """
+    raw = _env("OVERLAY_PUBLIC_URL", "")
+    if not raw:
+        return None
+    try:
+        parsed = urllib.parse.urlsplit(raw)
+    except ValueError:
+        return None
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return None
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _default_csp() -> str:
+    """Build the default policy.
+
+    Only ``frame-src`` varies at runtime (it names the configured overlay
+    origin), so the policy is assembled per call rather than frozen into a
+    module constant that would miss a late ``OVERLAY_PUBLIC_URL``.
+    """
+    # ``frame-src`` covers the one iframe the control UI embeds: the
+    # OverlayPreview card, which loads this app's own
+    # ``/overlay/<public_token>`` page. That is same-origin in the common
+    # deployment, but ``OVERLAY_PUBLIC_URL`` can point at a separate
+    # subdomain when the overlay is reverse-proxied independently — so the
+    # configured origin is named explicitly. Without an explicit
+    # ``frame-src``, browsers fall back to ``default-src 'self'`` and
+    # silently block the split-host case.
+    frame_origin = _overlay_frame_origin()
+    frame_src = "frame-src 'self'" + (f" {frame_origin}" if frame_origin else "")
+    return (
+        "default-src 'self'; "
+        # ``'unsafe-inline'`` is required: the match report
+        # (``app/match_report_template.py``) and three overlay templates
+        # ship inline ``<script>`` blocks. ``'unsafe-eval'`` is not —
+        # no bundled script evaluates strings.
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        # ``https:`` stays: team logos are operator-supplied URLs on
+        # arbitrary CDNs (``is_safe_logo_url`` accepts any HTTPS origin),
+        # so no host list can be derived ahead of time. ``http:`` is
+        # deliberately omitted: HTTPS deployments would block
+        # mixed-content images anyway, and ``'self'`` already covers
+        # plain-HTTP localhost dev servers. Operators that genuinely need
+        # third-party HTTP logos — or that want to pin img-src to their
+        # own CDN — can override via ``SECURITY_CSP``.
+        "img-src 'self' data: https:; "
+        "font-src 'self' data:; "
+        "connect-src 'self' ws: wss: https:; "
+        f"{frame_src}; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'self'"
+    )
 
 _OVERLAY_CSP_FRAME_ANCESTORS = "frame-ancestors *"
 # Overlay templates pull webfonts from Google Fonts (Outfit, Inter,
@@ -121,7 +173,7 @@ def _build_html_csp(path: str) -> str:
     only — every other ``script-src`` / ``img-src`` / ``connect-src``
     policy stays in force.
     """
-    csp = _env("SECURITY_CSP", _DEFAULT_CSP)
+    csp = _env("SECURITY_CSP", _default_csp())
     if any(path.startswith(prefix) for prefix in _OVERLAY_PREFIXES):
         parts = [p.strip() for p in csp.split(";") if p.strip()]
         replaced = False
