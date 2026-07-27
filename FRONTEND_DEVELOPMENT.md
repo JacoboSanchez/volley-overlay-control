@@ -547,13 +547,21 @@ ws.onopen = () => {
 };
 ```
 
-The control WebSocket accepts **the same credentials as the REST control
-surface**: the session cookie (browsers send it automatically on same-origin
-upgrades, so a logged-in SPA needs nothing extra), or a control token as
-`?c=<token>` — the header form is not available on a browser WebSocket. Either
-resolves to the board's storage key. Close codes: `4400` when neither `oid` nor
-`c` was supplied, `4003` when the credential does not resolve, `4004` when the
-board has no session yet. There is no `bearer` subprotocol.
+The control WebSocket accepts **all three board credentials, same as the REST
+control surface** — bookmark-mode clients get real-time updates too:
+
+| Credential | On the WS URL |
+| :--- | :--- |
+| Owner session | nothing to add — browsers send the cookie automatically on same-origin upgrades |
+| Control token | `?c=<token>`. The `X-Control-Token` header form is *not* available: a browser `WebSocket` cannot set request headers |
+| Public bookmark | `?u=<username>&oid=<oid>` |
+
+Each resolves to the board's storage key. The bundled client picks one in that
+same precedence order (`createWebSocket` in `frontend/src/api/websocket.ts`).
+
+Close codes: `4400` when neither `oid` nor `c` was supplied, `4003` when the
+credential does not resolve, `4004` when the board has no session yet. There is
+no `bearer` subprotocol.
 
 This applies only to the control WS (`/api/v1/ws`). The built-in overlay
 **output** server's `/ws/{public_token}` is a separate, **unauthenticated

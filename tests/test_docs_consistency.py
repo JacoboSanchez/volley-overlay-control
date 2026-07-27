@@ -400,6 +400,24 @@ def test_changelog_archive_split_is_clean():
         "the history reads out of order."
     )
 
+    # The ordering check above is necessary but not sufficient: with 5.9.0
+    # archived, adding 7.0.0 while 6.x is still live keeps `5.9.0 < 6.0.0`
+    # true, so nothing would notice the archive step being skipped and the
+    # file would resume growing without bound. Hold the live file to the one
+    # major it claims to cover.
+    live_majors = sorted({_parsed(v)[0] for v in live_versions})
+    assert len(live_majors) == 1, (
+        f"CHANGELOG.md spans majors {live_majors}, but it documents itself as "
+        "covering the current major only. Archive the superseded major(s) into "
+        "docs/CHANGELOG-archive.md — see the 'Archiving a superseded major' "
+        "procedure in CONTRIBUTING.md — and update the header sentence."
+    )
+    assert f"({live_majors[0]}.x)" in live, (
+        f"CHANGELOG.md's header must name the major it covers as "
+        f"'({live_majors[0]}.x)'; the released entries below it are all "
+        f"{live_majors[0]}.x. Update the sentence at the top."
+    )
+
     assert "docs/CHANGELOG-archive.md" in live, (
         "CHANGELOG.md must link to docs/CHANGELOG-archive.md, or the archived "
         "history is unreachable from where readers start."

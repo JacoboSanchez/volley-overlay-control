@@ -127,8 +127,13 @@ older releases live in
 contributor and every agent reads and appends to the live file, so it is
 kept short deliberately.
 
-When a new major ships, move the superseded one down **once**, as its own
-commit:
+**When cutting a new major, this is part of the release**, not an optional
+tidy-up: `tests/test_docs_consistency.py` holds `CHANGELOG.md` to a single
+major, so the archive commit has to land alongside the release commit or CI
+goes red on `main`. Only majors need it — a minor or patch release never
+does.
+
+Move the superseded major down **once**, as its own commit:
 
 1. Cut everything from the newly-superseded major's highest `## [X.Y.Z]`
    heading to the end of `CHANGELOG.md`.

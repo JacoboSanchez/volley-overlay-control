@@ -80,6 +80,13 @@ archive.
   path in that table against the committed OpenAPI schema, so a route
   inventory can no longer send an integrator to a 404.
 
+- `FRONTEND_DEVELOPMENT.md`'s WebSocket section listed only two of the three
+  credentials `/api/v1/ws` accepts, omitting the `?u=<username>&oid=<oid>`
+  public bookmark that the bundled client already emits — so an integrator
+  could have concluded bookmark-mode boards get no real-time updates. It now
+  tabulates all three, and notes that the `X-Control-Token` header form is
+  unavailable on a browser WebSocket.
+
 - **Docker Compose no longer drops unlisted application settings from
   `.env`.** Both the host-port and Traefik deployment files now pass the full
   optional `.env` through to the container, including security headers, auth

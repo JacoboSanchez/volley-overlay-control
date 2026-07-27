@@ -318,8 +318,11 @@ setting. Every endpoint is gated by `Depends(require_admin)`.
 
 The login layer. A login mints a random opaque token carried in an
 **HttpOnly** `vsession` cookie; only its SHA-256 hash is persisted in the
-`auth_sessions` table, which is what makes logout and "log out everywhere on
-password change" possible.
+`auth_sessions` table. Server-side session rows are what make revocation
+possible at all — a stateless signed cookie could not be revoked without a
+denylist. *Which* mechanism revokes *which* sessions is documented in
+[AUTHENTICATION.md](AUTHENTICATION.md) §1.2, not here; the answer is not
+"all of them" in every case.
 
 > **The model is not documented here.** Roles, the forced-password-change
 > gate, the four ways to reach a board, and what every route accepts live in
