@@ -62,7 +62,11 @@ jobs:
           version='${{ inputs.version }}'
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
+          # The archive is staged too: on a major bump cut_changelog.py moves
+          # the superseded major into it, and CHANGELOG.md is held to a single
+          # major by tests/test_docs_consistency.py — so committing only the
+          # changelog would push a tree that fails CI on main.
+          git add CHANGELOG.md docs/CHANGELOG-archive.md
           git commit -m "Release v${version}"
           git tag "v${version}"
           git push origin main "v${version}"

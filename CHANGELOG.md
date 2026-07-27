@@ -6,10 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 **This file covers the current major (6.x) and the unreleased work in
-progress.** Releases **5.9.0 and earlier** are in
-[`docs/CHANGELOG-archive.md`](docs/CHANGELOG-archive.md). Every change is
+progress.** Older releases are in
+[`docs/CHANGELOG-archive.md`](docs/CHANGELOG-archive.md); the release
+workflow moves a superseded major there automatically. Every change is
 written into `## [Unreleased]` below; nothing is ever appended to the
-archive.
+archive by hand.
 
 ## [Unreleased]
 
@@ -144,6 +145,15 @@ archive.
   control-token option a headless client actually wants (with a `curl`
   example) instead of restating the cookie model. Fixes
   [#448](https://github.com/JacoboSanchez/volley-overlay-control/issues/448).
+
+- **The release workflow archives a superseded major by itself.** Cutting a
+  version that bumps the major now moves the old major into
+  `docs/CHANGELOG-archive.md` and retargets the "current major (N.x)"
+  sentence, inside the release commit — so `main` never has to pass through
+  a state where the changelog spans two majors. Minor and patch releases
+  move nothing, and `--dry-run` previews which releases would move without
+  writing. Neither file's heading states a version *range* any more: that
+  was one more hand-maintained number waiting to drift.
 
 - **`CHANGELOG.md` is 83 KB instead of 288 KB.** Releases `5.9.0` and
   earlier moved to

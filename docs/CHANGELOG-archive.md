@@ -1,12 +1,18 @@
-# Changelog archive — 5.x and earlier
+# Changelog archive
 
-Released versions **5.9.0 back to 1.0.0** (2026-06-19 → 2025-02-20). This
-file is a frozen archive: nothing is appended here during development.
+Released versions from superseded majors, newest first. This file is a
+frozen archive: nothing is written here during development.
 
-The live changelog — the `## [Unreleased]` section every change is written
-into, plus the current major — is [`../CHANGELOG.md`](../CHANGELOG.md).
-Entries move here only when a major is superseded (see
+The live changelog — the `## [Unreleased]` section every change goes into,
+plus the current major — is [`../CHANGELOG.md`](../CHANGELOG.md). Entries
+move here when a major is superseded, which
+[`scripts/release/cut_changelog.py`](../scripts/release/cut_changelog.py)
+does as part of cutting the release (see
 [CONTRIBUTING.md](../CONTRIBUTING.md#archiving-a-superseded-major)).
+
+No version range is stated in this heading on purpose: it would be one
+more thing to update by hand, and updating it by hand is how the docs
+drifted in the first place.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
