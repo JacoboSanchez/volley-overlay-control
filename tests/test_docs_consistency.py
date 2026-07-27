@@ -524,8 +524,14 @@ def test_exempt_paths_stay_inventoried():
     )
 
 
-def test_exempt_mounts_exist():
-    """Same argument for the static mounts the inventory lists."""
+def test_exempt_mounts_match_the_app():
+    """Same argument as the WebSocket check, and in both directions.
+
+    Starlette mounts are absent from the OpenAPI schema, so the inverse
+    inventory check cannot see them: a mount added without a row would be
+    documented nowhere and noticed by nothing. Compare the sets for
+    equality rather than only checking the documented ones still exist.
+    """
     import tempfile
 
     from starlette.routing import Mount
@@ -535,14 +541,29 @@ def test_exempt_mounts_exist():
     with tempfile.TemporaryDirectory() as tmp:
         os.environ["DATABASE_URL"] = f"sqlite:///{tmp}/docs_guard.db"
         app = create_app()
-        mounted = {r.path + "/**" for r in app.routes if isinstance(r, Mount)}
+        mounted = {r.path for r in app.routes if isinstance(r, Mount)}
 
-    missing = sorted(MOUNT_EXEMPTIONS - mounted)
-    assert not missing, (
-        f"MOUNT_EXEMPTIONS names mounts that do not exist: {missing} "
-        f"(found {sorted(mounted)}). AUTHENTICATION.md §2.6 would be listing "
-        "a static surface the app no longer serves."
+    # The SPA catch-all is mounted at the root — Starlette normalises that to
+    # the empty string, not "/" — and only when frontend/dist exists, so it is
+    # present in a built checkout and absent in a backend-only one. Both forms
+    # are excluded here: matching only "/" made this test fail on any built
+    # checkout, which is the normal state for anyone running the app.
+    spa_paths = {"", "/"}
+    spa_mounted = bool(mounted & spa_paths)
+    static = {f"{path}/**" for path in mounted - spa_paths}
+
+    assert static == MOUNT_EXEMPTIONS, (
+        f"Static mounts {sorted(static)} do not match MOUNT_EXEMPTIONS "
+        f"{sorted(MOUNT_EXEMPTIONS)}. A mount that exists but is not listed "
+        "is invisible to every other check here — add it to MOUNT_EXEMPTIONS "
+        "*and* give it a row in AUTHENTICATION.md §2.6. A listed mount that "
+        "no longer exists means the docs advertise a dead surface."
     )
+    if spa_mounted:
+        assert "/**" in {p for _, p in _inventoried_operations()}, (
+            "The SPA catch-all is mounted but AUTHENTICATION.md §2.6 has no "
+            "'/**' row for it."
+        )
 
 
 def test_api_route_inventory_is_complete():
