@@ -74,6 +74,12 @@ archive.
   docstring, which said the endpoint was authorized "two ways" when it
   resolves three.
 
+- Two wrong paths in the new `AUTHENTICATION.md` §2.3 rows: the live-stats
+  route is `/api/v1/matches/live/stats` (not `/api/v1/live-stats`), and the
+  board team-group parameter is `{group_key}`. The guard now checks every
+  path in that table against the committed OpenAPI schema, so a route
+  inventory can no longer send an integrator to a 404.
+
 - **Docker Compose no longer drops unlisted application settings from
   `.env`.** Both the host-port and Traefik deployment files now pass the full
   optional `.env` through to the container, including security headers, auth

@@ -8,13 +8,16 @@ Every one of those was checkable by a test. Same spirit as
 ``tests/test_env_docs.py``: if a doc quotes a number or a list that the repo
 already knows, assert it rather than trusting a human to re-read it.
 
-Four families of check live here:
+Five families of check live here:
 
 * **Quoted counts** — overlay template / selectable-style numbers against
   what is on disk, and README's explicit style list against the real one.
 * **CI gates** — the documented gate table against the steps in
   ``ci.yml``, in *both* directions, because the interesting failure was a
   gate CI runs that no doc mentioned.
+* **Route inventory** — every path in ``AUTHENTICATION.md`` §2.3 against
+  the committed OpenAPI schema, so the auth source of truth cannot send an
+  integrator to a 404.
 * **Cross-document links** — the "one home per topic, link don't restate"
   rule (see the ownership table in ``AGENTS.md``) is only worth anything
   while the links resolve, anchors included.
@@ -26,6 +29,7 @@ asserting the value, so a reworded doc fails loudly instead of silently
 turning the guard into a no-op.
 """
 
+import json
 import re
 from pathlib import Path
 
@@ -134,20 +138,28 @@ def test_readme_style_list_matches_reality(selectable_styles):
 # Each documented gate → a command fragment that must appear in a ci.yml
 # `run:` block. Keyed by the token AGENTS.md's gate table uses, so the two
 # directions below can name the offender precisely.
+#
+# The value is a tuple because one documented gate can promise more than one
+# CI step: the table says pip-audit covers "both lockfiles", so a lone
+# "pip-audit -r" marker would stay satisfied after either scan was deleted.
+# Every marker in a gate's tuple must be present for the gate to count as run.
 CI_GATES = {
-    "pytest": "pytest tests/",
-    "ruff": "ruff check",
-    "mypy": "mypy",
-    "bandit": "bandit -r",
-    "pip-audit": "pip-audit -r",
-    "lockfile-satisfies-`requirements.txt`": "uv pip compile requirements.txt",
-    "vitest": "npm run test:coverage",
-    "tsc": "npm run typecheck",
-    "eslint": "npm run lint",
-    "prettier --check": "npm run format:check",
-    "npm audit": "npm audit ",
-    "OpenAPI schema": "git diff --exit-code -- frontend/schema/openapi.json",
-    "docker build": "docker build",
+    "pytest": ("pytest tests/",),
+    "ruff": ("ruff check",),
+    "mypy": ("mypy",),
+    "bandit": ("bandit -r",),
+    "pip-audit": (
+        "pip-audit -r requirements.lock",
+        "pip-audit -r requirements-dev.lock",
+    ),
+    "lockfile-satisfies-`requirements.txt`": ("uv pip compile requirements.txt",),
+    "vitest": ("npm run test:coverage",),
+    "tsc": ("npm run typecheck",),
+    "eslint": ("npm run lint",),
+    "prettier --check": ("npm run format:check",),
+    "npm audit": ("npm audit ",),
+    "OpenAPI schema": ("git diff --exit-code -- frontend/schema/openapi.json",),
+    "docker build": ("docker build",),
 }
 
 # ci.yml steps that cannot fail on a code problem: environment setup and
@@ -203,7 +215,10 @@ def test_documented_gates_are_actually_run_by_ci():
     """No doc may promise a gate the pipeline does not enforce."""
     gate_commands = "\n".join(run for _, run in _ci_gate_steps())
     missing = sorted(
-        gate for gate, marker in CI_GATES.items() if marker not in gate_commands
+        f"{gate} ({marker!r})"
+        for gate, markers in CI_GATES.items()
+        for marker in markers
+        if marker not in gate_commands
     )
     assert not missing, (
         f"AGENTS.md documents gates that ci.yml no longer runs: {missing}. "
@@ -225,7 +240,10 @@ def test_every_ci_gate_is_documented():
     )
     undocumented = []
     for name, run in _ci_gate_steps():
-        gate = next((g for g, marker in CI_GATES.items() if marker in run), None)
+        gate = next(
+            (g for g, markers in CI_GATES.items() if any(m in run for m in markers)),
+            None,
+        )
         if gate is None:
             undocumented.append(name)
         elif gate not in documented:
@@ -234,6 +252,62 @@ def test_every_ci_gate_is_documented():
         "ci.yml has failing steps that AGENTS.md's quality-gate table does "
         f"not cover: {undocumented}. Add them to the table (and to CI_GATES "
         "here), or add a genuinely-non-gating step to NON_GATE_STEPS."
+    )
+
+
+# --------------------------------------------------------------------------
+# Route inventory
+# --------------------------------------------------------------------------
+
+# Paths the committed OpenAPI schema legitimately does not carry.
+# WebSockets have no OpenAPI representation at all.
+ROUTES_NOT_IN_SCHEMA = {"/ws"}
+
+
+def _normalise_path(path: str) -> str:
+    """Collapse path parameters so ``/matches/{id}`` matches ``{match_id}``.
+
+    The docs use short parameter names for readability. Comparing structure
+    rather than spelling still catches the error this guard exists for — a
+    documented route that simply is not registered.
+    """
+    return re.sub(r"\{[^}]*\}", "{}", path)
+
+
+def test_documented_api_routes_exist():
+    """Every ``/api/v1`` path in AUTHENTICATION.md §2.3 must be registered.
+
+    A route inventory that invents a path is worse than no inventory: it
+    sends integrators to a 404 while claiming to be the source of truth.
+    The committed OpenAPI schema is the reference because CI already fails
+    when it drifts from the app.
+    """
+    spec = json.loads(_read("frontend/schema/openapi.json"))
+    registered = {_normalise_path(p) for p in spec["paths"]}
+
+    text = _read("AUTHENTICATION.md")
+    section = text[text.index("### 2.3"):text.index("### 2.4")]
+    documented = []
+    for line in section.splitlines():
+        if not line.startswith("| `"):
+            continue
+        cells = [c.strip() for c in line.split("|")]
+        documented.extend(re.findall(r"`(/[^`]*)`", cells[2]))
+
+    assert len(documented) > 20, (
+        "Could not parse the route rows out of AUTHENTICATION.md §2.3 "
+        f"(found {len(documented)}). Update this guard rather than letting "
+        "it check nothing."
+    )
+    missing = sorted(
+        p for p in set(documented)
+        if p not in ROUTES_NOT_IN_SCHEMA
+        and _normalise_path("/api/v1" + p) not in registered
+    )
+    assert not missing, (
+        f"AUTHENTICATION.md §2.3 documents unregistered routes: {missing}. "
+        "Fix the path (check the decorator in app/api/routes/), or add it to "
+        "ROUTES_NOT_IN_SCHEMA if it genuinely has no OpenAPI entry."
     )
 
 

@@ -197,7 +197,7 @@ board and cannot touch the owner's account.
 | `GET` | `/customization` | B | |
 | `GET` | `/config` | B | |
 | `GET` | `/audit` | B | Most-recent records from the board's audit log. |
-| `GET` | `/live-stats` | B | |
+| `GET` | `/matches/live/stats` | B | Live stats for the *active* board session, computed from its audit log — not an archived match. |
 | `POST` | `/session/rules` | B | Update the board's match rules (mode, points, sets). |
 | `POST` | `/game/add-point` | B | |
 | `POST` | `/game/add-set` | B | |
@@ -213,7 +213,7 @@ board and cannot touch the owner's account.
 | `PUT` | `/customization` | B | |
 | `GET` | `/links` | B | |
 | `GET` | `/styles`, `/style-capabilities` | B | |
-| `GET` | `/board/team-groups`, `/board/team-groups/{key}/teams` | B | Team pickers for the board UI, so a no-login operator can set team names. |
+| `GET` | `/board/team-groups`, `/board/team-groups/{group_key}/teams` | B | Team pickers for the board UI, so a no-login operator can set team names. |
 | `PUT` | `/board/selected-group` | B | |
 | `GET` | `/overlays` | Y | Scoped to the caller's overlays. Response includes each overlay's `control_token` / `control_url` and `public_control` flag (§1.2) — it is the owner's own credential list, so it is owner-only by cookie. |
 | `POST` | `/overlays` | Y | Mints `public_token` **and** `control_token`. |
