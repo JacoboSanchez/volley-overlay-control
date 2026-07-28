@@ -245,7 +245,8 @@ All endpoints are under the `/api/v1/` prefix. State-changing endpoints require 
 
 Every listing whose size grows with usage takes `limit` and `offset`:
 `GET /teams/catalog`, `/my/groups`, `/overlays`, `/icons`,
-`/customization/presets`, `/admin/team-groups` and `/admin/presets`.
+`/customization/presets`, `/admin/team-groups`, `/admin/presets` and
+`/admin/users`.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|

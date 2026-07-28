@@ -535,8 +535,16 @@ export interface TeamGroupOut {
   teams: TeamOut[];
 }
 
-export function getTeamCatalog(): Promise<TeamOut[]> {
-  return getAllPages<TeamOut[], TeamOut>('/teams/catalog', (rows) => rows);
+/** The team catalog, complete (every page walked).
+ *
+ *  `scope: 'all'` returns the caller's whole universe — every global team plus
+ *  their own custom teams — i.e. the same set as the synthetic "All teams"
+ *  group. Prefer it over the roster embedded in {@link getMyGroups}, which is
+ *  capped: that endpoint pages *groups*, so it cannot page a nested team list.
+ */
+export function getTeamCatalog(scope: 'global' | 'all' = 'global'): Promise<TeamOut[]> {
+  const path = scope === 'all' ? '/teams/catalog?scope=all' : '/teams/catalog';
+  return getAllPages<TeamOut[], TeamOut>(path, (rows) => rows);
 }
 
 /** Delete one of the caller's own custom teams, dropping it from every group. */

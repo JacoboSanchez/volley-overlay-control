@@ -7,6 +7,7 @@ vi.mock('../api/client', () => ({
     detail = '';
   },
   getMyGroups: vi.fn(),
+  getTeamCatalog: vi.fn(),
   createMyGroup: vi.fn(),
   renameMyGroup: vi.fn(),
   deleteMyGroup: vi.fn(),
@@ -66,6 +67,9 @@ describe('TeamsPage (groups)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(api.getMyGroups).mockResolvedValue(groups());
+    // The page reads the universe from /teams/catalog?scope=all, not from the
+    // capped roster nested in /my/groups.
+    vi.mocked(api.getTeamCatalog).mockResolvedValue([team(1, 'Breogán'), team(2, 'Estudiantes')]);
     vi.mocked(api.createMyGroup).mockResolvedValue({
       id: 9,
       name: 'New',
@@ -87,6 +91,29 @@ describe('TeamsPage (groups)', () => {
     expect(
       within(cardFor('My league')).getByRole('button', { name: 'Manage' }),
     ).toBeInTheDocument();
+  });
+
+  it('takes the universe from the catalog, not the capped /my/groups roster', async () => {
+    // /my/groups caps its nested "All teams" roster (it pages groups, so it
+    // cannot page a nested team list). A team past that cap must still show in
+    // the All card and still be offerable when editing a group — otherwise a
+    // large catalog silently loses custom teams from this page.
+    vi.mocked(api.getTeamCatalog).mockResolvedValue([
+      team(1, 'Breogán'),
+      team(2, 'Estudiantes'),
+      team(3, 'Beyond The Cap', false),
+    ]);
+
+    render(<TeamsPage />);
+    await waitFor(() => expect(screen.getByText('All teams')).toBeInTheDocument());
+
+    expect(api.getTeamCatalog).toHaveBeenCalledWith('all');
+
+    // Present even though /my/groups never returned it.
+    fireEvent.click(within(cardFor('All teams')).getByRole('button', { name: 'View' }));
+    await waitFor(() =>
+      expect(within(cardFor('All teams')).getByText('Beyond The Cap')).toBeInTheDocument(),
+    );
   });
 
   it('creates a private group', async () => {
