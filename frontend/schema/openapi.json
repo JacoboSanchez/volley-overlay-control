@@ -10470,8 +10470,25 @@
     },
     "/api/v1/teams/catalog": {
       "get": {
+        "description": "The team catalog, paged.\n\n``scope=all`` exists so the \"All teams\" roster has a pageable home of its\nown: ``GET /my/groups`` embeds that roster but pages *groups*, so its\n``X-Total-Count`` cannot describe a nested team list. Without this a large\nuniverse would be truncated there with no way to fetch the remainder \u2014\n``scope=global`` alone would miss the caller's custom teams.",
         "operationId": "catalog_api_v1_teams_catalog_get",
         "parameters": [
+          {
+            "description": "`global` (default) is the admin catalog. `all` is the caller's whole universe \u2014 every global team plus their own custom teams \u2014 i.e. the same set as the synthetic \"All teams\" group.",
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "global",
+              "description": "`global` (default) is the admin catalog. `all` is the caller's whole universe \u2014 every global team plus their own custom teams \u2014 i.e. the same set as the synthetic \"All teams\" group.",
+              "enum": [
+                "global",
+                "all"
+              ],
+              "title": "Scope",
+              "type": "string"
+            }
+          },
           {
             "description": "Page size",
             "in": "query",

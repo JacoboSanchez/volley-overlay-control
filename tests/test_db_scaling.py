@@ -383,6 +383,67 @@ def test_preset_paging_is_stable_when_names_collide(db_session):
     assert all(s.startswith("g") for s in walked[:4])
 
 
+def test_default_limit_never_exceeds_the_configured_ceiling(db_session):
+    """``LIST_DEFAULT_LIMIT`` is clamped to ``LIST_MAX_LIMIT``.
+
+    The routes declare ``Query(LIST_DEFAULT_LIMIT, le=LIST_MAX_LIMIT)``, so a
+    default above the ceiling would make every paginated endpoint reject its
+    own default with 422 — an operator who lowered only the ceiling would take
+    out every listing screen at once.
+    """
+    from app.constants import LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT
+
+    assert LIST_DEFAULT_LIMIT <= LIST_MAX_LIMIT
+
+    # And the parameterless request the SPA makes is actually accepted.
+    client = _user(db_session, "ceiling")
+    assert client.get("/api/v1/teams/catalog").status_code == 200
+
+
+def test_catalog_scope_all_pages_the_whole_user_universe(db_session):
+    """``scope=all`` is the pageable home for the "All teams" roster.
+
+    ``/my/groups`` embeds that roster but pages *groups*, so its
+    ``X-Total-Count`` cannot describe the nested team list — and plain
+    ``scope=global`` would omit the caller's own custom teams.
+    """
+    client = _user(db_session, "universe")
+    _seed_catalog(db_session, 3)
+    for name in ("My Own A", "My Own B"):
+        assert client.post(
+            "/api/v1/teams/mine/custom", json={"name": name},
+        ).status_code == 201
+
+    globals_only = client.get("/api/v1/teams/catalog")
+    assert globals_only.headers["X-Total-Count"] == "3"
+    assert all(t["is_global"] for t in globals_only.json())
+
+    everything = client.get("/api/v1/teams/catalog?scope=all")
+    assert everything.headers["X-Total-Count"] == "5"
+    names = [t["name"] for t in everything.json()]
+    assert "My Own A" in names and "Team 000" in names
+
+    # Paging it reproduces the full set, and it matches the "All" group exactly.
+    walked: list[str] = []
+    for offset in range(0, 5, 2):
+        walked.extend(
+            t["name"]
+            for t in client.get(
+                f"/api/v1/teams/catalog?scope=all&limit=2&offset={offset}",
+            ).json()
+        )
+    assert walked == names
+    all_group = next(
+        g for g in client.get("/api/v1/my/groups").json() if g["kind"] == "all"
+    )
+    assert [t["name"] for t in all_group["teams"]] == names
+
+
+def test_catalog_rejects_an_unknown_scope(db_session):
+    client = _user(db_session, "badscope")
+    assert client.get("/api/v1/teams/catalog?scope=nonsense").status_code == 422
+
+
 def test_default_page_is_unchanged_for_existing_clients(db_session):
     """A caller that sends no paging parameters still gets everything, so the
     bundled SPA and any existing integration are unaffected."""

@@ -51,10 +51,9 @@ describe('api/client pagination', () => {
 
     expect(rows).toHaveLength(250);
     expect(rows.map((t) => t.id)).toEqual(Array.from({ length: 250 }, (_, i) => i));
-    expect(urls()).toEqual([
-      '/api/v1/teams/catalog?limit=200&offset=0',
-      '/api/v1/teams/catalog?limit=200&offset=200',
-    ]);
+    // No `limit` is sent: the ceiling is operator-configurable, so the server
+    // picks the page size and the walk advances by what it actually returned.
+    expect(urls()).toEqual(['/api/v1/teams/catalog?offset=0', '/api/v1/teams/catalog?offset=200']);
   });
 
   it('stops after one request when the first page already holds everything', async () => {
@@ -63,9 +62,9 @@ describe('api/client pagination', () => {
     expect(fetchMock()).toHaveBeenCalledTimes(1);
   });
 
-  it('stops on a short page even if the total is larger', async () => {
-    // Rows deleted between two requests: the second page comes back short, so
-    // the walk ends instead of spinning until it reaches a stale total.
+  it('stops on an empty page even if the total is larger', async () => {
+    // Rows deleted between requests leave a stale total. The walk must end on
+    // the first empty page rather than spinning forever chasing it.
     fetchMock()
       .mockResolvedValueOnce(
         page(
@@ -73,9 +72,22 @@ describe('api/client pagination', () => {
           900,
         ),
       )
-      .mockResolvedValueOnce(page([team(200)], 900));
+      .mockResolvedValueOnce(page([team(200)], 900))
+      .mockResolvedValueOnce(page([], 900));
     await expect(getTeamCatalog()).resolves.toHaveLength(201);
-    expect(fetchMock()).toHaveBeenCalledTimes(2);
+    expect(fetchMock()).toHaveBeenCalledTimes(3);
+    // Offsets track the rows actually received, not a fixed stride.
+    expect(urls()).toEqual([
+      '/api/v1/teams/catalog?offset=0',
+      '/api/v1/teams/catalog?offset=200',
+      '/api/v1/teams/catalog?offset=201',
+    ]);
+  });
+
+  it('never sends a limit, so a lowered LIST_MAX_LIMIT cannot 422 the SPA', async () => {
+    fetchMock().mockResolvedValue(page([team(1)], 1));
+    await getTeamCatalog();
+    expect(urls().every((u) => !u.includes('limit='))).toBe(true);
   });
 
   it('treats a missing X-Total-Count as a single complete page', async () => {
@@ -103,7 +115,7 @@ describe('api/client pagination', () => {
     const groups = await getMyGroups();
     expect(groups).toHaveLength(201);
     expect(groups[0]?.kind).toBe('all');
-    expect(urls()[1]).toBe('/api/v1/my/groups?limit=200&offset=200');
+    expect(urls()[1]).toBe('/api/v1/my/groups?offset=200');
   });
 
   it('pages the overlays listing and still maps the name alias', async () => {

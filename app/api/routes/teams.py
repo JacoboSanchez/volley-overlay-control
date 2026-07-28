@@ -17,7 +17,7 @@ deletes one outright. Ownership alone puts a team in the virtual "All" group.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field, field_validator
@@ -191,8 +191,11 @@ _ALL_GROUP_NAME = "All teams"
 
 def _all_group_detail(db: Session, user_id: int) -> GroupDetailOut:
     # The only nested roster that grows with the whole catalog rather than with
-    # a curated membership, so it carries the hard ceiling. Callers that need
-    # the complete list page it from ``GET /teams/catalog``.
+    # a curated membership, so it carries the hard ceiling — this endpoint pages
+    # *groups*, so its X-Total-Count cannot describe a nested team list. A
+    # caller that needs the complete roster pages it from
+    # ``GET /teams/catalog?scope=all``, which covers the same global-∪-custom
+    # set and reports its own total.
     teams = teams_service.all_group_teams(db, user_id, limit=LIST_MAX_LIMIT)
     return GroupDetailOut(
         id=None, name=_ALL_GROUP_NAME, kind="all", is_private=False,
@@ -221,12 +224,34 @@ def _group_rows_out(db: Session, groups: list[TeamGroup]) -> list[TeamGroupOut]:
 )
 def catalog(
     response: Response,
+    scope: Literal["global", "all"] = Query(
+        "global",
+        description=(
+            "`global` (default) is the admin catalog. `all` is the caller's "
+            "whole universe — every global team plus their own custom teams — "
+            "i.e. the same set as the synthetic \"All teams\" group."
+        ),
+    ),
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
     page: Page = PageDep,
 ):
-    with_total(response, teams_service.count_global(db))
-    rows = teams_service.list_global(db, limit=page.limit, offset=page.offset)
+    """The team catalog, paged.
+
+    ``scope=all`` exists so the "All teams" roster has a pageable home of its
+    own: ``GET /my/groups`` embeds that roster but pages *groups*, so its
+    ``X-Total-Count`` cannot describe a nested team list. Without this a large
+    universe would be truncated there with no way to fetch the remainder —
+    ``scope=global`` alone would miss the caller's custom teams.
+    """
+    if scope == "all":
+        with_total(response, teams_service.all_group_team_count(db, user.id))
+        rows = teams_service.all_group_teams(
+            db, user.id, limit=page.limit, offset=page.offset,
+        )
+    else:
+        with_total(response, teams_service.count_global(db))
+        rows = teams_service.list_global(db, limit=page.limit, offset=page.offset)
     return [TeamOut.of(t) for t in rows]
 
 

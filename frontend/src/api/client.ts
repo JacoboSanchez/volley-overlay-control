@@ -202,13 +202,13 @@ async function sendWithResponse<T>(
 // the pages until the client holds the whole listing — the SPA's own screens
 // (overlays, team catalog, groups, icons, presets) all expect the complete set.
 
-/** Page size for a walk. Comfortably under the server's LIST_MAX_LIMIT so the
- *  request is never rejected, and large enough that one page usually suffices. */
-const PAGE_LIMIT = 200;
-
 function pagedPath(path: string, offset: number): string {
   const sep = path.includes('?') ? '&' : '?';
-  return `${path}${sep}limit=${PAGE_LIMIT}&offset=${offset}`;
+  // Deliberately no `limit`: the ceiling is operator-configurable
+  // (LIST_MAX_LIMIT), so any value hard-coded here could exceed it and make
+  // every listing 422. Omitting it lets the server apply its own default,
+  // which is always within its own bound.
+  return `${path}${sep}offset=${offset}`;
 }
 
 async function getPage<B>(path: string, offset: number): Promise<{ body: B; total: number }> {
@@ -229,10 +229,13 @@ async function getPage<B>(path: string, offset: number): Promise<{ body: B; tota
  *
  *  `extract` pulls the row array out of one page's body, which is either the
  *  array itself or an envelope such as `{ items: [...] }`.
+ *
+ *  The walk advances by however many rows the server actually returned, so it
+ *  works with whatever page size the deployment is configured for.
  */
 async function getAllPages<B, R>(path: string, extract: (body: B) => R[]): Promise<R[]> {
   const rows: R[] = [];
-  for (let offset = 0; ; offset += PAGE_LIMIT) {
+  for (let offset = 0; ; ) {
     const { body, total } = await getPage<B>(path, offset);
     const page = extract(body);
     // A body that isn't the expected array (an error envelope, a shape change)
@@ -240,9 +243,11 @@ async function getAllPages<B, R>(path: string, extract: (body: B) => R[]): Promi
     // "spread requires an iterable" from the push below.
     if (!Array.isArray(page)) return rows;
     rows.push(...page);
-    // Stop on: no paging info, a short page (the listing ended), or having
-    // collected everything the server says exists.
-    if (total < 0 || page.length < PAGE_LIMIT || rows.length >= total) return rows;
+    offset += page.length;
+    // Stop on: no paging info, an empty page (the listing ended, and also the
+    // only way `offset` could stop advancing), or having collected everything
+    // the server says exists.
+    if (total < 0 || page.length === 0 || rows.length >= total) return rows;
   }
 }
 
@@ -650,12 +655,10 @@ export async function listIcons(): Promise<IconLibrary> {
   // so they are taken from the first one.
   const first = await getPage<IconLibrary>('/icons', 0);
   const globals = [...first.body.globals];
-  for (
-    let offset = PAGE_LIMIT;
-    first.total >= 0 && globals.length < first.total;
-    offset += PAGE_LIMIT
-  ) {
-    const next = await getPage<IconLibrary>('/icons', offset);
+  while (first.total >= 0 && globals.length < first.total) {
+    // Advance by what the server actually returned, for the same reason
+    // `getAllPages` does: the page size is the deployment's to choose.
+    const next = await getPage<IconLibrary>('/icons', globals.length);
     if (!next.body.globals.length) break;
     globals.push(...next.body.globals);
   }

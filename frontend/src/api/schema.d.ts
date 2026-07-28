@@ -1513,7 +1513,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Catalog */
+        /**
+         * Catalog
+         * @description The team catalog, paged.
+         *
+         *     ``scope=all`` exists so the "All teams" roster has a pageable home of its
+         *     own: ``GET /my/groups`` embeds that roster but pages *groups*, so its
+         *     ``X-Total-Count`` cannot describe a nested team list. Without this a large
+         *     universe would be truncated there with no way to fetch the remainder —
+         *     ``scope=global`` alone would miss the caller's custom teams.
+         */
         get: operations["catalog_api_v1_teams_catalog_get"];
         put?: never;
         post?: never;
@@ -6226,6 +6235,8 @@ export interface operations {
     catalog_api_v1_teams_catalog_get: {
         parameters: {
             query?: {
+                /** @description `global` (default) is the admin catalog. `all` is the caller's whole universe — every global team plus their own custom teams — i.e. the same set as the synthetic "All teams" group. */
+                scope?: "global" | "all";
                 /** @description Page size */
                 limit?: number;
                 /** @description Rows to skip */

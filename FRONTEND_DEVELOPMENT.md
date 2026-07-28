@@ -263,21 +263,24 @@ reported in the `X-Total-Count` response header instead, so a client knows
 whether it has everything:
 
 ```js
-const LIMIT = 100;
 const rows = [];
 
-for (let offset = 0; ; offset += LIMIT) {
-  const res = await fetch(`/api/v1/teams/catalog?limit=${LIMIT}&offset=${offset}`, {
+// Sending no `limit` lets the server apply its own default, which is always
+// within its own configured ceiling — a hard-coded page size could exceed a
+// lowered LIST_MAX_LIMIT and 422 every request.
+for (let offset = 0; ; ) {
+  const res = await fetch(`/api/v1/teams/catalog?offset=${offset}`, {
     credentials: 'include',
   });
   const total = Number(res.headers.get('X-Total-Count'));
-  const page = await res.json(); //  page.length <= LIMIT
+  const page = await res.json();
   rows.push(...page);
+  offset += page.length; // advance by what actually came back
 
   // Compare the *accumulated* count with the total — never one page's length,
-  // which is < total on every page and would loop forever. The short-page test
+  // which is < total on every page and would loop forever. The empty-page test
   // is the belt-and-braces exit if rows are deleted mid-walk.
-  if (rows.length >= total || page.length < LIMIT) break;
+  if (rows.length >= total || page.length === 0) break;
 }
 ```
 
@@ -291,7 +294,13 @@ Two endpoint-specific notes:
   `ICONS_MAX_PER_USER`.
 - `GET /my/groups` pages the *groups*, and the synthetic "All teams" entry is
   row 0 of that sequence — so `X-Total-Count` is one more than the number of
-  real groups, and `offset=1` starts at the first real group.
+  real groups, and `offset=1` starts at the first real group. Because the
+  window applies to groups, it cannot also describe each group's nested
+  `teams`; the "All teams" roster is the one that grows with the whole
+  catalog, so it is capped there. Page it in full from
+  `GET /teams/catalog?scope=all`, which covers the same set (every global team
+  plus the caller's own custom teams) and reports its own `X-Total-Count`.
+  `scope=global` (the default) is the admin catalog alone.
 
 The export endpoints `GET /admin/teams/export` and `GET /admin/presets/export`
 are intentionally **not** paged: they are backup/round-trip surfaces where a

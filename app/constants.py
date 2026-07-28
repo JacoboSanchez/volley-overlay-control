@@ -73,8 +73,12 @@ SESSION_TTL_SECONDS = _env_int("SESSION_TTL_SECONDS", 24 * 60 * 60)
 # ceiling a caller may ask for. The default is set well above any
 # realistic catalog so existing clients see no change, while still
 # bounding what one request can pull out of the database.
-LIST_DEFAULT_LIMIT = _env_int("LIST_DEFAULT_LIMIT", 500)
 LIST_MAX_LIMIT = _env_int("LIST_MAX_LIMIT", 2000)
+# Clamped to the ceiling: the routes declare ``Query(LIST_DEFAULT_LIMIT,
+# le=LIST_MAX_LIMIT)``, so a default above the max would make *every*
+# paginated endpoint reject its own default with 422 — an operator lowering
+# only LIST_MAX_LIMIT would take out every listing screen.
+LIST_DEFAULT_LIMIT = min(_env_int("LIST_DEFAULT_LIMIT", 500), LIST_MAX_LIMIT)
 
 # How often the background loop deletes expired ``auth_sessions`` rows.
 # ``resolve_session`` only drops a row when its own token is presented

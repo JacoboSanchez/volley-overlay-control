@@ -60,7 +60,10 @@ archive by hand.
   `LIST_DEFAULT_LIMIT` rows (500 by default, well above any realistic
   catalog), and no caller can ask for more than `LIST_MAX_LIMIT` (2000).
   `GET /icons` pages the *global* library only — `mine` is already capped
-  by `ICONS_MAX_PER_USER`. The two export endpoints
+  by `ICONS_MAX_PER_USER`. `GET /teams/catalog` gained a `scope` parameter:
+  `global` (the default, the admin catalog) or `all` (every global team plus
+  the caller's own customs), which gives the "All teams" roster embedded in
+  `GET /my/groups` a pageable home of its own. The two export endpoints
   (`/admin/teams/export`, `/admin/presets/export`) deliberately do **not**
   page: they are backup surfaces where a silently truncated page would
   mean silently losing data on the next import.
