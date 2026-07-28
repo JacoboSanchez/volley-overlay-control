@@ -164,6 +164,31 @@ describe('ConfigPanel', () => {
     expect(defaultProps.onBack).toHaveBeenCalledOnce();
   });
 
+  it('does not prompt on an immediate Back press right after saving', async () => {
+    // Regression guard for a stale-ref race. The popstate listener reads the
+    // dirty flag through a ref that used to be synced in a useEffect, so
+    // between the commit that cleared `isDirty` and the passive effect that
+    // updated the ref there was a window where the panel looked clean but a
+    // Back press still prompted. Dispatching popstate in the same tick the
+    // save resolves lands squarely in that window.
+    vi.mocked(api.updateCustomization).mockResolvedValue({ success: true });
+    window.confirm = vi.fn();
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    openTeamsSection();
+    const selector = await screen.findByTestId('team-1-name-selector');
+    fireEvent.change(selector, { target: { value: '' } });
+    const saveBtn = screen.getByTestId('save-button');
+    await waitFor(() => expect(saveBtn).not.toBeDisabled());
+
+    fireEvent.click(saveBtn);
+    // As soon as the panel has committed as clean, leave — without awaiting the
+    // extra ticks a passive effect would need.
+    await waitFor(() => expect(saveBtn).toBeDisabled());
+    window.dispatchEvent(new PopStateEvent('popstate'));
+
+    expect(window.confirm).not.toHaveBeenCalled();
+  });
+
   it('clears the Saved status as soon as the panel goes dirty again', async () => {
     vi.mocked(api.updateCustomization).mockResolvedValue({ success: true });
     renderWithI18n(<ConfigPanel {...defaultProps} />);

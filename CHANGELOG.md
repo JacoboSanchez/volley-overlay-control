@@ -57,8 +57,9 @@ archive by hand.
   `X-Total-Count` header (exposed through CORS), so a client can tell a
   complete page from a truncated one without every existing consumer
   learning a new envelope. A caller that sends nothing gets
-  `LIST_DEFAULT_LIMIT` rows (500 by default, well above any realistic
-  catalog), and no caller can ask for more than `LIST_MAX_LIMIT` (2000).
+  `LIST_DEFAULT_LIMIT` rows — set well above any realistic catalog, so
+  existing clients see no change — and no caller can ask for more than
+  `LIST_MAX_LIMIT`. Both defaults live in `.env.example`.
   `GET /icons` pages the *global* library only — `mine` is already capped
   by `ICONS_MAX_PER_USER`. `GET /teams/catalog` gained a `scope` parameter:
   `global` (the default, the admin catalog) or `all` (every global team plus

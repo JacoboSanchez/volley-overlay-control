@@ -187,10 +187,14 @@ export default function ConfigPanel({
     }
   }, [customization]);
 
+  // Assigned during render rather than in an effect. The popstate listener
+  // reads this ref *synchronously*, but a passive effect runs after the commit
+  // — so an effect-based sync leaves a window where the panel has already
+  // rendered clean (Save disabled) while the ref still says dirty. A user who
+  // saves and immediately presses Back lands in that window and gets a spurious
+  // "unsaved changes" prompt. Writing it here closes the gap by construction.
   const isDirtyRef = useRef(isDirty);
-  useEffect(() => {
-    isDirtyRef.current = isDirty;
-  }, [isDirty]);
+  isDirtyRef.current = isDirty;
 
   const [predefinedTeams, setPredefinedTeams] = useState<PredefinedTeams>({});
   const [teamGroups, setTeamGroups] = useState<api.BoardGroup[]>([]);
