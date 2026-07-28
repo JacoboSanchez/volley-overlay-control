@@ -1125,7 +1125,7 @@ export interface paths {
         };
         /**
          * Get Links
-         * @description Return overlay, preview, and spectator links for the session.
+         * @description Return overlay, preview, spectator, and public-report links.
          */
         get: operations["get_links_api_v1_links_get"];
         put?: never;
@@ -1647,19 +1647,7 @@ export interface paths {
         };
         /**
          * Readiness Check
-         * @description Readiness probe — fails when the app cannot serve real traffic.
-         *
-         *     Checks the local invariants the app needs to make forward
-         *     progress: the data directory is writable (audit log, session
-         *     meta, and match archives all live there). Dependencies on
-         *     external overlay servers are intentionally not probed: a
-         *     transient overlays.uno blip should not flip pods out of the
-         *     load balancer.
-         *
-         *     On failure the underlying exception is logged but the response
-         *     only carries a generic reason — readiness probes are typically
-         *     unauthenticated and we don't want to surface filesystem paths
-         *     to whoever can reach the endpoint.
+         * @description Readiness probe for writable local persistence.
          */
         get: operations["readiness_check_health_ready_get"];
         put?: never;
@@ -2081,6 +2069,13 @@ export interface components {
             /** Text Color */
             text_color?: string | null;
         };
+        /**
+         * CustomizationUpdateRequest
+         * @description Primitive customization values keyed by customization field.
+         */
+        CustomizationUpdateRequest: {
+            [key: string]: string | number | boolean | null;
+        };
         /** GameStateResponse */
         GameStateResponse: {
             /**
@@ -2384,6 +2379,11 @@ export interface components {
             /** Items */
             items: components["schemas"]["PresetSummary"][];
         };
+        /** PresetSetActiveRequest */
+        PresetSetActiveRequest: {
+            /** Is Active */
+            is_active: boolean;
+        };
         /** PresetSummary */
         PresetSummary: {
             /** Categories */
@@ -2465,11 +2465,6 @@ export interface components {
             points_until_change: number;
             /** Server */
             server: number;
-        };
-        /** SetActiveRequest */
-        SetActiveRequest: {
-            /** Is Active */
-            is_active: boolean;
         };
         /**
          * SetRulesRequest
@@ -2566,6 +2561,11 @@ export interface components {
             name: string;
             /** Teams */
             teams: components["schemas"]["TeamOut"][];
+        };
+        /** TeamGroupSetActiveRequest */
+        TeamGroupSetActiveRequest: {
+            /** Is Active */
+            is_active: boolean;
         };
         /** TeamOut */
         TeamOut: {
@@ -3076,7 +3076,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SetActiveRequest"];
+                "application/json": components["schemas"]["PresetSetActiveRequest"];
             };
         };
         responses: {
@@ -3285,7 +3285,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SetActiveRequest"];
+                "application/json": components["schemas"]["TeamGroupSetActiveRequest"];
             };
         };
         responses: {
@@ -4370,9 +4370,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["CustomizationUpdateRequest"];
             };
         };
         responses: {

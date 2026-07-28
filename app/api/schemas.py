@@ -1,13 +1,16 @@
 import re
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, RootModel, field_validator, model_validator
 
+from app.db.models.preset import Preset
+from app.db.models.team import Team
 from app.id_validation import API_OID_PATTERN
 
 # ---------------------------------------------------------------------------
 # Request models
 # ---------------------------------------------------------------------------
+
 
 class InitRequest(BaseModel):
     oid: str = Field(min_length=1, max_length=200)
@@ -15,13 +18,12 @@ class InitRequest(BaseModel):
     points_limit_last_set: int | None = None
     sets_limit: int | None = None
 
-    @field_validator('oid')
+    @field_validator("oid")
     @classmethod
     def validate_oid(cls, v):
         if not API_OID_PATTERN.match(v):
             raise ValueError(
-                'OID must contain only alphanumeric characters, hyphens, '
-                'underscores, slashes, and dots. ".." is not allowed.'
+                'OID must contain only alphanumeric characters, hyphens, underscores, slashes, and dots. ".." is not allowed.'
             )
         return v
 
@@ -68,15 +70,14 @@ class AddPointRequest(TeamActionRequest):
     ``point_type == "opp_error"``. Both are ignored on undo and may be
     omitted entirely to record an untyped point exactly as before.
     """
+
     point_type: PointType | None = None
     error_type: ErrorType | None = None
 
     @model_validator(mode="after")
     def _error_type_requires_opp_error(self) -> "AddPointRequest":
         if self.error_type is not None and self.point_type != "opp_error":
-            raise ValueError(
-                "error_type is only valid when point_type == 'opp_error'."
-            )
+            raise ValueError("error_type is only valid when point_type == 'opp_error'.")
         return self
 
 
@@ -129,6 +130,7 @@ class SetSummaryRequest(BaseModel):
 
 class SwapSidesRequest(BaseModel):
     """Set the *effective* display orientation (True = team 2 left)."""
+
     swapped: bool
 
 
@@ -148,6 +150,7 @@ class SetRulesRequest(BaseModel):
     every limit with the canonical preset for the resulting mode
     (per-field overrides in the same call still win).
     """
+
     mode: Literal["indoor", "beach", "table_tennis"] | None = None
     points_limit: int | None = Field(default=None, ge=1, le=99)
     points_limit_last_set: int | None = Field(default=None, ge=1, le=99)
@@ -161,33 +164,49 @@ class SetRulesRequest(BaseModel):
 
 # Allowed keys for customization updates
 ALLOWED_CUSTOMIZATION_KEYS = {
-    'Team 1 Name', 'Team 1 Text Name', 'Team 1 Color', 'Team 1 Text Color', 'Team 1 Logo',
-    'Team 2 Name', 'Team 2 Text Name', 'Team 2 Color', 'Team 2 Text Color', 'Team 2 Logo',
-    'Color 1', 'Color 2', 'Text Color 1', 'Text Color 2',
-    'Logos', 'Gradient',
-    'Height', 'Width', 'Left-Right', 'Up-Down',
+    "Team 1 Name",
+    "Team 1 Text Name",
+    "Team 1 Color",
+    "Team 1 Text Color",
+    "Team 1 Logo",
+    "Team 2 Name",
+    "Team 2 Text Name",
+    "Team 2 Color",
+    "Team 2 Text Color",
+    "Team 2 Logo",
+    "Color 1",
+    "Color 2",
+    "Text Color 1",
+    "Text Color 2",
+    "Logos",
+    "Gradient",
+    "Height",
+    "Width",
+    "Left-Right",
+    "Up-Down",
     # Output-wide zoom (%) and symmetric outer margin (% of canvas) for
     # the built-in overlay engine. Applied as a global transform by app.js.
-    'Scale', 'Margin',
+    "Scale",
+    "Margin",
     # Placement anchor: 'free' (legacy absolute xpos/ypos) or one of the
     # nine zone values ('top-left' … 'bottom-right'). In zone mode app.js
     # pins the matching corner/edge against the box's measured size and
     # treats Left-Right/Up-Down as a fine nudge (% of canvas).
-    'Anchor',
-    'preferredStyle',
+    "Anchor",
+    "preferredStyle",
     # Overlay surface theme: '' (per-style default), 'dark' or 'light'.
     # Applied by app.js as a body class on styles that define the
     # matching palette; a ``?theme=`` URL override takes precedence.
-    'overlayTheme',
+    "overlayTheme",
     # Vertical anchor for edge-pinned styles (pylons/corners): 'top',
     # 'bottom' or 'center' (any other string, including the legacy '',
     # also renders centred; an absent key defaults to top). Applied by
     # app.js as a ``data-vertical-anchor`` attribute; an ``?anchor=``
     # URL override takes precedence.
-    'verticalAnchor',
+    "verticalAnchor",
     # Operator UI locale, broadcast to OBS-embedded overlays (whose URL
     # is fixed in the streaming app and cannot carry ``?lang=``).
-    'locale',
+    "locale",
 }
 
 # Per-value bounds for ``PUT /customization``. Logos can hold base64
@@ -195,19 +214,27 @@ ALLOWED_CUSTOMIZATION_KEYS = {
 # else maps to a short label or a numeric position, so 256 chars is
 # generous and keeps a malicious operator from stuffing megabyte
 # strings into the broadcast state.
-LOGO_KEYS = frozenset({'Team 1 Logo', 'Team 2 Logo'})
+LOGO_KEYS = frozenset({"Team 1 Logo", "Team 2 Logo"})
 
 # Accepted values for the ``Anchor`` placement field. ``free`` is the
 # legacy absolute-coordinate mode; the nine zone values pin the overlay
 # to a screen zone. ``update_customization`` rejects anything else so a
 # bad value can never reach the broadcast state (the overlay client also
 # treats unknown anchors as ``free``, but we validate up front).
-VALID_ANCHORS = frozenset({
-    'free',
-    'top-left', 'top-center', 'top-right',
-    'middle-left', 'middle-center', 'middle-right',
-    'bottom-left', 'bottom-center', 'bottom-right',
-})
+VALID_ANCHORS = frozenset(
+    {
+        "free",
+        "top-left",
+        "top-center",
+        "top-right",
+        "middle-left",
+        "middle-center",
+        "middle-right",
+        "bottom-left",
+        "bottom-center",
+        "bottom-right",
+    }
+)
 
 MAX_LOGO_VALUE_LENGTH = 8192
 MAX_STRING_VALUE_LENGTH = 256
@@ -297,6 +324,7 @@ def is_acceptable_catalog_icon(value: object) -> bool:
 # Response models
 # ---------------------------------------------------------------------------
 
+
 class TeamState(BaseModel):
     sets: int
     timeouts: int  # Current-set timeouts (kept for backwards compat).
@@ -314,6 +342,7 @@ class BeachSideSwitch(BaseModel):
     every 5 in the tiebreak. ``is_switch_pending`` is true the moment
     a point crosses a boundary — operators should swap teams now.
     """
+
     interval: int
     points_in_set: int
     next_switch_at: int
@@ -331,6 +360,7 @@ class ServeSwitch(BaseModel):
     the serve over — so the control UI can flash a "serve changes now"
     pill — and ``points_until_change`` counts down to the next handover.
     """
+
     server: int
     points_in_set: int
     next_change_at: int
@@ -346,6 +376,7 @@ class MatchPointInfo(BaseModel):
     the more specific label (match point) when both apply. All flags
     collapse to ``False`` once ``match_finished`` is true.
     """
+
     team_1_set_point: bool
     team_2_set_point: bool
     team_1_match_point: bool
@@ -428,9 +459,232 @@ class ActionResponse(BaseModel):
     message: str | None = None
 
 
+class CustomizationUpdateRequest(
+    RootModel[dict[str, str | int | float | bool | None]]
+):
+    """Primitive customization values keyed by customization field."""
+
+
 class AppConfigResponse(BaseModel):
     title: str
     # Minutes a single set may be live before the control-UI abandoned-
     # match prompt fires (0 disables). Sourced from the
     # ``STALE_SET_THRESHOLD_MINUTES`` env var; defaults to 60.
     stale_set_threshold_minutes: int = 60
+
+
+# ---------------------------------------------------------------------------
+# Account/catalog route models
+# ---------------------------------------------------------------------------
+
+# ---- schemas ---------------------------------------------------------------
+
+
+class TeamOut(BaseModel):
+    id: int
+    name: str
+    icon: str | None = None
+    color: str | None = None
+    text_color: str | None = None
+    is_global: bool
+
+    @classmethod
+    def of(cls, t: Team) -> "TeamOut":
+        return cls(
+            id=t.id,
+            name=t.name,
+            icon=t.icon_url,
+            color=t.color,
+            text_color=t.text_color,
+            is_global=t.is_global,
+        )
+
+
+def _validate_catalog_icon(value: str | None) -> str | None:
+    """Shared ``icon`` gate for every team write model.
+
+    Permissive on purpose — legacy scheme-less values must keep
+    round-tripping through PATCH — but positively dangerous strings
+    (``javascript:`` and friends) are rejected at the door. See
+    :func:`app.api.schemas.is_acceptable_catalog_icon`.
+    """
+    if value is not None and not is_acceptable_catalog_icon(value):
+        raise ValueError("Icon URL scheme is not allowed.")
+    return value
+
+
+class CustomTeamRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    icon: str | None = Field(default=None, max_length=2048)
+    color: str | None = Field(default=None, max_length=32)
+    text_color: str | None = Field(default=None, max_length=32)
+
+    _icon_ok = field_validator("icon")(_validate_catalog_icon)
+
+
+class CustomTeamUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    icon: str | None = Field(default=None, max_length=2048)
+    color: str | None = Field(default=None, max_length=32)
+    text_color: str | None = Field(default=None, max_length=32)
+
+    _icon_ok = field_validator("icon")(_validate_catalog_icon)
+
+
+class TeamGroupOut(BaseModel):
+    id: int
+    name: str
+    is_active: bool
+    teams: list[TeamOut]
+
+
+class AdminTeamRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    icon: str | None = Field(default=None, max_length=2048)
+    color: str | None = Field(default=None, max_length=32)
+    text_color: str | None = Field(default=None, max_length=32)
+
+    _icon_ok = field_validator("icon")(_validate_catalog_icon)
+
+
+class AdminTeamUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    icon: str | None = Field(default=None, max_length=2048)
+    color: str | None = Field(default=None, max_length=32)
+    text_color: str | None = Field(default=None, max_length=32)
+
+    _icon_ok = field_validator("icon")(_validate_catalog_icon)
+
+
+class ImportTeamsRequest(BaseModel):
+    teams: dict[str, dict[str, Any]]
+    replace: bool = False
+
+
+class CreateGroupRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class GroupMemberRequest(BaseModel):
+    team_id: int
+
+
+class TeamGroupSetActiveRequest(BaseModel):
+    is_active: bool
+
+
+# Groups-as-primary-unit schemas. ``id`` is ``None`` for the synthetic "All"
+# group; ``kind`` is ``'all'`` | ``'shared'`` | ``'private'``.
+class GroupDetailOut(BaseModel):
+    id: int | None
+    name: str
+    kind: str
+    is_private: bool
+    teams: list[TeamOut]
+    # Team ids the caller may remove from this group (their own additions). For
+    # the "All" group and a shared group's admin-intrinsic members this is empty.
+    removable_ids: list[int] = Field(default_factory=list)
+
+
+class BoardGroupOut(BaseModel):
+    id: int | None
+    name: str
+    kind: str
+    count: int
+
+
+class BoardGroupListOut(BaseModel):
+    groups: list[BoardGroupOut]
+    selected_id: int | None
+
+
+class CreateMyGroupRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class RenameMyGroupRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class GroupTeamsRequest(BaseModel):
+    team_ids: list[int] = Field(default_factory=list)
+
+
+class SelectGroupRequest(BaseModel):
+    group_id: int | None = None
+
+
+class PresetSummary(BaseModel):
+    slug: str
+    name: str
+    source: Literal["user", "global"] = Field(
+        "user",
+        description="``user`` for the caller's own presets; ``global`` for "
+        "admin-authored, admin-activated presets shared with everyone. "
+        "Only the owner may delete a ``user`` preset; globals are admin-only.",
+    )
+    is_active: bool = True
+    categories: list[str] = Field(default_factory=list)
+    values: dict[str, Any] = Field(default_factory=dict)
+
+    @classmethod
+    def of(cls, p: Preset) -> "PresetSummary":
+        source: Literal["user", "global"] = "global" if p.scope == "global" else "user"
+        return cls(
+            slug=p.slug,
+            name=p.name,
+            source=source,
+            is_active=p.is_active,
+            categories=list(p.categories or []),
+            values=dict(p.values or {}),
+        )
+
+
+class PresetListResponse(BaseModel):
+    items: list[PresetSummary]
+
+
+class PresetCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    values: dict[str, Any] = Field(
+        ...,
+        description="Subset of the caller's flat customization model to "
+        "capture. Keys outside ``ALLOWED_CUSTOMIZATION_KEYS`` are dropped; "
+        "an empty result is rejected with 400.",
+    )
+
+
+class AdminPresetCreateRequest(PresetCreateRequest):
+    is_active: bool = True
+
+
+class ImportThemesRequest(BaseModel):
+    themes: dict[str, dict[str, Any]]
+    replace: bool = False
+
+
+class PresetSetActiveRequest(BaseModel):
+    is_active: bool
+
+
+class OverlayOut(BaseModel):
+    """One of the caller's overlays."""
+
+    oid: str = Field(..., description="Overlay identifier (unique per user) — the name")
+    description: str | None = Field(None, description="Optional free-text description")
+    public_token: str = Field(..., description="Public overlay-output capability token")
+    output_url: str = Field(..., description="Built-in overlay output URL (the local /overlay/<token>)")
+    control_token: str | None = Field(None, description="Shareable control capability token")
+    control_url: str | None = Field(None, description="Ready-made shareable control-board link")
+    public_control: bool = Field(False, description="Allow no-login control via the username+oid URL")
+    public_control_url: str | None = Field(None, description="Stable username+oid bookmark link (when enabled)")
+
+
+class CreateOverlayRequest(BaseModel):
+    oid: str = Field(..., min_length=1, max_length=64)
+    description: str | None = Field(None, max_length=120)
+
+
+class UpdateOverlayRequest(BaseModel):
+    description: str | None = Field(None, max_length=120)
+    public_control: bool | None = Field(None, description="Toggle no-login username+oid control")

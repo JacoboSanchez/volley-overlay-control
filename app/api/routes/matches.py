@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from app.api import match_archive
 from app.auth.dependencies import require_user
 from app.db.models.user import User
-from app.match_report_signing import make_signed_query
+from app.match_report.signing import make_signed_query
 from app.overlay_key import is_valid_skey, make_skey, split_skey
 
 router = APIRouter()

@@ -17,6 +17,7 @@ from collections.abc import Callable
 
 from app.api._persistence_paths import DEFAULT_HASH_LEN, atomic_write_json, hashed_filename
 from app.id_validation import is_valid_overlay_id, validate_overlay_id
+from app.overlay.style_catalog import StyleCatalog
 from app.overlay_key import is_valid_skey
 
 logger = logging.getLogger(__name__)
@@ -179,19 +180,6 @@ _HASHED_FILENAME_PATTERN = re.compile(
     r"^overlay_state_[0-9a-f]{" + str(_FILENAME_HASH_LEN) + r"}\.json$"
 )
 
-# Bundled overlay static CSS directory, resolved relative to this module
-# (app/overlay/) so style-capability scanning finds the shipped stylesheets
-# regardless of the ``templates_dir`` the store was constructed with — the
-# templates dir is overridable (e.g. in tests) but the CSS lives with the
-# package, mirroring how ``app/overlay/__init__.py`` derives its paths.
-_BUNDLED_CSS_DIR = os.path.normpath(
-    os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "..", "..", "overlay_static", "css",
-    )
-)
-
-
 class OverlayStateStore:
     """Manages overlay state with in-memory cache and JSON file persistence.
 
@@ -204,17 +192,14 @@ class OverlayStateStore:
 
     def __init__(self, data_dir: str, templates_dir: str):
         self._data_dir = data_dir
-        self._templates_dir = templates_dir
         self._overlays: dict[str, dict] = {}
         self._lock = threading.RLock()
+        self._style_catalog = StyleCatalog(templates_dir, lock=self._lock)
         # Serializes each overlay's mutation -> snapshot -> disk-write sequence
         # without making unrelated overlays wait on one another. These locks
         # are always acquired before ``self._lock``.
         self._persistence_locks: dict[str, threading.Lock] = {}
         self._broadcast_callback: Callable | None = None
-        self._available_styles: list | None = None
-        self._renderable_styles: list | None = None
-        self._style_capabilities: dict[str, dict[str, bool]] | None = None
         # Maps any accepted URL token (output_key or raw overlay_id) to the
         # real overlay id. Populated lazily by resolve_overlay_id and kept
         # in sync by create/copy/delete.
@@ -421,119 +406,42 @@ class OverlayStateStore:
 
     # -- Available styles --------------------------------------------------
 
-    # Meta-styles are renderable via /overlay/{id}?style=... but hidden from
-    # the style picker. `mosaic` shows every style side-by-side (a preview
-    # grid); `base` is an abstract Jinja parent and never directly served.
-    _META_STYLES = {"mosaic"}
-    _NEVER_RENDERED = {"base"}
-
     def get_available_styles_list(self) -> list:
-        """Return user-selectable overlay styles (cached after first scan)."""
-        with self._lock:
-            if self._available_styles is not None:
-                return self._available_styles
-            hidden = self._META_STYLES | self._NEVER_RENDERED
-            styles = []
-            if os.path.isdir(self._templates_dir):
-                for f in os.listdir(self._templates_dir):
-                    if f.endswith(".html"):
-                        name = f[:-5]
-                        # Underscore-prefixed templates are "private"
-                        # — base layouts, public follow-page, etc.
-                        # They are renderable by their own route but
-                        # never offered as a scoreboard style.
-                        if name.startswith("_"):
-                            continue
-                        label = "default" if name == "index" else name
-                        if label not in hidden:
-                            styles.append(label)
-            self._available_styles = sorted(styles)
-            return self._available_styles
+        return self._style_catalog.get_available_styles_list()
 
     def get_renderable_styles(self) -> list:
-        """Styles valid for ``/overlay/{id}?style=...``, including meta-styles.
-
-        Extends :meth:`get_available_styles_list` with meta-styles like
-        ``mosaic`` that can be rendered but should not appear in the UI
-        picker. Cached after first scan — the templates directory is
-        static at runtime and this is called on every overlay request.
-        """
-        with self._lock:
-            if self._renderable_styles is not None:
-                return self._renderable_styles
-            styles = list(self.get_available_styles_list())
-            for meta in self._META_STYLES:
-                if os.path.isfile(os.path.join(self._templates_dir, f"{meta}.html")):
-                    styles.append(meta)
-            self._renderable_styles = styles
-            return self._renderable_styles
+        return self._style_catalog.get_renderable_styles()
 
     # -- Style capabilities ------------------------------------------------
 
-    # Pulls the linked stylesheet name(s) out of a template's
-    # ``<link href="/static/css/NAME.css">`` tags and any one-level
-    # ``@import url('NAME.css')`` inside them (e.g. the shared jersey base).
-    _CSS_HREF_RE = re.compile(r"/static/css/([\w-]+)\.css")
-    _CSS_IMPORT_RE = re.compile(r"@import\s+url\(['\"]?([\w-]+)\.css")
-
-    @staticmethod
-    def _read_text(path: str) -> str:
-        """Return the file contents at *path*, or ``""`` if unreadable."""
-        try:
-            with open(path, encoding="utf-8") as f:
-                return f.read()
-        except OSError:
-            return ""
-
-    def _template_supports_theme(self, html: str, css_dir: str) -> bool:
-        """Whether the template's stylesheets define a light/dark override.
-
-        A style only earns the theme selector when one of the CSS files it
-        links (or imports, one level deep — e.g. ``jersey_shared.css``)
-        contains a ``body.overlay-theme-{dark,light}`` block, matched here by
-        the ``overlay-theme`` substring.
-        """
-        seen: set[str] = set()
-        queue = list(self._CSS_HREF_RE.findall(html))
-        while queue:
-            name = queue.pop()
-            if name in seen:
-                continue
-            seen.add(name)
-            css = self._read_text(os.path.join(css_dir, f"{name}.css"))
-            if "overlay-theme" in css:
-                return True
-            queue.extend(self._CSS_IMPORT_RE.findall(css))
-        return False
-
     def get_style_capabilities(self) -> dict[str, dict[str, bool]]:
-        """Per-style UI capability flags, scanned from templates/CSS (cached).
+        return self._style_catalog.get_style_capabilities()
 
-        - ``verticalAnchor``: the style is edge-pinned — it opts out of
-          operator geometry via ``data-fixed-geometry``, so only its
-          vertical placement is meaningful and it gets a top/center/bottom
-          control instead of the free x/y/scale knobs.
-        - ``theme``: the style ships a ``body.overlay-theme-{dark,light}``
-          override block, so the dark/light theme selector changes something.
+    # Compatibility properties for fixtures and extensions that clear the
+    # historical store-level caches between test/application lifecycles.
+    @property
+    def _available_styles(self):
+        return self._style_catalog._available_styles
 
-        Both are derived from the on-disk templates/CSS so the control UI
-        only offers a knob where it has a visible effect. Cached after the
-        first scan — templates are static at runtime.
-        """
-        with self._lock:
-            if self._style_capabilities is not None:
-                return self._style_capabilities
-            css_dir = _BUNDLED_CSS_DIR
-            caps: dict[str, dict[str, bool]] = {}
-            for style in self.get_available_styles_list():
-                template = "index.html" if style == "default" else f"{style}.html"
-                html = self._read_text(os.path.join(self._templates_dir, template))
-                caps[style] = {
-                    "verticalAnchor": "data-fixed-geometry" in html,
-                    "theme": self._template_supports_theme(html, css_dir),
-                }
-            self._style_capabilities = caps
-            return caps
+    @_available_styles.setter
+    def _available_styles(self, value):
+        self._style_catalog._available_styles = value
+
+    @property
+    def _renderable_styles(self):
+        return self._style_catalog._renderable_styles
+
+    @_renderable_styles.setter
+    def _renderable_styles(self, value):
+        self._style_catalog._renderable_styles = value
+
+    @property
+    def _style_capabilities(self):
+        return self._style_catalog._style_capabilities
+
+    @_style_capabilities.setter
+    def _style_capabilities(self, value):
+        self._style_catalog._style_capabilities = value
 
     # -- CRUD --------------------------------------------------------------
 

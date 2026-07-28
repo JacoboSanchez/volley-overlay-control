@@ -850,6 +850,30 @@
         "title": "CustomTeamUpdateRequest",
         "type": "object"
       },
+      "CustomizationUpdateRequest": {
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": "Primitive customization values keyed by customization field.",
+        "title": "CustomizationUpdateRequest",
+        "type": "object"
+      },
       "GameStateResponse": {
         "properties": {
           "auto_swap_sides": {
@@ -1611,6 +1635,19 @@
         "title": "PresetListResponse",
         "type": "object"
       },
+      "PresetSetActiveRequest": {
+        "properties": {
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "is_active"
+        ],
+        "title": "PresetSetActiveRequest",
+        "type": "object"
+      },
       "PresetSummary": {
         "properties": {
           "categories": {
@@ -1796,19 +1833,6 @@
           "is_change_pending"
         ],
         "title": "ServeSwitch",
-        "type": "object"
-      },
-      "SetActiveRequest": {
-        "properties": {
-          "is_active": {
-            "title": "Is Active",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "is_active"
-        ],
-        "title": "SetActiveRequest",
         "type": "object"
       },
       "SetRulesRequest": {
@@ -2044,6 +2068,19 @@
           "teams"
         ],
         "title": "TeamGroupOut",
+        "type": "object"
+      },
+      "TeamGroupSetActiveRequest": {
+        "properties": {
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "is_active"
+        ],
+        "title": "TeamGroupSetActiveRequest",
         "type": "object"
       },
       "TeamOut": {
@@ -3019,7 +3056,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetActiveRequest"
+                "$ref": "#/components/schemas/PresetSetActiveRequest"
               }
             }
           },
@@ -3392,7 +3429,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetActiveRequest"
+                "$ref": "#/components/schemas/TeamGroupSetActiveRequest"
               }
             }
           },
@@ -5702,9 +5739,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Data",
-                "type": "object"
+                "$ref": "#/components/schemas/CustomizationUpdateRequest"
               }
             }
           },
@@ -8533,7 +8568,7 @@
     },
     "/api/v1/links": {
       "get": {
-        "description": "Return overlay, preview, and spectator links for the session.",
+        "description": "Return overlay, preview, spectator, and public-report links.",
         "operationId": "get_links_api_v1_links_get",
         "parameters": [
           {
@@ -10857,7 +10892,7 @@
     },
     "/health/ready": {
       "get": {
-        "description": "Readiness probe \u2014 fails when the app cannot serve real traffic.\n\nChecks the local invariants the app needs to make forward\nprogress: the data directory is writable (audit log, session\nmeta, and match archives all live there). Dependencies on\nexternal overlay servers are intentionally not probed: a\ntransient overlays.uno blip should not flip pods out of the\nload balancer.\n\nOn failure the underlying exception is logged but the response\nonly carries a generic reason \u2014 readiness probes are typically\nunauthenticated and we don't want to surface filesystem paths\nto whoever can reach the endpoint.",
+        "description": "Readiness probe for writable local persistence.",
         "operationId": "readiness_check_health_ready_get",
         "responses": {
           "200": {

@@ -84,7 +84,11 @@ dependency.
 │   └── public/              # Static assets (icons, fonts).
 ├── app/
 │   ├── bootstrap.py         # App factory — create_app() wires security/migrations/admin bootstrap, routers, SPA.
+│   ├── pwa_manifest.py      # Runtime title and installable-manifest variants.
+│   ├── static_files.py      # SPA fallback and static cache policies.
+│   ├── system_routes.py     # Service worker, manifests, health, readiness.
 │   ├── backend.py           # Coordinator — delegates to the in-process overlay backend.
+│   ├── overlay_payload.py   # Overlay/spectator wire-payload construction.
 │   ├── overlay_backends/    # Strategy pattern package: base, local, utils (resolver).
 │   ├── game_manager.py      # Core business logic (rules, scoring, limits).
 │   ├── state.py             # Data model definition. Holds the match state.
@@ -114,15 +118,19 @@ dependency.
 │   ├── presets_service.py   # DB-backed customization presets (global + per-user).
 │   ├── settings_service.py  # DB-backed settings (REGISTRATION_OPEN, admin-bootstrap-claimed): env-seed-then-DB-override.
 │   ├── overlays_service.py  # Per-user overlay CRUD + public_token + skey resolution.
-│   ├── match_report.py      # Server-rendered print report router at /match/{id}/report.
-│   ├── match_report_access.py # Read gate: owner cookie / signed URL / MATCH_REPORT_PUBLIC.
-│   ├── match_report_signing.py # HMAC capability URLs derived from SESSION_SECRET.
+│   ├── match_report/        # Report/history routes, access, signing, stats, renderers, exports, template.
 │   ├── api/                 # REST API + WebSocket layer for frontends.
 │   │   ├── __init__.py      # Re-exports api_router.
 │   │   ├── routes/          # Domain-split endpoint modules under /api/v1/ (game, session, state,
 │   │   │   │                #   overlays, teams, matches, customization, websocket, admin_users, metrics, ...).
 │   │   ├── schemas.py       # Pydantic request/response models.
-│   │   ├── game_service.py  # Service layer — single entry point for all game actions.
+│   │   ├── game_service.py  # Stable facade over focused game services.
+│   │   ├── game_actions.py  # Scoring, rules, lifecycle, audit, webhook fan-out.
+│   │   ├── game_state_presenter.py # Builds GameStateResponse.
+│   │   ├── game_display_service.py # Display and side-swap toggles.
+│   │   ├── game_customization_service.py # Customization reads/writes.
+│   │   ├── team_groups_service.py # Team-group response assembly and board policy.
+│   │   ├── overlay_links_service.py # Board output/report link policy.
 │   │   ├── session_manager.py # Thread-safe game session management, keyed by skey.
 │   │   ├── match_archive.py # Archives finished matches to the match_reports table.
 │   │   ├── ws_hub.py        # WebSocket notification hub for real-time state push.
@@ -131,6 +139,7 @@ dependency.
 │   ├── overlay/             # In-process overlay serving (absorbed from volleyball-scoreboard-overlay).
 │   │   ├── __init__.py      # Package init — creates singleton OverlayStateStore & ObsBroadcastHub.
 │   │   ├── state_store.py   # Overlay state management — in-memory + JSON file persistence.
+│   │   ├── style_catalog.py # Template discovery and capability scanning.
 │   │   ├── broadcast.py     # OBS WebSocket broadcast hub — debounced 50ms pushes.
 │   │   └── routes.py        # Public OBS surface: /overlay|follow|ws/{public_token}, /api/themes.
 │   ├── env_vars_manager.py  # Dynamic environment variable management.
@@ -279,7 +288,9 @@ Debounced WebSocket broadcasts to OBS browser sources.
 
 #### `app/api/game_service.py` — class `GameService`
 
-Stateless service that operates on `GameSession` instances.
+Stable facade over focused stateless services that operate on `GameSession`
+instances: `GameActions`, `GameStatePresenter`, `GameDisplayService`, and
+`GameCustomizationService`.
 
 - **Key Methods**: `add_point()`, `add_set()`, `add_timeout()`, `change_serve()`, `set_score()`, `reset()`, `set_visibility()`, `set_simple_mode()`, `update_customization()`.
 
@@ -379,11 +390,11 @@ the HTTP dependency.
 #### Match report (`/match/{id}/report`)
 
 `app/match_report.py` server-renders a print-friendly per-match HTML page.
-The route is gated by `app/match_report_access.py`, which admits a reader if
+The route is gated by `app/match_report/access.py`, which admits a reader if
 any of: the **owner's** session cookie is present; the URL carries a valid
 HMAC capability (`?exp=…&sig=…`, minted via
 `POST /api/v1/matches/{id}/sign-url` and signed with `SESSION_SECRET` in
-`app/match_report_signing.py`); or `MATCH_REPORT_PUBLIC=true`. The old
+`app/match_report/signing.py`); or `MATCH_REPORT_PUBLIC=true`. The old
 `?token=` and admin paths are gone.
 
 ### C. Configuration & Extras
