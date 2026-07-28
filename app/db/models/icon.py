@@ -35,7 +35,11 @@ class Icon(Base, TimestampMixin):
     width: Mapped[int] = mapped_column(Integer, nullable=False)
     height: Mapped[int] = mapped_column(Integer, nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
-    is_global: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Indexed: ``list_global`` filters on it, and the global library is the
+    # uncapped one.
+    is_global: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, index=True,
+    )
     # Null for global icons; set for a user-owned icon.
     owner_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True,

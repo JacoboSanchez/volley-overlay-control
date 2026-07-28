@@ -241,6 +241,72 @@ Related endpoints used by the SPA's auth screens:
 
 All endpoints are under the `/api/v1/` prefix. State-changing endpoints require `oid` as a query parameter.
 
+### Paging the list endpoints
+
+Every listing whose size grows with usage takes `limit` and `offset`:
+`GET /teams/catalog`, `/my/groups`, `/overlays`, `/icons`,
+`/customization/presets`, `/admin/team-groups`, `/admin/presets` and
+`/admin/users`.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | int | `LIST_DEFAULT_LIMIT` | Page size, from `1` to `LIST_MAX_LIMIT`; outside that range the request is rejected with 422. |
+| `offset` | int | `0` | Rows to skip. Negative values are rejected with 422. |
+
+Both bounds are operator-configurable; their values live with every other
+env var default in [`.env.example`](.env.example) (**Advanced tuning**),
+indexed from the [README](README.md#configuration) table. Don't hard-code
+them in a client — read `X-Total-Count` and page until you have everything.
+
+**The response body shape is the same with or without them** — a listing that
+returned a JSON array still returns a JSON array. The full in-scope total is
+reported in the `X-Total-Count` response header instead, so a client knows
+whether it has everything:
+
+```js
+const rows = [];
+
+// Sending no `limit` lets the server apply its own default, which is always
+// within its own configured ceiling — a hard-coded page size could exceed a
+// lowered LIST_MAX_LIMIT and 422 every request.
+for (let offset = 0; ; ) {
+  const res = await fetch(`/api/v1/teams/catalog?offset=${offset}`, {
+    credentials: 'include',
+  });
+  const total = Number(res.headers.get('X-Total-Count'));
+  const page = await res.json();
+  rows.push(...page);
+  offset += page.length; // advance by what actually came back
+
+  // Compare the *accumulated* count with the total — never one page's length,
+  // which is < total on every page and would loop forever. The empty-page test
+  // is the belt-and-braces exit if rows are deleted mid-walk.
+  if (rows.length >= total || page.length === 0) break;
+}
+```
+
+Cross-origin callers need `CORS_ALLOWED_ORIGINS` set for the header to be
+readable; the app already lists `X-Total-Count` in `expose_headers`.
+
+Two endpoint-specific notes:
+
+- `GET /icons` pages the **global** library (which is uncapped) and reports
+  its total. The `mine` array comes back whole — it is already bounded by
+  `ICONS_MAX_PER_USER`.
+- `GET /my/groups` pages the *groups*, and the synthetic "All teams" entry is
+  row 0 of that sequence — so `X-Total-Count` is one more than the number of
+  real groups, and `offset=1` starts at the first real group. Because the
+  window applies to groups, it cannot also describe each group's nested
+  `teams`; the "All teams" roster is the one that grows with the whole
+  catalog, so it is capped there. Page it in full from
+  `GET /teams/catalog?scope=all`, which covers the same set (every global team
+  plus the caller's own custom teams) and reports its own `X-Total-Count`.
+  `scope=global` (the default) is the admin catalog alone.
+
+The export endpoints `GET /admin/teams/export` and `GET /admin/presets/export`
+are intentionally **not** paged: they are backup/round-trip surfaces where a
+silently truncated page would lose data on the next import.
+
 ### Session Management
 
 #### `POST /api/v1/session/init`

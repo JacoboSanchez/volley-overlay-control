@@ -69,6 +69,48 @@ archive by hand.
   deprecated wrapping declarations without changing overlay behavior.
   Fixes [#435](https://github.com/JacoboSanchez/volley-overlay-control/issues/435).
 
+- **`limit` / `offset` paging on every account list endpoint**, closing
+  the last unbounded reads
+  ([#433](https://github.com/JacoboSanchez/volley-overlay-control/issues/433)).
+  `GET /teams/catalog`, `/my/groups`, `/overlays`, `/icons`,
+  `/customization/presets`, `/admin/team-groups`, `/admin/presets` and
+  `/admin/users` all take the two parameters and push them into SQL. **Response bodies are unchanged** — a bare JSON array
+  is still a bare JSON array; the full in-scope total travels in a new
+  `X-Total-Count` header (exposed through CORS), so a client can tell a
+  complete page from a truncated one without every existing consumer
+  learning a new envelope. A caller that sends nothing gets
+  `LIST_DEFAULT_LIMIT` rows — set well above any realistic catalog, so
+  existing clients see no change — and no caller can ask for more than
+  `LIST_MAX_LIMIT`. Both defaults live in `.env.example`.
+  `GET /icons` pages the *global* library only — `mine` is already capped
+  by `ICONS_MAX_PER_USER`. `GET /teams/catalog` gained a `scope` parameter:
+  `global` (the default, the admin catalog) or `all` (every global team plus
+  the caller's own customs), which gives the "All teams" roster embedded in
+  `GET /my/groups` a pageable home of its own. The two export endpoints
+  (`/admin/teams/export`, `/admin/presets/export`) deliberately do **not**
+  page: they are backup surfaces where a silently truncated page would
+  mean silently losing data on the next import.
+
+  The bundled SPA walks every page. Its overlays, team catalog, groups,
+  icon library and preset screens all render the complete listing, so the
+  client follows `X-Total-Count` until it has everything rather than
+  showing a silently truncated first page. A response without the header
+  (an older server) is treated as a single complete page.
+
+  Every paged `ORDER BY` ends in a unique key. `teams.name`, `icons.name`
+  and `presets.name` carry no uniqueness constraint, so ordering by name
+  alone would let the database return tied rows in a different order per
+  query — and a client walking pages would then see some rows twice and
+  miss others.
+
+- **A background sweeper for expired login sessions.** `auth_sessions`
+  rows were only ever deleted when their own token was presented again, so
+  a user who logged in and then cleared their cookies left a row behind
+  permanently (`SESSION_TTL_HOURS` defaults to 14 days). A periodic purge
+  now runs alongside the existing in-memory session cleanup, on its own
+  `AUTH_SESSION_SWEEP_INTERVAL_SECONDS` interval (6 h; `0` disables it for
+  operators running an external janitor).
+
 - **`tests/test_docs_consistency.py` — a drift guard for mechanically
   checkable doc claims**, in the same spirit as `tests/test_env_docs.py`.
   It asserts that the overlay-template and selectable-style counts quoted
@@ -91,6 +133,36 @@ archive by hand.
   histogram, so an operator could not alert on either.
 
 ### Fixed
+
+- **Group listings no longer issue a query per group.** Every board load
+  ran `GET /board/team-groups`, which spent `1 + 3N` queries — and
+  materialised every `Team` row of every group — purely to compute a
+  `count`. It now answers from two aggregate queries and reads no team
+  rows at all. `GET /my/groups` similarly cost four queries per group, one
+  of them a duplicate (`group_effective_teams` and `user_group_team_ids`
+  each re-ran the same per-user membership lookup); it now costs a fixed
+  two, and `/admin/team-groups` fetches its members in one batched query
+  instead of one per group. Part of
+  [#433](https://github.com/JacoboSanchez/volley-overlay-control/issues/433).
+
+- **Indexes on the columns every listing filters and orders by**
+  (migration `0005_perf_indexes`, which skips any index already present so a
+  large PostgreSQL deployment can create them with `CREATE INDEX
+  CONCURRENTLY` beforehand — see README, *Upgrading a large PostgreSQL
+  deployment*): `teams.is_global`, `teams.name`,
+  `team_groups.is_active`, `icons.is_global`, `presets.scope`,
+  `presets.is_active`, and `auth_sessions.expires_at` — the last of which
+  is what keeps the new session sweeper from being a full-table scan. The
+  migration test now compares model indexes against the migrated schema in
+  the same way it already compared columns, so an `index=True` added
+  without a migration fails CI instead of only ever existing on a freshly
+  `create_all`-ed test database.
+
+- **`DELETE /matches/{id}` and `POST /matches/{id}/sign-url` no longer
+  load the whole match snapshot to check ownership.** Both read
+  `final_state`, `customization` and the entire `audit_log` JSON column
+  solely to compare one integer, and neither uses the payload afterwards.
+  They now select just the owning `user_id`.
 
 - Stale credential-transport and reconnect documentation no longer describes
   the control WebSocket as cookie-only or claims capability signatures and

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
 import { useI18n } from '../i18n';
 import { useSettings, type ThemePreference } from '../hooks/useSettings';
 import { useOrientation } from '../hooks/useOrientation';
@@ -187,8 +187,19 @@ export default function ConfigPanel({
     }
   }, [customization]);
 
+  // Synced in a *layout* effect, deliberately. The popstate listener reads this
+  // ref synchronously, and a passive `useEffect` runs after the commit — that
+  // gap let the panel render clean (Save disabled) while the ref still said
+  // dirty, so a user who saved and immediately pressed Back got a spurious
+  // "unsaved changes" prompt. `useLayoutEffect` closes it by running
+  // synchronously at commit time.
+  //
+  // Not assigned during render either: the app mounts under createRoot +
+  // StrictMode, where a render can be interrupted or thrown away, and a
+  // render-phase write would leave this shared ref reflecting a render that
+  // never committed.
   const isDirtyRef = useRef(isDirty);
-  useEffect(() => {
+  useLayoutEffect(() => {
     isDirtyRef.current = isDirty;
   }, [isDirty]);
 

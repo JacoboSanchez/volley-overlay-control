@@ -53,6 +53,23 @@ def test_alembic_upgrade_head_matches_models(tmp_path, monkeypatch):
             f"{table_name} column drift vs model: "
             f"missing={declared - reflected}, extra={reflected - declared}"
         )
+
+    # Index-level drift, same reasoning as columns: an ``index=True`` added to
+    # a model without the matching migration would otherwise ship a query plan
+    # that only ever existed on a freshly ``create_all``-ed test database.
+    # Compared by indexed column tuple rather than by name, so the reflected
+    # unique-constraint indexes SQLite synthesises don't register as drift.
+    for table_name, table in Base.metadata.tables.items():
+        reflected_cols = {
+            tuple(ix["column_names"]) for ix in insp.get_indexes(table_name)
+        }
+        declared_cols = {
+            tuple(c.name for c in ix.columns) for ix in table.indexes
+        }
+        assert declared_cols <= reflected_cols, (
+            f"{table_name} index drift vs model: migrations are missing "
+            f"{sorted(declared_cols - reflected_cols)}"
+        )
     engine.dispose()
 
 
@@ -320,3 +337,83 @@ def test_tz_datetime_round_trips_aware_on_sqlite(db_session):
     db_session.commit()
     assert sessions.resolve_session(db_session, raw) is None
     assert db_session.query(AuthSession).count() == 0
+
+
+def test_0005_skips_indexes_an_operator_precreated(tmp_path, monkeypatch):
+    """The documented "create them concurrently first, then upgrade" procedure
+    must not break the upgrade.
+
+    ``create_index`` is unconditional by default, so a pre-created index would
+    either collide on the name — aborting the startup migration and leaving the
+    app unable to boot — or be silently duplicated. 0005 skips any index that
+    is already present, matched by name *or* by indexed column.
+    """
+    db_file = tmp_path / "precreated.db"
+    url = f"sqlite:///{db_file}"
+    monkeypatch.setenv("DATABASE_URL", url)
+    cfg = _alembic_config(url)
+    command.upgrade(cfg, "0004_drop_user_team_list")
+
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        # One under the exact name the revision would use, one under an
+        # operator's own name — both must be recognised.
+        conn.execute(text("CREATE INDEX ix_teams_name ON teams (name)"))
+        conn.execute(text("CREATE INDEX my_own_idx ON teams (is_global)"))
+
+    command.upgrade(cfg, "head")  # must not raise
+
+    indexes = inspect(engine).get_indexes("teams")
+    by_columns: dict[tuple[str, ...], list[str]] = {}
+    for ix in indexes:
+        by_columns.setdefault(tuple(ix["column_names"]), []).append(ix["name"])
+
+    # Exactly one index per column — no duplicates created alongside either.
+    assert by_columns[("name",)] == ["ix_teams_name"]
+    assert by_columns[("is_global",)] == ["my_own_idx"]
+    engine.dispose()
+
+
+def test_0005_downgrade_keeps_operator_precreated_indexes(tmp_path, monkeypatch):
+    """A rollback must not delete indexes the operator built concurrently.
+
+    The README procedure has operators pre-create these under the revision's
+    own generated names, so the name cannot distinguish ours from theirs.
+    Dropping by name would destroy operator-managed indexes and force the next
+    upgrade to rebuild them with the blocking statement the procedure exists to
+    avoid — so the downgrade leaves every one of them alone.
+    """
+    db_file = tmp_path / "keep.db"
+    url = f"sqlite:///{db_file}"
+    monkeypatch.setenv("DATABASE_URL", url)
+    cfg = _alembic_config(url)
+    command.upgrade(cfg, "0004_drop_user_team_list")
+
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        conn.execute(text("CREATE INDEX ix_teams_name ON teams (name)"))
+
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0004_drop_user_team_list")
+
+    names = {ix["name"] for ix in inspect(engine).get_indexes("teams")}
+    assert "ix_teams_name" in names, "downgrade dropped an operator-managed index"
+    engine.dispose()
+
+
+def test_0005_is_rerunnable_after_a_full_upgrade(tmp_path, monkeypatch):
+    """Downgrading and re-upgrading 0005 is a no-op, not a duplicate-index error."""
+    db_file = tmp_path / "rerun.db"
+    url = f"sqlite:///{db_file}"
+    monkeypatch.setenv("DATABASE_URL", url)
+    cfg = _alembic_config(url)
+    command.upgrade(cfg, "head")
+
+    engine = create_engine(url)
+    before = {ix["name"] for ix in inspect(engine).get_indexes("teams")}
+
+    command.downgrade(cfg, "0004_drop_user_team_list")
+    command.upgrade(cfg, "head")
+
+    assert {ix["name"] for ix in inspect(engine).get_indexes("teams")} == before
+    engine.dispose()

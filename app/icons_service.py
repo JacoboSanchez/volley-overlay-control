@@ -220,11 +220,24 @@ def _unlink_file(filename: str) -> None:
 # ---- queries ----------------------------------------------------------------
 
 
-def list_global(db: Session) -> list[Icon]:
-    return list(
+def list_global(
+    db: Session, *, limit: int | None = None, offset: int = 0,
+) -> list[Icon]:
+    stmt = select(Icon).where(Icon.is_global.is_(True)).order_by(Icon.name, Icon.id)
+    if offset:
+        stmt = stmt.offset(offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return list(db.execute(stmt).scalars().all())
+
+
+def global_icon_count(db: Session) -> int:
+    """Total global icons. Unlike a user's personal library (capped by
+    ``ICONS_MAX_PER_USER``) the global one is uncapped, so its listing pages."""
+    return int(
         db.execute(
-            select(Icon).where(Icon.is_global.is_(True)).order_by(Icon.name)
-        ).scalars().all()
+            select(func.count()).select_from(Icon).where(Icon.is_global.is_(True))
+        ).scalar_one()
     )
 
 

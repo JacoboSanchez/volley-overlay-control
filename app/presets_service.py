@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -103,16 +103,39 @@ def create_user_preset(db: Session, user_id: int, name: str, values: dict) -> Pr
     return preset
 
 
-def list_for_user(db: Session, user_id: int) -> list[Preset]:
-    """Active global presets + the caller's own, globals first then by name."""
-    rows = db.execute(
-        select(Preset).where(
-            ((Preset.scope == SCOPE_GLOBAL) & (Preset.is_active.is_(True)))
-            | (Preset.owner_user_id == user_id)
-        )
-    ).scalars().all()
-    return sorted(
-        rows, key=lambda p: (p.scope != SCOPE_GLOBAL, p.name.lower()),
+def _for_user_where(user_id: int):
+    return ((Preset.scope == SCOPE_GLOBAL) & (Preset.is_active.is_(True))) | (
+        Preset.owner_user_id == user_id
+    )
+
+
+def list_for_user(
+    db: Session, user_id: int, *, limit: int | None = None, offset: int = 0,
+) -> list[Preset]:
+    """Active global presets + the caller's own, globals first then by name.
+
+    The sort is expressed in SQL (it used to be a Python ``sorted`` over the
+    whole result) so ``limit``/``offset`` page a stable, deterministic order
+    instead of an arbitrary slice of the unordered rows.
+    """
+    stmt = (
+        select(Preset)
+        .where(_for_user_where(user_id))
+        # Globals (scope == 'global' → false → 0) before the caller's own.
+        .order_by(Preset.scope != SCOPE_GLOBAL, func.lower(Preset.name), Preset.id)
+    )
+    if offset:
+        stmt = stmt.offset(offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return list(db.execute(stmt).scalars().all())
+
+
+def count_for_user(db: Session, user_id: int) -> int:
+    return int(
+        db.execute(
+            select(func.count()).select_from(Preset).where(_for_user_where(user_id))
+        ).scalar_one()
     )
 
 
@@ -169,11 +192,22 @@ def delete_global_preset(db: Session, slug: str) -> bool:
     return True
 
 
-def list_global_presets(db: Session) -> list[Preset]:
-    return list(
+def list_global_presets(
+    db: Session, *, limit: int | None = None, offset: int = 0,
+) -> list[Preset]:
+    stmt = select(Preset).where(Preset.scope == SCOPE_GLOBAL).order_by(Preset.name, Preset.id)
+    if offset:
+        stmt = stmt.offset(offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return list(db.execute(stmt).scalars().all())
+
+
+def count_global_presets(db: Session) -> int:
+    return int(
         db.execute(
-            select(Preset).where(Preset.scope == SCOPE_GLOBAL).order_by(Preset.name)
-        ).scalars().all()
+            select(func.count()).select_from(Preset).where(Preset.scope == SCOPE_GLOBAL)
+        ).scalar_one()
     )
 
 

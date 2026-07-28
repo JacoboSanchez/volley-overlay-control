@@ -267,6 +267,33 @@ The Dockerfile uses a multi-stage build: Node.js builds the React frontend, then
 > admin pages, or `POST /api/v1/admin/{teams,presets}/import`). In-progress
 > overlay state and historical match reports are not migrated.
 
+### Upgrading a large PostgreSQL deployment
+
+Schema migrations run automatically on startup, inside a transaction. One
+revision (`0005_perf_indexes`) adds indexes to `teams`, `team_groups`,
+`icons`, `presets` and `auth_sessions`, and a plain `CREATE INDEX` briefly
+locks the table against writes. For any normal deployment this is
+imperceptible.
+
+If your `teams` table is large enough that you would rather not take that
+lock during a restart, create the indexes ahead of time without blocking
+writes, then upgrade as usual:
+
+```sql
+CREATE INDEX CONCURRENTLY ix_teams_name      ON teams (name);
+CREATE INDEX CONCURRENTLY ix_teams_is_global ON teams (is_global);
+-- …and the same for the other indexed columns, if wanted.
+```
+
+`CREATE INDEX CONCURRENTLY` cannot run inside a transaction, which is why
+the migration itself does not use it. The revision skips any index that is
+already present — matched by name *or* by indexed column — so pre-creating
+them (under these names or your own) is safe and the upgrade proceeds
+normally. Rolling the revision back leaves the indexes in place rather than
+dropping them, so a downgrade never destroys one you created yourself. This
+is not required; it is only worth doing when the write lock would be
+disruptive.
+
 ---
 
 ## Configuration
@@ -314,10 +341,12 @@ Configure the application using the following environment variables:
 | `MATCH_REPORT_PUBLIC` | If `true`, `/match/{id}/report` is reachable by anyone, with no cookie or signed URL required. When unset, the report is reachable only by its owner's session cookie or an owner-minted signed share URL. | `false` |
 
 Rarely-needed knobs (auth rate limiting, security response headers, audit-log
-rotation, WebSocket hub limits, webhook retries, preset caps, idle game-session
-eviction via `SESSION_TTL_SECONDS` — not to be confused with
-`SESSION_TTL_HOURS`, the login-cookie lifetime) are documented in the
-**Advanced tuning** section of [`.env.example`](.env.example).
+rotation, WebSocket hub limits, webhook retries, preset caps, list-endpoint
+paging via `LIST_DEFAULT_LIMIT` / `LIST_MAX_LIMIT`, expired-login-row sweeping
+via `AUTH_SESSION_SWEEP_INTERVAL_SECONDS`, idle game-session eviction via
+`SESSION_TTL_SECONDS` — not to be confused with `SESSION_TTL_HOURS`, the
+login-cookie lifetime) are documented in the **Advanced tuning** section of
+[`.env.example`](.env.example).
 
 <br>
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import secrets
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -172,13 +172,28 @@ def regenerate_control_token(db: Session, user_id: int, oid: str) -> UserOverlay
     return overlay
 
 
-def list_overlays(db: Session, user_id: int) -> list[UserOverlay]:
-    return list(
+def list_overlays(
+    db: Session, user_id: int, *, limit: int | None = None, offset: int = 0,
+) -> list[UserOverlay]:
+    stmt = (
+        select(UserOverlay)
+        .where(UserOverlay.user_id == user_id)
+        .order_by(UserOverlay.oid)
+    )
+    if offset:
+        stmt = stmt.offset(offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return list(db.execute(stmt).scalars().all())
+
+
+def count_overlays(db: Session, user_id: int) -> int:
+    return int(
         db.execute(
-            select(UserOverlay)
+            select(func.count())
+            .select_from(UserOverlay)
             .where(UserOverlay.user_id == user_id)
-            .order_by(UserOverlay.oid)
-        ).scalars().all()
+        ).scalar_one()
     )
 
 

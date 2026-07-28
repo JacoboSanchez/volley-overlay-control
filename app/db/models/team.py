@@ -25,11 +25,17 @@ class Team(Base, TimestampMixin):
     __tablename__ = "teams"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    # Indexed: the upsert key for the admin catalog import, and the ``ORDER BY``
+    # of every team listing.
+    name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
     icon_url: Mapped[str | None] = mapped_column(String(2048))
     color: Mapped[str | None] = mapped_column(String(32))
     text_color: Mapped[str | None] = mapped_column(String(32))
-    is_global: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Indexed: the global/custom split is the leading predicate of the catalog
+    # listing, the "All" group, and every group's membership filter.
+    is_global: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, index=True,
+    )
     # Null for global teams; set for a user-owned team.
     owner_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True,
@@ -41,7 +47,10 @@ class TeamGroup(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Indexed: published-group listings filter on it before anything else.
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, index=True,
+    )
     created_by_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"),
     )

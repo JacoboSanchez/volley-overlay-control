@@ -218,6 +218,22 @@ def count_matches(oid: str | None = None, *, user_id: int | None = None) -> int:
         return int(db.execute(stmt).scalar_one())
 
 
+def owner_user_id(match_id: str) -> int | None:
+    """The ``user_id`` that owns *match_id*, or ``None`` if there is no such row.
+
+    The cheap half of :func:`load_match`: selects one integer column instead of
+    materialising ``final_state``, ``customization`` and the whole ``audit_log``
+    JSON blob. Use this wherever the payload is only being loaded to answer
+    "does the caller own this?".
+    """
+    if not isinstance(match_id, str) or _MATCH_ID_RE.match(match_id) is None:
+        return None
+    with session_scope() as db:
+        return db.execute(
+            select(MatchReport.user_id).where(MatchReport.match_id == match_id)
+        ).scalars().first()
+
+
 def load_match(match_id: str) -> dict | None:
     """Return the full archived snapshot for *match_id*, or ``None``."""
     if not isinstance(match_id, str) or _MATCH_ID_RE.match(match_id) is None:

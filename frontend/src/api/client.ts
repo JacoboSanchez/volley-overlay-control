@@ -156,6 +156,14 @@ async function requestMultipart<T = unknown>(
 }
 
 async function send<T>(method: HttpMethod, path: string, opts: RequestInit): Promise<T> {
+  return (await sendWithResponse<T>(method, path, opts)).data;
+}
+
+async function sendWithResponse<T>(
+  method: HttpMethod,
+  path: string,
+  opts: RequestInit,
+): Promise<{ data: T; response: Response }> {
   const res = await fetch(`${BASE_URL}${path}`, opts);
   if (!res.ok) {
     // A 401 on any non-auth route means the session cookie expired or was
@@ -183,8 +191,64 @@ async function send<T>(method: HttpMethod, path: string, opts: RequestInit): Pro
       extractDetail(text),
     );
   }
-  if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  if (res.status === 204) return { data: undefined as T, response: res };
+  return { data: (await res.json()) as T, response: res };
+}
+
+// ---- paginated listings -----------------------------------------------------
+// The API caps any single list response (at LIST_DEFAULT_LIMIT) and reports the
+// full in-scope size in X-Total-Count. A one-shot GET would therefore silently
+// hide every row past the first page, so these helpers walk the pages until the
+// client holds the whole listing — the SPA's own screens (overlays, team
+// catalog, groups, icons, presets, admin users) all expect the complete set.
+
+function pagedPath(path: string, offset: number): string {
+  const sep = path.includes('?') ? '&' : '?';
+  // Deliberately no `limit`: the ceiling is operator-configurable
+  // (LIST_MAX_LIMIT), so any value hard-coded here could exceed it and make
+  // every listing 422. Omitting it lets the server apply its own default,
+  // which is always within its own bound.
+  return `${path}${sep}offset=${offset}`;
+}
+
+async function getPage<B>(path: string, offset: number): Promise<{ body: B; total: number }> {
+  const { data, response } = await sendWithResponse<B>('GET', pagedPath(path, offset), {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  });
+  const header = response.headers?.get('X-Total-Count');
+  const raw = header === null || header === undefined ? NaN : Number(header);
+  // A missing/garbled header (an older server, or a stubbed Response) means
+  // "no paging information" — treat the single page as the whole listing
+  // rather than looping forever.
+  return { body: data, total: Number.isFinite(raw) && raw >= 0 ? raw : -1 };
+}
+
+/** GET every page of a listing and concatenate the rows.
+ *
+ *  `extract` pulls the row array out of one page's body, which is either the
+ *  array itself or an envelope such as `{ items: [...] }`.
+ *
+ *  The walk advances by however many rows the server actually returned, so it
+ *  works with whatever page size the deployment is configured for.
+ */
+async function getAllPages<B, R>(path: string, extract: (body: B) => R[]): Promise<R[]> {
+  const rows: R[] = [];
+  for (let offset = 0; ; ) {
+    const { body, total } = await getPage<B>(path, offset);
+    const page = extract(body);
+    // A body that isn't the expected array (an error envelope, a shape change)
+    // ends the walk with whatever we have, rather than throwing an opaque
+    // "spread requires an iterable" from the push below.
+    if (!Array.isArray(page)) return rows;
+    rows.push(...page);
+    offset += page.length;
+    // Stop on: no paging info, an empty page (the listing ended, and also the
+    // only way `offset` could stop advancing), or having collected everything
+    // the server says exists.
+    if (total < 0 || page.length === 0 || rows.length >= total) return rows;
+  }
 }
 
 // Session
@@ -383,8 +447,12 @@ export interface PresetSummary {
   values: Record<string, unknown>;
 }
 
-export function listPresets(): Promise<{ items: PresetSummary[] }> {
-  return request<{ items: PresetSummary[] }>('GET', '/customization/presets');
+export async function listPresets(): Promise<{ items: PresetSummary[] }> {
+  const items = await getAllPages<{ items: PresetSummary[] }, PresetSummary>(
+    '/customization/presets',
+    (body) => body.items,
+  );
+  return { items };
 }
 
 export function createPreset(
@@ -399,8 +467,12 @@ export function deletePreset(slug: string): Promise<void> {
 }
 
 // Admin global-preset management.
-export function adminListGlobalPresets(): Promise<{ items: PresetSummary[] }> {
-  return request('GET', '/admin/presets');
+export async function adminListGlobalPresets(): Promise<{ items: PresetSummary[] }> {
+  const items = await getAllPages<{ items: PresetSummary[] }, PresetSummary>(
+    '/admin/presets',
+    (body) => body.items,
+  );
+  return { items };
 }
 
 export function adminCreateGlobalPreset(
@@ -463,8 +535,16 @@ export interface TeamGroupOut {
   teams: TeamOut[];
 }
 
-export function getTeamCatalog(): Promise<TeamOut[]> {
-  return request<TeamOut[]>('GET', '/teams/catalog');
+/** The team catalog, complete (every page walked).
+ *
+ *  `scope: 'all'` returns the caller's whole universe — every global team plus
+ *  their own custom teams — i.e. the same set as the synthetic "All teams"
+ *  group. Prefer it over the roster embedded in {@link getMyGroups}, which is
+ *  capped: that endpoint pages *groups*, so it cannot page a nested team list.
+ */
+export function getTeamCatalog(scope: 'global' | 'all' = 'global'): Promise<TeamOut[]> {
+  const path = scope === 'all' ? '/teams/catalog?scope=all' : '/teams/catalog';
+  return getAllPages<TeamOut[], TeamOut>(path, (rows) => rows);
 }
 
 /** Delete one of the caller's own custom teams, dropping it from every group. */
@@ -495,7 +575,7 @@ export interface GroupDetail {
 }
 
 export function getMyGroups(): Promise<GroupDetail[]> {
-  return request<GroupDetail[]>('GET', '/my/groups');
+  return getAllPages<GroupDetail[], GroupDetail>('/my/groups', (rows) => rows);
 }
 
 export function createMyGroup(name: string): Promise<GroupDetail> {
@@ -576,8 +656,21 @@ function iconForm(name: string, file: File): FormData {
   return form;
 }
 
-export function listIcons(): Promise<IconLibrary> {
-  return request<IconLibrary>('GET', '/icons');
+export async function listIcons(): Promise<IconLibrary> {
+  // Only `globals` pages — it is the uncapped half of the library, and
+  // X-Total-Count reports its size. `mine` and `quota` repeat identically on
+  // every page (personal libraries are already capped by ICONS_MAX_PER_USER),
+  // so they are taken from the first one.
+  const first = await getPage<IconLibrary>('/icons', 0);
+  const globals = [...first.body.globals];
+  while (first.total >= 0 && globals.length < first.total) {
+    // Advance by what the server actually returned, for the same reason
+    // `getAllPages` does: the page size is the deployment's to choose.
+    const next = await getPage<IconLibrary>('/icons', globals.length);
+    if (!next.body.globals.length) break;
+    globals.push(...next.body.globals);
+  }
+  return { ...first.body, globals };
 }
 
 export function uploadMyIcon(name: string, file: File): Promise<IconOut> {
@@ -629,7 +722,7 @@ export function adminImportIconsFromTeams(
 // against every group, active or not, and can build/publish/delete them.
 
 export function adminListGroups(): Promise<TeamGroupOut[]> {
-  return request<TeamGroupOut[]>('GET', '/admin/team-groups');
+  return getAllPages<TeamGroupOut[], TeamGroupOut>('/admin/team-groups', (rows) => rows);
 }
 
 export function adminCreateGroup(name: string): Promise<TeamGroupOut> {
@@ -688,7 +781,7 @@ export function deleteMatch(matchId: string): Promise<void> {
 // ---- Admin -----------------------------------------------------------------
 
 export function adminListUsers(): Promise<UserOut[]> {
-  return request<UserOut[]>('GET', '/admin/users');
+  return getAllPages<UserOut[], UserOut>('/admin/users', (rows) => rows);
 }
 
 export function adminCreateUser(
@@ -751,7 +844,7 @@ function withName(r: OverlayRow): OverlayPayload {
 }
 
 export async function getOverlays(): Promise<OverlayPayload[]> {
-  const rows = await request<OverlayRow[]>('GET', '/overlays');
+  const rows = await getAllPages<OverlayRow[], OverlayRow>('/overlays', (page) => page);
   return rows.map(withName);
 }
 

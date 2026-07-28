@@ -13,6 +13,7 @@ The board team selectors consume ``group_effective_teams_map`` — the existing
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from sqlalchemy import and_, func, or_, select
@@ -43,11 +44,39 @@ def team_to_entry(team: Team) -> dict[str, Any]:
 # ---- global catalog --------------------------------------------------------
 
 
-def list_global(db: Session) -> list[Team]:
+def _paged(stmt, limit: int | None, offset: int):
+    """Push a ``limit``/``offset`` window into *stmt*; ``limit=None`` = all."""
+    if offset:
+        stmt = stmt.offset(offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return stmt
+
+
+def list_global(
+    db: Session, *, limit: int | None = None, offset: int = 0,
+) -> list[Team]:
     return list(
         db.execute(
-            select(Team).where(Team.is_global.is_(True)).order_by(Team.name)
+            _paged(
+                select(Team)
+                .where(Team.is_global.is_(True))
+                # ``name`` is not unique (see get_global_by_name), so the id
+                # tiebreaker is what makes a paged walk stable: without it the
+                # database may order tied rows differently per query and a
+                # client would see some twice and miss others.
+                .order_by(Team.name, Team.id),
+                limit, offset,
+            )
         ).scalars().all()
+    )
+
+
+def count_global(db: Session) -> int:
+    return int(
+        db.execute(
+            select(func.count()).select_from(Team).where(Team.is_global.is_(True))
+        ).scalar_one()
     )
 
 
@@ -194,15 +223,30 @@ def add_group_member(db: Session, group_id: int, team_id: int) -> None:
         db.flush()
 
 
-def list_all_groups(db: Session) -> list[TeamGroup]:
+def list_all_groups(
+    db: Session, *, limit: int | None = None, offset: int = 0,
+) -> list[TeamGroup]:
     """Every SHARED group, active or not — for the admin group manager. Scoped
     to ``owner_user_id IS NULL`` so a user's private groups never leak here."""
     return list(
         db.execute(
-            select(TeamGroup)
-            .where(TeamGroup.owner_user_id.is_(None))
-            .order_by(TeamGroup.name)
+            _paged(
+                select(TeamGroup)
+                .where(TeamGroup.owner_user_id.is_(None))
+                .order_by(TeamGroup.name, TeamGroup.id),
+                limit, offset,
+            )
         ).scalars().all()
+    )
+
+
+def count_all_groups(db: Session) -> int:
+    return int(
+        db.execute(
+            select(func.count())
+            .select_from(TeamGroup)
+            .where(TeamGroup.owner_user_id.is_(None))
+        ).scalar_one()
     )
 
 
@@ -246,9 +290,31 @@ def group_member_teams(db: Session, group_id: int) -> list[Team]:
             select(Team)
             .join(TeamGroupMember, TeamGroupMember.team_id == Team.id)
             .where(TeamGroupMember.group_id == group_id, Team.is_global.is_(True))
-            .order_by(Team.name)
+            .order_by(Team.name, Team.id)
         ).scalars().all()
     )
+
+
+def group_member_teams_bulk(
+    db: Session, group_ids: Sequence[int],
+) -> dict[int, list[Team]]:
+    """:func:`group_member_teams` for many groups in **one** query.
+
+    Returns a dict keyed by group id; ids with no members are present with an
+    empty list, so callers never have to branch on a missing key.
+    """
+    out: dict[int, list[Team]] = {gid: [] for gid in group_ids}
+    if not out:
+        return out
+    rows = db.execute(
+        select(TeamGroupMember.group_id, Team)
+        .join(Team, TeamGroupMember.team_id == Team.id)
+        .where(TeamGroupMember.group_id.in_(list(out)), Team.is_global.is_(True))
+        .order_by(TeamGroupMember.group_id, Team.name, Team.id)
+    ).all()
+    for group_id, team in rows:
+        out[group_id].append(team)
+    return out
 
 
 # ---- custom (user-owned) teams ---------------------------------------------
@@ -348,21 +414,41 @@ def list_user_private_groups(db: Session, user_id: int) -> list[TeamGroup]:
     )
 
 
-def list_user_visible_groups(db: Session, user_id: int) -> list[TeamGroup]:
+def _visible_groups_where(user_id: int):
+    return or_(
+        and_(TeamGroup.owner_user_id.is_(None), TeamGroup.is_active.is_(True)),
+        TeamGroup.owner_user_id == user_id,
+    )
+
+
+def list_user_visible_groups(
+    db: Session, user_id: int, *, limit: int | None = None, offset: int = 0,
+) -> list[TeamGroup]:
     """Real groups the user may select: shared+active first, then own private,
     each ordered by name. The synthetic "All" group is added by the caller."""
     return list(
         db.execute(
-            select(TeamGroup)
-            .where(
-                or_(
-                    and_(TeamGroup.owner_user_id.is_(None), TeamGroup.is_active.is_(True)),
-                    TeamGroup.owner_user_id == user_id,
-                )
+            _paged(
+                select(TeamGroup)
+                .where(_visible_groups_where(user_id))
+                # Shared (owner NULL → 0) before private (→ 1), then by name,
+                # then id so a paged walk cannot repeat or skip a tied name.
+                .order_by(
+                    TeamGroup.owner_user_id.isnot(None), TeamGroup.name, TeamGroup.id,
+                ),
+                limit, offset,
             )
-            # Shared (owner NULL → 0) before private (→ 1), then by name.
-            .order_by(TeamGroup.owner_user_id.isnot(None), TeamGroup.name)
         ).scalars().all()
+    )
+
+
+def count_user_visible_groups(db: Session, user_id: int) -> int:
+    return int(
+        db.execute(
+            select(func.count())
+            .select_from(TeamGroup)
+            .where(_visible_groups_where(user_id))
+        ).scalar_one()
     )
 
 
@@ -390,16 +476,145 @@ def user_group_team_ids(db: Session, user_id: int, group_id: int) -> set[int]:
     return {t.id for t in _user_group_member_teams(db, user_id, group_id)}
 
 
+def user_group_teams_bulk(
+    db: Session, user_id: int, group_ids: Sequence[int],
+) -> dict[int, list[Team]]:
+    """:func:`_user_group_member_teams` for many groups in **one** query.
+
+    The legitimacy filter (a team must be global or owned by the user) is
+    pushed into SQL rather than applied in Python, so a user with a large
+    ``UserGroupTeam`` set does not drag rows across the wire just to discard
+    them. Every requested id is present in the result, possibly empty.
+    """
+    out: dict[int, list[Team]] = {gid: [] for gid in group_ids}
+    if not out:
+        return out
+    rows = db.execute(
+        select(UserGroupTeam.group_id, Team)
+        .join(Team, UserGroupTeam.team_id == Team.id)
+        .where(
+            UserGroupTeam.user_id == user_id,
+            UserGroupTeam.group_id.in_(list(out)),
+            or_(Team.is_global.is_(True), Team.owner_user_id == user_id),
+        )
+        .order_by(UserGroupTeam.group_id, UserGroupTeam.sort_order, Team.name, Team.id)
+    ).all()
+    for group_id, team in rows:
+        out[group_id].append(team)
+    return out
+
+
 def _user_group_member_teams(db: Session, user_id: int, group_id: int) -> list[Team]:
     """Teams the user added to *group_id* via ``UserGroupTeam`` — legitimacy
     filtered (a team must be global or owned by the user)."""
-    rows = db.execute(
-        select(Team)
-        .join(UserGroupTeam, UserGroupTeam.team_id == Team.id)
-        .where(UserGroupTeam.user_id == user_id, UserGroupTeam.group_id == group_id)
-        .order_by(UserGroupTeam.sort_order, Team.name)
-    ).scalars().all()
-    return [t for t in rows if t.is_global or t.owner_user_id == user_id]
+    return user_group_teams_bulk(db, user_id, [group_id])[group_id]
+
+
+def all_group_teams(
+    db: Session, user_id: int, *, limit: int | None = None, offset: int = 0,
+) -> list[Team]:
+    """The synthetic "All" group: every global team ∪ the user's own customs."""
+    return list(
+        db.execute(
+            _paged(
+                select(Team)
+                .where(or_(Team.is_global.is_(True), Team.owner_user_id == user_id))
+                .order_by(Team.name, Team.id),
+                limit, offset,
+            )
+        ).scalars().all()
+    )
+
+
+def all_group_team_count(db: Session, user_id: int) -> int:
+    """``len(all_group_teams(...))`` without materialising a single row."""
+    return int(
+        db.execute(
+            select(func.count())
+            .select_from(Team)
+            .where(or_(Team.is_global.is_(True), Team.owner_user_id == user_id))
+        ).scalar_one()
+    )
+
+
+def group_effective_teams_bulk(
+    db: Session, user_id: int, groups: Sequence[TeamGroup],
+    *, user_additions: dict[int, list[Team]] | None = None,
+) -> dict[int, list[Team]]:
+    """:func:`group_effective_teams` for many groups in **two** queries total,
+    however many groups are passed.
+
+    *groups* must already be visible to *user_id* — pass rows straight from
+    :func:`list_user_visible_groups` or :func:`get_visible_group`. This helper
+    deliberately does not re-resolve visibility, which is what lets a listing
+    avoid one ``get_visible_group`` round-trip per group.
+
+    Pass *user_additions* (a :func:`user_group_teams_bulk` result covering at
+    least these ids) when the caller already needs that map for something else
+    — e.g. the "which members may I remove?" list — so the listing runs it once
+    instead of twice.
+    """
+    shared = group_member_teams_bulk(
+        db, [g.id for g in groups if g.owner_user_id is None],
+    )
+    mine = (
+        user_group_teams_bulk(db, user_id, [g.id for g in groups])
+        if user_additions is None
+        else user_additions
+    )
+    out: dict[int, list[Team]] = {}
+    for group in groups:
+        teams = {t.id: t for t in shared.get(group.id, ())}
+        for team in mine.get(group.id, ()):
+            teams[team.id] = team
+        out[group.id] = sorted(teams.values(), key=lambda t: t.name.lower())
+    return out
+
+
+def group_effective_counts(
+    db: Session, user_id: int, groups: Sequence[TeamGroup],
+) -> dict[int, int]:
+    """``len(group_effective_teams(...))`` for many groups in **one** query,
+    without materialising any ``Team`` row.
+
+    The two membership sources are ``UNION``-ed (not ``UNION ALL``) so a team
+    that is both an admin-intrinsic member of a shared group *and* a user
+    addition to it counts once — matching the de-duplication
+    :func:`group_effective_teams_bulk` does in Python.
+    """
+    out: dict[int, int] = {g.id: 0 for g in groups}
+    if not out:
+        return out
+    mine = (
+        select(
+            UserGroupTeam.group_id.label("group_id"),
+            UserGroupTeam.team_id.label("team_id"),
+        )
+        .join(Team, UserGroupTeam.team_id == Team.id)
+        .where(
+            UserGroupTeam.user_id == user_id,
+            UserGroupTeam.group_id.in_(list(out)),
+            or_(Team.is_global.is_(True), Team.owner_user_id == user_id),
+        )
+    )
+    shared_ids = [g.id for g in groups if g.owner_user_id is None]
+    if shared_ids:
+        shared = (
+            select(
+                TeamGroupMember.group_id.label("group_id"),
+                TeamGroupMember.team_id.label("team_id"),
+            )
+            .join(Team, TeamGroupMember.team_id == Team.id)
+            .where(TeamGroupMember.group_id.in_(shared_ids), Team.is_global.is_(True))
+        )
+        membership = shared.union(mine).subquery()
+    else:
+        membership = mine.subquery()
+    for group_id, count in db.execute(
+        select(membership.c.group_id, func.count()).group_by(membership.c.group_id)
+    ).all():
+        out[group_id] = int(count)
+    return out
 
 
 def group_effective_teams(db: Session, user_id: int, group_id: int | None) -> list[Team]:
@@ -407,23 +622,11 @@ def group_effective_teams(db: Session, user_id: int, group_id: int | None) -> li
     (every global ∪ the user's customs). Raises ``TeamError`` if a real group is
     not visible to the user."""
     if group_id is None:
-        return list(
-            db.execute(
-                select(Team)
-                .where(or_(Team.is_global.is_(True), Team.owner_user_id == user_id))
-                .order_by(Team.name)
-            ).scalars().all()
-        )
+        return all_group_teams(db, user_id)
     group = get_visible_group(db, user_id, group_id)
     if group is None:
         raise TeamError("Group not found.")
-    teams: dict[int, Team] = {}
-    if group.owner_user_id is None:  # shared: admin's global members first
-        for team in group_member_teams(db, group_id):
-            teams[team.id] = team
-    for team in _user_group_member_teams(db, user_id, group_id):  # user additions
-        teams[team.id] = team
-    return sorted(teams.values(), key=lambda t: t.name.lower())
+    return group_effective_teams_bulk(db, user_id, [group])[group_id]
 
 
 def group_effective_teams_map(

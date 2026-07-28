@@ -2691,6 +2691,33 @@
         "operationId": "admin_list_presets_api_v1_admin_presets_get",
         "parameters": [
           {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
             "in": "cookie",
             "name": "vsession",
             "required": false,
@@ -2716,7 +2743,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -3123,9 +3159,36 @@
     },
     "/api/v1/admin/team-groups": {
       "get": {
-        "description": "Every group (active and inactive) with its members \u2014 drives the admin\ngroup manager. Users only ever see active groups via ``GET /team-groups``.",
+        "description": "Every group (active and inactive) with its members \u2014 drives the admin\ngroup manager.",
         "operationId": "admin_list_groups_api_v1_admin_team_groups_get",
         "parameters": [
+          {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
           {
             "in": "cookie",
             "name": "vsession",
@@ -3156,7 +3219,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -3775,6 +3847,33 @@
         "operationId": "list_users_api_v1_admin_users_get",
         "parameters": [
           {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
             "in": "cookie",
             "name": "vsession",
             "required": false,
@@ -3804,7 +3903,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -5635,6 +5743,33 @@
         "operationId": "list_presets_api_v1_customization_presets_get",
         "parameters": [
           {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
             "in": "cookie",
             "name": "vsession",
             "required": false,
@@ -5660,7 +5795,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -8003,8 +8147,36 @@
     },
     "/api/v1/icons": {
       "get": {
+        "description": "Globals + the caller's own + quota.\n\n``limit``/``offset`` page the **global** library, which is deliberately\nuncapped; ``X-Total-Count`` reports its full size. ``mine`` is returned\nwhole because it is already hard-capped at ``ICONS_MAX_PER_USER``.",
         "operationId": "list_icons_api_v1_icons_get",
         "parameters": [
+          {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
           {
             "in": "cookie",
             "name": "vsession",
@@ -8031,7 +8203,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -8915,9 +9096,36 @@
     },
     "/api/v1/my/groups": {
       "get": {
-        "description": "The caller's selectable groups: the synthetic \"All\" first, then shared\npublished groups and the user's own private groups, each with their teams.",
+        "description": "The caller's selectable groups: the synthetic \"All\" first, then shared\npublished groups and the user's own private groups, each with their teams.\n\n``limit``/``offset`` page the *groups*; the synthetic \"All\" entry is the\nfirst row of that sequence, so ``X-Total-Count`` is one more than the\nnumber of real groups.",
         "operationId": "my_visible_groups_api_v1_my_groups_get",
         "parameters": [
+          {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
           {
             "in": "cookie",
             "name": "vsession",
@@ -8948,7 +9156,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -9283,6 +9500,33 @@
         "operationId": "list_my_overlays_api_v1_overlays_get",
         "parameters": [
           {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
             "in": "cookie",
             "name": "vsession",
             "required": false,
@@ -9312,7 +9556,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -10253,8 +10506,52 @@
     },
     "/api/v1/teams/catalog": {
       "get": {
+        "description": "The team catalog, paged.\n\n``scope=all`` exists so the \"All teams\" roster has a pageable home of its\nown: ``GET /my/groups`` embeds that roster but pages *groups*, so its\n``X-Total-Count`` cannot describe a nested team list. Without this a large\nuniverse would be truncated there with no way to fetch the remainder \u2014\n``scope=global`` alone would miss the caller's custom teams.",
         "operationId": "catalog_api_v1_teams_catalog_get",
         "parameters": [
+          {
+            "description": "`global` (default) is the admin catalog. `all` is the caller's whole universe \u2014 every global team plus their own custom teams \u2014 i.e. the same set as the synthetic \"All teams\" group.",
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "global",
+              "description": "`global` (default) is the admin catalog. `all` is the caller's whole universe \u2014 every global team plus their own custom teams \u2014 i.e. the same set as the synthetic \"All teams\" group.",
+              "enum": [
+                "global",
+                "all"
+              ],
+              "title": "Scope",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
           {
             "in": "cookie",
             "name": "vsession",
@@ -10285,7 +10582,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {

@@ -52,7 +52,11 @@ class AuthSession(Base, TimestampMixin):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True,
     )
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False)
+    # Indexed so the periodic sweeper (app/auth/sessions.purge_expired) deletes
+    # by range instead of scanning every row every hour.
+    expires_at: Mapped[datetime] = mapped_column(
+        TZDateTime(), nullable=False, index=True,
+    )
     last_seen_at: Mapped[datetime | None] = mapped_column(TZDateTime())
     user_agent: Mapped[str | None] = mapped_column(String(255))
     ip: Mapped[str | None] = mapped_column(String(64))

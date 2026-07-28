@@ -18,12 +18,22 @@ static mount — overlay pages in OBS carry no cookies.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+)
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app import icons_service
+from app.api.pagination import PAGINATED_RESPONSES, Page, PageDep, with_total
 from app.auth.dependencies import require_admin, require_user
 from app.constants import (
     ICONS_IMPORT_MAX_BATCH,
@@ -232,13 +242,27 @@ def _import_endpoint(
 # ---- personal scope ----------------------------------------------------------
 
 
-@router.get("/icons", response_model=IconLibraryOut)
+@router.get(
+    "/icons", response_model=IconLibraryOut, responses=PAGINATED_RESPONSES,
+)
 def list_icons(
+    response: Response,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
+    page: Page = PageDep,
 ):
+    """Globals + the caller's own + quota.
+
+    ``limit``/``offset`` page the **global** library, which is deliberately
+    uncapped; ``X-Total-Count`` reports its full size. ``mine`` is returned
+    whole because it is already hard-capped at ``ICONS_MAX_PER_USER``.
+    """
+    with_total(response, icons_service.global_icon_count(db))
     return IconLibraryOut(
-        globals=[IconOut.of(i) for i in icons_service.list_global(db)],
+        globals=[
+            IconOut.of(i)
+            for i in icons_service.list_global(db, limit=page.limit, offset=page.offset)
+        ],
         mine=[IconOut.of(i) for i in icons_service.list_mine(db, user.id)],
         quota=IconQuotaOut(
             used=icons_service.user_icon_count(db, user.id),

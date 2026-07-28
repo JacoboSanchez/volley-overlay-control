@@ -210,7 +210,7 @@ export interface paths {
         /**
          * Admin List Groups
          * @description Every group (active and inactive) with its members — drives the admin
-         *     group manager. Users only ever see active groups via ``GET /team-groups``.
+         *     group manager.
          */
         get: operations["admin_list_groups_api_v1_admin_team_groups_get"];
         put?: never;
@@ -1030,7 +1030,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Icons */
+        /**
+         * List Icons
+         * @description Globals + the caller's own + quota.
+         *
+         *     ``limit``/``offset`` page the **global** library, which is deliberately
+         *     uncapped; ``X-Total-Count`` reports its full size. ``mine`` is returned
+         *     whole because it is already hard-capped at ``ICONS_MAX_PER_USER``.
+         */
         get: operations["list_icons_api_v1_icons_get"];
         put?: never;
         post?: never;
@@ -1244,6 +1251,10 @@ export interface paths {
          * My Visible Groups
          * @description The caller's selectable groups: the synthetic "All" first, then shared
          *     published groups and the user's own private groups, each with their teams.
+         *
+         *     ``limit``/``offset`` page the *groups*; the synthetic "All" entry is the
+         *     first row of that sequence, so ``X-Total-Count`` is one more than the
+         *     number of real groups.
          */
         get: operations["my_visible_groups_api_v1_my_groups_get"];
         put?: never;
@@ -1502,7 +1513,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Catalog */
+        /**
+         * Catalog
+         * @description The team catalog, paged.
+         *
+         *     ``scope=all`` exists so the "All teams" roster has a pageable home of its
+         *     own: ``GET /my/groups`` embeds that roster but pages *groups*, so its
+         *     ``X-Total-Count`` cannot describe a nested team list. Without this a large
+         *     universe would be truncated there with no way to fetch the remainder —
+         *     ``scope=global`` alone would miss the caller's custom teams.
+         */
         get: operations["catalog_api_v1_teams_catalog_get"];
         put?: never;
         post?: never;
@@ -2875,7 +2895,12 @@ export interface operations {
     };
     admin_list_presets_api_v1_admin_presets_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -2887,6 +2912,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value. */
+                    "X-Total-Count"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3141,7 +3168,12 @@ export interface operations {
     };
     admin_list_groups_api_v1_admin_team_groups_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -3153,6 +3185,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value. */
+                    "X-Total-Count"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3519,7 +3553,12 @@ export interface operations {
     };
     list_users_api_v1_admin_users_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -3531,6 +3570,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value. */
+                    "X-Total-Count"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -4357,7 +4398,12 @@ export interface operations {
     };
     list_presets_api_v1_customization_presets_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -4369,6 +4415,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value. */
+                    "X-Total-Count"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -5147,7 +5195,12 @@ export interface operations {
     };
     list_icons_api_v1_icons_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -5159,6 +5212,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value. */
+                    "X-Total-Count"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -5577,7 +5632,12 @@ export interface operations {
     };
     my_visible_groups_api_v1_my_groups_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -5589,6 +5649,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value. */
+                    "X-Total-Count"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -5784,7 +5846,12 @@ export interface operations {
     };
     list_my_overlays_api_v1_overlays_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -5796,6 +5863,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value. */
+                    "X-Total-Count"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -6172,7 +6241,14 @@ export interface operations {
     };
     catalog_api_v1_teams_catalog_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `global` (default) is the admin catalog. `all` is the caller's whole universe — every global team plus their own custom teams — i.e. the same set as the synthetic "All teams" group. */
+                scope?: "global" | "all";
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -6184,6 +6260,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value. */
+                    "X-Total-Count"?: number;
                     [name: string]: unknown;
                 };
                 content: {

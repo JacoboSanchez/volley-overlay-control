@@ -20,12 +20,20 @@ import { FILTER_THRESHOLD, filterTeams } from '../components/teams/teamUtils';
 export default function TeamsPage() {
   const { t } = useI18n();
   const [groups, setGroups] = useState<api.GroupDetail[]>([]);
+  const [universe, setUniverse] = useState<api.TeamOut[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     try {
-      setGroups(await api.getMyGroups());
+      // The "All teams" roster embedded in /my/groups is capped — that endpoint
+      // pages *groups*, so it cannot page a nested team list. Fetch the
+      // universe from its own pageable endpoint instead, or a user with a large
+      // catalog would lose custom teams here and be unable to add the missing
+      // ones to a group.
+      const [visible, all] = await Promise.all([api.getMyGroups(), api.getTeamCatalog('all')]);
+      setGroups(visible);
+      setUniverse(all);
     } catch {
       setError(t('acc.teams.errorLoad'));
     } finally {
@@ -37,8 +45,9 @@ export default function TeamsPage() {
     void load();
   }, [load]);
 
-  const allGroup = groups.find((g) => g.kind === 'all');
-  const universe = allGroup?.teams ?? []; // catalog ∪ the user's customs
+  const found = groups.find((g) => g.kind === 'all');
+  // Render the complete universe in the "All" card, not the capped copy.
+  const allGroup = found ? { ...found, teams: universe } : undefined;
   const customs = universe.filter((tm) => !tm.is_global);
   const realGroups = groups.filter((g) => g.kind !== 'all');
 

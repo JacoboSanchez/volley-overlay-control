@@ -35,7 +35,9 @@ class Preset(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     slug: Mapped[str] = mapped_column(String(80), nullable=False)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
-    scope: Mapped[str] = mapped_column(String(16), nullable=False)
+    # Indexed with ``is_active``: ``list_for_user`` ORs "active global" against
+    # "mine", so both halves of that predicate want an index.
+    scope: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
     owner_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True,
     )
@@ -44,7 +46,7 @@ class Preset(Base, TimestampMixin):
     scope_key: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     # Global presets are visible to all users only when active; user presets
     # are always usable by their owner.
-    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False, index=True)
     # A JSON *array* of category ids (see app.api.preset_categories) — the
     # annotation matters: every writer stores a list, and typing it as a
     # dict let a wrong-shaped assignment slip past mypy.
