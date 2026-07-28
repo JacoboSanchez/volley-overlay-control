@@ -851,26 +851,8 @@
         "type": "object"
       },
       "CustomizationUpdateRequest": {
-        "additionalProperties": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer"
-            },
-            {
-              "type": "number"
-            },
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "description": "Primitive customization values keyed by customization field.",
+        "additionalProperties": true,
+        "description": "Top-level customization object validated further by the service.\n\nValues stay broad here so nested metadata under an unknown key can reach\nthe service's allow-list filter. Recognized customization keys are still\nrestricted to safe scalar values by ``GameCustomizationService``.",
         "title": "CustomizationUpdateRequest",
         "type": "object"
       },

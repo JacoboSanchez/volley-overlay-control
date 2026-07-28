@@ -2071,10 +2071,14 @@ export interface components {
         };
         /**
          * CustomizationUpdateRequest
-         * @description Primitive customization values keyed by customization field.
+         * @description Top-level customization object validated further by the service.
+         *
+         *     Values stay broad here so nested metadata under an unknown key can reach
+         *     the service's allow-list filter. Recognized customization keys are still
+         *     restricted to safe scalar values by ``GameCustomizationService``.
          */
         CustomizationUpdateRequest: {
-            [key: string]: string | number | boolean | null;
+            [key: string]: unknown;
         };
         /** GameStateResponse */
         GameStateResponse: {

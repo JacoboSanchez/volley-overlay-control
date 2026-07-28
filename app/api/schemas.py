@@ -459,10 +459,13 @@ class ActionResponse(BaseModel):
     message: str | None = None
 
 
-class CustomizationUpdateRequest(
-    RootModel[dict[str, str | int | float | bool | None]]
-):
-    """Primitive customization values keyed by customization field."""
+class CustomizationUpdateRequest(RootModel[dict[str, object]]):
+    """Top-level customization object validated further by the service.
+
+    Values stay broad here so nested metadata under an unknown key can reach
+    the service's allow-list filter. Recognized customization keys are still
+    restricted to safe scalar values by ``GameCustomizationService``.
+    """
 
 
 class AppConfigResponse(BaseModel):
