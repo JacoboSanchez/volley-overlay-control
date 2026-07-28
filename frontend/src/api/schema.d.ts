@@ -1030,7 +1030,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Icons */
+        /**
+         * List Icons
+         * @description Globals + the caller's own + quota.
+         *
+         *     ``limit``/``offset`` page the **global** library, which is deliberately
+         *     uncapped; ``X-Total-Count`` reports its full size. ``mine`` is returned
+         *     whole because it is already hard-capped at ``ICONS_MAX_PER_USER``.
+         */
         get: operations["list_icons_api_v1_icons_get"];
         put?: never;
         post?: never;
@@ -1244,6 +1251,10 @@ export interface paths {
          * My Visible Groups
          * @description The caller's selectable groups: the synthetic "All" first, then shared
          *     published groups and the user's own private groups, each with their teams.
+         *
+         *     ``limit``/``offset`` page the *groups*; the synthetic "All" entry is the
+         *     first row of that sequence, so ``X-Total-Count`` is one more than the
+         *     number of real groups.
          */
         get: operations["my_visible_groups_api_v1_my_groups_get"];
         put?: never;
@@ -2974,7 +2985,12 @@ export interface operations {
     };
     admin_list_presets_api_v1_admin_presets_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -3240,7 +3256,12 @@ export interface operations {
     };
     admin_list_groups_api_v1_admin_team_groups_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -4456,7 +4477,12 @@ export interface operations {
     };
     list_presets_api_v1_customization_presets_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -5246,7 +5272,12 @@ export interface operations {
     };
     list_icons_api_v1_icons_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -5676,7 +5707,12 @@ export interface operations {
     };
     my_visible_groups_api_v1_my_groups_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -5883,7 +5919,12 @@ export interface operations {
     };
     list_my_overlays_api_v1_overlays_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -6271,7 +6312,12 @@ export interface operations {
     };
     list_groups_api_v1_team_groups_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -6335,7 +6381,12 @@ export interface operations {
     };
     my_teams_api_v1_teams_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -6366,7 +6417,12 @@ export interface operations {
     };
     catalog_api_v1_teams_catalog_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {
@@ -6397,7 +6453,12 @@ export interface operations {
     };
     my_team_rows_api_v1_teams_mine_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description Rows to skip */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: {

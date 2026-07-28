@@ -314,10 +314,12 @@ Configure the application using the following environment variables:
 | `MATCH_REPORT_PUBLIC` | If `true`, `/match/{id}/report` is reachable by anyone, with no cookie or signed URL required. When unset, the report is reachable only by its owner's session cookie or an owner-minted signed share URL. | `false` |
 
 Rarely-needed knobs (auth rate limiting, security response headers, audit-log
-rotation, WebSocket hub limits, webhook retries, preset caps, idle game-session
-eviction via `SESSION_TTL_SECONDS` — not to be confused with
-`SESSION_TTL_HOURS`, the login-cookie lifetime) are documented in the
-**Advanced tuning** section of [`.env.example`](.env.example).
+rotation, WebSocket hub limits, webhook retries, preset caps, list-endpoint
+paging via `LIST_DEFAULT_LIMIT` / `LIST_MAX_LIMIT`, expired-login-row sweeping
+via `AUTH_SESSION_SWEEP_INTERVAL_SECONDS`, idle game-session eviction via
+`SESSION_TTL_SECONDS` — not to be confused with `SESSION_TTL_HOURS`, the
+login-cookie lifetime) are documented in the **Advanced tuning** section of
+[`.env.example`](.env.example).
 
 <br>
 

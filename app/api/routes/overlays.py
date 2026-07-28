@@ -3,7 +3,7 @@
 import logging
 import urllib.parse
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
@@ -11,6 +11,7 @@ from starlette.concurrency import run_in_threadpool
 from app import overlays_service
 from app.api import match_archive
 from app.api.dependencies import get_session
+from app.api.pagination import Page, PageDep, with_total
 from app.api.session_manager import GameSession
 from app.auth.dependencies import require_user
 from app.db.engine import get_db
@@ -72,13 +73,18 @@ def _overlay_out(request: Request, overlay, *, username: str | None = None) -> O
 @router.get("/overlays", response_model=list[OverlayOut])
 def list_my_overlays(
     request: Request,
+    response: Response,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
+    page: Page = PageDep,
 ):
     """Return the overlays owned by the caller."""
+    with_total(response, overlays_service.count_overlays(db, user.id))
     return [
         _overlay_out(request, o, username=user.username)
-        for o in overlays_service.list_overlays(db, user.id)
+        for o in overlays_service.list_overlays(
+            db, user.id, limit=page.limit, offset=page.offset,
+        )
     ]
 
 

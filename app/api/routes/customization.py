@@ -16,7 +16,7 @@ both sources in a single list. System presets cannot be deleted.
 import logging
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
@@ -24,6 +24,7 @@ from starlette.concurrency import run_in_threadpool
 from app import presets_service
 from app.api.dependencies import get_session
 from app.api.game_service import GameService
+from app.api.pagination import Page, PageDep, with_total
 from app.api.schemas import ActionResponse
 from app.api.session_manager import GameSession
 from app.auth.dependencies import require_admin, require_user
@@ -111,10 +112,16 @@ class SetActiveRequest(BaseModel):
     summary="List active global presets plus the caller's own.",
 )
 def list_presets(
-    user: User = Depends(require_user), db: Session = Depends(get_db),
+    response: Response,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    page: Page = PageDep,
 ) -> PresetListResponse:
-    items = [PresetSummary.of(p) for p in presets_service.list_for_user(db, user.id)]
-    return PresetListResponse(items=items)
+    with_total(response, presets_service.count_for_user(db, user.id))
+    rows = presets_service.list_for_user(
+        db, user.id, limit=page.limit, offset=page.offset,
+    )
+    return PresetListResponse(items=[PresetSummary.of(p) for p in rows])
 
 
 @router.post(
@@ -172,10 +179,16 @@ def delete_preset(
     summary="List all global presets (active and inactive) for management.",
 )
 def admin_list_presets(
-    _admin: User = Depends(require_admin), db: Session = Depends(get_db),
+    response: Response,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    page: Page = PageDep,
 ) -> PresetListResponse:
-    items = [PresetSummary.of(p) for p in presets_service.list_global_presets(db)]
-    return PresetListResponse(items=items)
+    with_total(response, presets_service.count_global_presets(db))
+    rows = presets_service.list_global_presets(
+        db, limit=page.limit, offset=page.offset,
+    )
+    return PresetListResponse(items=[PresetSummary.of(p) for p in rows])
 
 
 @router.post(

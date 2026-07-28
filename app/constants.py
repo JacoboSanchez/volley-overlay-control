@@ -33,6 +33,18 @@ def _env_int(key: str, default: int) -> int:
     return value if value > 0 else default
 
 
+def _env_int_nonneg(key: str, default: int) -> int:
+    """Like :func:`_env_int` but accepts 0 as a valid "disabled" value."""
+    raw = os.environ.get(key)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value >= 0 else default
+
+
 def _env_float_nonneg(key: str, default: float) -> float:
     """Like :func:`_env_float` but accepts 0 as a valid disable signal.
 
@@ -54,6 +66,25 @@ def _env_float_nonneg(key: str, default: float) -> float:
 # Idle game sessions are evicted after this many seconds. Override with
 # the ``SESSION_TTL_SECONDS`` env var.
 SESSION_TTL_SECONDS = _env_int("SESSION_TTL_SECONDS", 24 * 60 * 60)
+
+# Paging for the account-level list endpoints (teams, groups, overlays,
+# icons, presets — see app/api/pagination.py). ``LIST_DEFAULT_LIMIT`` is
+# what a caller that passes no ``limit`` gets; ``LIST_MAX_LIMIT`` is the
+# ceiling a caller may ask for. The default is set well above any
+# realistic catalog so existing clients see no change, while still
+# bounding what one request can pull out of the database.
+LIST_DEFAULT_LIMIT = _env_int("LIST_DEFAULT_LIMIT", 500)
+LIST_MAX_LIMIT = _env_int("LIST_MAX_LIMIT", 2000)
+
+# How often the background loop deletes expired ``auth_sessions`` rows.
+# ``resolve_session`` only drops a row when its own token is presented
+# again, so a user who logs in and then clears their cookies would leave
+# the row until ``SESSION_TTL_HOURS`` elapsed *and* someone replayed the
+# token — i.e. never. Set ``AUTH_SESSION_SWEEP_INTERVAL_SECONDS=0`` to
+# disable the sweep (e.g. when an external janitor owns the table).
+AUTH_SESSION_SWEEP_INTERVAL_SECONDS = _env_int_nonneg(
+    "AUTH_SESSION_SWEEP_INTERVAL_SECONDS", 6 * 60 * 60,
+)
 
 # Per-socket WebSocket broadcast timeout used by ``WSHub``. A slow
 # subscriber must not stall delivery to the rest. Override with

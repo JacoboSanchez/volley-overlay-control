@@ -18,16 +18,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app import teams_service
 from app.api.dependencies import control_token, get_session, resolve_board_skey
+from app.api.pagination import Page, PageDep, with_total
 from app.api.schemas import is_acceptable_catalog_icon
 from app.api.session_manager import GameSession
 from app.api.session_persistence import load_session_meta
 from app.auth.dependencies import current_user, require_admin, require_user
+from app.constants import LIST_MAX_LIMIT
 from app.db.engine import get_db
 from app.db.models.team import Team, TeamGroup
 from app.db.models.user import User
@@ -195,31 +197,69 @@ _ALL_GROUP_NAME = "All teams"
 
 
 def _all_group_detail(db: Session, user_id: int) -> GroupDetailOut:
-    teams = teams_service.group_effective_teams(db, user_id, None)
+    # The only nested roster that grows with the whole catalog rather than with
+    # a curated membership, so it carries the hard ceiling. Callers that need
+    # the complete list page it from ``GET /teams/catalog``.
+    teams = teams_service.all_group_teams(db, user_id, limit=LIST_MAX_LIMIT)
     return GroupDetailOut(
         id=None, name=_ALL_GROUP_NAME, kind="all", is_private=False,
         teams=[TeamOut.of(t) for t in teams],
     )
 
 
+def _group_rows_out(db: Session, groups: list[TeamGroup]) -> list[TeamGroupOut]:
+    """Shared-group listings (``/team-groups``, ``/admin/team-groups``) with
+    their admin-curated members — one membership query for the whole page."""
+    members = teams_service.group_member_teams_bulk(db, [g.id for g in groups])
+    return [
+        TeamGroupOut(
+            id=g.id, name=g.name, is_active=g.is_active,
+            teams=[TeamOut.of(t) for t in members[g.id]],
+        )
+        for g in groups
+    ]
+
+
 # ---- user-facing -----------------------------------------------------------
 
 
 @router.get("/teams")
-def my_teams(user: User = Depends(require_user), db: Session = Depends(get_db)):
+def my_teams(
+    response: Response,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    page: Page = PageDep,
+):
     """The caller's team list, in the APP_TEAMS map shape."""
-    return teams_service.user_teams(db, user.id)
+    with_total(response, teams_service.count_user_team_rows(db, user.id))
+    return teams_service.user_teams(db, user.id, limit=page.limit, offset=page.offset)
 
 
 @router.get("/teams/mine", response_model=list[TeamOut])
-def my_team_rows(user: User = Depends(require_user), db: Session = Depends(get_db)):
+def my_team_rows(
+    response: Response,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    page: Page = PageDep,
+):
     """The caller's team list as rows with ids (global + own custom teams)."""
-    return [TeamOut.of(t) for t in teams_service.list_user_team_rows(db, user.id)]
+    with_total(response, teams_service.count_user_team_rows(db, user.id))
+    rows = teams_service.list_user_team_rows(
+        db, user.id, limit=page.limit, offset=page.offset,
+    )
+    return [TeamOut.of(t) for t in rows]
 
 
 @router.get("/teams/catalog", response_model=list[TeamOut])
-def catalog(user: User = Depends(require_user), db: Session = Depends(get_db)):
-    return [TeamOut.of(t) for t in teams_service.list_global(db)]
+def catalog(
+    response: Response,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    page: Page = PageDep,
+):
+    with_total(response, teams_service.count_global(db))
+    rows = teams_service.list_global(db, limit=page.limit, offset=page.offset)
+    return [TeamOut.of(t) for t in rows]
 
 
 @router.post("/teams/mine")
@@ -298,12 +338,16 @@ def remove_from_my_teams(
 
 
 @router.get("/team-groups", response_model=list[TeamGroupOut])
-def list_groups(user: User = Depends(require_user), db: Session = Depends(get_db)):
-    out = []
-    for g in teams_service.list_active_groups(db):
-        teams = [TeamOut.of(t) for t in teams_service.group_member_teams(db, g.id)]
-        out.append(TeamGroupOut(id=g.id, name=g.name, is_active=g.is_active, teams=teams))
-    return out
+def list_groups(
+    response: Response,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    page: Page = PageDep,
+):
+    with_total(response, teams_service.count_active_groups(db))
+    return _group_rows_out(
+        db, teams_service.list_active_groups(db, limit=page.limit, offset=page.offset),
+    )
 
 
 @router.post("/team-groups/{group_id}/copy-to-mine")
@@ -394,15 +438,17 @@ def admin_import_teams(
 
 @router.get("/admin/team-groups", response_model=list[TeamGroupOut])
 def admin_list_groups(
-    _admin: User = Depends(require_admin), db: Session = Depends(get_db),
+    response: Response,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    page: Page = PageDep,
 ):
     """Every group (active and inactive) with its members — drives the admin
     group manager. Users only ever see active groups via ``GET /team-groups``."""
-    out = []
-    for g in teams_service.list_all_groups(db):
-        teams = [TeamOut.of(t) for t in teams_service.group_member_teams(db, g.id)]
-        out.append(TeamGroupOut(id=g.id, name=g.name, is_active=g.is_active, teams=teams))
-    return out
+    with_total(response, teams_service.count_all_groups(db))
+    return _group_rows_out(
+        db, teams_service.list_all_groups(db, limit=page.limit, offset=page.offset),
+    )
 
 
 @router.post("/admin/team-groups", response_model=TeamGroupOut, status_code=201)
@@ -502,24 +548,31 @@ def board_team_groups(
     skey: str = Depends(board_owner_skey), db: Session = Depends(get_db),
 ):
     owner_id, _oid = split_skey(skey)
+    # Counts only — this runs on every board load, so it must never materialise
+    # a ``Team`` row just to call ``len()`` on the list. Two aggregate queries
+    # cover the whole picker no matter how many groups the owner has.
+    visible = teams_service.list_user_visible_groups(db, owner_id)
+    counts = teams_service.group_effective_counts(db, owner_id, visible)
     groups = [
         BoardGroupOut(
             id=None, name=_ALL_GROUP_NAME, kind="all",
-            count=len(teams_service.group_effective_teams(db, owner_id, None)),
+            count=teams_service.all_group_team_count(db, owner_id),
         )
     ]
-    for group in teams_service.list_user_visible_groups(db, owner_id):
-        groups.append(BoardGroupOut(
+    groups.extend(
+        BoardGroupOut(
             id=group.id, name=group.name, kind=teams_service.group_kind(group),
-            count=len(teams_service.group_effective_teams(db, owner_id, group.id)),
-        ))
+            count=counts.get(group.id, 0),
+        )
+        for group in visible
+    )
     # Remembered selection (best-effort from persisted meta); drop it if the
-    # group is no longer visible (deleted / unpublished).
+    # group is no longer visible (deleted / unpublished) — resolved against the
+    # listing we just built rather than with another DB round-trip.
     meta = load_session_meta(skey)
     selected = meta.get("selected_team_group_id") if isinstance(meta, dict) else None
-    selected_id = None
-    if isinstance(selected, int) and teams_service.get_visible_group(db, owner_id, selected):
-        selected_id = selected
+    visible_ids = {group.id for group in visible}
+    selected_id = selected if isinstance(selected, int) and selected in visible_ids else None
     return BoardGroupListOut(groups=groups, selected_id=selected_id)
 
 
@@ -557,24 +610,59 @@ def board_select_group(
 # ---- account: my groups (require_user) -------------------------------------
 
 
-def _group_detail(db: Session, user_id: int, group: TeamGroup) -> GroupDetailOut:
-    return GroupDetailOut(
-        id=group.id, name=group.name,
-        kind=teams_service.group_kind(group),
-        is_private=group.owner_user_id is not None,
-        teams=[TeamOut.of(t) for t in teams_service.group_effective_teams(db, user_id, group.id)],
-        removable_ids=sorted(teams_service.user_group_team_ids(db, user_id, group.id)),
+def _details_for(
+    db: Session, user_id: int, groups: list[TeamGroup],
+) -> list[GroupDetailOut]:
+    """Render several groups at a fixed query cost: one for the user's own
+    additions (which double as ``removable_ids``) and one for the shared
+    groups' admin-intrinsic members."""
+    additions = teams_service.user_group_teams_bulk(
+        db, user_id, [g.id for g in groups],
     )
+    effective = teams_service.group_effective_teams_bulk(
+        db, user_id, groups, user_additions=additions,
+    )
+    return [
+        GroupDetailOut(
+            id=group.id, name=group.name,
+            kind=teams_service.group_kind(group),
+            is_private=group.owner_user_id is not None,
+            teams=[TeamOut.of(t) for t in effective[group.id]],
+            removable_ids=sorted(t.id for t in additions[group.id]),
+        )
+        for group in groups
+    ]
+
+
+def _group_detail(db: Session, user_id: int, group: TeamGroup) -> GroupDetailOut:
+    return _details_for(db, user_id, [group])[0]
 
 
 @router.get("/my/groups", response_model=list[GroupDetailOut])
-def my_visible_groups(user: User = Depends(require_user), db: Session = Depends(get_db)):
+def my_visible_groups(
+    response: Response,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+    page: Page = PageDep,
+):
     """The caller's selectable groups: the synthetic "All" first, then shared
-    published groups and the user's own private groups, each with their teams."""
-    out = [_all_group_detail(db, user.id)]
-    for group in teams_service.list_user_visible_groups(db, user.id):
-        out.append(_group_detail(db, user.id, group))
-    return out
+    published groups and the user's own private groups, each with their teams.
+
+    ``limit``/``offset`` page the *groups*; the synthetic "All" entry is the
+    first row of that sequence, so ``X-Total-Count`` is one more than the
+    number of real groups.
+    """
+    with_total(response, teams_service.count_user_visible_groups(db, user.id) + 1)
+    # "All" occupies index 0 of the paged sequence, so a non-zero offset both
+    # drops it and shifts the real-group window back by one.
+    include_all = page.offset == 0
+    groups = teams_service.list_user_visible_groups(
+        db, user.id,
+        limit=page.limit - 1 if include_all else page.limit,
+        offset=0 if include_all else page.offset - 1,
+    )
+    details = _details_for(db, user.id, groups)
+    return [_all_group_detail(db, user.id), *details] if include_all else details
 
 
 @router.post("/my/groups", response_model=GroupDetailOut, status_code=201)

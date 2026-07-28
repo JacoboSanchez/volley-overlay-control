@@ -241,6 +241,46 @@ Related endpoints used by the SPA's auth screens:
 
 All endpoints are under the `/api/v1/` prefix. State-changing endpoints require `oid` as a query parameter.
 
+### Paging the list endpoints
+
+Every listing whose size grows with usage takes `limit` and `offset`:
+`GET /teams`, `/teams/mine`, `/teams/catalog`, `/team-groups`, `/my/groups`,
+`/overlays`, `/icons`, `/customization/presets`, `/admin/team-groups` and
+`/admin/presets`.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | int | `LIST_DEFAULT_LIMIT` (500) | Page size. `1 … LIST_MAX_LIMIT` (2000); outside that range the request is rejected with 422. |
+| `offset` | int | `0` | Rows to skip. Negative values are rejected with 422. |
+
+**The response body shape is the same with or without them** — a listing that
+returned a JSON array still returns a JSON array. The full in-scope total is
+reported in the `X-Total-Count` response header instead, so a client knows
+whether it has everything:
+
+```js
+const res = await fetch('/api/v1/teams/catalog?limit=100&offset=0', { credentials: 'include' });
+const total = Number(res.headers.get('X-Total-Count'));
+const page = await res.json();          // page.length <= 100
+const hasMore = page.length < total;    // keep walking offset until it doesn't
+```
+
+Cross-origin callers need `CORS_ALLOWED_ORIGINS` set for the header to be
+readable; the app already lists `X-Total-Count` in `expose_headers`.
+
+Two endpoint-specific notes:
+
+- `GET /icons` pages the **global** library (which is uncapped) and reports
+  its total. The `mine` array comes back whole — it is already bounded by
+  `ICONS_MAX_PER_USER`.
+- `GET /my/groups` pages the *groups*, and the synthetic "All teams" entry is
+  row 0 of that sequence — so `X-Total-Count` is one more than the number of
+  real groups, and `offset=1` starts at the first real group.
+
+The export endpoints `GET /admin/teams/export` and `GET /admin/presets/export`
+are intentionally **not** paged: they are backup/round-trip surfaces where a
+silently truncated page would lose data on the next import.
+
 ### Session Management
 
 #### `POST /api/v1/session/init`

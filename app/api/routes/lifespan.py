@@ -8,10 +8,17 @@ from weakref import WeakValueDictionary
 from app.api.session_manager import SessionManager
 from app.api.webhooks import webhook_dispatcher
 from app.api.ws_hub import WSHub
+from app.constants import AUTH_SESSION_SWEEP_INTERVAL_SECONDS
 
 logger = logging.getLogger(__name__)
 
+# How often the in-memory ``GameSession`` eviction runs. The DB-backed
+# ``auth_sessions`` sweep rides the same loop but on its own (longer) period,
+# so the two knobs stay independent.
+_GAME_SESSION_CLEANUP_INTERVAL_SECONDS = 3600
+
 _cleanup_task: asyncio.Task | None = None
+_auth_sweep_task: asyncio.Task | None = None
 # WeakValueDictionary auto-evicts entries once all strong refs to the lock are
 # released — i.e. once every caller has exited its ``async with get_init_lock``
 # block. This avoids a race where a manual cleanup could delete a lock between
@@ -30,9 +37,9 @@ def get_init_lock(oid: str) -> asyncio.Lock:
 
 
 async def _session_cleanup_loop():
-    """Periodically remove expired sessions."""
+    """Periodically remove expired in-memory game sessions."""
     while True:
-        await asyncio.sleep(3600)  # Run every hour
+        await asyncio.sleep(_GAME_SESSION_CLEANUP_INTERVAL_SECONDS)
         try:
             removed = SessionManager.cleanup_expired()
             if removed:
@@ -41,15 +48,51 @@ async def _session_cleanup_loop():
             logger.exception("Error during session cleanup")
 
 
+def purge_expired_auth_sessions() -> int:
+    """Delete expired ``auth_sessions`` rows. Returns the number removed.
+
+    Runs in a worker thread (``to_thread`` below) because the DB driver is
+    synchronous and the event loop must not block on it.
+    """
+    from app.auth import sessions as auth_sessions
+    from app.db.engine import session_scope
+
+    with session_scope() as db:
+        return auth_sessions.purge_expired(db)
+
+
+async def _auth_session_sweep_loop():
+    """Periodically purge expired login sessions from the database.
+
+    ``resolve_session`` only drops an expired row when its own token is
+    presented again, so without this loop a row survives forever once the
+    client stops presenting the cookie.
+    """
+    while True:
+        await asyncio.sleep(AUTH_SESSION_SWEEP_INTERVAL_SECONDS)
+        try:
+            removed = await asyncio.to_thread(purge_expired_auth_sessions)
+            if removed:
+                logger.info("Purged %d expired login sessions", removed)
+        except Exception:
+            logger.exception("Error during expired login-session sweep")
+
+
 @asynccontextmanager
 async def router_lifespan(app):
-    global _cleanup_task
+    global _cleanup_task, _auth_sweep_task
     _cleanup_task = asyncio.create_task(_session_cleanup_loop())
+    # 0 disables the sweep entirely (operators running an external janitor).
+    if AUTH_SESSION_SWEEP_INTERVAL_SECONDS > 0:
+        _auth_sweep_task = asyncio.create_task(_auth_session_sweep_loop())
     # No-op when WSHUB_HEARTBEAT_INTERVAL_SECONDS == 0 (the default).
     WSHub.start_heartbeat()
     yield
     if _cleanup_task:
         _cleanup_task.cancel()
+    if _auth_sweep_task:
+        _auth_sweep_task.cancel()
+        _auth_sweep_task = None
     WSHub.stop_heartbeat()
     SessionManager.clear()
     # Drain in-flight deliveries with cancel_futures=True so a hung

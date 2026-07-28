@@ -53,6 +53,23 @@ def test_alembic_upgrade_head_matches_models(tmp_path, monkeypatch):
             f"{table_name} column drift vs model: "
             f"missing={declared - reflected}, extra={reflected - declared}"
         )
+
+    # Index-level drift, same reasoning as columns: an ``index=True`` added to
+    # a model without the matching migration would otherwise ship a query plan
+    # that only ever existed on a freshly ``create_all``-ed test database.
+    # Compared by indexed column tuple rather than by name, so the reflected
+    # unique-constraint indexes SQLite synthesises don't register as drift.
+    for table_name, table in Base.metadata.tables.items():
+        reflected_cols = {
+            tuple(ix["column_names"]) for ix in insp.get_indexes(table_name)
+        }
+        declared_cols = {
+            tuple(c.name for c in ix.columns) for ix in table.indexes
+        }
+        assert declared_cols <= reflected_cols, (
+            f"{table_name} index drift vs model: migrations are missing "
+            f"{sorted(declared_cols - reflected_cols)}"
+        )
     engine.dispose()
 
 

@@ -31,6 +31,17 @@ def _owns(skey: object, user: User) -> bool:
     return isinstance(skey, str) and skey.startswith(f"{user.id}:")
 
 
+def _require_owned(match_id: str, user: User) -> None:
+    """404 unless *match_id* exists and belongs to *user*.
+
+    Reads only ``match_reports.user_id`` — routes that never touch the snapshot
+    must not drag ``final_state``, ``customization`` and the entire
+    ``audit_log`` JSON column across the wire just to compare an integer.
+    """
+    if match_archive.owner_user_id(match_id) != user.id:
+        raise HTTPException(status_code=404, detail="Match not found.")
+
+
 @router.get("/matches", summary="List the caller's archived matches")
 def list_matches(
     oid: str | None = Query(None, description="Filter to a single overlay id"),
@@ -74,9 +85,7 @@ def get_match(match_id: str, user: User = Depends(require_user)):
 
 @router.delete("/matches/{match_id}", status_code=204, summary="Delete one of the caller's matches")
 def delete_match(match_id: str, user: User = Depends(require_user)):
-    payload = match_archive.load_match(match_id)
-    if payload is None or not _owns(payload.get("oid"), user):
-        raise HTTPException(status_code=404, detail="Match not found.")
+    _require_owned(match_id, user)
     match_archive.delete_match(match_id)
 
 
@@ -93,9 +102,7 @@ def sign_match_url(
     shared without the recipient signing in — and without leaking any
     credential. Only the report's owner may mint one.
     """
-    payload = match_archive.load_match(match_id)
-    if payload is None or not _owns(payload.get("oid"), user):
-        raise HTTPException(status_code=404, detail="Match not found.")
+    _require_owned(match_id, user)
     signed = make_signed_query(match_id, ttl_seconds)
     if signed is None:  # pragma: no cover - SESSION_SECRET is always set
         raise HTTPException(status_code=503, detail="Report signing is unavailable.")

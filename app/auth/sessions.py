@@ -108,6 +108,22 @@ def revoke_session(db: Session, raw: str | None) -> None:
     db.commit()
 
 
+def purge_expired(db: Session) -> int:
+    """Delete every ``auth_sessions`` row whose ``expires_at`` has passed.
+
+    :func:`resolve_session` only drops an expired row when that exact token is
+    presented again, so a user who logs in and then clears their cookies
+    leaves a row behind forever (``SESSION_TTL_HOURS`` defaults to 14 days).
+    The lifespan loop calls this periodically; ``expires_at`` is indexed so
+    the sweep is a range delete, not a full-table scan.
+
+    Returns the number of rows removed.
+    """
+    result = db.execute(delete(AuthSession).where(AuthSession.expires_at <= _now()))
+    db.commit()
+    return int(getattr(result, "rowcount", 0) or 0)
+
+
 def revoke_all_for_user(
     db: Session, user_id: int, *, except_token_hash: str | None = None,
 ) -> None:

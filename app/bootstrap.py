@@ -606,6 +606,9 @@ def _maybe_register_cors(application: FastAPI) -> None:
             "Authorization", "Content-Type", "X-Request-ID",
             "Sec-WebSocket-Protocol",
         ],
+        # Paginated listings report the full in-scope total here; a
+        # cross-origin SPA cannot read it unless it is explicitly exposed.
+        expose_headers=["X-Total-Count"],
     )
     logger.info(
         "CORSMiddleware enabled (origins=%s)",

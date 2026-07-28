@@ -2717,6 +2717,33 @@
         "operationId": "admin_list_presets_api_v1_admin_presets_get",
         "parameters": [
           {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
             "in": "cookie",
             "name": "vsession",
             "required": false,
@@ -3152,6 +3179,33 @@
         "description": "Every group (active and inactive) with its members \u2014 drives the admin\ngroup manager. Users only ever see active groups via ``GET /team-groups``.",
         "operationId": "admin_list_groups_api_v1_admin_team_groups_get",
         "parameters": [
+          {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
           {
             "in": "cookie",
             "name": "vsession",
@@ -5661,6 +5715,33 @@
         "operationId": "list_presets_api_v1_customization_presets_get",
         "parameters": [
           {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
             "in": "cookie",
             "name": "vsession",
             "required": false,
@@ -8029,8 +8110,36 @@
     },
     "/api/v1/icons": {
       "get": {
+        "description": "Globals + the caller's own + quota.\n\n``limit``/``offset`` page the **global** library, which is deliberately\nuncapped; ``X-Total-Count`` reports its full size. ``mine`` is returned\nwhole because it is already hard-capped at ``ICONS_MAX_PER_USER``.",
         "operationId": "list_icons_api_v1_icons_get",
         "parameters": [
+          {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
           {
             "in": "cookie",
             "name": "vsession",
@@ -8941,9 +9050,36 @@
     },
     "/api/v1/my/groups": {
       "get": {
-        "description": "The caller's selectable groups: the synthetic \"All\" first, then shared\npublished groups and the user's own private groups, each with their teams.",
+        "description": "The caller's selectable groups: the synthetic \"All\" first, then shared\npublished groups and the user's own private groups, each with their teams.\n\n``limit``/``offset`` page the *groups*; the synthetic \"All\" entry is the\nfirst row of that sequence, so ``X-Total-Count`` is one more than the\nnumber of real groups.",
         "operationId": "my_visible_groups_api_v1_my_groups_get",
         "parameters": [
+          {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
           {
             "in": "cookie",
             "name": "vsession",
@@ -9308,6 +9444,33 @@
         "description": "Return the overlays owned by the caller.",
         "operationId": "list_my_overlays_api_v1_overlays_get",
         "parameters": [
+          {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
           {
             "in": "cookie",
             "name": "vsession",
@@ -10282,6 +10445,33 @@
         "operationId": "list_groups_api_v1_team_groups_get",
         "parameters": [
           {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
             "in": "cookie",
             "name": "vsession",
             "required": false,
@@ -10392,6 +10582,33 @@
         "operationId": "my_teams_api_v1_teams_get",
         "parameters": [
           {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
             "in": "cookie",
             "name": "vsession",
             "required": false,
@@ -10438,6 +10655,33 @@
       "get": {
         "operationId": "catalog_api_v1_teams_catalog_get",
         "parameters": [
+          {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
           {
             "in": "cookie",
             "name": "vsession",
@@ -10492,6 +10736,33 @@
         "description": "The caller's team list as rows with ids (global + own custom teams).",
         "operationId": "my_team_rows_api_v1_teams_mine_get",
         "parameters": [
+          {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
           {
             "in": "cookie",
             "name": "vsession",
