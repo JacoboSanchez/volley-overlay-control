@@ -77,7 +77,8 @@ Every PR must:
    refactors with no observable effect can skip this — when in doubt,
    add the entry.
 2. **Pass CI** — backend (`ruff`, `mypy`, `pytest`, `bandit`,
-   `pip-audit`) and frontend (`eslint`, `tsc`, `vitest`, `npm audit`).
+   `pip-audit`), frontend (`eslint`, `tsc`, `vitest`, `npm audit`), and
+   overlay assets (`eslint`, `prettier`, `stylelint`).
 3. **Regenerate screenshots** when an operator-facing surface
    changes — the React control UI, customization panel, the account
    pages (overlays / teams / presets / reports / admin), or any overlay
@@ -168,9 +169,14 @@ live file spanning exactly one major.
   documented in `AGENTS.md`.
 - **Frontend:** ESLint flat config in
   [`frontend/eslint.config.js`](./frontend/eslint.config.js). Prettier
-  config in [`frontend/.prettierrc.json`](./frontend/.prettierrc.json).
-  Run `npm run format` to auto-fix style; `npm run lint:fix` for
-  auto-fixable lint errors.
+  config in [`frontend/.prettierrc.json`](./frontend/.prettierrc.json),
+  and the overlay CSS Stylelint config in
+  [`frontend/stylelint.config.js`](./frontend/stylelint.config.js).
+  These gates cover both `frontend/src/` and the first-party files in
+  `overlay_static/`; vendored `gsap.min.js` is excluded. Run
+  `npm run format` to auto-fix formatting, `npm run lint:fix` for
+  auto-fixable JavaScript/TypeScript findings, and `npm run stylelint:fix`
+  for auto-fixable CSS findings.
 - **No new emojis** in source files unless an existing module already
   uses them.
 - **Comments:** explain *why*, not *what*. Prefer well-named

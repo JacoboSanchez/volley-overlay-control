@@ -16,10 +16,13 @@
     "test:coverage": "vitest run --coverage",
     "gen:types": "openapi-typescript ./schema/openapi.json -o ./src/api/schema.d.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --max-warnings 0",
-    "lint:fix": "eslint src --fix",
-    "format": "prettier --write src",
-    "format:check": "prettier --check src"
+    "lint": "eslint src --max-warnings 0 && npm run lint:overlays",
+    "lint:overlays": "cd .. && frontend/node_modules/.bin/eslint --config frontend/eslint.config.js overlay_static/js --max-warnings 0",
+    "lint:fix": "eslint src --fix && npm run lint:overlays -- --fix",
+    "stylelint": "stylelint \"../overlay_static/css/**/*.css\" --max-warnings 0",
+    "stylelint:fix": "npm run stylelint -- --fix",
+    "format": "prettier --write src ../overlay_static/js ../overlay_static/css",
+    "format:check": "prettier --check src ../overlay_static/js ../overlay_static/css"
   },
   "dependencies": {
     "material-icons": "^1.13.14",
@@ -47,6 +50,8 @@
     "openapi-typescript": "^7.13.0",
     "prettier": "^3.8.4",
     "rollup-plugin-visualizer": "^7.0.1",
+    "stylelint": "^17.14.1",
+    "stylelint-config-recommended": "^18.0.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.1.0",

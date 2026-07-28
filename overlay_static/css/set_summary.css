@@ -92,14 +92,17 @@ body.set-summary-mode #player-stats-container {
   row-gap: var(--ss-sz-md);
   z-index: 100;
   color: #fff;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   pointer-events: none;
   /* Cross-fade in (and out via ``[hidden]``) so the toggle from
      scoreboard → recap doesn't flash. */
   opacity: 1;
   transition: opacity 0.45s ease;
 }
-.set-summary-panel .ss-stage { align-self: center; }
+.set-summary-panel .ss-stage {
+  align-self: center;
+}
 .set-summary-panel .ss-extras {
   align-self: end;
   pointer-events: auto;
@@ -119,7 +122,9 @@ body.set-summary-mode .set-summary-panel .ss-stage,
 body.set-summary-mode .set-summary-panel .ss-extras {
   transform: none;
 }
-.set-summary-panel .ss-extras:empty { display: none; }
+.set-summary-panel .ss-extras:empty {
+  display: none;
+}
 
 .ss-stage {
   /* Two-thirds of the viewport height (vh) drives the size; width
@@ -151,11 +156,16 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   border-radius: 16px;
 }
 
-.ss-stage > * { min-width: 0; min-height: 0; }
+.ss-stage > * {
+  min-width: 0;
+  min-height: 0;
+}
 
 /* Hide any element the variant did not generate so the empty
    defaults from ensureStage() do not bleed through. */
-.ss-stage [hidden] { display: none !important; }
+.ss-stage [hidden] {
+  display: none !important;
+}
 
 /* ─────────────────────────────────────────────────────────────
    Shared helpers (used by multiple variants)
@@ -176,7 +186,9 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   gap: 8px;
 }
 .ss-stage .ss-clock-label {
-  font: 700 var(--ss-fs-label)/1 -apple-system, sans-serif;
+  font:
+    700 var(--ss-fs-label)/1 -apple-system,
+    sans-serif;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ss-text-bright);
@@ -185,8 +197,16 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   opacity: 0.8;
 }
 
-.ss-stage .ss-line-home { stroke: var(--ss-home); stroke-width: 3; fill: none; }
-.ss-stage .ss-line-away { stroke: var(--ss-away); stroke-width: 3; fill: none; }
+.ss-stage .ss-line-home {
+  stroke: var(--ss-home);
+  stroke-width: 3;
+  fill: none;
+}
+.ss-stage .ss-line-away {
+  stroke: var(--ss-away);
+  stroke-width: 3;
+  fill: none;
+}
 /* Tagged by the JS chart builder when home and away primaries are
    perceptually close — dashes keep the two polylines distinguishable
    even when the strokes share the same hue. */
@@ -194,8 +214,15 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   stroke-dasharray: 8 5;
   stroke-linecap: round;
 }
-.ss-stage .ss-grid-faint { stroke: var(--ss-white-08); stroke-width: 1; stroke-dasharray: 2 3; }
-.ss-stage .ss-grid-main  { stroke: var(--ss-white-18); stroke-width: 1; }
+.ss-stage .ss-grid-faint {
+  stroke: var(--ss-white-08);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+.ss-stage .ss-grid-main {
+  stroke: var(--ss-white-18);
+  stroke-width: 1;
+}
 .ss-stage .ss-timeout-line {
   stroke: rgba(255, 255, 255, 0.3);
   stroke-width: 1;
@@ -213,7 +240,9 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   align-items: center;
   justify-content: center;
   padding: 0 var(--ss-sz-md);
-  font: 600 var(--ss-fs-label)/1.4 -apple-system, sans-serif;
+  font:
+    600 var(--ss-fs-label)/1.4 -apple-system,
+    sans-serif;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   text-align: center;
@@ -275,7 +304,8 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 .ss-stage[data-style="brand_ledger"] .ss-team {
   position: relative;
   padding: clamp(10px, 4.5cqw, 48px) clamp(9px, 3.9cqw, 44px);
-  display: flex; flex-direction: column;
+  display: flex;
+  flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
   backdrop-filter: blur(14px) saturate(140%);
@@ -284,41 +314,57 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 .ss-stage[data-style="brand_ledger"] .ss-team-home {
   background:
     radial-gradient(circle at 20% 80%, var(--ss-white-08) 0%, transparent 60%),
-    linear-gradient(135deg, var(--ss-home) 0%, rgba(0,0,0,0.55) 100%);
+    linear-gradient(135deg, var(--ss-home) 0%, rgba(0, 0, 0, 0.55) 100%);
 }
 .ss-stage[data-style="brand_ledger"] .ss-team-away {
   background:
     radial-gradient(circle at 80% 80%, var(--ss-white-08) 0%, transparent 60%),
-    linear-gradient(225deg, var(--ss-away) 0%, rgba(0,0,0,0.55) 100%);
+    linear-gradient(225deg, var(--ss-away) 0%, rgba(0, 0, 0, 0.55) 100%);
   text-align: right;
 }
 .ss-stage[data-style="brand_ledger"] .ss-team::after {
-  content: '';
-  position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 100%);
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.25) 100%
+  );
   pointer-events: none;
 }
 .ss-stage[data-style="brand_ledger"] .ss-team > * {
-  position: relative; z-index: 1;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 .ss-stage[data-style="brand_ledger"] .ss-team-header {
-  display: flex; align-items: center; gap: 18px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
 }
-.ss-stage[data-style="brand_ledger"] .ss-team-away .ss-team-header { flex-direction: row-reverse; }
+.ss-stage[data-style="brand_ledger"] .ss-team-away .ss-team-header {
+  flex-direction: row-reverse;
+}
 .ss-stage[data-style="brand_ledger"] .ss-logo {
   width: clamp(24px, 6.75cqw, 88px);
   height: clamp(24px, 6.75cqw, 88px);
   border-radius: 16px;
   background: var(--ss-white-18);
-  border: 2px solid rgba(255,255,255,0.45);
-  display: grid; place-items: center;
-  font-weight: 800; font-size: clamp(9px, 2.85cqw, 36px);
-  text-shadow: 0 2px 6px rgba(0,0,0,0.45);
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: clamp(9px, 2.85cqw, 36px);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
   overflow: hidden;
   flex-shrink: 0;
 }
-.ss-stage[data-style="brand_ledger"] .ss-logo img { width: 100%; height: 100%; object-fit: cover; }
+.ss-stage[data-style="brand_ledger"] .ss-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .ss-stage[data-style="brand_ledger"] .ss-team-name {
   font-weight: 800;
   font-size: clamp(10px, 3cqw, 38px);
@@ -335,18 +381,22 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   margin-top: 6px;
 }
 .ss-stage[data-style="brand_ledger"] .ss-team-score {
-  font-family: 'Menlo', 'Consolas', monospace;
+  font-family: "Menlo", "Consolas", monospace;
   font-weight: 900;
   font-size: clamp(45px, 16.5cqw, 220px);
   line-height: 0.82;
   letter-spacing: -0.06em;
-  text-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  text-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   margin: 4px 0;
 }
 .ss-stage[data-style="brand_ledger"] .ss-team-stat-list {
-  display: flex; flex-direction: column; gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
-.ss-stage[data-style="brand_ledger"] .ss-team-away .ss-team-stat-list { align-items: flex-end; }
+.ss-stage[data-style="brand_ledger"] .ss-team-away .ss-team-stat-list {
+  align-items: flex-end;
+}
 .ss-stage[data-style="brand_ledger"] .ss-team-stat .ss-label {
   display: block;
   font-weight: 600;
@@ -360,7 +410,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   font-weight: 700;
   font-size: clamp(9px, 2.25cqw, 28px);
   line-height: 1;
-  font-family: 'Menlo', 'Consolas', monospace;
+  font-family: "Menlo", "Consolas", monospace;
   letter-spacing: -0.02em;
 }
 
@@ -370,7 +420,8 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   padding: clamp(10px, 3cqw, 32px) var(--ss-sz-xs);
-  display: flex; flex-direction: column;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   /* SET label + number anchored to the top edge; duration block
      anchored to the bottom edge. The empty space in the middle
@@ -378,37 +429,44 @@ body.set-summary-mode .set-summary-panel .ss-extras {
      duration tick. */
   justify-content: space-between;
   text-align: center;
-  min-height: 0; min-width: 0;
+  min-height: 0;
+  min-width: 0;
 }
 .ss-stage[data-style="brand_ledger"] .ss-set-group,
 .ss-stage[data-style="brand_ledger"] .ss-duration-group {
-  display: flex; flex-direction: column;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 6px;
 }
 .ss-stage[data-style="brand_ledger"] .ss-set-label {
-  font-weight: 700; font-size: var(--ss-fs-label);
+  font-weight: 700;
+  font-size: var(--ss-fs-label);
   color: var(--ss-text-bright);
-  letter-spacing: 0.3em; text-transform: uppercase;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
 }
 .ss-stage[data-style="brand_ledger"] .ss-set-number {
   font-weight: 900;
   font-size: clamp(36px, 12cqw, 140px);
   line-height: 0.85;
   letter-spacing: -0.04em;
-  text-shadow: 0 4px 16px rgba(0,0,0,0.6);
+  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
 }
 .ss-stage[data-style="brand_ledger"] .ss-duration-label {
   display: block;
   font-weight: 600;
   font-size: clamp(4px, 1.125cqw, 11px);
   color: var(--ss-text-bright);
-  letter-spacing: 0.24em; text-transform: uppercase;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
 }
 .ss-stage[data-style="brand_ledger"] .ss-duration {
-  display: flex; align-items: baseline; justify-content: center;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
   gap: 8px;
-  font-family: 'Menlo', 'Consolas', monospace;
+  font-family: "Menlo", "Consolas", monospace;
   font-weight: 700;
   font-size: clamp(11px, 3.3cqw, 34px);
   line-height: 1;
@@ -416,7 +474,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   letter-spacing: 0.04em;
 }
 .ss-stage[data-style="brand_ledger"] .ss-duration::before {
-  content: '⏱';
+  content: "⏱";
   font-size: clamp(7px, 1.8cqw, 20px);
   opacity: 0.85;
 }
@@ -437,12 +495,17 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   overflow: hidden;
 }
 .ss-stage[data-style="brand_ledger"] .ss-point {
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin: 0 auto;
   min-width: 38px;
   padding: 0 6px;
   border-radius: 4px;
-  font: 700 clamp(5px, 1.5cqw, 14px)/1 'Menlo', 'Consolas', monospace;
+  font:
+    700 clamp(5px, 1.5cqw, 14px)/1 "Menlo",
+    "Consolas",
+    monospace;
   letter-spacing: 0.02em;
 }
 .ss-stage[data-style="brand_ledger"] .ss-ledger-col-home .ss-point {
@@ -455,7 +518,9 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   background: color-mix(in srgb, var(--ss-away) 70%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--ss-away) 35%, transparent);
 }
-.ss-stage[data-style="brand_ledger"] .ss-point.ss-empty { visibility: hidden; }
+.ss-stage[data-style="brand_ledger"] .ss-point.ss-empty {
+  visibility: hidden;
+}
 /* Final scoring chip — same brand colour as a regular chip so the
    identity stays clear, but enlarged slightly and animated with a
    breathing glow so the operator's eye locks onto the set-winning
@@ -473,7 +538,8 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   animation: ss-final-breathe-away 2.4s ease-in-out infinite;
 }
 @keyframes ss-final-breathe-home {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow:
       0 0 0 0 color-mix(in srgb, var(--ss-home) 55%, transparent),
       0 0 6px 0 color-mix(in srgb, var(--ss-home) 45%, transparent);
@@ -485,7 +551,8 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   }
 }
 @keyframes ss-final-breathe-away {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow:
       0 0 0 0 color-mix(in srgb, var(--ss-away) 55%, transparent),
       0 0 6px 0 color-mix(in srgb, var(--ss-away) 45%, transparent);
@@ -525,7 +592,8 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 .ss-stage[data-style="brand_columns"] .ss-team {
   position: relative;
   padding: clamp(11px, 5.1cqw, 56px) clamp(11px, 4.2cqw, 48px);
-  display: flex; flex-direction: column;
+  display: flex;
+  flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
   backdrop-filter: blur(14px) saturate(140%);
@@ -534,67 +602,102 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 .ss-stage[data-style="brand_columns"] .ss-team-home {
   background:
     radial-gradient(circle at 20% 80%, var(--ss-white-08) 0%, transparent 60%),
-    linear-gradient(135deg, var(--ss-home) 0%, rgba(0,0,0,0.62) 100%);
+    linear-gradient(135deg, var(--ss-home) 0%, rgba(0, 0, 0, 0.62) 100%);
 }
 .ss-stage[data-style="brand_columns"] .ss-team-away {
   background:
     radial-gradient(circle at 80% 80%, var(--ss-white-08) 0%, transparent 60%),
-    linear-gradient(225deg, var(--ss-away) 0%, rgba(0,0,0,0.62) 100%);
+    linear-gradient(225deg, var(--ss-away) 0%, rgba(0, 0, 0, 0.62) 100%);
   text-align: right;
 }
 .ss-stage[data-style="brand_columns"] .ss-team::after {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.35) 100%);
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.35) 100%
+  );
   pointer-events: none;
 }
-.ss-stage[data-style="brand_columns"] .ss-team > * { position: relative; z-index: 1; }
-.ss-stage[data-style="brand_columns"] .ss-team-header {
-  display: flex; align-items: center; gap: 20px;
+.ss-stage[data-style="brand_columns"] .ss-team > * {
+  position: relative;
+  z-index: 1;
 }
-.ss-stage[data-style="brand_columns"] .ss-team-away .ss-team-header { flex-direction: row-reverse; }
+.ss-stage[data-style="brand_columns"] .ss-team-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.ss-stage[data-style="brand_columns"] .ss-team-away .ss-team-header {
+  flex-direction: row-reverse;
+}
 .ss-stage[data-style="brand_columns"] .ss-logo {
   width: clamp(27px, 7.2cqw, 88px);
   height: clamp(27px, 7.2cqw, 88px);
   border-radius: 16px;
   background: var(--ss-white-18);
-  border: 2px solid rgba(255,255,255,0.45);
-  display: grid; place-items: center;
-  font-weight: 800; font-size: clamp(10px, 3cqw, 36px);
-  overflow: hidden; flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: clamp(10px, 3cqw, 36px);
+  overflow: hidden;
+  flex-shrink: 0;
 }
-.ss-stage[data-style="brand_columns"] .ss-logo img { width: 100%; height: 100%; object-fit: cover; }
+.ss-stage[data-style="brand_columns"] .ss-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .ss-stage[data-style="brand_columns"] .ss-team-name {
-  font-weight: 800; font-size: clamp(11px, 3.3cqw, 42px);
-  line-height: 1.05; letter-spacing: -0.01em;
+  font-weight: 800;
+  font-size: clamp(11px, 3.3cqw, 42px);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
 .ss-stage[data-style="brand_columns"] .ss-team-tag {
-  font-weight: 600; font-size: clamp(5px, 1.2cqw, 14px);
+  font-weight: 600;
+  font-size: clamp(5px, 1.2cqw, 14px);
   color: var(--ss-text-bright);
-  letter-spacing: 0.22em; text-transform: uppercase;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
   margin-top: 6px;
 }
 .ss-stage[data-style="brand_columns"] .ss-team-score {
-  font-family: 'Menlo', 'Consolas', monospace;
+  font-family: "Menlo", "Consolas", monospace;
   font-weight: 900;
   font-size: clamp(55px, 18cqw, 240px);
-  line-height: 0.82; letter-spacing: -0.06em;
-  text-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  line-height: 0.82;
+  letter-spacing: -0.06em;
+  text-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   margin: 4px 0;
 }
 .ss-stage[data-style="brand_columns"] .ss-team-stat-list {
-  display: flex; flex-direction: column; gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
-.ss-stage[data-style="brand_columns"] .ss-team-away .ss-team-stat-list { align-items: flex-end; }
-.ss-stage[data-style="brand_columns"] .ss-team-stat { display: flex; flex-direction: column; gap: 2px; }
+.ss-stage[data-style="brand_columns"] .ss-team-away .ss-team-stat-list {
+  align-items: flex-end;
+}
+.ss-stage[data-style="brand_columns"] .ss-team-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 .ss-stage[data-style="brand_columns"] .ss-team-stat .ss-label {
-  font-weight: 600; font-size: clamp(5px, 1.05cqw, 11px);
+  font-weight: 600;
+  font-size: clamp(5px, 1.05cqw, 11px);
   color: var(--ss-text-bright);
-  letter-spacing: 0.2em; text-transform: uppercase;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
 }
 .ss-stage[data-style="brand_columns"] .ss-team-stat .ss-value {
   font-weight: 700;
-  font-family: 'Menlo', 'Consolas', monospace;
+  font-family: "Menlo", "Consolas", monospace;
   font-size: clamp(11px, 2.85cqw, 32px);
   letter-spacing: -0.02em;
 }
@@ -611,18 +714,28 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   border-right: 1px solid var(--ss-white-12);
 }
 .ss-stage[data-style="brand_columns"] .ss-set-pill {
-  display: inline-flex; align-items: center; gap: 10px;
-  align-self: center; justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  align-self: center;
+  justify-self: center;
   padding: 8px 18px;
   border-radius: 999px;
   background: rgba(46, 204, 113, 0.12);
   border: 1px solid rgba(46, 204, 113, 0.4);
-  font: 700 12px/1 -apple-system, sans-serif;
-  letter-spacing: 0.24em; text-transform: uppercase;
+  font:
+    700 12px/1 -apple-system,
+    sans-serif;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
   color: #2ecc71;
 }
 .ss-stage[data-style="brand_columns"] .ss-set-pill::before {
-  content: ''; width: 6px; height: 6px; border-radius: 50%; background: #2ecc71;
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2ecc71;
 }
 /* Recap pill tints amber + pulses when the displayed set is still in
    play (operator triggered the recap mid-set). Green stays reserved
@@ -637,38 +750,57 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   animation: ss-live-dot 1.4s ease-in-out infinite;
 }
 @keyframes ss-live-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
 }
 .ss-stage[data-style="brand_columns"] .ss-chart-wrap {
-  display: flex; flex-direction: column; justify-content: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   /* Anchor for the absolutely-positioned .ss-empty-note. */
   position: relative;
   padding: 8px 0;
-  min-height: 0; min-width: 0;
+  min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 .ss-stage[data-style="brand_columns"] .ss-chart-wrap svg {
   display: block;
-  width: 100%; height: 100%;
+  width: 100%;
+  height: 100%;
   min-height: 0;
 }
 .ss-stage[data-style="brand_columns"] .ss-vs {
-  font: 800 clamp(10px, 2.4cqw, 28px)/1 -apple-system, sans-serif;
-  color: rgba(255,255,255,0.4);
+  font:
+    800 clamp(10px, 2.4cqw, 28px)/1 -apple-system,
+    sans-serif;
+  color: rgba(255, 255, 255, 0.4);
   letter-spacing: 0.6em;
 }
 .ss-stage[data-style="brand_columns"] .ss-duration-block {
-  display: flex; flex-direction: column; gap: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .ss-stage[data-style="brand_columns"] .ss-duration-block .ss-label {
-  font-weight: 600; font-size: 11px;
-  color: rgba(255,255,255,0.5);
-  letter-spacing: 0.22em; text-transform: uppercase;
+  font-weight: 600;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
 }
 .ss-stage[data-style="brand_columns"] .ss-duration-block .ss-value {
-  font: 700 clamp(12px, 3.6cqw, 36px)/1 'Menlo', 'Consolas', monospace;
-  color: #2ecc71; letter-spacing: 0.04em;
+  font:
+    700 clamp(12px, 3.6cqw, 36px)/1 "Menlo",
+    "Consolas",
+    monospace;
+  color: #2ecc71;
+  letter-spacing: 0.04em;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -695,25 +827,34 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 }
 .ss-stage[data-style="bento"] .ss-header {
   grid-column: 1 / -1;
-  display: flex; align-items: baseline; justify-content: space-between;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   padding: 0 6px;
 }
 .ss-stage[data-style="bento"] .ss-header .ss-title {
-  font: 800 clamp(11px, 3.15cqw, 32px)/1 -apple-system, sans-serif;
+  font:
+    800 clamp(11px, 3.15cqw, 32px)/1 -apple-system,
+    sans-serif;
   letter-spacing: -0.02em;
   color: #fff;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.65);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
 }
 .ss-stage[data-style="bento"] .ss-header .ss-title small {
-  color: var(--ss-text-mid); font-weight: 400;
+  color: var(--ss-text-mid);
+  font-weight: 400;
 }
 .ss-stage[data-style="bento"] .ss-header .ss-duration {
-  font: 700 clamp(9px, 2.55cqw, 26px)/1 'Menlo', 'Consolas', monospace;
+  font:
+    700 clamp(9px, 2.55cqw, 26px)/1 "Menlo",
+    "Consolas",
+    monospace;
   /* Soft warm amber instead of the previous bright green so the
      clock blends with the muted tile palette and gives a steady
      accent without screaming. */
-  color: #f5d27a; letter-spacing: 0.04em;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.65);
+  color: #f5d27a;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
 }
 .ss-stage[data-style="bento"] .ss-tile {
   background: rgba(22, 27, 34, 0.62);
@@ -722,31 +863,42 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   border: 1px solid var(--ss-white-08);
   border-radius: 18px;
   padding: clamp(7px, 2.1cqw, 20px) clamp(8px, 2.4cqw, 22px);
-  display: flex; flex-direction: column;
+  display: flex;
+  flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
   position: relative;
 }
 .ss-stage[data-style="bento"] .ss-tile .ss-label {
-  font: 700 clamp(4px, 1.05cqw, 11px)/1 -apple-system, sans-serif;
-  letter-spacing: 0.18em; text-transform: uppercase;
+  font:
+    700 clamp(4px, 1.05cqw, 11px)/1 -apple-system,
+    sans-serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
   color: var(--ss-text-dim);
 }
 .ss-stage[data-style="bento"] .ss-tile .ss-value {
-  font: 800 clamp(15px, 5.1cqw, 50px)/1 'Menlo', 'Consolas', monospace;
+  font:
+    800 clamp(15px, 5.1cqw, 50px)/1 "Menlo",
+    "Consolas",
+    monospace;
   letter-spacing: -0.02em;
 }
 .ss-stage[data-style="bento"] .ss-tile .ss-sub {
-  font: 500 clamp(5px, 1.275cqw, 13px)/1.3 -apple-system, sans-serif;
+  font:
+    500 clamp(5px, 1.275cqw, 13px)/1.3 -apple-system,
+    sans-serif;
   color: var(--ss-text-dim);
 }
 .ss-stage[data-style="bento"] .ss-tile-score {
   grid-column: 1 / span 4;
   grid-row: 2;
   background:
-    linear-gradient(135deg,
+    linear-gradient(
+      135deg,
       color-mix(in srgb, var(--ss-home) 32%, transparent) 0%,
-      color-mix(in srgb, var(--ss-away) 32%, transparent) 100%),
+      color-mix(in srgb, var(--ss-away) 32%, transparent) 100%
+    ),
     rgba(15, 20, 30, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.16);
   padding: clamp(11px, 3.3cqw, 32px);
@@ -760,52 +912,65 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   align-items: center;
 }
 .ss-stage[data-style="bento"] .ss-tile-score .ss-team {
-  display: flex; flex-direction: column;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
   min-width: 0;
 }
 .ss-stage[data-style="bento"] .ss-tile-score .ss-team.away {
-  align-items: flex-end; text-align: right;
+  align-items: flex-end;
+  text-align: right;
 }
 .ss-stage[data-style="bento"] .ss-tile-score .ss-team .ss-name {
-  font: 800 clamp(10px, 3cqw, 32px)/1.1 -apple-system, sans-serif;
+  font:
+    800 clamp(10px, 3cqw, 32px)/1.1 -apple-system,
+    sans-serif;
   letter-spacing: -0.005em;
   color: #fff;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
   overflow-wrap: anywhere;
 }
 .ss-stage[data-style="bento"] .ss-tile-score .ss-team .ss-tag {
-  display: inline-flex; align-items: center;
+  display: inline-flex;
+  align-items: center;
   align-self: flex-start;
   padding: 4px 10px;
   border-radius: 4px;
-  font: 800 clamp(4px, 1.2cqw, 11px)/1 -apple-system, sans-serif;
-  letter-spacing: 0.26em; text-transform: uppercase;
+  font:
+    800 clamp(4px, 1.2cqw, 11px)/1 -apple-system,
+    sans-serif;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
   color: #fff;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-}
-.ss-stage[data-style="bento"] .ss-tile-score .ss-team.away .ss-tag {
-  align-self: flex-end;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 .ss-stage[data-style="bento"] .ss-tile-score .ss-team.home .ss-tag {
   background: var(--ss-home);
-  box-shadow: 0 0 0 1px var(--ss-white-18),
+  box-shadow:
+    0 0 0 1px var(--ss-white-18),
     0 8px 18px color-mix(in srgb, var(--ss-home) 32%, transparent);
 }
 .ss-stage[data-style="bento"] .ss-tile-score .ss-team.away .ss-tag {
+  align-self: flex-end;
   background: var(--ss-away);
-  box-shadow: 0 0 0 1px var(--ss-white-18),
+  box-shadow:
+    0 0 0 1px var(--ss-white-18),
     0 8px 18px color-mix(in srgb, var(--ss-away) 32%, transparent);
 }
 .ss-stage[data-style="bento"] .ss-tile-score .ss-team .ss-score {
-  font: 900 clamp(50px, 15cqw, 200px)/0.85 'Menlo', 'Consolas', monospace;
+  font:
+    900 clamp(50px, 15cqw, 200px)/0.85 "Menlo",
+    "Consolas",
+    monospace;
   letter-spacing: -0.06em;
   color: #fff;
-  text-shadow: 0 6px 24px rgba(0,0,0,0.5);
+  text-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
 }
 .ss-stage[data-style="bento"] .ss-tile-score .ss-sep {
-  font: 800 clamp(20px, 6cqw, 70px)/1 'Menlo', monospace;
-  color: rgba(255,255,255,0.32);
+  font:
+    800 clamp(20px, 6cqw, 70px)/1 "Menlo",
+    monospace;
+  color: rgba(255, 255, 255, 0.32);
 }
 /* Stats tile replaces the previous chart tile in the same grid
    slot. Hosts four stacked rows (streak, services, timeouts,
@@ -834,14 +999,19 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   padding: clamp(2px, 0.8cqw, 8px) clamp(1px, 0.6cqw, 6px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
-.ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-row:last-child { border-bottom: none; }
+.ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-row:last-child {
+  border-bottom: none;
+}
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-icon {
   font-size: clamp(10px, 2.7cqw, 28px);
   opacity: 0.65;
 }
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-label {
-  font: 700 var(--ss-fs-label)/1 -apple-system, sans-serif;
-  letter-spacing: 0.2em; text-transform: uppercase;
+  font:
+    700 var(--ss-fs-label)/1 -apple-system,
+    sans-serif;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
   color: var(--ss-text-mid);
 }
 /* Stat values always render in solid white. Team-colour tinting
@@ -850,7 +1020,10 @@ body.set-summary-mode .set-summary-panel .ss-extras {
    contrast on the dark bento tile. The team origin of each stat
    stays visible via the icon column on the left. */
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-value {
-  font: 900 clamp(11px, 2.85cqw, 28px)/1 'Menlo', 'Consolas', monospace;
+  font:
+    900 clamp(11px, 2.85cqw, 28px)/1 "Menlo",
+    "Consolas",
+    monospace;
   letter-spacing: -0.02em;
   color: #fff;
   white-space: nowrap;
@@ -892,13 +1065,15 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   width: var(--ss-logo-size);
   height: var(--ss-logo-size);
   border-radius: 10px;
-  display: grid; place-items: center;
-  font-weight: 800; font-size: clamp(6px, 1.65cqw, 17px);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: clamp(6px, 1.65cqw, 17px);
   color: #fff;
   border: 2px solid rgba(255, 255, 255, 0.35);
   overflow: hidden;
   flex-shrink: 0;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.45);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 .ss-extras[data-style="bento"] .ss-bumper-row.home .ss-row-logo {
   background: color-mix(in srgb, var(--ss-home) 75%, transparent);
@@ -909,10 +1084,14 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   box-shadow: 0 0 14px color-mix(in srgb, var(--ss-away) 35%, transparent);
 }
 .ss-extras[data-style="bento"] .ss-bumper-row .ss-row-logo img {
-  width: 100%; height: 100%; object-fit: cover;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .ss-extras[data-style="bento"] .ss-bumper-row .ss-row-score {
-  font: 900 clamp(11px, 3cqw, 30px)/1 -apple-system, sans-serif;
+  font:
+    900 clamp(11px, 3cqw, 30px)/1 -apple-system,
+    sans-serif;
   color: #fff;
   letter-spacing: -0.02em;
   min-width: 2em;
@@ -929,9 +1108,14 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   align-items: stretch;
 }
 .ss-extras[data-style="bento"] .ss-bumper-row .ss-chip {
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 4px;
-  font: 700 clamp(5px, 1.275cqw, 13px)/1 'Menlo', 'Consolas', monospace;
+  font:
+    700 clamp(5px, 1.275cqw, 13px)/1 "Menlo",
+    "Consolas",
+    monospace;
   color: #fff;
   padding: 2px 2px;
   min-width: 0;
@@ -960,7 +1144,8 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 }
 .ss-stage[data-style="bento"] .ss-tile-icon {
   position: absolute;
-  top: 14px; right: 18px;
+  top: 14px;
+  right: 18px;
   font-size: 22px;
   opacity: 0.4;
 }
@@ -979,7 +1164,8 @@ body.set-summary-mode .set-summary-panel .ss-extras {
      ``min-height: 0`` + clip so they stay within that capped row. */
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: var(--ss-sz-md);
-  position: relative; overflow: hidden;
+  position: relative;
+  overflow: hidden;
 }
 .ss-stage[data-style="glass"] .ss-glass.ss-score-tile,
 .ss-stage[data-style="glass"] .ss-glass.ss-chart-tile {
@@ -1024,18 +1210,25 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 }
 .ss-stage[data-style="glass"] .ss-blob-1 {
   background: var(--ss-home);
-  width: 32%; aspect-ratio: 1;
-  top: -10%; left: -8%;
+  width: 32%;
+  aspect-ratio: 1;
+  top: -10%;
+  left: -8%;
 }
 .ss-stage[data-style="glass"] .ss-blob-2 {
   background: var(--ss-away);
-  width: 28%; aspect-ratio: 1;
-  top: -8%; right: -6%;
+  width: 28%;
+  aspect-ratio: 1;
+  top: -8%;
+  right: -6%;
 }
 .ss-stage[data-style="glass"] .ss-blob-3 {
   background: #5bdb7c;
-  width: 26%; aspect-ratio: 1;
-  bottom: -14%; left: 35%; opacity: 0.4;
+  width: 26%;
+  aspect-ratio: 1;
+  bottom: -14%;
+  left: 35%;
+  opacity: 0.4;
 }
 .ss-stage[data-style="glass"] .ss-glass {
   position: relative;
@@ -1047,32 +1240,41 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 22px;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
     0 24px 50px rgba(0, 0, 0, 0.5);
   z-index: 1;
 }
 .ss-stage[data-style="glass"] .ss-header {
   grid-column: 1 / -1;
   padding: 14px 24px;
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: clamp(7px, 2.7cqw, 26px);
 }
 /* Match score is now a first-class element in the glass header
    instead of being buried inside a small grey meta line. */
 .ss-stage[data-style="glass"] .ss-match-score {
-  display: inline-flex; align-items: baseline; gap: 10px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
   padding: 6px 14px;
   border-radius: 999px;
   background: var(--ss-white-08);
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 .ss-stage[data-style="glass"] .ss-match-score-label {
-  font: 700 clamp(5px, 1.275cqw, 12px)/1 -apple-system, sans-serif;
-  letter-spacing: 0.22em; text-transform: uppercase;
+  font:
+    700 clamp(5px, 1.275cqw, 12px)/1 -apple-system,
+    sans-serif;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
   color: var(--ss-text-mid);
 }
 .ss-stage[data-style="glass"] .ss-match-score-value {
-  font: 900 clamp(10px, 2.85cqw, 26px)/1 -apple-system, sans-serif;
+  font:
+    900 clamp(10px, 2.85cqw, 26px)/1 -apple-system,
+    sans-serif;
   letter-spacing: -0.02em;
   color: #fff;
 }
@@ -1083,9 +1285,14 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   color: color-mix(in srgb, var(--ss-away) 40%, #fff);
 }
 .ss-stage[data-style="glass"] .ss-header .ss-title {
-  display: flex; align-items: center; gap: 16px;
-  font: 700 clamp(7px, 1.725cqw, 18px)/1 -apple-system, sans-serif;
-  letter-spacing: 0.2em; text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font:
+    700 clamp(7px, 1.725cqw, 18px)/1 -apple-system,
+    sans-serif;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
   color: rgba(255, 255, 255, 0.85);
 }
 .ss-stage[data-style="glass"] .ss-pill {
@@ -1104,19 +1311,33 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   animation: ss-live-pulse 1.6s ease-in-out infinite;
 }
 @keyframes ss-live-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 170, 31, 0); }
-  50% { box-shadow: 0 0 0 4px rgba(255, 170, 31, 0.18); }
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 170, 31, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(255, 170, 31, 0.18);
+  }
 }
 .ss-stage[data-style="glass"] .ss-meta {
-  display: flex; gap: 24px;
-  font: 600 clamp(6px, 1.5cqw, 14px)/1 'Menlo', 'Consolas', monospace;
-  color: var(--ss-text-mid); letter-spacing: 0.04em;
+  display: flex;
+  gap: 24px;
+  font:
+    600 clamp(6px, 1.5cqw, 14px)/1 "Menlo",
+    "Consolas",
+    monospace;
+  color: var(--ss-text-mid);
+  letter-spacing: 0.04em;
 }
-.ss-stage[data-style="glass"] .ss-meta strong { color: #fff; }
+.ss-stage[data-style="glass"] .ss-meta strong {
+  color: #fff;
+}
 .ss-stage[data-style="glass"] .ss-score-tile {
   padding: clamp(9px, 3cqw, 28px) clamp(13px, 4.5cqw, 40px);
-  display: flex; flex-direction: column;
-  justify-content: space-between; gap: clamp(6px, 1.8cqw, 14px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: clamp(6px, 1.8cqw, 14px);
 }
 /* When the full-width point-type band is present it claims part of the
    stage's fixed height, leaving the score tile a shorter row. Tighten
@@ -1147,11 +1368,16 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   gap: clamp(2px, 0.9cqw, 8px) var(--ss-sz-md);
 }
 .ss-stage[data-style="glass"].ss-has-breakdown
-  .ss-score-tile .ss-stats-block .ss-stat-row {
+  .ss-score-tile
+  .ss-stats-block
+  .ss-stat-row {
   padding: clamp(1px, 0.6cqw, 4px) 0;
 }
 .ss-stage[data-style="glass"].ss-has-breakdown
-  .ss-score-tile .ss-stats-block .ss-stat-row .ss-value {
+  .ss-score-tile
+  .ss-stats-block
+  .ss-stat-row
+  .ss-value {
   font-size: clamp(10px, 2.55cqw, 26px);
 }
 .ss-stage[data-style="glass"].ss-has-breakdown .ss-team-row {
@@ -1169,7 +1395,9 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   height: clamp(18px, 4cqw, 48px);
 }
 .ss-stage[data-style="glass"] .ss-score-tile .ss-teams {
-  display: flex; flex-direction: column; gap: clamp(6px, 1.8cqw, 14px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 1.8cqw, 14px);
 }
 .ss-stage[data-style="glass"] .ss-team-row {
   display: grid;
@@ -1179,41 +1407,70 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   padding: clamp(5px, 1.5cqw, 12px) 0;
   border-bottom: 1px solid var(--ss-white-12);
 }
-.ss-stage[data-style="glass"] .ss-team-row:last-child { border-bottom: none; }
+.ss-stage[data-style="glass"] .ss-team-row:last-child {
+  border-bottom: none;
+}
 .ss-stage[data-style="glass"] .ss-team-row .ss-logo {
-  width: clamp(20px, 4.8cqw, 56px); height: clamp(20px, 4.8cqw, 56px);
+  width: clamp(20px, 4.8cqw, 56px);
+  height: clamp(20px, 4.8cqw, 56px);
   border-radius: 14px;
-  display: grid; place-items: center;
+  display: grid;
+  place-items: center;
   background: var(--ss-white-12);
-  border: 1px solid rgba(255,255,255,0.25);
-  font: 800 clamp(8px, 2.1cqw, 22px)/1 -apple-system, sans-serif;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font:
+    800 clamp(8px, 2.1cqw, 22px)/1 -apple-system,
+    sans-serif;
   overflow: hidden;
 }
-.ss-stage[data-style="glass"] .ss-team-row .ss-logo img { width: 100%; height: 100%; object-fit: cover; }
+.ss-stage[data-style="glass"] .ss-team-row .ss-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .ss-stage[data-style="glass"] .ss-team-row .ss-name {
-  font: 700 clamp(10px, 2.55cqw, 26px)/1.1 -apple-system, sans-serif;
+  font:
+    700 clamp(10px, 2.55cqw, 26px)/1.1 -apple-system,
+    sans-serif;
   letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
 .ss-stage[data-style="glass"] .ss-team-row .ss-name .ss-tag {
   display: block;
-  font: 600 clamp(4px, 1.125cqw, 11px)/1 -apple-system, sans-serif;
-  color: rgba(255,255,255,0.6);
-  letter-spacing: 0.22em; text-transform: uppercase;
+  font:
+    600 clamp(4px, 1.125cqw, 11px)/1 -apple-system,
+    sans-serif;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
   margin-top: 4px;
 }
-.ss-stage[data-style="glass"] .ss-team-row.home .ss-name strong { color: var(--ss-home); font-weight: 800; }
-.ss-stage[data-style="glass"] .ss-team-row.away .ss-name strong { color: var(--ss-away); font-weight: 800; }
-.ss-stage[data-style="glass"] .ss-team-row .ss-pts {
-  font: 900 clamp(30px, 9cqw, 100px)/0.85 -apple-system, sans-serif;
-  letter-spacing: -0.05em;
-  text-shadow: 0 4px 18px rgba(0,0,0,0.4);
+.ss-stage[data-style="glass"] .ss-team-row.home .ss-name strong {
+  color: var(--ss-home);
+  font-weight: 800;
 }
-.ss-stage[data-style="glass"] .ss-team-row.home .ss-pts { color: var(--ss-home); }
-.ss-stage[data-style="glass"] .ss-team-row.away .ss-pts { color: var(--ss-away); }
+.ss-stage[data-style="glass"] .ss-team-row.away .ss-name strong {
+  color: var(--ss-away);
+  font-weight: 800;
+}
+.ss-stage[data-style="glass"] .ss-team-row .ss-pts {
+  font:
+    900 clamp(30px, 9cqw, 100px)/0.85 -apple-system,
+    sans-serif;
+  letter-spacing: -0.05em;
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+}
+.ss-stage[data-style="glass"] .ss-team-row.home .ss-pts {
+  color: var(--ss-home);
+}
+.ss-stage[data-style="glass"] .ss-team-row.away .ss-pts {
+  color: var(--ss-away);
+}
 .ss-stage[data-style="glass"] .ss-chart-tile {
   padding: clamp(9px, 2.7cqw, 24px) clamp(10px, 3cqw, 28px);
-  display: flex; flex-direction: column; gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   /* Without ``min-height: 0`` a flex column refuses to shrink below
      its content's intrinsic size, so on smaller viewports the
      chart-box ends up at the SVG default replaced-element height
@@ -1223,17 +1480,25 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   overflow: hidden;
 }
 .ss-stage[data-style="glass"] .ss-chart-tile .ss-head {
-  display: flex; justify-content: space-between; align-items: baseline;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
   flex: 0 0 auto;
 }
 .ss-stage[data-style="glass"] .ss-chart-tile .ss-head .ss-label {
-  font: 700 clamp(5px, 1.35cqw, 12px)/1 -apple-system, sans-serif;
-  letter-spacing: 0.22em; text-transform: uppercase;
+  font:
+    700 clamp(5px, 1.35cqw, 12px)/1 -apple-system,
+    sans-serif;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
   color: var(--ss-text-dim);
 }
 .ss-stage[data-style="glass"] .ss-chart-tile .ss-head .ss-duration {
-  font: 800 clamp(11px, 3.3cqw, 28px)/1 -apple-system, sans-serif;
-  color: #5bdb7c; letter-spacing: -0.02em;
+  font:
+    800 clamp(11px, 3.3cqw, 28px)/1 -apple-system,
+    sans-serif;
+  color: #5bdb7c;
+  letter-spacing: -0.02em;
 }
 .ss-stage[data-style="glass"] .ss-chart-tile .ss-chart-box {
   flex: 1 1 0;
@@ -1267,26 +1532,50 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   gap: clamp(3px, 1.2cqw, 10px) var(--ss-sz-md);
 }
 .ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row {
-  display: flex; flex-direction: column; gap: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   padding: 4px 0;
 }
-.ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row .ss-label {
-  font: 700 clamp(5px, 1.2cqw, 12px)/1 -apple-system, sans-serif;
-  letter-spacing: 0.18em; text-transform: uppercase;
+.ss-stage[data-style="glass"]
+  .ss-score-tile
+  .ss-stats-block
+  .ss-stat-row
+  .ss-label {
+  font:
+    700 clamp(5px, 1.2cqw, 12px)/1 -apple-system,
+    sans-serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
   color: var(--ss-text-mid);
 }
-.ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row .ss-value {
-  font: 800 clamp(11px, 3cqw, 30px)/1 -apple-system, sans-serif;
+.ss-stage[data-style="glass"]
+  .ss-score-tile
+  .ss-stats-block
+  .ss-stat-row
+  .ss-value {
+  font:
+    800 clamp(11px, 3cqw, 30px)/1 -apple-system,
+    sans-serif;
   letter-spacing: -0.02em;
   color: #fff;
 }
-.ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row .ss-value .home {
+.ss-stage[data-style="glass"]
+  .ss-score-tile
+  .ss-stats-block
+  .ss-stat-row
+  .ss-value
+  .home {
   color: color-mix(in srgb, var(--ss-home) 40%, #fff);
 }
-.ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row .ss-value .away {
+.ss-stage[data-style="glass"]
+  .ss-score-tile
+  .ss-stats-block
+  .ss-stat-row
+  .ss-value
+  .away {
   color: color-mix(in srgb, var(--ss-away) 40%, #fff);
 }
-
 
 /* ─────────────────────────────────────────────────────────────
    Variant: bumper
@@ -1311,7 +1600,11 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   row-gap: var(--ss-sz-lg);
   padding: 0;
   overflow: visible;
-  font-family: 'Helvetica Neue', -apple-system, Arial, sans-serif;
+  font-family:
+    "Helvetica Neue",
+    -apple-system,
+    Arial,
+    sans-serif;
 }
 
 /* ── Core card (centred) ─────────────────────────────── */
@@ -1321,8 +1614,16 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   width: min(1080px, 78%);
   position: relative;
   background:
-    radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--ss-home) 26%, transparent) 0%, transparent 55%),
-    radial-gradient(circle at 80% 100%, color-mix(in srgb, var(--ss-away) 26%, transparent) 0%, transparent 55%),
+    radial-gradient(
+      circle at 20% 0%,
+      color-mix(in srgb, var(--ss-home) 26%, transparent) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 80% 100%,
+      color-mix(in srgb, var(--ss-away) 26%, transparent) 0%,
+      transparent 55%
+    ),
     linear-gradient(160deg, rgba(20, 24, 36, 0.94), rgba(8, 12, 22, 0.94));
   backdrop-filter: blur(22px) saturate(140%);
   -webkit-backdrop-filter: blur(22px) saturate(140%);
@@ -1345,22 +1646,33 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 }
 
 .ss-stage[data-style="bumper"] .ss-bumper-core .ss-ribbon {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: clamp(6px, 2.1cqw, 20px) clamp(10px, 3.9cqw, 36px);
   background: rgba(0, 0, 0, 0.28);
   border-bottom: 1px solid var(--ss-white-08);
 }
 .ss-stage[data-style="bumper"] .ss-set-badge {
-  display: inline-flex; align-items: baseline; gap: 12px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 12px;
 }
 .ss-stage[data-style="bumper"] .ss-set-badge .ss-tagline {
   color: var(--ss-text-dim);
-  font: 700 clamp(5px, 1.5cqw, 14px)/1 'Helvetica Neue', sans-serif;
-  letter-spacing: 0.32em; text-transform: uppercase;
+  font:
+    700 clamp(5px, 1.5cqw, 14px)/1 "Helvetica Neue",
+    sans-serif;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
 }
 .ss-stage[data-style="bumper"] .ss-set-badge .ss-num {
-  display: inline-flex; align-items: baseline; gap: 6px;
-  font: 900 clamp(16px, 5.1cqw, 50px)/1 'Helvetica Neue', sans-serif;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font:
+    900 clamp(16px, 5.1cqw, 50px)/1 "Helvetica Neue",
+    sans-serif;
   letter-spacing: -0.02em;
   color: #ffd64a;
   text-shadow: 0 0 14px rgba(255, 214, 74, 0.45);
@@ -1373,13 +1685,18 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   text-transform: uppercase;
 }
 .ss-stage[data-style="bumper"] .ss-bumper-core .ss-duration {
-  font: 800 clamp(10px, 3cqw, 30px)/1 'Menlo', 'Consolas', monospace;
+  font:
+    800 clamp(10px, 3cqw, 30px)/1 "Menlo",
+    "Consolas",
+    monospace;
   color: #ffd64a;
   letter-spacing: 0.04em;
-  display: inline-flex; align-items: baseline; gap: 8px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
 }
 .ss-stage[data-style="bumper"] .ss-bumper-core .ss-duration::before {
-  content: '⏱';
+  content: "⏱";
   font-size: 0.75em;
   opacity: 0.85;
 }
@@ -1397,18 +1714,28 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   min-height: 0;
 }
 .ss-stage[data-style="bumper"] .ss-team {
-  display: flex; flex-direction: column;
+  display: flex;
+  flex-direction: column;
   gap: var(--ss-sz-xs);
   min-width: 0;
 }
-.ss-stage[data-style="bumper"] .ss-team.home { align-items: flex-start; }
-.ss-stage[data-style="bumper"] .ss-team.away { align-items: flex-end; }
+.ss-stage[data-style="bumper"] .ss-team.home {
+  align-items: flex-start;
+}
+.ss-stage[data-style="bumper"] .ss-team.away {
+  align-items: flex-end;
+}
 .ss-stage[data-style="bumper"] .ss-team-tag {
-  display: inline-flex; align-items: center; gap: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 6px 14px;
   border-radius: 4px;
-  font: 800 clamp(5px, 1.35cqw, 13px)/1 'Helvetica Neue', sans-serif;
-  letter-spacing: 0.28em; text-transform: uppercase;
+  font:
+    800 clamp(5px, 1.35cqw, 13px)/1 "Helvetica Neue",
+    sans-serif;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
@@ -1425,19 +1752,27 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     0 10px 24px color-mix(in srgb, var(--ss-away) 32%, transparent);
 }
 .ss-stage[data-style="bumper"] .ss-team-name {
-  font: 800 clamp(10px, 3cqw, 30px)/1.05 'Helvetica Neue', sans-serif;
+  font:
+    800 clamp(10px, 3cqw, 30px)/1.05 "Helvetica Neue",
+    sans-serif;
   letter-spacing: -0.005em;
   color: #fff;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
   overflow-wrap: anywhere;
 }
-.ss-stage[data-style="bumper"] .ss-team.away .ss-team-name { text-align: right; }
+.ss-stage[data-style="bumper"] .ss-team.away .ss-team-name {
+  text-align: right;
+}
 .ss-stage[data-style="bumper"] .ss-team-score {
-  font: 900 clamp(40px, 11cqw, 132px)/0.9 'Helvetica Neue', sans-serif;
+  font:
+    900 clamp(40px, 11cqw, 132px)/0.9 "Helvetica Neue",
+    sans-serif;
   letter-spacing: -0.04em;
-  background: linear-gradient(180deg,
+  background: linear-gradient(
+    180deg,
     #ffffff 0%,
-    color-mix(in srgb, var(--ss-home) 70%, white) 100%);
+    color-mix(in srgb, var(--ss-home) 70%, white) 100%
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -1446,14 +1781,18 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   padding: 0 clamp(4px, 1.4cqw, 16px);
 }
 .ss-stage[data-style="bumper"] .ss-team.away .ss-team-score {
-  background: linear-gradient(180deg,
+  background: linear-gradient(
+    180deg,
     #ffffff 0%,
-    color-mix(in srgb, var(--ss-away) 70%, white) 100%);
+    color-mix(in srgb, var(--ss-away) 70%, white) 100%
+  );
   -webkit-background-clip: text;
   background-clip: text;
 }
 .ss-stage[data-style="bumper"] .ss-sep {
-  font: 900 clamp(17px, 6cqw, 64px)/1 'Helvetica Neue', sans-serif;
+  font:
+    900 clamp(17px, 6cqw, 64px)/1 "Helvetica Neue",
+    sans-serif;
   color: var(--ss-white-18);
   letter-spacing: -0.04em;
   align-self: center;
@@ -1476,20 +1815,29 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   min-width: 0;
 }
 .ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row {
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 2px;
   padding: 4px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
-.ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row:last-child { border-bottom: none; }
+.ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row:last-child {
+  border-bottom: none;
+}
 .ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row .ss-label {
-  font: 700 clamp(4px, 1.125cqw, 11px)/1 'Helvetica Neue', sans-serif;
+  font:
+    700 clamp(4px, 1.125cqw, 11px)/1 "Helvetica Neue",
+    sans-serif;
   color: var(--ss-text-dim);
-  letter-spacing: 0.22em; text-transform: uppercase;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
 }
 .ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row .ss-value {
-  font: 900 clamp(9px, 2.55cqw, 24px)/1 'Helvetica Neue', sans-serif;
+  font:
+    900 clamp(9px, 2.55cqw, 24px)/1 "Helvetica Neue",
+    sans-serif;
   letter-spacing: -0.02em;
   color: #fff;
 }
@@ -1528,8 +1876,10 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   width: var(--ss-logo-size);
   height: var(--ss-logo-size);
   border-radius: 10px;
-  display: grid; place-items: center;
-  font-weight: 800; font-size: clamp(6px, 1.65cqw, 17px);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: clamp(6px, 1.65cqw, 17px);
   color: #fff;
   border: 2px solid rgba(255, 255, 255, 0.35);
   overflow: hidden;
@@ -1545,10 +1895,14 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   box-shadow: 0 0 14px color-mix(in srgb, var(--ss-away) 35%, transparent);
 }
 .ss-stage[data-style="bumper"] .ss-bumper-row .ss-row-logo img {
-  width: 100%; height: 100%; object-fit: cover;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .ss-stage[data-style="bumper"] .ss-bumper-row .ss-row-score {
-  font: 900 clamp(11px, 3cqw, 30px)/1 'Helvetica Neue', sans-serif;
+  font:
+    900 clamp(11px, 3cqw, 30px)/1 "Helvetica Neue",
+    sans-serif;
   color: #fff;
   letter-spacing: -0.02em;
   /* min-width big enough for two/three digits so the score never
@@ -1567,9 +1921,14 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   align-items: stretch;
 }
 .ss-stage[data-style="bumper"] .ss-bumper-row .ss-chip {
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 4px;
-  font: 700 clamp(5px, 1.275cqw, 13px)/1 'Menlo', 'Consolas', monospace;
+  font:
+    700 clamp(5px, 1.275cqw, 13px)/1 "Menlo",
+    "Consolas",
+    monospace;
   letter-spacing: 0.02em;
   color: #fff;
   padding: 2px 2px;
@@ -1631,16 +1990,24 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   align-items: center;
   justify-content: center;
   background: var(--ss-white-08);
-  font: 800 clamp(7px, 1.5cqw, 16px)/1 -apple-system, sans-serif;
+  font:
+    800 clamp(7px, 1.5cqw, 16px)/1 -apple-system,
+    sans-serif;
   color: #fff;
 }
-.ss-pt-logo img { width: 100%; height: 100%; object-fit: cover; }
+.ss-pt-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .ss-pt-chips {
   display: flex;
   gap: clamp(3px, 1cqw, 10px);
   min-width: 0;
 }
-.ss-pt-row > .ss-pt-chips { flex: 1 1 auto; }
+.ss-pt-row > .ss-pt-chips {
+  flex: 1 1 auto;
+}
 .ss-team-stat-list > .ss-pt-chips {
   width: 100%;
   margin-top: clamp(4px, 1.2cqw, 12px);
@@ -1657,19 +2024,30 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   border-radius: clamp(5px, 1.2cqw, 10px);
 }
 .ss-pt-chip-k {
-  font: 700 clamp(4px, 1.05cqw, 11px)/1 -apple-system, sans-serif;
+  font:
+    700 clamp(4px, 1.05cqw, 11px)/1 -apple-system,
+    sans-serif;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.5);
   white-space: nowrap;
 }
 .ss-pt-chip-n {
-  font: 800 clamp(9px, 2.25cqw, 24px)/1 'Menlo', 'Consolas', monospace;
+  font:
+    800 clamp(9px, 2.25cqw, 24px)/1 "Menlo",
+    "Consolas",
+    monospace;
   color: #fff;
 }
-.ss-pt-chip-n.home { color: color-mix(in srgb, var(--ss-home) 45%, #fff); }
-.ss-pt-chip-n.away { color: color-mix(in srgb, var(--ss-away) 45%, #fff); }
-.ss-pt-chip.is-zero .ss-pt-chip-n { color: rgba(255, 255, 255, 0.28); }
+.ss-pt-chip-n.home {
+  color: color-mix(in srgb, var(--ss-home) 45%, #fff);
+}
+.ss-pt-chip-n.away {
+  color: color-mix(in srgb, var(--ss-away) 45%, #fff);
+}
+.ss-pt-chip.is-zero .ss-pt-chip-n {
+  color: rgba(255, 255, 255, 0.28);
+}
 
 /* ─────────────────────────────────────────────────────────────
    Variant: ledger_diff
@@ -1681,10 +2059,16 @@ body.set-summary-mode .set-summary-panel .ss-extras {
    ───────────────────────────────────────────────────────────── */
 .ss-stage[data-style="ledger_diff"] {
   background:
-    radial-gradient(circle at 12% -12%,
-      color-mix(in srgb, var(--ss-home) 24%, transparent) 0%, transparent 45%),
-    radial-gradient(circle at 88% -12%,
-      color-mix(in srgb, var(--ss-away) 24%, transparent) 0%, transparent 45%),
+    radial-gradient(
+      circle at 12% -12%,
+      color-mix(in srgb, var(--ss-home) 24%, transparent) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 88% -12%,
+      color-mix(in srgb, var(--ss-away) 24%, transparent) 0%,
+      transparent 45%
+    ),
     rgba(12, 16, 24, 0.62);
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
@@ -1694,28 +2078,49 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 }
 /* Header: status pill · match (sets) score · set + match clocks. */
 .ss-stage[data-style="ledger_diff"] .ss-ld-header {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: clamp(6px, 2cqw, 24px);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-pill {
-  padding: 0.45em 0.95em; border-radius: 999px;
-  background: rgba(91, 219, 124, 0.2); border: 1px solid rgba(91, 219, 124, 0.5);
-  color: #5bdb7c; font: 700 clamp(6px, 1.55cqh, 15px)/1 -apple-system, sans-serif;
-  letter-spacing: 0.18em; text-transform: uppercase; white-space: nowrap;
+  padding: 0.45em 0.95em;
+  border-radius: 999px;
+  background: rgba(91, 219, 124, 0.2);
+  border: 1px solid rgba(91, 219, 124, 0.5);
+  color: #5bdb7c;
+  font:
+    700 clamp(6px, 1.55cqh, 15px)/1 -apple-system,
+    sans-serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-pill.is-live {
-  background: rgba(255, 170, 31, 0.22); border-color: rgba(255, 170, 31, 0.55);
-  color: #ffc36b; animation: ss-live-pulse 1.6s ease-in-out infinite;
+  background: rgba(255, 170, 31, 0.22);
+  border-color: rgba(255, 170, 31, 0.55);
+  color: #ffc36b;
+  animation: ss-live-pulse 1.6s ease-in-out infinite;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-matchscore {
-  display: inline-flex; align-items: baseline; gap: 0.5em;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5em;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-ms-label {
-  font: 700 clamp(5px, 1.3cqh, 12px)/1 -apple-system, sans-serif;
-  letter-spacing: 0.2em; text-transform: uppercase; color: var(--ss-text-mid);
+  font:
+    700 clamp(5px, 1.3cqh, 12px)/1 -apple-system,
+    sans-serif;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ss-text-mid);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-ms-value {
-  font: 900 clamp(10px, 2.6cqh, 26px)/1 'Menlo', 'Consolas', monospace; color: #fff;
+  font:
+    900 clamp(10px, 2.6cqh, 26px)/1 "Menlo",
+    "Consolas",
+    monospace;
+  color: #fff;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-ms-value .home {
   color: color-mix(in srgb, var(--ss-home) 45%, #fff);
@@ -1724,27 +2129,47 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   color: color-mix(in srgb, var(--ss-away) 45%, #fff);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-clocks {
-  display: inline-flex; align-items: baseline; gap: clamp(8px, 1.8cqw, 22px);
+  display: inline-flex;
+  align-items: baseline;
+  gap: clamp(8px, 1.8cqw, 22px);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-clock {
-  font: 700 clamp(7px, 1.7cqh, 17px)/1 'Menlo', 'Consolas', monospace;
-  color: #5bdb7c; letter-spacing: 0.02em;
+  font:
+    700 clamp(7px, 1.7cqh, 17px)/1 "Menlo",
+    "Consolas",
+    monospace;
+  color: #5bdb7c;
+  letter-spacing: 0.02em;
 }
 /* Team header cards (logo · name/tag · big score), mirrored away-side. */
 .ss-stage[data-style="ledger_diff"] .ss-ld-teams {
-  display: grid; grid-template-columns: 1fr 1fr; gap: clamp(10px, 3cqw, 40px);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(10px, 3cqw, 40px);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-team {
-  display: flex; align-items: center; gap: clamp(6px, 1.3cqw, 16px); min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 1.3cqw, 16px);
+  min-width: 0;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-team.away {
-  flex-direction: row-reverse; text-align: right;
+  flex-direction: row-reverse;
+  text-align: right;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-logo {
-  width: clamp(22px, 5.4cqh, 56px); height: clamp(22px, 5.4cqh, 56px);
-  border-radius: 50%; display: grid; place-items: center; overflow: hidden;
-  font: 800 clamp(9px, 2.4cqh, 24px)/1 -apple-system, sans-serif; color: #fff;
-  border: 2px solid rgba(255, 255, 255, 0.35); flex: 0 0 auto;
+  width: clamp(22px, 5.4cqh, 56px);
+  height: clamp(22px, 5.4cqh, 56px);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font:
+    800 clamp(9px, 2.4cqh, 24px)/1 -apple-system,
+    sans-serif;
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  flex: 0 0 auto;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-team.home .ss-ld-logo {
   background: color-mix(in srgb, var(--ss-home) 80%, transparent);
@@ -1753,129 +2178,215 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   background: color-mix(in srgb, var(--ss-away) 80%, transparent);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-logo img {
-  width: 100%; height: 100%; object-fit: cover;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-name {
-  font: 800 clamp(9px, 2.2cqh, 24px)/1.05 -apple-system, sans-serif;
+  font:
+    800 clamp(9px, 2.2cqh, 24px)/1.05 -apple-system,
+    sans-serif;
   overflow-wrap: anywhere;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-tag {
-  font: 600 clamp(5px, 1.3cqh, 12px)/1 -apple-system, sans-serif;
-  color: var(--ss-text-mid); letter-spacing: 0.2em; text-transform: uppercase;
+  font:
+    600 clamp(5px, 1.3cqh, 12px)/1 -apple-system,
+    sans-serif;
+  color: var(--ss-text-mid);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
   margin-top: 0.3em;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-score {
   margin-left: auto;
-  font: 900 clamp(26px, 6cqh, 76px)/0.9 'Menlo', 'Consolas', monospace;
+  font:
+    900 clamp(26px, 6cqh, 76px)/0.9 "Menlo",
+    "Consolas",
+    monospace;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-team.away .ss-ld-score {
-  margin-left: 0; margin-right: auto;
+  margin-left: 0;
+  margin-right: auto;
+  color: var(--ss-away);
 }
-.ss-stage[data-style="ledger_diff"] .ss-ld-team.home .ss-ld-score { color: var(--ss-home); }
-.ss-stage[data-style="ledger_diff"] .ss-ld-team.away .ss-ld-score { color: var(--ss-away); }
+.ss-stage[data-style="ledger_diff"] .ss-ld-team.home .ss-ld-score {
+  color: var(--ss-home);
+}
 /* Comparison columns. ``min-height: 0`` lets the row let the graph keep
    its share of the fixed-height stage. */
 .ss-stage[data-style="ledger_diff"] .ss-ld-cols {
-  display: grid; gap: clamp(10px, 2.6cqw, 38px); align-content: center;
-  border-top: 1px solid var(--ss-white-12); padding-top: clamp(5px, 1.4cqh, 14px);
+  display: grid;
+  gap: clamp(10px, 2.6cqw, 38px);
+  align-content: center;
+  border-top: 1px solid var(--ss-white-12);
+  padding-top: clamp(5px, 1.4cqh, 14px);
   min-height: 0;
 }
-.ss-stage[data-style="ledger_diff"] .ss-ld-cols.two { grid-template-columns: 1fr 1fr; }
+.ss-stage[data-style="ledger_diff"] .ss-ld-cols.two {
+  grid-template-columns: 1fr 1fr;
+}
 .ss-stage[data-style="ledger_diff"] .ss-ld-cols.one {
-  grid-template-columns: min(72%, 620px); justify-content: center;
+  grid-template-columns: min(72%, 620px);
+  justify-content: center;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-col {
-  display: flex; flex-direction: column; gap: clamp(3px, 1cqh, 11px); min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(3px, 1cqh, 11px);
+  min-width: 0;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-col-right {
-  padding-left: clamp(10px, 2.6cqw, 38px); border-left: 1px solid var(--ss-white-12);
+  padding-left: clamp(10px, 2.6cqw, 38px);
+  border-left: 1px solid var(--ss-white-12);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-colcap {
-  font: 700 clamp(5px, 1.2cqh, 12px)/1 -apple-system, sans-serif;
-  letter-spacing: 0.2em; text-transform: uppercase; color: var(--ss-text-dim);
-  text-align: center; margin-bottom: 0.3em;
+  font:
+    700 clamp(5px, 1.2cqh, 12px)/1 -apple-system,
+    sans-serif;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ss-text-dim);
+  text-align: center;
+  margin-bottom: 0.3em;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-row {
   display: grid;
   grid-template-columns: clamp(28px, 4cqw, 52px) 1fr clamp(28px, 4cqw, 52px);
-  align-items: center; gap: clamp(4px, 0.9cqw, 11px);
+  align-items: center;
+  gap: clamp(4px, 0.9cqw, 11px);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-hv,
 .ss-stage[data-style="ledger_diff"] .ss-ld-av {
-  font: 800 clamp(9px, 1.95cqh, 22px)/1 'Menlo', 'Consolas', monospace;
+  font:
+    800 clamp(9px, 1.95cqh, 22px)/1 "Menlo",
+    "Consolas",
+    monospace;
   white-space: nowrap;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-hv {
-  text-align: right; color: color-mix(in srgb, var(--ss-home) 45%, #fff);
+  text-align: right;
+  color: color-mix(in srgb, var(--ss-home) 45%, #fff);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-av {
-  text-align: left; color: color-mix(in srgb, var(--ss-away) 45%, #fff);
+  text-align: left;
+  color: color-mix(in srgb, var(--ss-away) 45%, #fff);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-bar {
-  position: relative; height: clamp(12px, 2.5cqh, 26px); border-radius: 999px;
-  overflow: hidden; display: flex; background: var(--ss-white-08);
+  position: relative;
+  height: clamp(12px, 2.5cqh, 26px);
+  border-radius: 999px;
+  overflow: hidden;
+  display: flex;
+  background: var(--ss-white-08);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-fh {
-  background: linear-gradient(90deg,
+  background: linear-gradient(
+    90deg,
     color-mix(in srgb, var(--ss-home) 75%, transparent),
-    color-mix(in srgb, var(--ss-home) 42%, transparent));
+    color-mix(in srgb, var(--ss-home) 42%, transparent)
+  );
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-fa {
   margin-left: auto;
-  background: linear-gradient(90deg,
+  background: linear-gradient(
+    90deg,
     color-mix(in srgb, var(--ss-away) 42%, transparent),
-    color-mix(in srgb, var(--ss-away) 75%, transparent));
+    color-mix(in srgb, var(--ss-away) 75%, transparent)
+  );
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-cap {
-  position: absolute; inset: 0; display: grid; place-items: center;
-  font: 700 clamp(5px, 1.3cqh, 13px)/1 -apple-system, sans-serif;
-  letter-spacing: 0.13em; text-transform: uppercase; color: #fff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); pointer-events: none;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font:
+    700 clamp(5px, 1.3cqh, 13px)/1 -apple-system,
+    sans-serif;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
 }
 /* Point-difference area graph. */
 .ss-stage[data-style="ledger_diff"] .ss-ld-graph {
-  display: flex; flex-direction: column; min-height: 0;
-  border-top: 1px solid var(--ss-white-12); padding-top: clamp(4px, 1.1cqh, 12px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--ss-white-12);
+  padding-top: clamp(4px, 1.1cqh, 12px);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-graph-title {
-  display: flex; align-items: baseline; justify-content: space-between;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   margin-bottom: clamp(3px, 0.7cqh, 8px);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-gt {
-  font: 700 clamp(5px, 1.4cqh, 13px)/1 -apple-system, sans-serif;
-  letter-spacing: 0.18em; text-transform: uppercase; color: var(--ss-text-mid);
+  font:
+    700 clamp(5px, 1.4cqh, 13px)/1 -apple-system,
+    sans-serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ss-text-mid);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-sp-leg {
-  font: 700 clamp(5px, 1.3cqh, 12px)/1 -apple-system, sans-serif;
-  letter-spacing: 0.06em; color: rgba(255, 255, 255, 0.7);
+  font:
+    700 clamp(5px, 1.3cqh, 12px)/1 -apple-system,
+    sans-serif;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.7);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-graph-body {
-  position: relative; flex: 1 1 0; min-height: 0; min-width: 0;
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
 }
-.ss-stage[data-style="ledger_diff"] .ss-ld-svg { width: 100%; height: 100%; display: block; }
+.ss-stage[data-style="ledger_diff"] .ss-ld-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 .ss-stage[data-style="ledger_diff"] .ss-ld-line {
-  fill: none; stroke: #fff; stroke-width: 2.4; stroke-opacity: 0.9;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.4;
+  stroke-opacity: 0.9;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-grad-top {
-  stop-color: var(--ss-home); stop-opacity: 0.55;
+  stop-color: var(--ss-home);
+  stop-opacity: 0.55;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-grad-bot {
-  stop-color: var(--ss-away); stop-opacity: 0.55;
+  stop-color: var(--ss-away);
+  stop-opacity: 0.55;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-zero {
-  stroke: rgba(255, 255, 255, 0.35); stroke-width: 1.2; stroke-dasharray: 5 4;
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 1.2;
+  stroke-dasharray: 5 4;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-to {
-  stroke: rgba(255, 255, 255, 0.3); stroke-width: 1.4; stroke-dasharray: 4 4;
+  stroke: rgba(255, 255, 255, 0.3);
+  stroke-width: 1.4;
+  stroke-dasharray: 4 4;
 }
-.ss-stage[data-style="ledger_diff"] .ss-ld-dot { fill: #fff; }
+.ss-stage[data-style="ledger_diff"] .ss-ld-dot {
+  fill: #fff;
+}
 .ss-stage[data-style="ledger_diff"] .ss-ld-annot {
-  position: absolute; left: clamp(4px, 0.8cqw, 10px);
-  font: 700 clamp(5px, 1.25cqh, 12px)/1 -apple-system, sans-serif;
+  position: absolute;
+  left: clamp(4px, 0.8cqw, 10px);
+  font:
+    700 clamp(5px, 1.25cqh, 12px)/1 -apple-system,
+    sans-serif;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-annot-top {
-  top: clamp(2px, 0.4cqh, 6px); color: color-mix(in srgb, var(--ss-home) 55%, #fff);
+  top: clamp(2px, 0.4cqh, 6px);
+  color: color-mix(in srgb, var(--ss-home) 55%, #fff);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-annot-bot {
-  bottom: clamp(2px, 0.4cqh, 6px); color: color-mix(in srgb, var(--ss-away) 55%, #fff);
+  bottom: clamp(2px, 0.4cqh, 6px);
+  color: color-mix(in srgb, var(--ss-away) 55%, #fff);
 }

@@ -5,3 +5,4 @@ dev-dist
 src/api/schema.d.ts
 schema/openapi.json
 package-lock.json
+../overlay_static/js/gsap.min.js
