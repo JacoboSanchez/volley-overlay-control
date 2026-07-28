@@ -123,7 +123,10 @@ archive by hand.
   group showed, so the table only ever mirrored a fact the schema could
   answer without it, and the SPA had already moved to `/my/groups*`. Two
   `teams_service` readers left without a caller (`list_active_groups`,
-  `list_user_custom_teams`) went with them.
+  `list_user_custom_teams`) went with them. Downgrading past `0004`
+  reconstructs each user's roster from their group memberships and owned
+  custom teams, so rolling back does not leave the older app serving empty
+  team lists out of a re-created but empty table.
 
   **One behaviour change:** `DELETE /api/v1/teams/mine/{team_id}` now deletes
   a custom team the caller owns and returns `404` for anything else. It

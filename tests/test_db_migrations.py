@@ -81,6 +81,63 @@ def test_alembic_version_table_is_wide_for_long_revision_ids(tmp_path, monkeypat
     engine.dispose()
 
 
+def test_downgrade_from_0004_rebuilds_the_roster_from_groups(tmp_path, monkeypatch):
+    """Rolling back the roster drop must not hand the old app an empty table.
+
+    ``user_team_list`` is dropped by 0004 because nothing reads it any more,
+    but the pre-0004 application serves ``GET /teams`` and ``/teams/mine``
+    straight out of it. A downgrade that only re-created the table would leave
+    every user with an empty roster, so it reconstructs one from the group
+    memberships and owned custom teams the app has kept current.
+    """
+    db_file = tmp_path / "downgrade.db"
+    url = f"sqlite:///{db_file}"
+    monkeypatch.setenv("DATABASE_URL", url)
+    cfg = _alembic_config(url)
+    command.upgrade(cfg, "head")
+
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        conn.execute(text(
+            "INSERT INTO users "
+            "(id, username, password_hash, role, is_active, must_change_password) "
+            "VALUES (1, 'alice', 'x', 'user', 1, 0), (2, 'bob', 'x', 'user', 1, 0)"
+        ))
+        # Two globals, plus one custom team each. Names are deliberately out of
+        # id order so the sort_order assertion below means something.
+        conn.execute(text(
+            "INSERT INTO teams (id, name, is_global, owner_user_id) VALUES "
+            "(10, 'Zeta', 1, NULL), (11, 'Alfa', 1, NULL), "
+            "(12, 'Alice Club', 0, 1), (13, 'Bob Club', 0, 2)"
+        ))
+        conn.execute(text(
+            "INSERT INTO team_groups (id, name, is_active, owner_user_id) "
+            "VALUES (1, 'My teams', 1, 1)"
+        ))
+        # Alice picked both globals into her group; her custom team is in it
+        # too, so the UNION has to collapse it to one roster row.
+        conn.execute(text(
+            "INSERT INTO user_group_teams (user_id, group_id, team_id, sort_order) "
+            "VALUES (1, 1, 10, 0), (1, 1, 11, 1), (1, 1, 12, 2)"
+        ))
+
+    command.downgrade(cfg, "0003_drop_overlay_session_meta")
+
+    with engine.begin() as conn:
+        rows = conn.execute(text(
+            "SELECT user_id, team_id, sort_order FROM user_team_list "
+            "ORDER BY user_id, sort_order"
+        )).fetchall()
+    engine.dispose()
+
+    # Alice: her group's two globals + her custom team, ordered by name
+    # (Alfa, Alice Club, Zeta) with contiguous sort_order and no duplicate.
+    assert [tuple(r) for r in rows if r[0] == 1] == [(1, 11, 0), (1, 12, 1), (1, 10, 2)]
+    # Bob is in no group, but owning a custom team is enough to be rostered —
+    # that is the row the pre-0004 ``create_user_team`` would have written.
+    assert [tuple(r) for r in rows if r[0] == 2] == [(2, 13, 0)]
+
+
 def test_two_users_can_share_an_oid_but_one_user_cannot(db_session):
     """``UniqueConstraint(user_id, oid)`` — same oid across users is allowed."""
     from app.db.models import User, UserOverlay
