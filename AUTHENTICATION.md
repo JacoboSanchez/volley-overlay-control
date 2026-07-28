@@ -370,9 +370,10 @@ state, and cannot mutate anything. Control needs one of credentials 1–3.
 | `GET` | `/matches/{public_token}` | G | Per-overlay archived-match listing. **The token is an identifier here, not a credential**: it selects the overlay (`404` if unknown), then the same gate as the report runs — `MATCH_REPORT_PUBLIC=true` or the owner's cookie, else `401`. Unlike `/follow/{public_token}`, holding the token is not sufficient. |
 | `GET` | `/**` (SPA fallback) | — | Serves `index.html` for unknown paths |
 
-Everything marked `—` above is intentionally public; the two `G` rows are
-not, and are listed here only because they hang off the root rather than a
-prefixed router. If a future change needs to gate static assets (e.g.
+Everything marked `—` above is intentionally public; the three `G` rows
+(both match-report routes and the match-history listing) are not, and are
+listed here only because they hang off the root rather than a prefixed
+router. If a future change needs to gate static assets (e.g.
 hiding the SPA behind a login wall), add a custom `BaseHTTPMiddleware` at
 that point — there is no longer a pre-wired hook.
 
