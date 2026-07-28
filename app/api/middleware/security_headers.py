@@ -97,6 +97,74 @@ _DEFAULT_REFERRER_POLICY = "strict-origin-when-cross-origin"
 # the overlay templates as HTML; explicit "html=True" responses elsewhere
 # still get the headers because we sniff the Content-Type at send time.
 _OVERLAY_PREFIXES: tuple[str, ...] = ("/overlay/",)
+_ASCII_DECIMAL_DIGITS = frozenset("0123456789")
+_ASCII_OCTAL_DIGITS = frozenset("01234567")
+_ASCII_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+
+
+def _parse_whatwg_ipv4_number(part: str) -> int | None:
+    """Parse one IPv4 number using the WHATWG URL Standard's radices."""
+    if not part:
+        return None
+
+    radix = 10
+    digits = part
+    allowed_digits = _ASCII_DECIMAL_DIGITS
+    if part[:2].lower() == "0x":
+        radix = 16
+        digits = part[2:]
+        allowed_digits = _ASCII_HEX_DIGITS
+    elif len(part) >= 2 and part.startswith("0"):
+        radix = 8
+        digits = part[1:]
+        allowed_digits = _ASCII_OCTAL_DIGITS
+
+    # WHATWG treats a stripped ``0x`` prefix as zero.
+    if not digits:
+        return 0
+    if any(character not in allowed_digits for character in digits):
+        return None
+    return int(digits, radix)
+
+
+def _ends_in_whatwg_ipv4_number(host: str) -> bool:
+    """Return whether WHATWG host parsing treats *host* as IPv4 syntax."""
+    parts = host.split(".")
+    if parts[-1] == "":
+        parts.pop()
+    if not parts:
+        return False
+
+    last = parts[-1]
+    if last and all(character in _ASCII_DECIMAL_DIGITS for character in last):
+        return True
+    return _parse_whatwg_ipv4_number(last) is not None
+
+
+def _parse_whatwg_ipv4(host: str) -> str | None:
+    """Return the browser-canonical IPv4 address for *host*, if valid."""
+    parts = host.split(".")
+    if parts[-1] == "" and len(parts) > 1:
+        parts.pop()
+    if not parts or len(parts) > 4:
+        return None
+
+    numbers: list[int] = []
+    for part in parts:
+        number = _parse_whatwg_ipv4_number(part)
+        if number is None:
+            return None
+        numbers.append(number)
+
+    if any(number > 255 for number in numbers[:-1]):
+        return None
+    if numbers[-1] >= 256 ** (5 - len(numbers)):
+        return None
+
+    ipv4 = numbers[-1]
+    for index, number in enumerate(numbers[:-1]):
+        ipv4 += number * 256 ** (3 - index)
+    return ipaddress.IPv4Address(ipv4).compressed
 
 
 def _augment_directive(parts: list[str], name: str, *extras: str) -> None:
@@ -158,6 +226,16 @@ def _overlay_public_origin() -> str | None:
             ).decode("ascii").lower()
         except (idna.IDNAError, UnicodeError):
             return None
+
+        # Special-scheme URLs apply WHATWG's legacy IPv4 parser after IDNA.
+        # Browsers therefore turn hosts such as ``127.1``, ``0x7f.1``, and
+        # ``2130706433`` into ``127.0.0.1``. CSP must use the same serialized
+        # origin as the iframe or the split-host preview is blocked.
+        if _ends_in_whatwg_ipv4_number(host):
+            ipv4_host = _parse_whatwg_ipv4(host)
+            if ipv4_host is None:
+                return None
+            host = ipv4_host
     else:
         host = address.compressed
         if address.version == 6:

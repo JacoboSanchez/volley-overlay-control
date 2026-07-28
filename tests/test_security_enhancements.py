@@ -154,12 +154,47 @@ def test_html_csp_normalizes_idn_like_a_browser(monkeypatch):
 
 
 @pytest.mark.parametrize(
+    ("host", "expected"),
+    [
+        ("127.1", "127.0.0.1"),
+        ("0x7f.1", "127.0.0.1"),
+        ("0177.1", "127.0.0.1"),
+        ("2130706433", "127.0.0.1"),
+        ("127.0.0.1.", "127.0.0.1"),
+        ("0x", "0.0.0.0"),
+        ("①.②.③.④", "1.2.3.4"),
+    ],
+)
+def test_html_csp_normalizes_whatwg_ipv4_like_a_browser(
+    monkeypatch,
+    host,
+    expected,
+):
+    monkeypatch.setenv("OVERLAY_PUBLIC_URL", f"https://{host}/overlay")
+    res = TestClient(_build_headers_app()).get("/manage")
+    csp = res.headers["content-security-policy"]
+    frame_src_directive = next(
+        (p.strip() for p in csp.split(";") if p.strip().startswith("frame-src")),
+        "",
+    )
+    assert frame_src_directive.split() == [
+        "frame-src",
+        "'self'",
+        f"https://{expected}",
+    ]
+
+
+@pytest.mark.parametrize(
     "public_url",
     [
         "javascript:alert(1)",
         "https://user:password@overlays.example.test",
         "https://overlays.example.test:99999",
         "https://overlays.example.test; frame-src https://evil.example",
+        "https://09/overlay",
+        "https://1.2.3.4.5/overlay",
+        "https://test.42/overlay",
+        "https://0x100000000/overlay",
     ],
 )
 def test_html_csp_ignores_invalid_overlay_public_origin(
