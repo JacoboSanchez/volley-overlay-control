@@ -250,14 +250,11 @@ board and cannot touch the owner's account.
 | `PATCH` | `/overlays/{oid}` | Y | Owner-only; this is where `public_control` is toggled. |
 | `DELETE` | `/overlays/{oid}` | Y | |
 | `POST` | `/overlays/{oid}/regenerate-control-token` | Y | Owner-only revocation of credential 2 — the previously-shared `/board?c=` link stops working immediately. |
-| `GET` | `/teams` | Y | |
-| `GET` | `/teams/mine`, `/teams/catalog` | Y | The caller's own list, and the global catalog they can pick from. |
-| `POST` | `/teams/mine`, `/teams/mine/custom`, `/teams/mine/remove` | Y | Add to / create in / remove from the caller's list. |
+| `GET` | `/teams/catalog` | Y | The global catalog the caller can pick from. |
+| `POST` | `/teams/mine/custom` | Y | Create a custom team the caller owns. |
 | `PATCH` | `/teams/mine/custom/{team_id}` | Y | Edit one of the caller's own custom teams. |
-| `DELETE` | `/teams/mine/{team_id}` | Y | Scoped to the caller's own rows. |
-| `GET` | `/team-groups` | Y | Admin-published groups visible to the caller. |
-| `POST` | `/team-groups/{id}/copy-to-mine` | Y | |
-| `GET` / `POST` | `/my/groups` | Y | The caller's own team groups. |
+| `DELETE` | `/teams/mine/{team_id}` | Y | Deletes a custom team the caller owns; `404` for anything else, including global catalog teams. |
+| `GET` / `POST` | `/my/groups` | Y | The caller's own team groups, plus the admin-published ones visible to them. |
 | `PATCH` / `DELETE` | `/my/groups/{id}` | Y | |
 | `POST` | `/my/groups/{group_id}/teams` | Y | Add a team to one of the caller's groups. |
 | `DELETE` | `/my/groups/{group_id}/teams/{team_id}` | Y | Remove one. |

@@ -4,7 +4,7 @@ import {
   initSession,
   getState,
   addPoint,
-  getTeams,
+  getTeamCatalog,
   getAuthContext,
   setVisibility,
   resetGame,
@@ -103,7 +103,7 @@ describe('api/client', () => {
 
   it('sends requests with credentials so the session cookie is included', async () => {
     mockFetchOk({});
-    await getTeams();
+    await getTeamCatalog();
     const firstCall = fetchMock().mock.calls[0]!;
     expect(firstCall[1].credentials).toBe('include');
   });
@@ -144,7 +144,7 @@ describe('api/client', () => {
   it('dispatches auth:unauthorized on a 401 from a non-auth route', async () => {
     mockFetchError(401, 'unauthorized');
     const spy = vi.spyOn(window, 'dispatchEvent');
-    await expect(getTeams()).rejects.toThrow();
+    await expect(getTeamCatalog()).rejects.toThrow();
     const fired = spy.mock.calls.some(([e]) => (e as Event).type === 'auth:unauthorized');
     expect(fired).toBe(true);
     spy.mockRestore();
@@ -162,8 +162,8 @@ describe('api/client', () => {
   it('ApiError.detail extracts the API detail field from a JSON error body', async () => {
     mockFetchError(400, JSON.stringify({ detail: 'Overlay id must be 1-64 characters.' }));
     try {
-      await getTeams();
-      throw new Error('expected getTeams to reject');
+      await getTeamCatalog();
+      throw new Error('expected getTeamCatalog to reject');
     } catch (err) {
       expect(err).toBeInstanceOf(ApiError);
       expect((err as ApiError).detail).toBe('Overlay id must be 1-64 characters.');
@@ -176,11 +176,11 @@ describe('api/client', () => {
       422,
       JSON.stringify({ detail: [{ msg: 'field required' }, { msg: 'too short' }] }),
     );
-    await expect(getTeams()).rejects.toMatchObject({ detail: 'field required; too short' });
+    await expect(getTeamCatalog()).rejects.toMatchObject({ detail: 'field required; too short' });
   });
 
   it('ApiError.detail falls back to the raw text for a non-JSON body', async () => {
     mockFetchError(500, 'Internal Server Error');
-    await expect(getTeams()).rejects.toMatchObject({ detail: 'Internal Server Error' });
+    await expect(getTeamCatalog()).rejects.toMatchObject({ detail: 'Internal Server Error' });
   });
 });

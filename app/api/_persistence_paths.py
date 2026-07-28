@@ -1,8 +1,8 @@
 """Shared helpers for per-OID JSON persistence under ``<repo>/data``.
 
 Several modules (``session_persistence``, ``action_log``, ``match_archive``,
-``presets_store``, ``overlay.state_store``) historically reimplemented
-the same three primitives:
+``overlay.state_store``) historically reimplemented the same three
+primitives:
 
   * resolve the data directory anchored at the repo root,
   * hash a key (OID, slug, …) into a deterministic filename,

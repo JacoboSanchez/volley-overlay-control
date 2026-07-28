@@ -121,12 +121,9 @@ WEBHOOK_DEAD_LETTER_MAX_RECORDS = _env_int(
     "WEBHOOK_DEAD_LETTER_MAX_RECORDS", 1000,
 )
 
-# Preset catalogue caps. ``MAX_NAME_LEN`` keeps slugs to a
-# reasonable filesystem-friendly length; ``MAX_RECORDS`` is a
-# defensive limit on the global preset count so a buggy automation
-# script cannot fill the disk with files. Both override via env.
+# Preset name cap — keeps derived slugs to a reasonable length in URLs
+# and JSON. Overrides via env.
 PRESETS_MAX_NAME_LEN = _env_int("PRESETS_MAX_NAME_LEN", 80)
-PRESETS_MAX_RECORDS = _env_int("PRESETS_MAX_RECORDS", 500)
 
 # Hosted icon library. Every uploaded/imported image is re-encoded to
 # WebP after being shrunk to fit ``ICONS_MAX_DIM`` on its longest side,

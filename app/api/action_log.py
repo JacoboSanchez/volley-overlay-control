@@ -46,12 +46,12 @@ from collections.abc import Set as AbstractSet
 
 from app.api._persistence_paths import data_dir as _shared_data_dir
 from app.api._persistence_paths import hashed_filename
-from app.api.oid_validation import OID_PATTERN
 from app.constants import AUDIT_LOG_MAX_BYTES, AUDIT_LOG_MAX_FILES
+from app.id_validation import API_OID_PATTERN
 
 logger = logging.getLogger(__name__)
 
-_OID_PATTERN = OID_PATTERN
+_OID_PATTERN = API_OID_PATTERN
 
 # Actions whose forward records can be reversed by an undo (either
 # the per-type ``add_X(undo=True)`` flag or the generic

@@ -19,11 +19,11 @@ import os
 
 from app.api._persistence_paths import atomic_write_json, hashed_filename
 from app.api._persistence_paths import data_dir as _shared_data_dir
-from app.api.oid_validation import OID_PATTERN
+from app.id_validation import API_OID_PATTERN
 
 logger = logging.getLogger(__name__)
 
-_OID_PATTERN = OID_PATTERN
+_OID_PATTERN = API_OID_PATTERN
 
 
 def _data_dir() -> str:

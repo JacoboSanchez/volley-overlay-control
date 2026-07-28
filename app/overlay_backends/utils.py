@@ -7,6 +7,13 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# DEPRECATED — removal target: 7.0.0.
+# Nothing produces a ``C-id[/style]`` OID any more: the UI, the docs and the
+# overlay CRUD all use the bare id. It is still accepted (and stripped) so an
+# OBS source or bookmark saved before the multi-user refactor keeps resolving.
+# When 7.0.0 is cut, drop this constant with ``is_custom_overlay`` /
+# ``strip_legacy_prefix`` and their call sites in ``resolve_overlay_kind``,
+# ``app/id_validation.py`` and ``app/overlay_backends/base.py``.
 _LEGACY_PREFIX = "C-"
 
 
