@@ -79,12 +79,26 @@ def test_api_v1_response_disables_caching(headers_client):
     assert res.headers.get("cache-control") == "no-store"
 
 
-def test_html_response_carries_csp_and_xframe(headers_client):
+def test_html_response_carries_csp_and_xframe(headers_client, monkeypatch):
+    monkeypatch.delenv("OVERLAY_PUBLIC_URL", raising=False)
     res = headers_client.get("/manage")
     assert res.status_code == 200
     csp = res.headers.get("content-security-policy", "")
     assert "default-src 'self'" in csp
     assert "frame-ancestors 'self'" in csp
+    script_directive = next(
+        (
+            p.strip()
+            for p in csp.split(";")
+            if p.strip().startswith("script-src")
+        ),
+        "",
+    )
+    script_tokens = script_directive.split()
+    # Inline overlay/report scripts still need ``unsafe-inline``, but no
+    # shipped runtime evaluates strings as code.
+    assert "'unsafe-inline'" in script_tokens
+    assert "'unsafe-eval'" not in script_tokens
     # Default img-src must not contain a bare ``http:`` token —
     # HTTPS deployments would block mixed-content images anyway.
     img_directive = next(
@@ -92,18 +106,109 @@ def test_html_response_carries_csp_and_xframe(headers_client):
         "",
     )
     assert " http:" not in f" {img_directive} "
+    # Arbitrary HTTPS is intentional: team customization supports
+    # operator-selected external logo URLs.
     assert "https:" in img_directive
-    # ``frame-src`` must allow cross-origin HTTPS sources so the
-    # OverlayPreview iframe can render UNO overlays and custom overlays
-    # served from a different host (``OVERLAY_PUBLIC_URL`` split-host
-    # deployments).
     frame_src_directive = next(
         (p.strip() for p in csp.split(";") if p.strip().startswith("frame-src")),
         "",
     )
-    assert "https:" in frame_src_directive
-    assert "'self'" in frame_src_directive
+    # No scheme wildcard: same-origin is the only default when
+    # OVERLAY_PUBLIC_URL is unset.
+    assert frame_src_directive.split() == ["frame-src", "'self'"]
     assert res.headers.get("x-frame-options") == "SAMEORIGIN"
+
+
+def test_html_csp_allows_exact_overlay_public_origin(monkeypatch):
+    monkeypatch.setenv(
+        "OVERLAY_PUBLIC_URL",
+        "https://overlays.example.test:8443/proxy/base?ignored=yes",
+    )
+    res = TestClient(_build_headers_app()).get("/manage")
+    csp = res.headers["content-security-policy"]
+    frame_src_directive = next(
+        (p.strip() for p in csp.split(";") if p.strip().startswith("frame-src")),
+        "",
+    )
+    assert frame_src_directive.split() == [
+        "frame-src",
+        "'self'",
+        "https://overlays.example.test:8443",
+    ]
+    assert "https:" not in frame_src_directive.split()
+
+
+def test_html_csp_normalizes_idn_like_a_browser(monkeypatch):
+    monkeypatch.setenv("OVERLAY_PUBLIC_URL", "https://faß.de/overlay")
+    res = TestClient(_build_headers_app()).get("/manage")
+    csp = res.headers["content-security-policy"]
+    frame_src_directive = next(
+        (p.strip() for p in csp.split(";") if p.strip().startswith("frame-src")),
+        "",
+    )
+    assert frame_src_directive.split() == [
+        "frame-src",
+        "'self'",
+        "https://xn--fa-hia.de",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("host", "expected"),
+    [
+        ("127.1", "127.0.0.1"),
+        ("0x7f.1", "127.0.0.1"),
+        ("0177.1", "127.0.0.1"),
+        ("2130706433", "127.0.0.1"),
+        ("127.0.0.1.", "127.0.0.1"),
+        ("0x", "0.0.0.0"),
+        ("①.②.③.④", "1.2.3.4"),
+    ],
+)
+def test_html_csp_normalizes_whatwg_ipv4_like_a_browser(
+    monkeypatch,
+    host,
+    expected,
+):
+    monkeypatch.setenv("OVERLAY_PUBLIC_URL", f"https://{host}/overlay")
+    res = TestClient(_build_headers_app()).get("/manage")
+    csp = res.headers["content-security-policy"]
+    frame_src_directive = next(
+        (p.strip() for p in csp.split(";") if p.strip().startswith("frame-src")),
+        "",
+    )
+    assert frame_src_directive.split() == [
+        "frame-src",
+        "'self'",
+        f"https://{expected}",
+    ]
+
+
+@pytest.mark.parametrize(
+    "public_url",
+    [
+        "javascript:alert(1)",
+        "https://user:password@overlays.example.test",
+        "https://overlays.example.test:99999",
+        "https://overlays.example.test; frame-src https://evil.example",
+        "https://09/overlay",
+        "https://1.2.3.4.5/overlay",
+        "https://test.42/overlay",
+        "https://0x100000000/overlay",
+    ],
+)
+def test_html_csp_ignores_invalid_overlay_public_origin(
+    monkeypatch,
+    public_url,
+):
+    monkeypatch.setenv("OVERLAY_PUBLIC_URL", public_url)
+    res = TestClient(_build_headers_app()).get("/manage")
+    csp = res.headers["content-security-policy"]
+    frame_src_directive = next(
+        (p.strip() for p in csp.split(";") if p.strip().startswith("frame-src")),
+        "",
+    )
+    assert frame_src_directive.split() == ["frame-src", "'self'"]
 
 
 def test_overlay_html_relaxes_frame_ancestors(headers_client):
