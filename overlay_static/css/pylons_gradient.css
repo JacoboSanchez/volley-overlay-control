@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@700;800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@700;800&display=swap");
 
 /* ─────────────────────────────────────────────────────────────────
    "Pylons Gradient" overlay — team-colored glass panels pinned to
@@ -13,176 +13,190 @@
    ───────────────────────────────────────────────────────────────── */
 
 :root {
-    --home-primary: #E21836;
-    --home-secondary: #FFFFFF;
-    --away-primary: #0047AB;
-    --away-secondary: #FFD700;
-    --home-gradient: #E21836;
-    --away-gradient: #0047AB;
+  --home-primary: #e21836;
+  --home-secondary: #ffffff;
+  --away-primary: #0047ab;
+  --away-secondary: #ffd700;
+  --home-gradient: #e21836;
+  --away-gradient: #0047ab;
 }
 
 body {
-    margin: 0;
-    padding: 0;
-    background: transparent;
-    width: 1920px;
-    height: 1080px;
-    overflow: hidden;
-    font-family: 'Inter', sans-serif;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  font-family: "Inter", sans-serif;
 }
 
 #scoreboard-container {
-    /* Contrast-safe team accents for the active surface (computed by
+  /* Contrast-safe team accents for the active surface (computed by
        app.js). The light-theme block below re-points these. */
-    --accent-home: var(--home-accent-dark, var(--home-gradient));
-    --accent-away: var(--away-accent-dark, var(--away-gradient));
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 1920px;
-    height: 1080px;
-    display: grid;
-    grid-template-columns: 120px 1fr 120px;
-    align-content: center;
-    pointer-events: none;
-    opacity: 0;
-    transform-origin: 50% 50%;
+  --accent-home: var(--home-accent-dark, var(--home-gradient));
+  --accent-away: var(--away-accent-dark, var(--away-gradient));
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+  display: grid;
+  grid-template-columns: 120px 1fr 120px;
+  align-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transform-origin: 50% 50%;
 }
 
 /* Operator vertical-anchor knob (set by app.js as data-vertical-anchor).
    Pylons opt out of free x/y geometry, so this is the only placement
    control they expose: dock the pair to the top, centre or bottom of the
    frame. ``center`` is the default already set above. */
-#scoreboard-container[data-vertical-anchor="top"] { align-content: start; }
-#scoreboard-container[data-vertical-anchor="bottom"] { align-content: end; }
+#scoreboard-container[data-vertical-anchor="top"] {
+  align-content: start;
+}
+#scoreboard-container[data-vertical-anchor="bottom"] {
+  align-content: end;
+}
 
 .pylon {
-    grid-row: 1;
-    width: 120px;
-    padding: 20px 0 16px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
-    color: #fff;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    transition: padding 0.4s ease, gap 0.4s ease;
+  grid-row: 1;
+  width: 120px;
+  padding: 20px 0 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+  color: #fff;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition:
+    padding 0.4s ease,
+    gap 0.4s ease;
 }
 .pylon-home {
-    grid-column: 1;
-    border-left: none;
-    border-radius: 0 20px 20px 0;
-    background: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--home-gradient) 75%, transparent) 0%,
-        rgba(12, 15, 22, 0.88) 100%
-    );
+  grid-column: 1;
+  border-left: none;
+  border-radius: 0 20px 20px 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--home-gradient) 75%, transparent) 0%,
+    rgba(12, 15, 22, 0.88) 100%
+  );
 }
 .pylon-away {
-    grid-column: 3;
-    border-right: none;
-    border-radius: 20px 0 0 20px;
-    background: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--away-gradient) 75%, transparent) 0%,
-        rgba(12, 15, 22, 0.88) 100%
-    );
+  grid-column: 3;
+  border-right: none;
+  border-radius: 20px 0 0 20px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--away-gradient) 75%, transparent) 0%,
+    rgba(12, 15, 22, 0.88) 100%
+  );
 }
 
 .logo-container {
-    width: 52px;
-    height: 52px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .team-logo {
-    max-width: 52px;
-    max-height: 52px;
-    object-fit: contain;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  max-width: 52px;
+  max-height: 52px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .team-name {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    margin-top: auto;
-    margin-bottom: auto;
-    font-weight: 800;
-    font-size: 15px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.90);
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-    max-height: 190px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    transition: max-height 0.4s ease, opacity 0.3s ease,
-                margin 0.4s ease;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  margin-top: auto;
+  margin-bottom: auto;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  max-height: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    max-height 0.4s ease,
+    opacity 0.3s ease,
+    margin 0.4s ease;
 }
 
 .points-container {
-    position: relative;
-    width: 100%;
-    height: 48px;
-    overflow: hidden;
+  position: relative;
+  width: 100%;
+  height: 48px;
+  overflow: hidden;
 }
 .points {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 46px;
-    font-weight: 800;
-    line-height: 1;
-    color: #fff;
-    font-variant-numeric: tabular-nums;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 46px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 /* Set pips — filled per set won. White on the gradient panels. */
-.set-pips { display: flex; gap: 5px; }
+.set-pips {
+  display: flex;
+  gap: 5px;
+}
 .set-pip {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.40);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
 }
 .set-pip.won {
-    background: #fff;
-    border-color: #fff;
+  background: #fff;
+  border-color: #fff;
 }
 
 /* Timeout dots — hollow until used. */
-.timeout-container { display: flex; gap: 4px; }
+.timeout-container {
+  display: flex;
+  gap: 4px;
+}
 .timeout-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    border: 1.5px solid rgba(255, 255, 255, 0.40);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
 }
 .timeout-dot.active {
-    background: rgba(255, 255, 255, 0.40);
-    opacity: 0.4;
+  background: rgba(255, 255, 255, 0.4);
+  opacity: 0.4;
 }
 
 /* Serve lamp at the panel foot. */
 .serving-indicator {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    opacity: 0;
-    transition: opacity 0.3s ease;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
-.serving-indicator.active { opacity: 1; }
-.serving-indicator {
-    background: #fff;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+.serving-indicator.active {
+  opacity: 1;
 }
 
 /* ── Compact mode (simple mode / show only current set) ──────────
@@ -190,17 +204,17 @@ body {
    logo + score + pips + serve lamp. The vertical margin that the
    name used to absorb collapses, tightening the panel. */
 .compact-mode .team-name {
-    max-height: 0;
-    opacity: 0;
-    margin-top: 0;
-    margin-bottom: 0;
-    overflow: hidden;
-    pointer-events: none;
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .compact-mode .pylon {
-    padding: 14px 0 12px;
-    gap: 8px;
+  padding: 14px 0 12px;
+  gap: 8px;
 }
 
 /* ── Light theme (operator overlayTheme=light / ?theme=light) ── */
@@ -209,67 +223,74 @@ body {
    white text/indicators would vanish. Re-point the accent vars and
    use dark colours for every non-coloured element. */
 body.overlay-theme-light #scoreboard-container {
-    --accent-home: var(--home-accent-light, var(--home-gradient));
-    --accent-away: var(--away-accent-light, var(--away-gradient));
+  --accent-home: var(--home-accent-light, var(--home-gradient));
+  --accent-away: var(--away-accent-light, var(--away-gradient));
 }
 body.overlay-theme-light .pylon {
-    border-color: rgba(0, 0, 0, 0.12);
-    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
 }
 body.overlay-theme-light .pylon-home {
-    background: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--home-gradient) 65%, transparent) 0%,
-        rgba(246, 247, 250, 0.90) 100%
-    );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--home-gradient) 65%, transparent) 0%,
+    rgba(246, 247, 250, 0.9) 100%
+  );
 }
 body.overlay-theme-light .pylon-away {
-    background: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--away-gradient) 65%, transparent) 0%,
-        rgba(246, 247, 250, 0.90) 100%
-    );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--away-gradient) 65%, transparent) 0%,
+    rgba(246, 247, 250, 0.9) 100%
+  );
 }
 
 /* Team name sits in the lower half where the gradient fades light — use
    dark text so it reads against the near-white base. */
-body.overlay-theme-light .team-name { color: rgba(20, 24, 29, 0.80); text-shadow: none; }
+body.overlay-theme-light .team-name {
+  color: rgba(20, 24, 29, 0.8);
+  text-shadow: none;
+}
 
 /* Points use team accent so they remain branded and readable over the
    light grey lower panel. */
 body.overlay-theme-light .pylon-home .points {
-    color: var(--accent-home);
-    text-shadow: none;
+  color: var(--accent-home);
+  text-shadow: none;
 }
 body.overlay-theme-light .pylon-away .points {
-    color: var(--accent-away);
-    text-shadow: none;
+  color: var(--accent-away);
+  text-shadow: none;
 }
 
 /* Pips: dark empty border, team accent fill for won sets. */
-body.overlay-theme-light .set-pip { border-color: rgba(20, 24, 29, 0.30); }
+body.overlay-theme-light .set-pip {
+  border-color: rgba(20, 24, 29, 0.3);
+}
 body.overlay-theme-light .pylon-home .set-pip.won {
-    background: var(--accent-home);
-    border-color: var(--accent-home);
+  background: var(--accent-home);
+  border-color: var(--accent-home);
 }
 body.overlay-theme-light .pylon-away .set-pip.won {
-    background: var(--accent-away);
-    border-color: var(--accent-away);
+  background: var(--accent-away);
+  border-color: var(--accent-away);
 }
 
 /* Timeout dots: dark border / fill. */
-body.overlay-theme-light .timeout-dot { border-color: rgba(20, 24, 29, 0.40); }
+body.overlay-theme-light .timeout-dot {
+  border-color: rgba(20, 24, 29, 0.4);
+}
 body.overlay-theme-light .timeout-dot.active {
-    background: rgba(20, 24, 29, 0.40);
-    opacity: 0.4;
+  background: rgba(20, 24, 29, 0.4);
+  opacity: 0.4;
 }
 
 /* Serve lamp: team accent so it pops against the light base. */
 body.overlay-theme-light .pylon-home .serving-indicator {
-    background: var(--accent-home);
-    box-shadow: 0 0 10px var(--accent-home);
+  background: var(--accent-home);
+  box-shadow: 0 0 10px var(--accent-home);
 }
 body.overlay-theme-light .pylon-away .serving-indicator {
-    background: var(--accent-away);
-    box-shadow: 0 0 10px var(--accent-away);
+  background: var(--accent-away);
+  box-shadow: 0 0 10px var(--accent-away);
 }

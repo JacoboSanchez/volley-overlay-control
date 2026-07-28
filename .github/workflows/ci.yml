@@ -136,7 +136,7 @@ jobs:
         if-no-files-found: ignore
 
   frontend:
-    name: Frontend typecheck, tests and schema drift
+    name: Frontend and overlay asset quality gates
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -189,6 +189,10 @@ jobs:
     - name: Prettier format check
       working-directory: frontend
       run: npm run format:check
+
+    - name: Stylelint overlay CSS
+      working-directory: frontend
+      run: npm run stylelint
 
     - name: Typecheck
       working-directory: frontend

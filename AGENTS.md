@@ -306,7 +306,7 @@ so satisfying only a subset still produces a red PR:
 | Surface | Gates |
 |---------|-------|
 | Backend | `pytest` (coverage floor 70%) · `ruff` · `mypy` · `bandit` · `pip-audit` (both lockfiles) · lockfile-satisfies-`requirements.txt` |
-| Frontend | `vitest` (coverage floors in `vite.config.js`) · `tsc` · `eslint` (`--max-warnings 0`) · `prettier --check` · `npm audit` |
+| Frontend / overlay assets | `vitest` (coverage floors in `vite.config.js`) · `tsc` · `eslint` (`--max-warnings 0`) · `prettier --check` · `stylelint` · `npm audit` |
 | Contract | committed OpenAPI schema + generated types must not drift |
 | Image | `docker build` must succeed |
 
@@ -322,6 +322,7 @@ cd frontend && npm test           # vitest
 cd frontend && npm run typecheck  # tsc --noEmit
 cd frontend && npm run lint       # eslint --max-warnings 0
 cd frontend && npm run format:check
+cd frontend && npm run stylelint  # overlay_static/css
 ```
 
 **Test conventions:**

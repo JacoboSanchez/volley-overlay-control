@@ -34,15 +34,17 @@ repos:
         name: frontend prettier
         entry: bash -c 'cd frontend && npm run format:check'
         language: system
-        files: ^frontend/src/.*\.(ts|tsx)$
+        files: ^(frontend/src/.*\.(ts|tsx)|overlay_static/(js/.*\.js|css/.*\.css))$
         pass_filenames: false
       - id: frontend-eslint
         name: frontend eslint
-        # Run from inside frontend/ so ESLint resolves the local config
-        # and plugins. The changed files arrive as repo-root paths
-        # (frontend/src/foo.tsx); strip the leading "frontend/" before
-        # invoking ESLint so it sees its own working-directory paths.
-        entry: bash -c 'paths=(); for f in "$@"; do paths+=("${f#frontend/}"); done; cd frontend && npx eslint "${paths[@]}"' --
+        entry: bash -c 'cd frontend && npm run lint'
         language: system
-        files: ^frontend/src/.*\.(ts|tsx)$
-        pass_filenames: true
+        files: ^(frontend/src/.*\.(ts|tsx)|overlay_static/js/.*\.js)$
+        pass_filenames: false
+      - id: overlay-stylelint
+        name: overlay CSS stylelint
+        entry: bash -c 'cd frontend && npm run stylelint'
+        language: system
+        files: ^overlay_static/css/.*\.css$
+        pass_filenames: false

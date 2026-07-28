@@ -1,101 +1,117 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap");
 
 html,
 body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    width: 100%;
-    /* overflow: hidden on html as well — some mobile browsers don't
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  /* overflow: hidden on html as well — some mobile browsers don't
        propagate body overflow to the viewport. */
-    overflow: hidden;
+  overflow: hidden;
 }
 
 body {
-    background: transparent;
-    font-family: 'Inter', sans-serif;
-    box-sizing: border-box;
+  background: transparent;
+  font-family: "Inter", sans-serif;
+  box-sizing: border-box;
 }
 
 .mosaic-grid {
-    display: grid;
-    gap: 8px;
-    padding: 8px;
-    box-sizing: border-box;
-    /* Anchor to the visible viewport. position:fixed + inset:0 keeps the
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  box-sizing: border-box;
+  /* Anchor to the visible viewport. position:fixed + inset:0 keeps the
        grid pinned even if html/body sizing is wonky on mobile. dvh/dvw
        track the dynamic viewport (URL bar collapse) so the grid resizes
        with the visible area instead of overflowing under the chrome. */
-    position: fixed;
-    inset: 0;
-    width: 100vw;
-    height: 100vh;
-    width: 100dvw;
-    height: 100dvh;
-    /* grid-template-columns / -rows are set by JS to fit the viewport */
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  width: 100dvw;
+  height: 100vh;
+  height: 100dvh;
+  /* grid-template-columns / -rows are set by JS to fit the viewport */
 }
 
 .mosaic-cell {
-    position: relative;
-    overflow: hidden;
-    /* Allow grid tracks to shrink below intrinsic content size */
-    min-width: 0;
-    min-height: 0;
+  position: relative;
+  overflow: hidden;
+  /* Allow grid tracks to shrink below intrinsic content size */
+  min-width: 0;
+  min-height: 0;
 }
 
 .mosaic-label {
-    position: absolute;
-    top: 6px;
-    left: 8px;
-    z-index: 10;
-    padding: 4px 10px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    color: #ffffff;
-    background: rgba(0, 0, 0, 0.72);
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    pointer-events: none;
-    backdrop-filter: blur(4px);
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  z-index: 10;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.72);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
 }
 
 .mosaic-label::before {
-    content: '';
-    display: inline-block;
-    width: 7px;
-    height: 7px;
-    border-radius: 2px;
-    background: #444;
-    flex-shrink: 0;
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: #444;
+  flex-shrink: 0;
 }
 
-.mosaic-cell:nth-child(8n+1) .mosaic-label::before { background: #E21836; }
-.mosaic-cell:nth-child(8n+2) .mosaic-label::before { background: #0047AB; }
-.mosaic-cell:nth-child(8n+3) .mosaic-label::before { background: #00C853; }
-.mosaic-cell:nth-child(8n+4) .mosaic-label::before { background: #FF6D00; }
-.mosaic-cell:nth-child(8n+5) .mosaic-label::before { background: #AA00FF; }
-.mosaic-cell:nth-child(8n+6) .mosaic-label::before { background: #FFD700; }
-.mosaic-cell:nth-child(8n+7) .mosaic-label::before { background: #00BCD4; }
-.mosaic-cell:nth-child(8n+8) .mosaic-label::before { background: #FF4081; }
+.mosaic-cell:nth-child(8n + 1) .mosaic-label::before {
+  background: #e21836;
+}
+.mosaic-cell:nth-child(8n + 2) .mosaic-label::before {
+  background: #0047ab;
+}
+.mosaic-cell:nth-child(8n + 3) .mosaic-label::before {
+  background: #00c853;
+}
+.mosaic-cell:nth-child(8n + 4) .mosaic-label::before {
+  background: #ff6d00;
+}
+.mosaic-cell:nth-child(8n + 5) .mosaic-label::before {
+  background: #aa00ff;
+}
+.mosaic-cell:nth-child(8n + 6) .mosaic-label::before {
+  background: #ffd700;
+}
+.mosaic-cell:nth-child(8n + 7) .mosaic-label::before {
+  background: #00bcd4;
+}
+.mosaic-cell:nth-child(8n + 8) .mosaic-label::before {
+  background: #ff4081;
+}
 
 .mosaic-iframe-wrapper {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 .mosaic-iframe-wrapper iframe {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 1920px;
-    height: 1080px;
-    border: none;
-    transform-origin: 0 0;
-    /* JS sets the transform to crop + scale + centre into the cell. */
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 1080px;
+  border: none;
+  transform-origin: 0 0;
+  /* JS sets the transform to crop + scale + centre into the cell. */
 }

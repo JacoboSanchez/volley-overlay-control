@@ -57,6 +57,18 @@ archive by hand.
 
 ### Added
 
+- **The JavaScript and CSS that render the on-air overlays now pass the same
+  automated quality gates as the React SPA.** ESLint checks every first-party
+  script in `overlay_static/js/` with browser globals plus blocking
+  `no-undef`/`no-unused-vars`; Prettier covers those scripts and all 35 overlay
+  stylesheets; and Stylelint checks the CSS for invalid, duplicated, or
+  deprecated declarations. Vendored `gsap.min.js` remains explicitly
+  excluded. CI and pre-commit both enforce the expanded scope, with regression
+  tests guarding the paths and commands. The first pass removed two dead
+  JavaScript helpers and fixed duplicated selectors, viewport fallbacks, and
+  deprecated wrapping declarations without changing overlay behavior.
+  Fixes [#435](https://github.com/JacoboSanchez/volley-overlay-control/issues/435).
+
 - **`tests/test_docs_consistency.py` — a drift guard for mechanically
   checkable doc claims**, in the same spirit as `tests/test_env_docs.py`.
   It asserts that the overlay-template and selectable-style counts quoted
