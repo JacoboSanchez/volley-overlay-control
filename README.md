@@ -277,7 +277,7 @@ Configure the application using the following environment variables:
 | :--- | :--- | :--- |
 | `APP_PORT` | The TCP port where the application will run. | `8080` |
 | `APP_TITLE` | Application title shown in the browser tab, the init screen heading and the PWA manifest. | `Volley Scoreboard` |
-| `OVERLAY_PUBLIC_URL` | *(Optional)* Public base URL for overlay output links served by the built-in engine. If unset, URLs are constructed from the request's host. When overlays are served from a separate origin via a reverse proxy, route `/media` (hosted icon images) to this backend on that origin too. | |
+| `OVERLAY_PUBLIC_URL` | *(Optional)* Public base URL for overlay output links served by the built-in engine. If unset, URLs are constructed from the request's host. Its exact HTTP(S) origin is added to the default CSP `frame-src` allow-list so split-host previews work without allowing every HTTPS origin. When overlays are served from a separate origin via a reverse proxy, route `/media` (hosted icon images) to this backend on that origin too. | |
 | `MATCH_GAME_POINTS` | Points needed to win a set. | `25` |
 | `MATCH_GAME_POINTS_LAST_SET` | Points needed to win the last set. | `15` |
 | `MATCH_SETS` | Total sets in the match (best of N). | `5` |

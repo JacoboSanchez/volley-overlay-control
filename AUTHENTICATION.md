@@ -618,12 +618,15 @@ Located in `app/api/middleware/security_headers.py`. Adds:
 * `X-Content-Type-Options: nosniff` and `Referrer-Policy:
   strict-origin-when-cross-origin` and a `Permissions-Policy` that
   denies geolocation/microphone/camera/payment/usb on every response.
-* `Content-Security-Policy` (locked to `'self'` plus
-  `'unsafe-inline'`/`'unsafe-eval'` to keep the existing inline
-  match-report and SPA scripts working) and `X-Frame-Options:
-  SAMEORIGIN` on HTML responses. The `/overlay/*` routes get
-  `frame-ancestors *` instead so OBS browser sources can still embed
-  them off-origin.
+* `Content-Security-Policy` locks scripts to `'self'` plus
+  `'unsafe-inline'` for the existing inline overlay and match-report
+  scripts; string evaluation is not allowed. Frames default to `'self'`,
+  with the exact HTTP(S) origin from `OVERLAY_PUBLIC_URL` added when
+  configured so a split-host overlay preview still works. `img-src`
+  retains `https:` because team customization accepts operator-selected
+  external logo URLs. HTML responses also get `X-Frame-Options:
+  SAMEORIGIN`; `/overlay/*` instead uses `frame-ancestors *` and omits
+  that legacy header so OBS browser sources can embed it off-origin.
 * `Cache-Control: no-store` on `/api/v1/` responses that don't
   already set a `Cache-Control` header — keeps authenticated JSON
   out of intermediary caches.

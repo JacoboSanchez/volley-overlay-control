@@ -18,9 +18,12 @@ Headers applied to every response:
 Headers applied only to HTML responses:
 
 * ``Content-Security-Policy`` — locks ``default-src``/``script-src`` to
-  ``'self'`` plus ``'unsafe-inline'`` so the existing inline match-report
-  styles keep rendering. ``img-src`` allows ``https:`` and ``data:`` so
-  team logos still load from arbitrary CDNs and embedded data URLs.
+  ``'self'`` plus ``'unsafe-inline'`` for the existing inline overlay and
+  match-report scripts. ``style-src`` separately permits inline styles.
+  ``img-src`` allows ``https:`` and ``data:`` so team logos still load
+  from operator-selected CDNs and embedded data URLs. ``frame-src`` allows
+  ``'self'`` plus the exact HTTP(S) origin configured by
+  ``OVERLAY_PUBLIC_URL`` for split-host preview deployments.
   Overlay routes (``/overlay/*``) get a relaxed ``frame-ancestors *``
   because OBS browser sources embed them off-origin.
 * ``X-Frame-Options: SAMEORIGIN`` for non-overlay routes (legacy
@@ -35,8 +38,13 @@ Headers applied to ``/api/v1/`` responses:
 
 from __future__ import annotations
 
+import ipaddress
 import os
+import re
 from collections.abc import Iterable
+from urllib.parse import urlsplit
+
+from app.env_vars_manager import EnvVarsManager
 
 
 def _env(name: str, default: str) -> str:
@@ -48,28 +56,29 @@ def _env(name: str, default: str) -> str:
 
 _DEFAULT_CSP = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+    "script-src 'self' 'unsafe-inline'; "
     "style-src 'self' 'unsafe-inline'; "
     # ``http:`` deliberately omitted: HTTPS deployments would block
     # mixed-content images anyway, and ``'self'`` already covers
-    # plain-HTTP localhost dev servers. Operators that genuinely need
-    # third-party HTTP logos can override via ``SECURITY_CSP``.
+    # plain-HTTP localhost dev servers. Arbitrary HTTPS remains necessary
+    # because operators may use external team-logo URLs. Deployments that
+    # only use the hosted icon library can narrow this via ``SECURITY_CSP``.
     "img-src 'self' data: https:; "
     "font-src 'self' data:; "
     "connect-src 'self' ws: wss: https:; "
-    # ``frame-src`` covers iframes the control UI embeds: the OverlayPreview
-    # card loads UNO overlays from ``overlays.uno`` and custom overlays from
-    # whichever host ``OVERLAY_PUBLIC_URL`` points at (which can be a separate
-    # subdomain when the overlay is reverse-proxied independently of the
-    # control UI). Without an explicit ``frame-src``, browsers fall back to
-    # ``default-src 'self'`` and silently block both cases.
-    "frame-src 'self' https:; "
+    # The configured OVERLAY_PUBLIC_URL origin is added at response time.
+    # Without an explicit ``frame-src``, browsers fall back to
+    # ``default-src 'self'`` and block split-host overlay previews.
+    "frame-src 'self'; "
     "object-src 'none'; "
     "base-uri 'self'; "
     "form-action 'self'; "
     "frame-ancestors 'self'"
 )
 
+_CSP_DNS_HOST_RE = re.compile(
+    r"[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.?",
+)
 _OVERLAY_CSP_FRAME_ANCESTORS = "frame-ancestors *"
 # Overlay templates pull webfonts from Google Fonts (Outfit, Inter,
 # Roboto, Oswald, Montserrat, Rajdhani, Barlow Condensed, Chakra Petch,
@@ -111,6 +120,63 @@ def _augment_directive(parts: list[str], name: str, *extras: str) -> None:
     parts.append(" ".join((name, "'self'", *extras)))
 
 
+def _overlay_public_origin() -> str | None:
+    """Return the configured overlay HTTP(S) origin as a safe CSP source.
+
+    ``OVERLAY_PUBLIC_URL`` is also used to build the iframe URL. CSP needs
+    only its origin, never its path/query/fragment. Reconstructing that origin
+    from parsed components prevents whitespace or directive delimiters in a
+    malformed operator value from becoming header syntax.
+    """
+    raw = EnvVarsManager.get_env_var("OVERLAY_PUBLIC_URL", "")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+
+    try:
+        parsed = urlsplit(raw.strip())
+        hostname = parsed.hostname
+        port = parsed.port
+    except ValueError:
+        return None
+
+    scheme = parsed.scheme.lower()
+    if (
+        scheme not in {"http", "https"}
+        or not hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or "%" in hostname
+    ):
+        return None
+
+    try:
+        address = ipaddress.ip_address(hostname)
+    except ValueError:
+        try:
+            ascii_host = hostname.encode("idna").decode("ascii")
+        except UnicodeError:
+            return None
+        if _CSP_DNS_HOST_RE.fullmatch(ascii_host) is None:
+            return None
+        host = ascii_host.lower()
+    else:
+        host = address.compressed
+        if address.version == 6:
+            host = f"[{host}]"
+
+    port_suffix = f":{port}" if port is not None else ""
+    return f"{scheme}://{host}{port_suffix}"
+
+
+def _build_default_csp() -> str:
+    """Return the baseline CSP with the configured preview origin allowed."""
+    parts = [part.strip() for part in _DEFAULT_CSP.split(";") if part.strip()]
+    overlay_origin = _overlay_public_origin()
+    if overlay_origin is not None:
+        _augment_directive(parts, "frame-src", overlay_origin)
+    return "; ".join(parts)
+
+
 def _build_html_csp(path: str) -> str:
     """Return the CSP string for an HTML response on *path*.
 
@@ -121,7 +187,7 @@ def _build_html_csp(path: str) -> str:
     only — every other ``script-src`` / ``img-src`` / ``connect-src``
     policy stays in force.
     """
-    csp = _env("SECURITY_CSP", _DEFAULT_CSP)
+    csp = _env("SECURITY_CSP", "") or _build_default_csp()
     if any(path.startswith(prefix) for prefix in _OVERLAY_PREFIXES):
         parts = [p.strip() for p in csp.split(";") if p.strip()]
         replaced = False
