@@ -12,35 +12,33 @@ Volley Overlay Control is a self-hostable, **multi-user** application that bundl
 **Frontend stack:** React 19 · React Router · Vite · PWA (vite-plugin-pwa) · react-colorful
 **Test stack:** pytest · pytest-asyncio · pytest-cov · ruff · mypy (backend) · Vitest · React Testing Library (frontend)
 
-**Multi-user (since the multi-user refactor).** The app is now a full
-multi-user application with a database. Accounts authenticate with an HttpOnly
-cookie session named `vsession` (no `SCOREBOARD_USERS`/Bearer for user routes);
-roles are `user` and `admin`. The first admin is claimed on first start with a
-one-time bootstrap token printed to the startup log, posted to
-`POST /api/v1/auth/claim-admin`. Self-registration is gated by the DB-backed
-`REGISTRATION_OPEN` toggle, and accounts created by an admin are forced to
-change their password on first login (a `409` until they do). Persistence is
-SQLAlchemy 2.0 + Alembic via `DATABASE_URL` (SQLite default at `data/app.db`,
-PostgreSQL via `postgresql+psycopg://`); migrations auto-run on startup behind
-a cross-process file lock (`alembic upgrade head`, idempotent). Users,
-overlays (`user_overlays`, keyed per user), teams, presets, settings, and
-match reports (`match_reports`) live in the DB. Every per-overlay runtime
+**Multi-user (since the multi-user refactor).** The app is a full multi-user
+application with a database. Users, overlays (`user_overlays`), teams, presets,
+settings, and match reports (`match_reports`) live in SQLAlchemy 2.0 + Alembic
+via `DATABASE_URL` (SQLite default at `data/app.db`, PostgreSQL via
+`postgresql+psycopg://`); migrations auto-run on startup behind a cross-process
+file lock (`alembic upgrade head`, idempotent) — there is no manual step.
+
+**The convention that touches almost every change:** every per-overlay runtime
 surface is keyed by the **storage key** `skey = "<user_id>:<oid>"` (see
-`app/overlay_key.py`, `make_skey`), so two users can drive the same `oid` in
-isolation; the public OBS output URL uses an unguessable per-overlay
-`public_token`. Each overlay also has a `control_token`: an unguessable
-capability for a **shareable control-board link** (`/board?c=<token>`) that
-grants full board control without a login (the operator link the owner hands
-out). The control surface (`/api/v1/game/*`, `/state`, `/customization`,
-`/display/*`, `/session/*`, `/ws`) authorizes **any** of: that token (`?c=` query
-or `X-Control-Token` header), an opted-in `?u=<username>&oid=<oid>` public
-bookmark (per-overlay `public_control` flag, off by default — a stable but
-*guessable* no-login URL), or the owner's `vsession` cookie — see
-`app/api/dependencies.py` (`resolve_board_skey`, `require_board_control`,
-`get_session`). Live overlay render state (`data/overlay_state_*.json`) and the
-per-overlay audit log (`data/audit_*.jsonl`) stay on file, re-keyed by `skey`.
-See `app/db/`, `app/auth/`, `app/teams_service.py`, `app/presets_service.py`,
-`app/settings_service.py`, and `app/api/routes/{overlays,teams,admin_users}.py`.
+`app/overlay_key.py`, `make_skey`), never by the bare `oid` — so two users can
+drive the same `oid` in isolation. That covers DB rows, live overlay render
+state (`data/overlay_state_*.json`), and the per-overlay audit log
+(`data/audit_*.jsonl`). Never query per-user rows without scoping to `user.id`.
+
+**Auth in one paragraph.** Four credentials reach one overlay: the owner's
+`vsession` login cookie; a per-overlay `control_token` (the shareable
+`/board?c=<token>` operator link); an opted-in `?u=<username>&oid=<oid>` public
+bookmark; and the output-only `public_token` OBS reads. All four resolve to the
+same `skey`. **[AUTHENTICATION.md](AUTHENTICATION.md) §1.2 is the single source
+of truth** — which routes accept which, what each returns on failure, and why
+the bookmark is deliberately guessable. Do not restate the model here or in the
+other docs; link to it. The board gate lives in `app/api/dependencies.py`
+(`resolve_board_skey`, `get_session`) and the login layer in `app/auth/`.
+
+Code map for the rest: `app/db/`, `app/auth/`, `app/teams_service.py`,
+`app/presets_service.py`, `app/settings_service.py`, and
+`app/api/routes/{overlays,teams,admin_users}.py`.
 
 ---
 
@@ -145,7 +143,7 @@ volley-overlay-control/
 ├── alembic.ini                # Alembic config (script_location = migrations/)
 ├── migrations/                # Alembic env.py + versions/ revisions (applied to head on startup)
 │
-├── tests/                     # Pytest suite, 63 modules (see also frontend Vitest)
+├── tests/                     # Pytest suite (see also frontend Vitest)
 │   ├── conftest.py            # Shared fixtures: autouse in-memory `db_session`, cookie-auth helpers
 │   ├── fixtures/              # JSON fixtures representing known game states
 │   ├── helpers/               # Shared test helpers
@@ -265,7 +263,11 @@ Full list in [README.md](README.md).
 
 ## Endpoints
 
-All `/api/v1/*` user routes require the `vsession` cookie (`require_user`); admin-only routes additionally require the `admin` role.
+Account-level `/api/v1/*` routes require the `vsession` cookie
+(`require_user`), admin routes the `admin` role, and board routes any board
+credential. Which is which is **not** duplicated here —
+[AUTHENTICATION.md §2](AUTHENTICATION.md#2-route-inventory) is the route
+inventory; this table is a "what exists" index only.
 
 | Endpoint | Description |
 |----------|-------------|
@@ -281,7 +283,7 @@ All `/api/v1/*` user routes require the `vsession` cookie (`require_user`); admi
 | `/api/v1/matches[?oid=X]` | List archived match snapshots (newest first) |
 | `/api/v1/matches/{match_id}` | Full archived snapshot (final_state, customization, audit_log, config) |
 | `/api/v1/game/undo` | Pop the last forward add_point/add_set/add_timeout and reverse it |
-| `/api/v1/ws?oid=X` | Control WebSocket for real-time state updates (authenticated via the `vsession` cookie) |
+| `/api/v1/ws?oid=X` | Control WebSocket for real-time state updates |
 | `/match/{match_id}/report` | Print-friendly HTML match report (gated: owner cookie, signed URL, or `MATCH_REPORT_PUBLIC=true`) |
 | `/overlay/{public_token}` | Overlay HTML template for OBS browser sources (capability token) |
 | `/follow/{public_token}` | Lightweight spectator view over the same feed |
@@ -292,7 +294,8 @@ All `/api/v1/*` user routes require the `vsession` cookie (`require_user`); admi
 | `/sw.js` | PWA service worker (from frontend build) |
 | `/manifest.webmanifest` | PWA manifest — served dynamically from the frontend build: `APP_TITLE` name, optional per-board `?oid=`/`?u=` variants, and (for a signed-in owner, via the `vsession` cookie) their overlays as long-press app `shortcuts` |
 
-For the complete authentication matrix see [AUTHENTICATION.md](AUTHENTICATION.md).
+For the complete authentication matrix — per-route, per-credential — see
+[AUTHENTICATION.md](AUTHENTICATION.md).
 
 ---
 
@@ -382,15 +385,41 @@ The SPA mount uses a custom `SPAStaticFiles` class that falls back to `index.htm
 
 ## Documentation Files
 
-| File | Purpose |
-|------|---------|
-| `README.md` | End-user setup and configuration guide |
-| `DEVELOPER_GUIDE.md` | Architecture deep-dive and coding patterns |
-| `FRONTEND_DEVELOPMENT.md` | REST API reference + guide for building JS frontends |
-| `AUTHENTICATION.md` | Auth coverage audit — per-route inventory, defence-in-depth middleware, hashed-credential migration |
-| `SECURITY.md` | Vulnerability disclosure policy and supported-versions matrix |
-| `CHANGELOG.md` | User-facing change log (Keep a Changelog format) |
-| `AGENTS.md` | This file — AI agent guide |
+**One home per topic — link, do not restate.** These files total well over
+100 KB and previously explained the same things in four places, which is how
+they drifted apart (see
+[#448](https://github.com/JacoboSanchez/volley-overlay-control/issues/448)).
+Each topic below has exactly one owner. When you change something, update the
+owning file and check that the others still only *link*; if you find yourself
+writing a second explanation of an owned topic, replace it with a link.
+
+| File | Audience | **Owns** (the only place it is explained) |
+|------|----------|-------------------------------------------|
+| `README.md` | Operators self-hosting the app | Install / Docker / Compose, the env var table, first-run and upgrade procedure, sharing and revoking an operator board link |
+| `AUTHENTICATION.md` | Anyone reasoning about access | **The whole auth model**: the four board credentials and their trade-offs (§1.2), the per-route inventory, defence-in-depth middleware, credentials at rest |
+| `DEVELOPER_GUIDE.md` | Backend contributors | Module-by-module code map, class/method reference, "how do I add X" recipes |
+| `FRONTEND_DEVELOPMENT.md` | Anyone calling the API | Per-endpoint request/response reference, WebSocket protocol, worked client examples |
+| `AGENTS.md` | AI agents | This file — orientation, repo conventions, the `skey` rule, pitfalls, mandatory PR tasks |
+| `CONTRIBUTING.md` | New contributors | Dev loop, branching, PR checklist, release + changelog-archive procedure |
+| `SECURITY.md` | Reporters | Disclosure policy and supported-versions matrix |
+| `CHANGELOG.md` | Everyone | Current major + `## [Unreleased]`. Older releases: `docs/CHANGELOG-archive.md` |
+
+Cross-cutting rules that follow from the table:
+
+- **Auth**: `AUTHENTICATION.md` owns the *model* — why a credential exists,
+  what it grants, what each failure returns, the security trade-offs. Other
+  docs may give operating instructions ("here is the link, here is how to
+  revoke it") and a one-line safety note, then link. They must not restate the
+  reasoning or re-enumerate statuses and flags; if you are explaining *why*
+  rather than *how to*, it belongs in `AUTHENTICATION.md`.
+- **Env vars**: only `README.md`'s table lists defaults.
+  `tests/test_env_docs.py` enforces that every var read by the backend appears
+  there.
+- **Endpoints**: `FRONTEND_DEVELOPMENT.md` documents shapes; the `Endpoints`
+  table above and `AUTHENTICATION.md` §2 are indexes, not references.
+- **Counts and lists** (template counts, CI gates) are checked against reality
+  by `tests/test_docs_consistency.py` — a wrong number fails CI rather than
+  quietly rotting.
 
 ---
 
@@ -408,6 +437,14 @@ entry under the matching subsection (`Added`, `Changed`, `Fixed`,
 `Removed`, `Deprecated`, `Security`, `Dependencies`) and link any
 relevant issue/PR numbers. Pure internal refactors with no user-visible
 effect can be skipped — when in doubt, add the entry.
+
+`CHANGELOG.md` holds **only the current major plus `[Unreleased]`** so it
+stays readable at this cadence; older releases are in
+`docs/CHANGELOG-archive.md`. Never write there by hand, and never move a
+version down as part of a feature or docs change — the release workflow
+archives a superseded major automatically when it cuts a new one
+(`scripts/release/cut_changelog.py`; see
+[CONTRIBUTING.md](CONTRIBUTING.md#archiving-a-superseded-major)).
 
 ### 2. Regenerate the OpenAPI Schema + Frontend Types
 

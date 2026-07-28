@@ -165,18 +165,26 @@ You can also override match rules when initialising:
 
 ## Authentication
 
-The control API is **multi-user and cookie-authenticated**. Every `/api/v1/*`
-scoreboard route requires a logged-in user; sessions are addressed by the
-per-user storage key `<user_id>:<oid>`, so a user can only ever reach overlays
-they own (passing another user's `oid` resolves to a different, empty key).
+The control API is **multi-user**. There is no `Authorization` header and no
+API key. Every request resolves to one overlay's storage key
+`<user_id>:<oid>`, so a caller can only ever reach the board its credential
+authorizes — passing someone else's `oid` resolves to a different, empty key.
 
-The flow:
+> This section covers **how to authenticate a client**. The model itself —
+> every credential, which routes accept it, what each failure returns, and the
+> security trade-offs — is in [AUTHENTICATION.md](AUTHENTICATION.md) (§1.2 for
+> the credentials, §2 for the per-route inventory). Read that before assuming
+> a route needs a login.
+
+Two options for a client that drives a board:
+
+**1. Log in as the owner (cookie session).** Needed for account-level routes
+(overlay CRUD, teams, presets, matches, admin).
 
 1. `POST /api/v1/auth/login` with `{username, password}` — the server replies
-   with the user record and sets an **HttpOnly session cookie**.
-2. Subsequent requests are authenticated automatically because the browser
-   sends that cookie on same-origin requests. There is no `Authorization`
-   header and no API key.
+   with the user record and sets an **HttpOnly** `vsession` cookie.
+2. Subsequent requests authenticate automatically: the browser sends that
+   cookie on same-origin requests.
 3. `POST /api/v1/auth/logout` clears the session.
 
 ```bash
@@ -191,11 +199,31 @@ curl -b cookies.txt -X POST "http://localhost:8080/api/v1/game/add-point?oid=my-
   -d '{"team": 1}'
 ```
 
+**2. Use the overlay's control token (no login).** An owner can hand out a
+per-overlay token; a client that holds one drives that single board and needs
+no account. Pass it as `?c=<token>` or the `X-Control-Token` header. The owner
+reads it from `GET /api/v1/overlays` and revokes it with
+`POST /api/v1/overlays/{oid}/regenerate-control-token`.
+
+```bash
+# No cookie — the token is the credential. `oid` is not needed: the token
+# identifies the board.
+curl -X POST "http://localhost:8080/api/v1/game/add-point?c=<control-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"team": 1}'
+```
+
+This is the right option for a scoreboard tablet, a stream-deck integration, or
+any headless client — it avoids storing an account password. It reaches the
+board surface only (scoring, display, customization, rules); account routes
+still return `401`.
+
 In the bundled SPA, the API client (`frontend/src/api/client.ts`) sends every
-request with `credentials: 'include'`, so the cookie travels automatically. The
-client exposes an `ApiError` class (carrying the HTTP status); a `401` response
-routes the user back to `/login`. There is no `apiKey`/`setApiKey`/`Authorization`
-plumbing anymore.
+request with `credentials: 'include'`, so the cookie travels automatically, and
+forwards a `?c=` token from the page URL when the board was opened from a
+control link. The client exposes an `ApiError` class (carrying the HTTP status);
+a `401` routes the user back to `/login`, while a `403` on a board route means
+the control link is invalid or was revoked.
 
 Related endpoints used by the SPA's auth screens:
 
@@ -230,7 +258,7 @@ Initialise or re-use a game session.
 
 #### `GET /api/v1/state?oid=<OID>`
 
-Returns the full game state. See the [State Model](#state-model) section for the response structure.
+Returns the full game state. See the [State Model Reference](#state-model-reference) section for the response structure.
 
 #### `GET /api/v1/config?oid=<OID>`
 
@@ -519,12 +547,25 @@ ws.onopen = () => {
 };
 ```
 
-The control WebSocket is **authenticated by the same session cookie as the REST
-API** — browsers send cookies automatically on same-origin WebSocket upgrades,
-so no extra credential is needed. The server resolves the cookie to the caller's
-per-user storage key and rejects unauthenticated upgrades with close code
-`4003`. There is no `bearer` subprotocol and no `?token=` query parameter on the
-control WS anymore.
+The control WebSocket accepts **all three board credentials, same as the REST
+control surface** — bookmark-mode clients get real-time updates too. Listed in
+the order the server tries them, which matters when a client has more than one:
+
+| # | Credential | On the WS URL |
+| :-- | :--- | :--- |
+| 1 | Control token | `?c=<token>`. The `X-Control-Token` header form is *not* available: a browser `WebSocket` cannot set request headers |
+| 2 | Public bookmark | `?u=<username>&oid=<oid>` |
+| 3 | Owner session | nothing to add — browsers send the cookie automatically on same-origin upgrades |
+
+Each resolves to the board's storage key. **A `?c=` token wins over a logged-in
+cookie**, so a signed-in owner who opens someone else's control link streams
+*that* board, not their own. The bundled client applies the same order
+(`createWebSocket` in `frontend/src/api/websocket.ts`), and it matches
+`resolve_board_skey` on the REST side.
+
+Close codes: `4400` when neither `oid` nor `c` was supplied, `4003` when the
+credential does not resolve, `4004` when the board has no session yet. There is
+no `bearer` subprotocol.
 
 This applies only to the control WS (`/api/v1/ws`). The built-in overlay
 **output** server's `/ws/{public_token}` is a separate, **unauthenticated
@@ -844,5 +885,9 @@ These behaviours are not part of the API contract — document them here so alte
 - **Set-cell long press** — long-pressing a set counter in the centre panel opens the same dialog against `POST /api/v1/game/set-sets`.
 - **Swipe between scoreboard and config** — `frontend/src/hooks/useSwipeNavigation.ts` attaches touch handlers to `.app-container`. A horizontal swipe of ≥80 px with `|dy|/|dx| ≤ 0.5` switches tabs: left-swipe goes scoreboard → config, right-swipe goes config → scoreboard. Gestures whose `touchstart` target matches `DEFAULT_IGNORE_SELECTORS` (`button`, `input`, `select`, `textarea`, `a`, `label`, ARIA `button|slider|checkbox|switch|tab|menuitem`, `[contenteditable="true"]`) are skipped so taps, long-presses on `ScoreButton`, and slider drags work unchanged. `.app-container` declares `touch-action: pan-y` so the browser keeps native vertical scrolling and yields horizontal motion to us. When the overlay preview is rendered inside `.app-container`, `pointer-events: none` is applied to the iframe via `.app-container .preview-container iframe` because cross-document touch events do not bubble out of an iframe — without it, swipes that begin over the preview never reach the parent handler. The standalone `/preview` page is unaffected and keeps its iframe interactive.
 - **Pre-select OID via URL** — the bundled UI resolves the initial OID from `?oid=<OID>` first, falling back to the `volley_oid` key in `localStorage`. Providing a `?oid=` value auto-connects the session (skipping the picker) and replaces any previously stored OID, so external links can force-switch which overlay this tab is controlling.
-- **WebSocket reconnect** — on close (other than `4004` "no session"), the bundled UI reconnects after 3 s. No credential is re-applied — the session cookie authenticates the upgrade automatically.
+- **WebSocket reconnect** — after a non-application close, the bundled UI
+  reconnects with exponential backoff plus jitter and reapplies the active
+  board mode (`?c=`, `?u=&oid=`, or owner `?oid=` plus the automatically sent
+  session cookie). Any `4xxx` close is terminal because retrying a bad request,
+  invalid/revoked credential, or missing session cannot recover by itself.
 - **Client error reporting** — uncaught errors and `window.onerror` traces are posted to `/api/v1/_log`, rate-limited and PII-redacted server-side.

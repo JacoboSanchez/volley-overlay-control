@@ -1,9 +1,10 @@
 """WebSocket /ws — real-time state stream for an overlay session.
 
-Authorized the same two ways as the REST control surface: an operator's control
-token (``?c=<token>``) or the owner's session cookie (sent on same-origin
-upgrades). Either resolves to the board's per-user storage key, so a client only
-ever streams a board its credential authorizes.
+Authorized the same three ways as the REST control surface: an operator's
+control token (``?c=<token>``), an opted-in ``?u=<username>&oid=`` public
+bookmark, or the owner's session cookie (sent on same-origin upgrades). Each
+resolves to the board's per-user storage key, so a client only ever streams a
+board its credential authorizes.
 """
 
 import logging

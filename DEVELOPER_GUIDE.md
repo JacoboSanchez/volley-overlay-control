@@ -316,30 +316,36 @@ setting. Every endpoint is gated by `Depends(require_admin)`.
 
 #### `app/auth/` — cookie-session authentication
 
-Replaces the old env-var `SCOREBOARD_USERS` Bearer ladder. A login mints a
-random opaque token stored in an **HttpOnly** cookie named `vsession`; only
-its SHA-256 hash is persisted in the `auth_sessions` table (server-side
-storage is what makes logout and "log out everywhere on password change"
-possible). Accounts carry a `user`/`admin` role.
+The login layer. A login mints a random opaque token carried in an
+**HttpOnly** `vsession` cookie; only its SHA-256 hash is persisted in the
+`auth_sessions` table. Server-side session rows are what make revocation
+possible at all — a stateless signed cookie could not be revoked without a
+denylist. *Which* mechanism revokes *which* sessions is documented in
+[AUTHENTICATION.md](AUTHENTICATION.md) §1.2, not here; the answer is not
+"all of them" in every case.
+
+> **The model is not documented here.** Roles, the forced-password-change
+> gate, the four ways to reach a board, and what every route accepts live in
+> [AUTHENTICATION.md](AUTHENTICATION.md) (§1.1–1.2 for the model, §2 for the
+> route inventory). What follows is the code map only.
 
 - **`sessions.py`** — create/resolve/revoke sessions; cookie set/clear.
-- **`dependencies.py`** — `current_user` (resolve or `None`),
-  `require_user` (401 if anonymous, 409 if a forced password change is
-  pending), `require_admin` (403 unless admin role).
+- **`dependencies.py`** — the `current_user` → `require_user` →
+  `require_admin` dependency chain.
 - **`service.py`** — user CRUD, `authenticate`, password/role/active changes.
-- **`routes.py`** — `/api/v1/auth/*`: `register` (gated by the DB-backed
-  `REGISTRATION_OPEN` toggle), `login`, `logout`, `me`, `change-password`,
-  and the first-admin `claim-admin`.
-- **`bootstrap.py`** — first-admin bootstrap: when no admin exists, a
-  one-time claim token is minted (or read from `ADMIN_BOOTSTRAP_TOKEN`),
-  logged at startup, and exchanged via `POST /api/v1/auth/claim-admin`.
-  Once an admin exists the flow is a no-op and the endpoint returns 410.
+- **`routes.py`** — `/api/v1/auth/*`: `register`, `login`, `logout`, `me`,
+  `change-password`, `context`, and the first-admin `claim-admin`.
+- **`bootstrap.py`** — mints (or reads from `ADMIN_BOOTSTRAP_TOKEN`) the
+  one-time first-admin claim token and logs it at startup.
 - **`passwords.py` / `app/password_hash.py`** — scrypt hashing (stdlib only).
 
-`app/api/dependencies.py` exposes `get_session`, which authorizes the
-caller (control token, public bookmark, or cookie user) and resolves their
-session by `skey = "<user_id>:<oid>"` in a single lookup. The control WebSocket `/api/v1/ws?oid=` is
-authenticated by the same cookie.
+`app/api/dependencies.py` is the **board** gate: `get_session` resolves
+whichever board credential is present to `skey = "<user_id>:<oid>"` and
+returns the live `GameSession` in a single lookup. `resolve_board_skey` is
+the reusable half, for the few routes that need the key without a session
+(see `app/api/routes/teams.py`). `app/api/routes/websocket.py` repeats the
+same resolution for `/api/v1/ws`, because a WebSocket handshake cannot use
+the HTTP dependency.
 
 #### `app/db/` — SQLAlchemy persistence
 

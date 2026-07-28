@@ -119,6 +119,45 @@ be rejected. The changelog transform itself lives in
 and is unit-tested in `tests/test_release_script.py`, so it can also
 be run locally for a manual release.
 
+### Archiving a superseded major
+
+`CHANGELOG.md` holds only the current major plus `## [Unreleased]`;
+older releases live in
+[`docs/CHANGELOG-archive.md`](./docs/CHANGELOG-archive.md). Every
+contributor and every agent reads and appends to the live file, so it is
+kept short deliberately.
+
+**This is automatic — there is nothing to do by hand.** When the *Cut
+release* workflow is run with a version that bumps the major,
+[`cut_changelog.py`](./scripts/release/cut_changelog.py) moves the
+superseded major into the archive and retargets the "current major (N.x)"
+sentence, all inside the release commit. Minor and patch releases move
+nothing.
+
+It has to happen in that commit rather than a follow-up:
+`tests/test_docs_consistency.py` holds `CHANGELOG.md` to a single major,
+so a release commit that cut `7.0.0` while leaving 6.x in place would push
+a tree that fails CI on `main`. Use `--dry-run` to preview — it prints
+which releases *would* move to stderr and writes nothing.
+
+Should you ever need to do it manually (recovering from a botched
+release, say):
+
+1. Cut everything from the newly-superseded major's highest `## [X.Y.Z]`
+   heading to the end of `CHANGELOG.md`.
+2. Paste it directly under the `---` rule in
+   `docs/CHANGELOG-archive.md`, keeping newest-first order.
+3. Update the `(N.x)` marker in the sentence at the top of `CHANGELOG.md`.
+
+Do that in a commit that does nothing else — an archive move is a few
+thousand lines, and burying it in a feature diff makes both unreviewable.
+Neither file's heading carries a version *range*, deliberately: a range
+would be one more hand-maintained number to drift.
+
+`tests/test_docs_consistency.py` checks the split stayed clean: no version
+in both files, the archive strictly older than everything live, and the
+live file spanning exactly one major.
+
 ---
 
 ## Coding conventions
