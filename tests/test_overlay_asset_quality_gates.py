@@ -48,3 +48,14 @@ def test_precommit_hooks_cover_overlay_javascript_and_css() -> None:
     assert "overlay_static/js/" in hooks["frontend-eslint"]["files"]
     assert "overlay_static/css/" in hooks["overlay-stylelint"]["files"]
     assert "npm run stylelint" in hooks["overlay-stylelint"]["entry"]
+
+
+def test_long_team_names_keep_an_older_obs_wrapping_fallback() -> None:
+    fallback = "overflow-wrap: break-word;\n  overflow-wrap: anywhere;"
+
+    for stylesheet in (
+        "overlay_static/css/corners_shared.css",
+        "overlay_static/css/spectator.css",
+        "overlay_static/css/vertical.css",
+    ):
+        assert fallback in _read(stylesheet), stylesheet

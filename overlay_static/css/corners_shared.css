@@ -203,6 +203,7 @@ body.overlay-theme-light #scoreboard-container {
   /* Wrap (never clip) if a name exceeds the max-width cap; within the
        cap equalizeNamePanels sizes both slots to the longer name. */
   white-space: normal;
+  overflow-wrap: break-word;
   overflow-wrap: anywhere;
 }
 /* equalizeNamePanels makes .team-info a grid with justify-items:start, so

@@ -222,6 +222,7 @@ body {
   font-size: 0.95rem;
   font-weight: 700;
   text-align: center;
+  overflow-wrap: break-word;
   overflow-wrap: anywhere;
 }
 

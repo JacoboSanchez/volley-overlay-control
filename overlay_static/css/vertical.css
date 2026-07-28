@@ -73,6 +73,7 @@ body {
   line-height: 1.1;
   white-space: normal; /* Allow wrapping */
   overflow: visible; /* Don't hide overflow */
+  overflow-wrap: break-word;
   overflow-wrap: anywhere; /* Break long words if necessary */
   max-width: 120px;
 }
