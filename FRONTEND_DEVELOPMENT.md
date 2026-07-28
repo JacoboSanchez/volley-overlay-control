@@ -250,8 +250,13 @@ Every listing whose size grows with usage takes `limit` and `offset`:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `limit` | int | `LIST_DEFAULT_LIMIT` (500) | Page size. `1 … LIST_MAX_LIMIT` (2000); outside that range the request is rejected with 422. |
+| `limit` | int | `LIST_DEFAULT_LIMIT` | Page size, from `1` to `LIST_MAX_LIMIT`; outside that range the request is rejected with 422. |
 | `offset` | int | `0` | Rows to skip. Negative values are rejected with 422. |
+
+Both bounds are operator-configurable; their values live with every other
+env var default in [`.env.example`](.env.example) (**Advanced tuning**),
+indexed from the [README](README.md#configuration) table. Don't hard-code
+them in a client — read `X-Total-Count` and page until you have everything.
 
 **The response body shape is the same with or without them** — a listing that
 returned a JSON array still returns a JSON array. The full in-scope total is

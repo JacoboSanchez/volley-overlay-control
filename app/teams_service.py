@@ -66,7 +66,7 @@ def list_global(
     return list(
         db.execute(
             _paged(
-                select(Team).where(Team.is_global.is_(True)).order_by(Team.name),
+                select(Team).where(Team.is_global.is_(True)).order_by(Team.name, Team.id),
                 limit, offset,
             )
         ).scalars().all()
@@ -238,7 +238,7 @@ def list_active_groups(
             _paged(
                 select(TeamGroup)
                 .where(*_active_shared_groups_where())
-                .order_by(TeamGroup.name),
+                .order_by(TeamGroup.name, TeamGroup.id),
                 limit, offset,
             )
         ).scalars().all()
@@ -265,7 +265,7 @@ def list_all_groups(
             _paged(
                 select(TeamGroup)
                 .where(TeamGroup.owner_user_id.is_(None))
-                .order_by(TeamGroup.name),
+                .order_by(TeamGroup.name, TeamGroup.id),
                 limit, offset,
             )
         ).scalars().all()
@@ -342,7 +342,7 @@ def group_member_teams_bulk(
         select(TeamGroupMember.group_id, Team)
         .join(Team, TeamGroupMember.team_id == Team.id)
         .where(TeamGroupMember.group_id.in_(list(out)), Team.is_global.is_(True))
-        .order_by(TeamGroupMember.group_id, Team.name)
+        .order_by(TeamGroupMember.group_id, Team.name, Team.id)
     ).all()
     for group_id, team in rows:
         out[group_id].append(team)
@@ -361,7 +361,7 @@ def list_user_team_rows(
                 select(Team)
                 .join(UserTeamListItem, UserTeamListItem.team_id == Team.id)
                 .where(UserTeamListItem.user_id == user_id)
-                .order_by(UserTeamListItem.sort_order, Team.name),
+                .order_by(UserTeamListItem.sort_order, Team.name, Team.id),
                 limit, offset,
             )
         ).scalars().all()
@@ -603,7 +603,7 @@ def list_user_visible_groups(
                 select(TeamGroup)
                 .where(_visible_groups_where(user_id))
                 # Shared (owner NULL → 0) before private (→ 1), then by name.
-                .order_by(TeamGroup.owner_user_id.isnot(None), TeamGroup.name),
+                .order_by(TeamGroup.owner_user_id.isnot(None), TeamGroup.name, TeamGroup.id),
                 limit, offset,
             )
         ).scalars().all()
@@ -665,7 +665,7 @@ def user_group_teams_bulk(
             UserGroupTeam.group_id.in_(list(out)),
             or_(Team.is_global.is_(True), Team.owner_user_id == user_id),
         )
-        .order_by(UserGroupTeam.group_id, UserGroupTeam.sort_order, Team.name)
+        .order_by(UserGroupTeam.group_id, UserGroupTeam.sort_order, Team.name, Team.id)
     ).all()
     for group_id, team in rows:
         out[group_id].append(team)
@@ -687,7 +687,7 @@ def all_group_teams(
             _paged(
                 select(Team)
                 .where(or_(Team.is_global.is_(True), Team.owner_user_id == user_id))
-                .order_by(Team.name),
+                .order_by(Team.name, Team.id),
                 limit, offset,
             )
         ).scalars().all()

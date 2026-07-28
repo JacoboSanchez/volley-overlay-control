@@ -89,7 +89,7 @@ def list_for_user(
         select(Preset)
         .where(_for_user_where(user_id))
         # Globals (scope == 'global' → false → 0) before the caller's own.
-        .order_by(Preset.scope != SCOPE_GLOBAL, func.lower(Preset.name))
+        .order_by(Preset.scope != SCOPE_GLOBAL, func.lower(Preset.name), Preset.id)
     )
     if offset:
         stmt = stmt.offset(offset)
@@ -162,7 +162,7 @@ def delete_global_preset(db: Session, slug: str) -> bool:
 def list_global_presets(
     db: Session, *, limit: int | None = None, offset: int = 0,
 ) -> list[Preset]:
-    stmt = select(Preset).where(Preset.scope == SCOPE_GLOBAL).order_by(Preset.name)
+    stmt = select(Preset).where(Preset.scope == SCOPE_GLOBAL).order_by(Preset.name, Preset.id)
     if offset:
         stmt = stmt.offset(offset)
     if limit is not None:

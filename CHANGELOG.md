@@ -66,6 +66,18 @@ archive by hand.
   page: they are backup surfaces where a silently truncated page would
   mean silently losing data on the next import.
 
+  The bundled SPA walks every page. Its overlays, team catalog, groups,
+  icon library and preset screens all render the complete listing, so the
+  client follows `X-Total-Count` until it has everything rather than
+  showing a silently truncated first page. A response without the header
+  (an older server) is treated as a single complete page.
+
+  Every paged `ORDER BY` ends in a unique key. `teams.name`, `icons.name`
+  and `presets.name` carry no uniqueness constraint, so ordering by name
+  alone would let the database return tied rows in a different order per
+  query — and a client walking pages would then see some rows twice and
+  miss others.
+
 - **A background sweeper for expired login sessions.** `auth_sessions`
   rows were only ever deleted when their own token was presented again, so
   a user who logged in and then cleared their cookies left a row behind

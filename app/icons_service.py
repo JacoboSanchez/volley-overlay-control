@@ -223,7 +223,7 @@ def _unlink_file(filename: str) -> None:
 def list_global(
     db: Session, *, limit: int | None = None, offset: int = 0,
 ) -> list[Icon]:
-    stmt = select(Icon).where(Icon.is_global.is_(True)).order_by(Icon.name)
+    stmt = select(Icon).where(Icon.is_global.is_(True)).order_by(Icon.name, Icon.id)
     if offset:
         stmt = stmt.offset(offset)
     if limit is not None:

@@ -300,6 +300,62 @@ def test_catalog_pages_and_reports_the_total(db_session):
     assert walked == [f"Team {i:03d}" for i in range(7)]
 
 
+def test_paging_is_stable_when_names_collide(db_session):
+    """Every paged ``ORDER BY`` ends in a unique key.
+
+    ``teams.name`` has no uniqueness constraint (``get_global_by_name``
+    documents why), so ordering by name alone lets the database return tied
+    rows in a different order per query — and a client walking pages would
+    then duplicate some rows and miss others. Same for ``icons.name`` and
+    ``presets.name``.
+    """
+    from app.db.models.team import Team
+
+    client = _user(db_session)
+    for _ in range(6):
+        db_session.add(Team(name="Same Name", is_global=True))
+    db_session.commit()
+
+    walked: list[int] = []
+    for offset in range(0, 6, 2):
+        page = client.get(f"/api/v1/teams/catalog?limit=2&offset={offset}").json()
+        walked.extend(t["id"] for t in page)
+
+    assert len(walked) == 6
+    assert len(set(walked)) == 6, f"paging duplicated/dropped tied rows: {walked}"
+    assert walked == sorted(walked)
+
+
+def test_preset_paging_is_stable_when_names_collide(db_session):
+    """A user preset and a global preset may share a display name; the page
+    boundary must still not duplicate or drop one."""
+    from app.db.models.preset import SCOPE_GLOBAL, SCOPE_USER, Preset
+
+    client = _user(db_session, "tiedpresets")
+    for i in range(4):
+        db_session.add(Preset(
+            slug=f"g{i}", name="Tie", scope=SCOPE_GLOBAL, owner_user_id=None,
+            is_active=True, categories=[], values={"Team 1 Color": "#111111"},
+        ))
+        db_session.add(Preset(
+            slug=f"u{i}", name="Tie", scope=SCOPE_USER,
+            owner_user_id=client.test_user_id, is_active=True,
+            categories=[], values={"Team 2 Color": "#222222"},
+        ))
+    db_session.commit()
+
+    walked: list[str] = []
+    for offset in range(0, 8, 3):
+        page = client.get(
+            f"/api/v1/customization/presets?limit=3&offset={offset}",
+        ).json()["items"]
+        walked.extend(p["slug"] for p in page)
+    assert len(walked) == 8
+    assert len(set(walked)) == 8, f"paging duplicated/dropped tied presets: {walked}"
+    # Globals still come first even though every name is identical.
+    assert all(s.startswith("g") for s in walked[:4])
+
+
 def test_default_page_is_unchanged_for_existing_clients(db_session):
     """A caller that sends no paging parameters still gets everything, so the
     bundled SPA and any existing integration are unaffected."""
