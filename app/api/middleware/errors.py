@@ -15,6 +15,11 @@ carry enough context to grep for a specific failure. JSON-formatted
 logs additionally surface the same fields under structured keys via
 the ``extra`` payload, which makes them queryable in observability
 tools without parsing the free-form message.
+
+The same exception is also handed to :func:`app.observability.capture_exception`
+so an operator who has configured a reporter gets *aggregation* — "40 of
+these since 14:02" — which no volume of individual log lines provides.
+That call is a no-op unless a reporter was wired at startup.
 """
 
 import logging
@@ -22,6 +27,7 @@ import logging
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.logging_context import get_request_id
+from app.observability import capture_exception
 
 logger = logging.getLogger(__name__)
 
@@ -56,4 +62,5 @@ class ExceptionLoggingMiddleware:
                     "http_path": path,
                 },
             )
+            capture_exception(exc)
             raise

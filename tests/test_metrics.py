@@ -60,10 +60,103 @@ class TestMetricsEndpoint:
             assert value >= 3.0
 
 
-class TestMetricsOpen:
+class TestMetricsOpenByDefault:
     def test_metrics_is_unauthenticated(self, client):
-        # /metrics exposes only aggregates and is open by design.
+        # /metrics exposes only aggregates and stays open unless the
+        # operator opts into a gate.
         assert client.get("/metrics").status_code == 200
+
+
+class TestMetricsEnabledToggle:
+    """``METRICS_ENABLED=false`` removes the endpoint."""
+
+    def test_disabled_returns_404_not_403(self, client, monkeypatch):
+        monkeypatch.setenv("METRICS_ENABLED", "false")
+        res = client.get("/metrics")
+        # 404, so a switched-off endpoint is indistinguishable from one
+        # that was never mounted — 403 would advertise that it exists.
+        assert res.status_code == 404
+        assert "voc_http_request_duration_seconds" not in res.text
+
+    def test_disabled_wins_over_a_valid_token(self, client, monkeypatch):
+        monkeypatch.setenv("METRICS_ENABLED", "false")
+        monkeypatch.setenv("METRICS_TOKEN", "scrape-secret")
+        res = client.get(
+            "/metrics", headers={"Authorization": "Bearer scrape-secret"},
+        )
+        assert res.status_code == 404
+
+    @pytest.mark.parametrize("value", ["true", "1", "yes", "on"])
+    def test_truthy_values_keep_it_mounted(self, client, monkeypatch, value):
+        monkeypatch.setenv("METRICS_ENABLED", value)
+        assert client.get("/metrics").status_code == 200
+
+    def test_read_per_request_so_it_can_be_flipped(self, client, monkeypatch):
+        assert client.get("/metrics").status_code == 200
+        monkeypatch.setenv("METRICS_ENABLED", "false")
+        assert client.get("/metrics").status_code == 404
+        monkeypatch.setenv("METRICS_ENABLED", "true")
+        assert client.get("/metrics").status_code == 200
+
+
+class TestMetricsToken:
+    """``METRICS_TOKEN`` turns the endpoint into a bearer-gated scrape."""
+
+    @pytest.fixture(autouse=True)
+    def _token(self, monkeypatch):
+        monkeypatch.setenv("METRICS_TOKEN", "scrape-secret")
+
+    def test_correct_bearer_token_is_accepted(self, client):
+        res = client.get(
+            "/metrics", headers={"Authorization": "Bearer scrape-secret"},
+        )
+        assert res.status_code == 200
+        assert "voc_http_request_duration_seconds" in res.text
+
+    def test_missing_credentials_are_challenged(self, client):
+        res = client.get("/metrics")
+        assert res.status_code == 401
+        assert res.headers["www-authenticate"].startswith("Bearer")
+        # The exposition must not leak past the gate.
+        assert "voc_active_sessions" not in res.text
+
+    @pytest.mark.parametrize(
+        "header",
+        [
+            "Bearer wrong-secret",
+            "Bearer ",
+            "Basic scrape-secret",          # wrong scheme
+            "scrape-secret",                # no scheme
+            "Bearer scrape-secret-extra",   # prefix of the real token
+            "Bearer scrape-secre",          # truncation of the real token
+        ],
+    )
+    def test_bad_credentials_are_rejected(self, client, header):
+        res = client.get("/metrics", headers={"Authorization": header})
+        assert res.status_code == 401
+
+    def test_scheme_matching_is_case_insensitive(self, client):
+        # RFC 7235 auth schemes are case-insensitive; some scrapers send
+        # a lowercase "bearer".
+        res = client.get(
+            "/metrics", headers={"Authorization": "bearer scrape-secret"},
+        )
+        assert res.status_code == 200
+
+    def test_blank_token_is_treated_as_unset(self, client, monkeypatch):
+        monkeypatch.setenv("METRICS_TOKEN", "   ")
+        assert client.get("/metrics").status_code == 200
+
+    def test_non_ascii_token_rejects_rather_than_500s(self, client, monkeypatch):
+        # hmac.compare_digest raises TypeError on non-ASCII str arguments,
+        # so a misconfigured operator could turn every scrape into a 500.
+        # Comparing as bytes makes it a plain 401. (The matching-token case
+        # is unreachable over HTTP — headers cannot carry these bytes — so
+        # such a token simply never authenticates anyone.)
+        monkeypatch.setenv("METRICS_TOKEN", "sécret-ünicode")
+        assert client.get(
+            "/metrics", headers={"Authorization": "Bearer wrong"},
+        ).status_code == 401
 
 
 class TestWebhookCounter:

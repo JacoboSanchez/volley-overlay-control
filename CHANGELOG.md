@@ -55,7 +55,71 @@ archive by hand.
   and the reason the existing suite had to `importlib.reload` the module
   to change a limit. They are read per call now.
 
+- **An inbound `X-Request-ID` is now bounded before it is trusted.** The
+  header was read, echoed back in the response, *and* interpolated into
+  every log line emitted for that request, with no length or character
+  limit — so a single multi-kilobyte header inflated the log by that
+  amount once per record. Only a short, printable token is accepted now
+  (≤64 chars, `A–Z a–z 0–9 . _ -`); anything else is discarded in favour
+  of a generated id rather than truncated, since a truncated id no longer
+  matches what the caller logged. `-`, the internal "no request id"
+  sentinel, is rejected too — accepting it verbatim let a caller suppress
+  its own request's correlation output.
+  Part of [#447](https://github.com/JacoboSanchez/volley-overlay-control/issues/447).
+
+- **`/metrics` can now be gated or switched off.** It was unauthenticated
+  with no opt-out, and it is registered before the SPA catch-all, so on
+  the default compose `0.0.0.0:80` bind it was internet-reachable. The
+  exported aggregates are not secrets but they are an oracle:
+  `voc_active_sessions` is a logged-in user count, `voc_ws_oids_active` a
+  live-match count, and the per-route latency series enumerate the route
+  surface. **The default is unchanged** — open, aggregates only — but
+  `METRICS_TOKEN` now requires `Authorization: Bearer <token>` (401 +
+  `WWW-Authenticate` on a miss, `hmac.compare_digest` comparison) and
+  `METRICS_ENABLED=false` removes the endpoint entirely, answering 404 so
+  it is indistinguishable from a build that never mounted it. Both are
+  read per request, so `REMOTE_CONFIG_URL` can flip them without a
+  restart.
+  Part of [#447](https://github.com/JacoboSanchez/volley-overlay-control/issues/447).
+
+- **Signed match-report URLs can be keyed separately from sessions.**
+  `SESSION_SECRET` signed both cookie sessions and report capability
+  URLs, coupling two unrelated revocations: rotating it because a cookie
+  leaked also broke every share link handed out, and there was no way to
+  revoke the links alone without logging every user out. `MATCH_REPORT_SECRET`
+  now takes precedence when set. It is deliberately not auto-minted —
+  leaving it unset must keep validating links signed before it existed,
+  which it can only do by falling through to `SESSION_SECRET`, so existing
+  deployments are unaffected.
+  Part of [#447](https://github.com/JacoboSanchez/volley-overlay-control/issues/447).
+
 ### Added
+
+- **An error-tracking hook and W3C trace-context propagation**, closing
+  the last two observability gaps in
+  [#447](https://github.com/JacoboSanchez/volley-overlay-control/issues/447).
+
+  Unhandled exceptions were logged with full request context but never
+  *aggregated* — no amount of log lines tells an operator "this 500 has
+  happened 40 times since 14:02". `app/observability.py` is now the single
+  hook where a reporter is wired: set `SENTRY_DSN` (plus optional
+  `SENTRY_ENVIRONMENT` / `SENTRY_TRACES_SAMPLE_RATE`) and the exception
+  middleware reports as well as logs. `sentry-sdk` is an **optional
+  import, not a bundled dependency** — a DSN set without the package logs
+  a warning and leaves reporting off rather than failing the boot, and
+  every failure path (bad DSN, reporter down) degrades to "logged only".
+  PII is off: the project redacts OIDs and URLs in its own logs, and
+  shipping headers, cookies and IPs to a third party by default would
+  quietly undo that.
+
+  Separately, a valid inbound W3C `traceparent` is now honoured, so the
+  custom `X-Request-ID` interoperates with a proxy or service mesh that
+  already emits trace context. Its trace-id is adopted as the request id
+  when the caller sent no explicit `X-Request-ID` (an explicit one still
+  wins), and is attached to log records and error reports as `trace_id`.
+  Records carry the field only when a trace was actually supplied, so a
+  deployment with no upstream tracing sees exactly the JSON log shape it
+  saw before.
 
 - **The JavaScript and CSS that render the on-air overlays now pass the same
   automated quality gates as the React SPA.** ESLint checks every first-party

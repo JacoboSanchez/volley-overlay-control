@@ -2026,6 +2026,92 @@ class TestMatchReportAuth:
         assert c.get(f"/match/{match_id}/report").status_code == 401
 
 
+class TestReportSigningKeySeparation:
+    """``MATCH_REPORT_SECRET`` decouples link rotation from session rotation.
+
+    Without it, one ``SESSION_SECRET`` rotation logs every user out *and*
+    breaks every share link an operator has handed out — two revocations
+    an operator has no way to perform independently.
+    """
+
+    def _digest(self, match_id="m-1", exp=1234567890):
+        from app.match_report_signing import _digest
+
+        return _digest(match_id, exp)
+
+    def test_session_secret_is_the_default_key(self, monkeypatch):
+        monkeypatch.delenv("MATCH_REPORT_SECRET", raising=False)
+        monkeypatch.setenv("SESSION_SECRET", "session-key")
+        with_fallback = self._digest()
+        monkeypatch.setenv("MATCH_REPORT_SECRET", "session-key")
+        assert self._digest() == with_fallback
+
+    def test_dedicated_secret_takes_precedence(self, monkeypatch):
+        monkeypatch.setenv("SESSION_SECRET", "session-key")
+        monkeypatch.delenv("MATCH_REPORT_SECRET", raising=False)
+        via_session = self._digest()
+        monkeypatch.setenv("MATCH_REPORT_SECRET", "report-key")
+        assert self._digest() != via_session
+
+    def test_rotating_the_session_secret_keeps_links_valid(self, monkeypatch):
+        # The whole point: with a dedicated key set, a session rotation
+        # must not invalidate outstanding report links.
+        monkeypatch.setenv("MATCH_REPORT_SECRET", "report-key")
+        monkeypatch.setenv("SESSION_SECRET", "session-key-v1")
+        before = self._digest()
+        monkeypatch.setenv("SESSION_SECRET", "session-key-v2")
+        assert self._digest() == before
+
+    def test_rotating_the_report_secret_invalidates_links(self, monkeypatch):
+        monkeypatch.setenv("SESSION_SECRET", "session-key")
+        monkeypatch.setenv("MATCH_REPORT_SECRET", "report-key-v1")
+        before = self._digest()
+        monkeypatch.setenv("MATCH_REPORT_SECRET", "report-key-v2")
+        assert self._digest() != before
+
+    def test_blank_dedicated_secret_falls_back(self, monkeypatch):
+        monkeypatch.setenv("SESSION_SECRET", "session-key")
+        monkeypatch.delenv("MATCH_REPORT_SECRET", raising=False)
+        via_session = self._digest()
+        monkeypatch.setenv("MATCH_REPORT_SECRET", "   ")
+        assert self._digest() == via_session
+
+    def test_no_key_at_all_yields_none(self, monkeypatch):
+        monkeypatch.delenv("MATCH_REPORT_SECRET", raising=False)
+        monkeypatch.delenv("SESSION_SECRET", raising=False)
+        from app.match_report_signing import make_signed_query
+
+        assert self._digest() is None
+        assert make_signed_query("m-1") is None
+
+    def test_signed_url_verifies_end_to_end_with_the_dedicated_key(
+        self, monkeypatch,
+    ):
+        monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
+        monkeypatch.setenv("SESSION_SECRET", "session-key")
+        monkeypatch.setenv("MATCH_REPORT_SECRET", "report-key")
+        from app.match_report_signing import make_signed_query
+
+        app = FastAPI()
+        app.include_router(match_report_router)
+        c = TestClient(app)
+        match_id = match_archive.archive_match(
+            oid="sep-key",
+            final_state={"team_1": {"sets": 3}, "team_2": {"sets": 0}},
+            customization={"Team 1 Name": "Home", "Team 2 Name": "Away"},
+            winning_team=1, sets_limit=3,
+        )
+        sq = make_signed_query(match_id)
+        url = f"/match/{match_id}/report?exp={sq['exp']}&sig={sq['sig']}"
+        assert c.get(url).status_code == 200
+        # Rotating the session secret leaves the link working.
+        monkeypatch.setenv("SESSION_SECRET", "session-key-v2")
+        assert c.get(url).status_code == 200
+        # Rotating the report secret revokes it.
+        monkeypatch.setenv("MATCH_REPORT_SECRET", "report-key-v2")
+        assert c.get(url).status_code == 401
+
+
 class TestPointTypeBreakdown:
     """Per-point classification breakdown in stats + highlights render."""
 

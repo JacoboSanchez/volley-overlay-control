@@ -263,7 +263,7 @@ board and cannot touch the owner's account.
 | `GET` | `/matches` | Y | Lists only the caller's archived matches. |
 | `GET` | `/matches/{id}` | Y | Owner-only (`404` otherwise). |
 | `DELETE` | `/matches/{id}` | Y | Owner-only delete (§8 / §7.1). |
-| `POST` | `/matches/{id}/sign-url` | Y | Owner mints an HMAC capability URL for the gated match report. Body: `{"ttl_seconds": int}`. Response embeds the time-bounded bearer capability `?exp=&sig=`; the signing key remains server-side in `SESSION_SECRET`. |
+| `POST` | `/matches/{id}/sign-url` | Y | Owner mints an HMAC capability URL for the gated match report. Body: `{"ttl_seconds": int}`. Response embeds the time-bounded bearer capability `?exp=&sig=`; the signing key remains server-side (`MATCH_REPORT_SECRET`, else `SESSION_SECRET` — §7.1). |
 | `GET` | `/icons` | Y | Icon library listing (globals + the caller's own + quota). |
 | `POST` | `/icons/mine` | Y | Multipart icon upload into the caller's personal library (server-side resize → WebP; quota-capped). |
 | `PATCH` / `DELETE` | `/icons/mine/{id}` | Y | Rename / delete an own icon (delete also clears referencing teams). `404` for ids outside the caller's scope. |
@@ -361,7 +361,7 @@ state, and cannot mutate anything. Control needs one of credentials 1–3.
 | `GET` | `/manifest.json` | — | PWA manifest |
 | `GET` | `/health` | — | Health check |
 | `GET` | `/health/ready` | — | Readiness probe: additionally touches the DB and the data dir, so an orchestrator does not route traffic to a pod that cannot serve. Reports status only, never configuration. |
-| `GET` | `/metrics` | — | Prometheus exposition. Unauthenticated by deliberate choice — aggregates only, no payloads and no per-OID labels (§10). |
+| `GET` | `/metrics` | — *(or `METRICS_TOKEN` bearer)* | Prometheus exposition. Unauthenticated by default — aggregates only, no payloads and no per-OID labels. Gateable with `METRICS_TOKEN` / `METRICS_ENABLED` (§10). |
 | `GET` | `/match/{match_id}/report` | G | Print-friendly match report. `check_read_access` admits `MATCH_REPORT_PUBLIC=true`, then a valid HMAC signature, then the owner's cookie; otherwise **401** (§7.1). |
 | `GET` | `/match/{match_id}/report.csv` | G | Point-log CSV for the same match, gated identically. A signed *report* link's `exp`/`sig` open the CSV too — the signature covers `match_id\|exp`, not the path. |
 | `GET` | `/matches/{public_token}` | G | Per-overlay archived-match listing. **The token is an identifier here, not a credential**: it selects the overlay (`404` if unknown), then the same gate as the report runs — `MATCH_REPORT_PUBLIC=true` or the owner's cookie, else `401`. Unlike `/follow/{public_token}`, holding the token is not sufficient. |
@@ -458,12 +458,13 @@ Deployment-visible changes operators should be aware of:
    `data/.admin_bootstrap_token` (mode `0o600`). Claim the first admin
    by POSTing it to `/api/v1/auth/claim-admin` (SPA route
    `/claim-admin`); see §9. Set `ADMIN_BOOTSTRAP_TOKEN` to pin it.
-2. **`SESSION_SECRET` is auto-minted if unset.** It hardens sessions and
-   is the HMAC key for signed match-report share URLs. On first boot,
-   if unset, the bootstrap mints `secrets.token_urlsafe(...)` and
-   persists it to `data/.session_secret` (mode `0o600`). Pin it
-   explicitly (`SESSION_SECRET=…`) across multiple replicas, or each
-   replica will reject the others' sessions and signed URLs.
+2. **`SESSION_SECRET` is auto-minted if unset.** It hardens sessions and,
+   unless `MATCH_REPORT_SECRET` is set, is also the HMAC key for signed
+   match-report share URLs (§7.1). On first boot, if unset, the bootstrap
+   mints `secrets.token_urlsafe(...)` and persists it to
+   `data/.session_secret` (mode `0o600`). Pin it explicitly
+   (`SESSION_SECRET=…`) across multiple replicas, or each replica will
+   reject the others' sessions and signed URLs.
 3. **Registration auto-closes once the instance has its admin.** With
    `REGISTRATION_OPEN` unset, public sign-ups are allowed only during the
    bootstrap window; claiming the first admin writes the DB flag to
@@ -523,8 +524,10 @@ Three surfaces are deliberately **not** watched:
   does nothing about, while counting its 404s would risk blocking a
   venue's icons after an ordinary delete. Volume limiting belongs at the
   proxy.
-* **`/metrics`** — the concern there is that it is unauthenticated, not
-  that it is brute-forceable.
+* **`/metrics`** — the concern there is exposure, not brute force, and
+  it is addressed directly by `METRICS_TOKEN` / `METRICS_ENABLED` (§10).
+  Throttling a wrong scrape token would blind an operator's dashboard
+  over what is nearly always a misconfigured scraper.
 The bucket is reset only by the sliding window — non-failure
 responses are intentionally ignored so an attacker cannot launder
 failures by interleaving login attempts (`POST /api/v1/auth/login`)
@@ -665,12 +668,21 @@ Access to ``/match/{match_id}/report`` is resolved by
    ``POST /api/v1/matches/{match_id}/sign-url`` (owner-only,
    ``require_user``). The response carries
    ``/match/{id}/report?exp=<unix_seconds>&sig=<hmac_hex>``. The
-   signing key is ``SESSION_SECRET``, so:
+   signing key is ``MATCH_REPORT_SECRET`` when set, otherwise
+   ``SESSION_SECRET``, so:
    * Anyone who holds the URL can read the report until ``exp`` passes.
    * The `exp` + `sig` pair is a TTL-bounded bearer credential. The
-     `SESSION_SECRET` signing key never leaves the server.
-   * Rotating ``SESSION_SECRET`` invalidates every outstanding signed
+     signing key never leaves the server.
+   * Rotating the signing key invalidates every outstanding signed
      URL — the desired behaviour after a suspected leak.
+   * With no ``MATCH_REPORT_SECRET``, that key is shared with the cookie
+     sessions, which couples two unrelated revocations: rotating
+     ``SESSION_SECRET`` because a cookie leaked also breaks every share
+     link, and there is no way to revoke the links alone without logging
+     everyone out. Setting ``MATCH_REPORT_SECRET`` separates them. It is
+     deliberately **not** auto-minted — leaving it unset has to keep
+     validating links signed before it existed, which it can only do by
+     falling through to the key those links were signed with.
 3. **Public mode.** ``MATCH_REPORT_PUBLIC=true`` opens the report to
    anyone who holds the non-guessable ``match_id``.
 
@@ -781,8 +793,29 @@ send the operator there.
 
 ## 10. Metrics endpoint
 
-`GET /metrics` (`app/api/routes/metrics.py`) is **always unauthenticated
-(aggregates only)** — Prometheus exposition. It exposes only aggregate
-counters and histograms, never per-user data or any credential, so there
-is no auth gate on it: a scraper cannot carry a `vsession` cookie, and
-the endpoint has nothing sensitive to protect.
+`GET /metrics` (`app/api/routes/metrics.py`) is Prometheus exposition:
+aggregate counters and histograms only, never per-user data and never a
+credential. It is **unauthenticated by default** — a scraper cannot carry
+a `vsession` cookie, and requiring a secret would make the common case
+(a scrape from inside the cluster) harder for no gain.
+
+That default is right for a private scrape network and wrong for the
+compose file's `0.0.0.0:80` bind, where the endpoint is internet-facing.
+The aggregates are not secrets, but they are an oracle: `voc_active_sessions`
+is a logged-in user count, `voc_ws_oids_active` a live-match count, and the
+per-route latency series enumerate which routes exist — enough to answer
+"is anyone using this instance right now?". Two env vars close that off:
+
+| Variable | Effect |
+|----------|--------|
+| `METRICS_TOKEN` | Requires `Authorization: Bearer <token>`. A miss returns **401** with a `WWW-Authenticate: Bearer` challenge. Compared with `hmac.compare_digest`, like every other credential here. |
+| `METRICS_ENABLED=false` | Removes the endpoint. It returns **404**, not 403 — an operator who switched metrics off wants it to look unmounted, not to advertise a gate. |
+
+Both are read per request, so they can be flipped through
+`REMOTE_CONFIG_URL` without a restart. `METRICS_ENABLED=false` wins over
+a valid token.
+
+The endpoint is still not watched by the rate limiter (§6). A wrong
+`METRICS_TOKEN` is a misconfigured scraper far more often than an attack,
+and throttling it would silently blind an operator's dashboard; the token
+itself is operator-chosen and not guessable at scrape rates.

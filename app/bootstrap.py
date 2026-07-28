@@ -43,6 +43,7 @@ from app.db import migrate as db_migrate
 from app.db.engine import get_db
 from app.match_history import match_history_router
 from app.match_report import match_report_router
+from app.observability import init_error_tracking
 from app.security_bootstrap import run_security_bootstrap
 
 logger = logging.getLogger(__name__)
@@ -629,6 +630,10 @@ def create_app() -> FastAPI:
     # --factory``), which used to skip the ``main.py``-only validation.
     # Idempotent: it only normalises invalid values in os.environ.
     validate_config()
+    # Wire the optional error reporter before anything else can raise, so
+    # a failure during the rest of startup is itself reportable. No-op
+    # (and no dependency) unless SENTRY_DSN is set — see app/observability.py.
+    init_error_tracking()
     # Resolve / mint credentials BEFORE any router is included so the
     # auth dependencies see the same token that the rest of the app does.
     # ``run_security_bootstrap`` mutates os.environ in place; idempotent

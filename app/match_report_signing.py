@@ -6,10 +6,17 @@ an ``exp`` (expiry) and ``sig`` (HMAC-SHA256) parameter instead of any
 credential. Anyone who holds the URL can read the report until ``exp``
 passes; no secret ever leaves the server.
 
-The signing key is derived from ``SESSION_SECRET`` (the same secret that
-hardens the cookie sessions). Rotating it invalidates every outstanding
-signed URL — that's the desired behaviour, since a rotation is usually
-motivated by a compromise.
+The signing key is ``MATCH_REPORT_SECRET`` when set, falling back to
+``SESSION_SECRET`` (the same secret that hardens the cookie sessions).
+
+The fallback is the historical behaviour and remains the default, but it
+couples two rotations that have nothing to do with each other: rotating
+``SESSION_SECRET`` because a session cookie leaked also invalidates every
+share link an operator has handed out — and conversely, an operator who
+wants to revoke the outstanding report links has no way to do it without
+logging every user out. Setting ``MATCH_REPORT_SECRET`` separates them,
+so each can be rotated for its own reason. Rotating whichever key is in
+use still invalidates every outstanding signed URL, which is the point.
 
 Format
 ------
@@ -45,13 +52,20 @@ MIN_TTL_SECONDS = 60                      # 1 minute
 
 
 def _signing_key() -> bytes | None:
-    """Return the HMAC key derived from ``SESSION_SECRET``.
+    """Return the HMAC key: ``MATCH_REPORT_SECRET``, else ``SESSION_SECRET``.
 
     ``SESSION_SECRET`` is minted + persisted on first start (see
     ``app.security_bootstrap.ensure_session_secret``), so signing is
-    normally always available. Returns ``None`` only if it is somehow
+    normally always available. Returns ``None`` only if both are somehow
     unset, in which case the consuming endpoint should 503.
+
+    ``MATCH_REPORT_SECRET`` is not auto-minted: leaving it unset must keep
+    validating the links signed before it existed, which it can only do by
+    falling through to the same key those links were signed with.
     """
+    dedicated = EnvVarsManager.get_env_var("MATCH_REPORT_SECRET", None)
+    if dedicated and str(dedicated).strip():
+        return str(dedicated).strip().encode("utf-8")
     secret = EnvVarsManager.get_env_var("SESSION_SECRET", None)
     if not secret:
         return None

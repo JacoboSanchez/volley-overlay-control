@@ -339,6 +339,12 @@ Configure the application using the following environment variables:
 | `WEBHOOKS_JSON` | *(Optional)* JSON list of webhook targets, e.g. `[{"url":"…","secret":"…","events":["set_end"],"timeout_s":5}]`. Takes precedence over `WEBHOOKS_URL`. | |
 | `WEBHOOKS_ALLOW_PRIVATE_IPS` | If `true`, allows webhook targets whose host resolves to private / loopback / link-local IPs. Default: `false` — such targets are rejected with a logged warning to block accidental SSRF (`http://localhost/admin`, cloud metadata at `169.254.169.254`, etc.). Trusted-LAN deployments that need to call internal receivers opt in here. | `false` |
 | `MATCH_REPORT_PUBLIC` | If `true`, `/match/{id}/report` is reachable by anyone, with no cookie or signed URL required. When unset, the report is reachable only by its owner's session cookie or an owner-minted signed share URL. | `false` |
+| `MATCH_REPORT_SECRET` | *(Optional)* Dedicated HMAC key for signed report share URLs. When unset, they are signed with `SESSION_SECRET` — which means rotating that secret to invalidate login cookies also breaks every share link you have handed out. Set this to rotate the two independently. Changing it revokes all outstanding signed report links. | *(falls back to `SESSION_SECRET`)* |
+| `METRICS_ENABLED` | Whether `GET /metrics` is served at all. Set to `false` to remove it entirely — it then answers `404`, indistinguishable from a build that never mounted it. | `true` |
+| `METRICS_TOKEN` | *(Optional)* Require `Authorization: Bearer <token>` on `GET /metrics`. Unset (the default) leaves the endpoint open, which suits a private scrape network but not the compose file's `0.0.0.0` bind. Configure it on the Prometheus side with the `authorization` / `bearer_token_file` scrape stanza. See [AUTHENTICATION.md](AUTHENTICATION.md) §10. | *(unset → no auth)* |
+| `SENTRY_DSN` | *(Optional)* Enables error-tracking. Unhandled exceptions are reported (tagged with `request_id` and, when an upstream sent a `traceparent`, `trace_id`) in addition to being logged. Requires the `sentry-sdk` package, which is **not bundled** — add it to your image. A DSN set without the package logs a warning and leaves reporting off. | *(unset → logging only)* |
+| `SENTRY_ENVIRONMENT` | *(Optional)* Environment name attached to reported events (`production`, `staging`, …). Ignored unless `SENTRY_DSN` is set. | *(unset)* |
+| `SENTRY_TRACES_SAMPLE_RATE` | *(Optional)* Fraction of requests sampled for performance tracing, `0.0`–`1.0`. Values outside that range, or non-numeric ones, are ignored with a warning. Ignored unless `SENTRY_DSN` is set. | *(unset → tracing off)* |
 
 Rarely-needed knobs (auth rate limiting, security response headers, audit-log
 rotation, WebSocket hub limits, webhook retries, preset caps, list-endpoint
@@ -464,7 +470,7 @@ Import non-account configuration from an external resource via `REMOTE_CONFIG_UR
 | `/follow/{public_token}` | Public mobile-first spectator page (no cookie). |
 | `/ws/{public_token}` | WebSocket for OBS browser sources (overlay state broadcast; no cookie). |
 | `/api/themes` | List preset overlay themes (public). |
-| `/metrics` | Prometheus exposition (unauthenticated; aggregates only). |
+| `/metrics` | Prometheus exposition (aggregates only; unauthenticated unless `METRICS_TOKEN` is set, and absent when `METRICS_ENABLED=false`). |
 | `/health` | Health check endpoint. Returns `200 OK` with a timestamp. |
 
 For a full audit of every route and its authentication requirements, see
