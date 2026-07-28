@@ -26,7 +26,9 @@ ICON = "icon"
 COLOR = "color"
 TEXT_COLOR = "text_color"
 
-# Name of the private group each new account is seeded with.
+# Name of the private group each new account is seeded with. Migration 0004
+# copies the legacy flat roster into the group with this name, so the two must
+# agree — ``tests/test_db_migrations.py`` pins them together.
 MY_TEAMS_NAME = "My teams"
 
 
