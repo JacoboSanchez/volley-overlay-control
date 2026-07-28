@@ -326,14 +326,6 @@ export function updateCustomization(
   return request<ActionResponse>('PUT', `/customization${withOid(oid)}`, data);
 }
 
-// Predefined data
-// Legacy: the caller's flat team list. Superseded on the board by the
-// group-scoped picker below (getBoardGroups + getBoardGroupTeams), which also
-// works for operators/public bookmarks. Kept for back-compat.
-export function getTeams(): Promise<Record<string, unknown>> {
-  return request<Record<string, unknown>>('GET', '/teams');
-}
-
 // ---- Board team-group picker ----------------------------------------------
 // Resolved against the overlay OWNER's universe via the board credential
 // (control token / public bookmark / owner cookie) — so an operator running the
@@ -475,21 +467,9 @@ export function getTeamCatalog(): Promise<TeamOut[]> {
   return request<TeamOut[]>('GET', '/teams/catalog');
 }
 
-/** The caller's team list as rows with ids (global + own custom teams). */
-export function getMyTeams(): Promise<TeamOut[]> {
-  return request<TeamOut[]>('GET', '/teams/mine');
-}
-
-export function addTeamsToMine(teamIds: number[]): Promise<{ added: number }> {
-  return request('POST', '/teams/mine', { team_ids: teamIds });
-}
-
-export function removeTeamFromMine(teamId: number): Promise<{ ok: boolean }> {
+/** Delete one of the caller's own custom teams, dropping it from every group. */
+export function deleteMyTeam(teamId: number): Promise<{ ok: boolean }> {
   return request('DELETE', `/teams/mine/${teamId}`);
-}
-
-export function removeTeamsFromMine(teamIds: number[]): Promise<{ removed: number }> {
-  return request('POST', '/teams/mine/remove', { team_ids: teamIds });
 }
 
 export function createMyTeam(fields: TeamFields): Promise<TeamOut> {
@@ -498,14 +478,6 @@ export function createMyTeam(fields: TeamFields): Promise<TeamOut> {
 
 export function updateMyTeam(teamId: number, fields: Partial<TeamFields>): Promise<TeamOut> {
   return request<TeamOut>('PATCH', `/teams/mine/custom/${teamId}`, fields);
-}
-
-export function getTeamGroups(): Promise<TeamGroupOut[]> {
-  return request<TeamGroupOut[]>('GET', '/team-groups');
-}
-
-export function copyGroupToMine(groupId: number): Promise<{ added: number }> {
-  return request('POST', `/team-groups/${groupId}/copy-to-mine`, {});
 }
 
 // ---- Account: my groups (groups-as-primary-unit) ---------------------------
@@ -653,7 +625,7 @@ export function adminImportIconsFromTeams(
 }
 
 // ---- Admin: team-group authoring ------------------------------------------
-// Users only ever read active groups (getTeamGroups); the admin manager works
+// Users only ever read active groups (getMyGroups); the admin manager works
 // against every group, active or not, and can build/publish/delete them.
 
 export function adminListGroups(): Promise<TeamGroupOut[]> {

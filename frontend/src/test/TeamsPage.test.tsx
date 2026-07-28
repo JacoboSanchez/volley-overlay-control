@@ -14,7 +14,7 @@ vi.mock('../api/client', () => ({
   removeTeamFromMyGroup: vi.fn(),
   createMyTeam: vi.fn(),
   updateMyTeam: vi.fn(),
-  removeTeamFromMine: vi.fn(),
+  deleteMyTeam: vi.fn(),
   // Icon library (rendered by IconLibrarySection / the fieldset picker).
   listIcons: vi.fn().mockResolvedValue({
     globals: [],

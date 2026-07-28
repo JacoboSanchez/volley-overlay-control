@@ -102,6 +102,46 @@ archive by hand.
   example entries and indirect `_env_*` readers. Fixes
   [#445](https://github.com/JacoboSanchez/volley-overlay-control/issues/445).
 
+### Deprecated
+
+- **The legacy `C-id[/style]` OID prefix is now dated for removal in
+  `7.0.0`.** Nothing has produced it since the multi-user refactor — the UI,
+  the docs and overlay CRUD all use the bare id — but five files still carry
+  the shim so an OBS source or bookmark saved before that refactor keeps
+  resolving. It stays accepted (and stripped) until 7.0.0; `_LEGACY_PREFIX`
+  in `app/overlay_backends/utils.py` lists every call site to drop then.
+
+### Removed
+
+- **The legacy flat team roster and its routes.** Groups replaced the flat
+  per-user list as the unit of team selection, but the old model, service
+  helpers and seven endpoints stayed behind it: `GET /api/v1/teams`,
+  `GET|POST /teams/mine`, `POST /teams/mine/remove`, `GET /team-groups` and
+  `POST /team-groups/{id}/copy-to-mine` are gone, along with the
+  `user_team_list` table (dropped by migration `0004`). Nothing is lost with
+  it — a team's own `owner_user_id` already determined what the virtual "All"
+  group showed, so the table only ever mirrored a fact the schema could
+  answer without it, and the SPA had already moved to `/my/groups*`. Two
+  `teams_service` readers left without a caller (`list_active_groups`,
+  `list_user_custom_teams`) went with them.
+
+  **One behaviour change:** `DELETE /api/v1/teams/mine/{team_id}` now deletes
+  a custom team the caller owns and returns `404` for anything else. It
+  previously also unlinked a *global* team from the caller's roster; with no
+  roster, a global team is dropped from a single group via
+  `DELETE /my/groups/{group_id}/teams/{team_id}` instead. The SPA only ever
+  called it for custom teams.
+
+- **Four dead modules and a compatibility shim** (~700 LOC total):
+  `app/overlay/models.py` (Pydantic models with no reference anywhere),
+  `app/api/presets_store.py` (the pre-DB on-disk preset store — `slugify`
+  moved to `app/presets_service.py`, the rest deleted), `app/app_storage.py`
+  (NiceGUI-era in-memory UI state, kept alive only by a `@patch` target),
+  and `app/api/oid_validation.py` (a re-export of `app/id_validation.py`
+  whose three in-tree callers now import from the canonical module).
+  The unreferenced `PRESETS_MAX_RECORDS` env var goes with the preset store.
+  Closes [#434](https://github.com/JacoboSanchez/volley-overlay-control/issues/434).
+
 ### Documentation
 
 - **The two ways to control a board without logging in are finally

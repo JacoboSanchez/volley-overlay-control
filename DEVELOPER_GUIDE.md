@@ -95,7 +95,6 @@ dependency.
 │   ├── id_validation.py     # Overlay-ID charset/length validation.
 │   ├── password_hash.py     # scrypt credential hashing (stdlib, zero deps).
 │   ├── security_bootstrap.py # Resolve/mint/persist SESSION_SECRET at startup.
-│   ├── app_storage.py       # In-memory key-value storage.
 │   ├── oid_utils.py         # OID parsing utilities (extract_oid).
 │   ├── db/                  # SQLAlchemy persistence layer.
 │   │   ├── base.py          # Declarative Base + TimestampMixin (naming convention).
@@ -111,7 +110,7 @@ dependency.
 │   │   ├── routes.py        # /api/v1/auth/* (register, login, logout, me, change-password, claim-admin).
 │   │   ├── bootstrap.py     # First-admin claim flow (startup-logged token → claim-admin).
 │   │   └── schemas.py       # Pydantic auth request/response models.
-│   ├── teams_service.py     # DB-backed teams (global catalog, admin team-groups, per-user lists).
+│   ├── teams_service.py     # DB-backed teams (global catalog, admin team-groups, per-user groups).
 │   ├── presets_service.py   # DB-backed customization presets (global + per-user).
 │   ├── settings_service.py  # DB-backed settings (REGISTRATION_OPEN, admin-bootstrap-claimed): env-seed-then-DB-override.
 │   ├── overlays_service.py  # Per-user overlay CRUD + public_token + skey resolution.
@@ -361,16 +360,16 @@ the HTTP dependency.
   runs `alembic upgrade head` (belt-and-suspenders; both idempotent).
 - **`models/`** — `User` + `AuthSession`, `UserOverlay`
   (`public_token`, optional per-overlay default rules) + `OverlaySessionMeta`,
-  `Team`/`TeamGroup`/`UserTeamListItem`, `Preset`, `MatchReport`, `Setting`.
+  `Team`/`TeamGroup`/`TeamGroupMember`/`UserGroupTeam`, `Preset`,
+  `MatchReport`, `Setting`.
 
 #### DB-backed services
 
 - **`app/teams_service.py`** — global team catalog, admin team-groups, and
-  per-user lists. Replaces the env-driven `APP_TEAMS`; the wire shape
-  (`{name: {icon, color, text_color}}`) is unchanged.
+  per-user groups + custom teams. Replaces the env-driven `APP_TEAMS`; the wire
+  shape (`{name: {icon, color, text_color}}`) is unchanged.
 - **`app/presets_service.py`** — global (admin-activated) and per-user
-  customization presets. Replaces the on-disk preset store and env-driven
-  `APP_THEMES`.
+  customization presets. Replaces the env-driven `APP_THEMES`.
 - **`app/settings_service.py`** — boolean app settings (`REGISTRATION_OPEN`,
   admin-bootstrap-claimed) with env-seed-then-DB-override semantics ("DB
   wins after first boot").
@@ -403,10 +402,6 @@ sets up logging, and calls `create_app()`.
 #### `app/customization.py`
 
 - **Responsibility**: Manages cosmetic data (Team Names, Logos, Colors, Overlay geometry).
-
-#### `app/app_storage.py` — class `AppStorage`
-
-- **Responsibility**: In-memory key-value storage for session state.
 
 #### `app/conf.py`
 
