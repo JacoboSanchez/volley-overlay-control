@@ -1,8 +1,7 @@
 """DB-backed customization presets: global (admin-activated) + per-user.
 
-Replaces the on-disk ``presets_store`` and the env-driven ``APP_THEMES``
-system presets. ``values`` is the flat customization patch the control
-panel deep-merges; ``categories`` is derived via
+``values`` is the flat customization patch the control panel
+deep-merges; ``categories`` is derived via
 :mod:`app.api.preset_categories`. Slug uniqueness is per scope
 (``scope_key`` = owner id, or 0 for global) so a user's "corner" and a
 global "corner" can coexist.
@@ -10,6 +9,7 @@ global "corner" can coexist.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from sqlalchemy import func, select
@@ -17,12 +17,45 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.preset_categories import categories_for_keys, filter_to_known
-from app.api.presets_store import slugify
+from app.constants import PRESETS_MAX_NAME_LEN
 from app.db.models.preset import SCOPE_GLOBAL, SCOPE_USER, Preset
+
+# A slug is lowercase ASCII alphanumerics plus dashes, beginning and
+# ending with an alphanumeric.
+_SLUG_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
+
+# Reserved so a user-saved preset can never be addressed as one of the
+# read-only globals the control panel badges as *System*.
+SYSTEM_SLUG_PREFIX = "system-"
 
 
 class PresetError(ValueError):
     """A caller-fixable preset error (duplicate, empty, missing)."""
+
+
+def slugify(name: str) -> str:
+    """Return a URL-safe slug for *name*.
+
+    Lowercase ASCII alphanumerics plus dashes; runs of any other
+    character collapse to a single dash; leading and trailing dashes
+    trimmed; empty result raises ``ValueError`` so the caller surfaces
+    a 400 instead of writing an unaddressable preset. Length is clamped
+    to ``PRESETS_MAX_NAME_LEN`` to keep slugs manageable in URLs and
+    JSON. Names that resolve to the reserved ``system-`` prefix are
+    rejected for the same reason.
+    """
+    if not isinstance(name, str):
+        raise ValueError("Preset name must be a string.")
+    cleaned = re.sub(r"[^a-z0-9]+", "-", name.strip().lower())
+    cleaned = cleaned[: max(1, PRESETS_MAX_NAME_LEN)].strip("-")
+    if not cleaned or _SLUG_PATTERN.match(cleaned) is None:
+        raise ValueError(f"Cannot derive a valid slug from {name!r}.")
+    if cleaned.startswith(SYSTEM_SLUG_PREFIX):
+        raise ValueError(
+            f"Preset slug {cleaned!r} uses the reserved "
+            f"{SYSTEM_SLUG_PREFIX!r} prefix.",
+        )
+    return cleaned
 
 
 def _make(name: str, values: dict, *, scope: str, owner_user_id: int | None,

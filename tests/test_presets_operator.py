@@ -4,8 +4,8 @@ Covers three layers:
 
 * ``app.api.preset_categories`` — the six-bucket partition of
   ``ALLOWED_CUSTOMIZATION_KEYS``.
-* ``app.api.presets_store`` — disk CRUD with the flat ``values`` /
-  derived-``categories`` shape.
+* ``app.presets_service.slugify`` — the name → slug derivation every
+  create path funnels through.
 * ``GET / POST / DELETE /api/v1/customization/presets`` — the
   operator-facing HTTP surface (API-key gating, validation, error
   mapping).
@@ -16,9 +16,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api import preset_categories, presets_store
+from app import presets_service
+from app.api import preset_categories
 from app.api.schemas import ALLOWED_CUSTOMIZATION_KEYS
 from app.bootstrap import create_app
+from app.constants import PRESETS_MAX_NAME_LEN
 from app.overlay import overlay_state_store
 from app.state import State
 from tests.conftest import load_fixture
@@ -27,15 +29,12 @@ pytestmark = pytest.mark.usefixtures("clean_sessions")
 
 
 @pytest.fixture(autouse=True)
-def _isolate_state(tmp_path, monkeypatch):
+def _isolate_state(tmp_path):
     overlay_state_store._data_dir = str(tmp_path)
     overlay_state_store._overlays = {}
     overlay_state_store._output_key_cache = {}
     overlay_state_store._available_styles = None
     overlay_state_store._renderable_styles = None
-    monkeypatch.setattr(
-        presets_store, "_data_dir", lambda: str(tmp_path / "presets"),
-    )
     yield
 
 
@@ -119,86 +118,36 @@ class TestPresetCategoriesPartition:
 
 
 # ---------------------------------------------------------------------------
-# presets_store
+# Slug derivation
 # ---------------------------------------------------------------------------
 
 
-class TestPresetsStore:
-    def test_create_persists_record_and_derives_categories(self):
-        record = presets_store.create(
-            name="Cancha A",
-            values={"Height": 12, "Width": 35, "Up-Down": -40, "Left-Right": -30},
-        )
-        assert record["_meta"]["name"] == "Cancha A"
-        assert record["_meta"]["slug"] == "cancha-a"
-        assert record["categories"] == ["position"]
-        assert record["values"] == {
-            "Height": 12, "Width": 35, "Up-Down": -40, "Left-Right": -30,
-        }
+class TestSlugify:
+    def test_derives_lowercase_dashed_slug(self):
+        assert presets_service.slugify("Cancha A") == "cancha-a"
+        assert presets_service.slugify("  Default   Position  ") == "default-position"
 
-    def test_create_drops_unknown_keys_before_persistence(self):
-        record = presets_store.create(
-            name="Mixed",
-            values={"Team 1 Color": "#fff", "raw_remote_model": {"x": 1}},
-        )
-        # The unknown ``raw_remote_model`` is filtered out — the
-        # operator picker only ever ships allow-listed keys, but
-        # this is the defence against a hand-crafted POST.
-        assert record["values"] == {"Team 1 Color": "#fff"}
-        assert record["categories"] == ["team1_color"]
+    def test_rejects_names_with_no_slug_characters(self):
+        # An empty slug would be unaddressable, so the create path must
+        # surface a 400 rather than persist it.
+        for name in ("", "   ", "---", "!!!"):
+            with pytest.raises(ValueError):
+                presets_service.slugify(name)
 
-    def test_create_rejects_empty_values(self):
-        with pytest.raises(ValueError):
-            presets_store.create(name="Empty", values={})
-        # Same outcome when the only keys are unknown — ``filter_to_known``
-        # collapses them to an empty dict, which the create path
-        # rejects.
-        with pytest.raises(ValueError):
-            presets_store.create(name="OnlyUnknown", values={"foo": "bar"})
-
-    def test_create_rejects_duplicate_slug(self):
-        presets_store.create(name="Dup", values={"Height": 8})
-        with pytest.raises(presets_store.PresetExists):
-            presets_store.create(name="Dup", values={"Height": 9})
-
-    def test_slugify_rejects_reserved_system_prefix(self):
-        # Names that resolve to ``system-…`` would shadow the
-        # read-only entries surfaced from ``APP_THEMES``. The store
-        # rejects them at slug derivation so a hand-crafted POST
-        # can't ever land such a record on disk.
-        with pytest.raises(ValueError):
-            presets_store.slugify("system-bright")
-        with pytest.raises(ValueError):
-            presets_store.slugify("System Bright")
-
-    def test_slugify_check_reserved_false_allows_system_prefix(self):
-        # The system-preset loader prepends ``system-`` unconditionally,
-        # so it needs to slugify env theme names without the reservation
-        # check or a theme literally named "System Dark" would be
-        # silently dropped instead of addressing as
-        # ``system-system-dark``.
+    def test_clamps_to_max_name_len(self):
         assert (
-            presets_store.slugify("System Dark", check_reserved=False)
-            == "system-dark"
-        )
-        assert (
-            presets_store.slugify("system-bright", check_reserved=False)
-            == "system-bright"
+            len(presets_service.slugify("a" * (PRESETS_MAX_NAME_LEN + 50)))
+            == PRESETS_MAX_NAME_LEN
         )
 
-    def test_list_orders_by_name_case_insensitive(self):
-        presets_store.create(name="zoo", values={"Height": 1})
-        presets_store.create(name="Alpha", values={"Height": 2})
-        presets_store.create(name="bravo", values={"Height": 3})
-        names = [r["_meta"]["name"] for r in presets_store.list_all()]
-        assert names == ["Alpha", "bravo", "zoo"]
-
-    def test_delete_returns_true_on_success_and_false_on_missing(self):
-        presets_store.create(name="Removable", values={"Height": 8})
-        assert presets_store.delete("removable") is True
-        assert presets_store.delete("removable") is False
-        assert presets_store.delete("never-existed") is False
-        assert presets_store.delete("INVALID SLUG WITH SPACES") is False
+    def test_rejects_reserved_system_prefix(self):
+        # ``system-…`` is reserved for the read-only globals the control
+        # panel badges as *System*; rejecting at slug derivation keeps a
+        # hand-crafted POST from claiming one of those names.
+        with pytest.raises(ValueError):
+            presets_service.slugify("system-bright")
+        with pytest.raises(ValueError):
+            presets_service.slugify("System Bright")
 
 
 # ---------------------------------------------------------------------------

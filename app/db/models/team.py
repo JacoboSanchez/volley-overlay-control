@@ -11,10 +11,6 @@ owner). Shared-group members are global teams in ``TeamGroupMember``. Per-user
 membership — a user's additions to a shared group *and* every member of a
 user's private group — lives in ``UserGroupTeam``. The virtual "All" group
 (global catalog ∪ the user's custom teams) has no rows.
-
-``UserTeamListItem`` is the legacy flat roster, retained for back-compat /
-rollback after the 0007 migration copies each user's list into a private
-"My teams" group; it is no longer the source of truth for the board.
 """
 
 from __future__ import annotations
@@ -108,22 +104,6 @@ class UserGroupTeam(Base, TimestampMixin):
     )
     group_id: Mapped[int] = mapped_column(
         ForeignKey("team_groups.id", ondelete="CASCADE"), nullable=False, index=True,
-    )
-    team_id: Mapped[int] = mapped_column(
-        ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True,
-    )
-    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-
-
-class UserTeamListItem(Base, TimestampMixin):
-    __tablename__ = "user_team_list"
-    __table_args__ = (
-        UniqueConstraint("user_id", "team_id", name="uq_user_team_list_user_id_team_id"),
-    )
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True,
     )
     team_id: Mapped[int] = mapped_column(
         ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True,

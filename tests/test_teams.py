@@ -1,4 +1,4 @@
-"""Phase 4 — DB-backed teams: catalog, groups, per-user lists, admin JSON I/O."""
+"""Phase 4 — DB-backed teams: catalog, groups, custom teams, admin JSON I/O."""
 
 from __future__ import annotations
 
@@ -6,6 +6,12 @@ from fastapi.testclient import TestClient
 
 from app.bootstrap import create_app
 from tests.conftest import login_client
+
+
+def _group_teams(client, name: str) -> set[str]:
+    """Team names the caller sees in the group *name* (e.g. "All teams")."""
+    groups = {g["name"]: g for g in client.get("/api/v1/my/groups").json()}
+    return {t["name"] for t in groups[name]["teams"]}
 
 
 def _admin(db_session):
@@ -52,10 +58,10 @@ def test_import_replace_clears_previous(db_session):
     assert set(exported) == {"Only"}
 
 
-# ---- user catalog + personal list ------------------------------------------
+# ---- user catalog ----------------------------------------------------------
 
 
-def test_user_adds_catalog_team_to_their_list(db_session):
+def test_user_sees_the_global_catalog(db_session):
     admin = _admin(db_session)
     admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
 
@@ -63,36 +69,22 @@ def test_user_adds_catalog_team_to_their_list(db_session):
     catalog = user.get("/api/v1/teams/catalog").json()
     assert {t["name"] for t in catalog} == set(APP_TEAMS)
 
-    ids = [catalog[0]["id"]]
-    assert user.post("/api/v1/teams/mine", json={"team_ids": ids}).json()["added"] == 1
-    # Idempotent re-add.
-    assert user.post("/api/v1/teams/mine", json={"team_ids": ids}).json()["added"] == 0
 
-    mine = user.get("/api/v1/teams").json()
-    assert catalog[0]["name"] in mine
-
-    assert user.delete(f"/api/v1/teams/mine/{ids[0]}").status_code == 200
-    assert user.get("/api/v1/teams").json() == {}
-
-
-def test_user_team_lists_are_isolated(db_session):
-    admin = _admin(db_session)
-    admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
-    catalog = admin.get("/api/v1/teams/catalog").json()
-    tid = catalog[0]["id"]
-
+def test_custom_teams_are_isolated_between_users(db_session):
     alice = login_client(TestClient(create_app()), db_session, "alice")
     bob = login_client(TestClient(create_app()), db_session, "bob")
-    alice.post("/api/v1/teams/mine", json={"team_ids": [tid]})
+    alice.post("/api/v1/teams/mine/custom", json={"name": "Alice Club"})
 
-    assert catalog[0]["name"] in alice.get("/api/v1/teams").json()
-    assert bob.get("/api/v1/teams").json() == {}
+    # "All" is every global team ∪ the *caller's* customs — never another
+    # user's, which is the only thing keeping custom teams private.
+    assert "Alice Club" in _group_teams(alice, "All teams")
+    assert "Alice Club" not in _group_teams(bob, "All teams")
 
 
-# ---- team groups (Liga Gallega) + copy-to-mine -----------------------------
+# ---- shared groups (Liga Gallega) ------------------------------------------
 
 
-def test_admin_group_published_then_user_copies_it(db_session):
+def test_admin_group_is_visible_to_users_once_published(db_session):
     admin = _admin(db_session)
     admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
     catalog = admin.get("/api/v1/teams/catalog").json()
@@ -102,19 +94,13 @@ def test_admin_group_published_then_user_copies_it(db_session):
         admin.post(f"/api/v1/admin/team-groups/{gid}/members", json={"team_id": t["id"]})
 
     user = _user(db_session)
-    # Inactive group is not visible/copyable yet.
-    assert user.get("/api/v1/team-groups").json() == []
-    assert user.post(f"/api/v1/team-groups/{gid}/copy-to-mine").status_code == 404
+    # Inactive group is not visible yet.
+    assert "Liga Gallega" not in {g["name"] for g in user.get("/api/v1/my/groups").json()}
 
     admin.patch(f"/api/v1/admin/team-groups/{gid}", json={"is_active": True})
-    groups = user.get("/api/v1/team-groups").json()
-    assert groups[0]["name"] == "Liga Gallega"
-    assert {t["name"] for t in groups[0]["teams"]} == set(APP_TEAMS)
-
-    assert user.post(f"/api/v1/team-groups/{gid}/copy-to-mine").json()["added"] == 2
-    assert set(user.get("/api/v1/teams").json()) == set(APP_TEAMS)
-    # Idempotent copy.
-    assert user.post(f"/api/v1/team-groups/{gid}/copy-to-mine").json()["added"] == 0
+    groups = {g["name"]: g for g in user.get("/api/v1/my/groups").json()}
+    assert groups["Liga Gallega"]["kind"] == "shared"
+    assert {t["name"] for t in groups["Liga Gallega"]["teams"]} == set(APP_TEAMS)
 
 
 def test_admin_can_create_and_edit_team_with_logo_and_colors(db_session):
@@ -177,7 +163,7 @@ def test_admin_lists_all_groups_including_inactive(db_session):
 
     # Still inactive → invisible to users, visible to admin with its members.
     user = _user(db_session)
-    assert user.get("/api/v1/team-groups").json() == []
+    assert "Borrador" not in {g["name"] for g in user.get("/api/v1/my/groups").json()}
 
     groups = admin.get("/api/v1/admin/team-groups").json()
     assert [g["name"] for g in groups] == ["Borrador"]
@@ -238,7 +224,7 @@ def test_admin_group_delete_requires_admin(db_session):
 
 def test_admin_cannot_add_a_private_custom_team_to_a_group(db_session):
     """Data-isolation: a user's private custom team must never be linked to a
-    group, or copy-to-mine would leak it into every other user's roster."""
+    shared group, or publishing that group would leak it to every other user."""
     admin = _admin(db_session)
     alice = _user(db_session)
     secret = alice.post(
@@ -253,9 +239,9 @@ def test_admin_cannot_add_a_private_custom_team_to_a_group(db_session):
     assert r.status_code == 404
 
     admin.patch(f"/api/v1/admin/team-groups/{gid}", json={"is_active": True})
-    # Even after publishing, another user never sees or copies the private team.
+    # Even after publishing, another user never sees the private team.
     bob = login_client(TestClient(create_app()), db_session, "bob")
-    groups = bob.get("/api/v1/team-groups").json()
+    groups = bob.get("/api/v1/my/groups").json()
     assert all("Alice Secret" not in {t["name"] for t in g["teams"]} for g in groups)
 
 
@@ -272,10 +258,8 @@ def test_user_creates_custom_team(db_session):
     body = r.json()
     assert body["name"] == "My Club" and body["is_global"] is False
 
-    # Appears in both the rows endpoint and the APP_TEAMS map.
-    rows = user.get("/api/v1/teams/mine").json()
-    assert any(t["name"] == "My Club" and not t["is_global"] for t in rows)
-    assert "My Club" in user.get("/api/v1/teams").json()
+    # Ownership alone is enough — no membership row needed for "All".
+    assert "My Club" in _group_teams(user, "All teams")
 
 
 def test_user_edits_own_custom_team(db_session):
@@ -295,39 +279,39 @@ def test_cannot_edit_a_global_team_via_custom_endpoint(db_session):
     assert user.patch(f"/api/v1/teams/mine/custom/{gid}", json={"name": "Hijack"}).status_code == 404
 
 
-def test_removing_custom_team_deletes_it(db_session):
+def test_deleting_custom_team_removes_it_from_every_group(db_session):
     user = _user(db_session)
     tid = user.post("/api/v1/teams/mine/custom", json={"name": "Throwaway"}).json()["id"]
+    gid = user.post("/api/v1/my/groups", json={"name": "Squad"}).json()["id"]
+    user.post(f"/api/v1/my/groups/{gid}/teams", json={"team_ids": [tid]})
+    assert "Throwaway" in _group_teams(user, "Squad")
+
     assert user.delete(f"/api/v1/teams/mine/{tid}").status_code == 200
-    # Gone from the list and from existence (no longer addable).
-    assert "Throwaway" not in user.get("/api/v1/teams").json()
-    assert user.post("/api/v1/teams/mine", json={"team_ids": [tid]}).status_code == 400
+    # Gone from every group and from existence (no longer addable anywhere).
+    assert "Throwaway" not in _group_teams(user, "All teams")
+    assert "Throwaway" not in _group_teams(user, "Squad")
+    assert user.post(
+        f"/api/v1/my/groups/{gid}/teams", json={"team_ids": [tid]},
+    ).status_code == 404
 
 
-def test_removing_global_team_only_unlinks_it(db_session):
+def test_deleting_a_global_team_via_the_custom_route_is_404(db_session):
+    """The catalog is the admin's; a user drops a global from one group instead."""
     admin = _admin(db_session)
     admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
     gid = admin.get("/api/v1/teams/catalog").json()[0]["id"]
     user = _user(db_session)
-    user.post("/api/v1/teams/mine", json={"team_ids": [gid]})
-    user.delete(f"/api/v1/teams/mine/{gid}")
-    # Unlinked from the list but still in the global catalog (re-addable).
+    assert user.delete(f"/api/v1/teams/mine/{gid}").status_code == 404
     assert gid in {t["id"] for t in user.get("/api/v1/teams/catalog").json()}
-    assert user.post("/api/v1/teams/mine", json={"team_ids": [gid]}).json()["added"] == 1
 
 
-def test_batch_remove(db_session):
-    admin = _admin(db_session)
-    admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
-    user = _user(db_session)
-    ids = [t["id"] for t in user.get("/api/v1/teams/catalog").json()]
-    user.post("/api/v1/teams/mine", json={"team_ids": ids})
-    assert len(user.get("/api/v1/teams/mine").json()) == len(ids)
+def test_deleting_another_users_custom_team_is_404(db_session):
+    alice = login_client(TestClient(create_app()), db_session, "alice")
+    bob = login_client(TestClient(create_app()), db_session, "bob")
+    tid = alice.post("/api/v1/teams/mine/custom", json={"name": "Alice Club"}).json()["id"]
 
-    r = user.post("/api/v1/teams/mine/remove", json={"team_ids": ids})
-    assert r.status_code == 200
-    assert r.json()["removed"] == len(ids)
-    assert user.get("/api/v1/teams/mine").json() == []
+    assert bob.delete(f"/api/v1/teams/mine/{tid}").status_code == 404
+    assert "Alice Club" in _group_teams(alice, "All teams")
 
 
 # ---- seed-on-creation ------------------------------------------------------
@@ -546,8 +530,8 @@ def _count_queries(db_session):
     return counter([])
 
 
-def test_bulk_add_teams_uses_constant_queries(db_session):
-    """Adding N teams must not issue O(N) queries (was 3 per team)."""
+def test_bulk_group_add_uses_constant_queries(db_session):
+    """Adding N teams to a group must not issue O(N) queries (was 3 per team)."""
     from app import teams_service
     from tests.conftest import make_user
 
@@ -556,36 +540,22 @@ def test_bulk_add_teams_uses_constant_queries(db_session):
         for i in range(12)
     ]
     user = make_user(db_session, "bulkuser")
+    group = teams_service.create_private_group(db_session, user.id, "Squad")
     db_session.commit()
 
     # Pre-link a couple so the batch mixes new / already-linked / duplicates.
-    teams_service.add_teams_to_user(db_session, user.id, ids[:2])
+    teams_service.add_user_group_teams(db_session, user.id, group.id, ids[:2])
     with _count_queries(db_session) as queries:
-        added = teams_service.add_teams_to_user(
-            db_session, user.id, ids + ids[:3],  # duplicates in the input too
+        added = teams_service.add_user_group_teams(
+            db_session, user.id, group.id, ids + ids[:3],  # duplicates too
         )
     assert added == 10
     # Inserts are per-row by nature; the SELECT count must stay constant
-    # (validate ids + existing links + max sort_order — was 2 per team).
-    assert len(queries) <= 3, f"{len(queries)} SELECTs for a 12-team batch"
+    # (resolve group + validate ids + existing links + max sort_order).
+    assert len(queries) <= 4, f"{len(queries)} SELECTs for a 12-team batch"
 
-    rows = teams_service.list_user_team_rows(db_session, user.id)
-    assert [t.id for t in rows[:12]] == ids  # input order, contiguous sort
-
-
-def test_bulk_add_teams_missing_id_raises_and_adds_nothing(db_session):
-    from app import teams_service
-    from tests.conftest import make_user
-
-    tid = teams_service.upsert_global(db_session, "Solo").id
-    user = make_user(db_session, "bulkuser2")
-    db_session.commit()
-
-    import pytest as _pytest
-
-    with _pytest.raises(teams_service.TeamError, match="not found"):
-        teams_service.add_teams_to_user(db_session, user.id, [tid, 99999])
-    assert teams_service.list_user_team_rows(db_session, user.id) == []
+    rows = teams_service.group_effective_teams(db_session, user.id, group.id)
+    assert {t.id for t in rows} == set(ids)
 
 
 def test_bulk_group_add_validates_scope_in_batch(db_session):

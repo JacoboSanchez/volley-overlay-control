@@ -210,7 +210,7 @@ export interface paths {
         /**
          * Admin List Groups
          * @description Every group (active and inactive) with its members — drives the admin
-         *     group manager. Users only ever see active groups via ``GET /team-groups``.
+         *     group manager.
          */
         get: operations["admin_list_groups_api_v1_admin_team_groups_get"];
         put?: never;
@@ -1506,60 +1506,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/team-groups": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Groups */
-        get: operations["list_groups_api_v1_team_groups_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/team-groups/{group_id}/copy-to-mine": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Copy Group */
-        post: operations["copy_group_api_v1_team_groups__group_id__copy_to_mine_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/teams": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * My Teams
-         * @description The caller's team list, in the APP_TEAMS map shape.
-         */
-        get: operations["my_teams_api_v1_teams_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/teams/catalog": {
         parameters: {
             query?: never;
@@ -1571,27 +1517,6 @@ export interface paths {
         get: operations["catalog_api_v1_teams_catalog_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/teams/mine": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * My Team Rows
-         * @description The caller's team list as rows with ids (global + own custom teams).
-         */
-        get: operations["my_team_rows_api_v1_teams_mine_get"];
-        put?: never;
-        /** Add To My Teams */
-        post: operations["add_to_my_teams_api_v1_teams_mine_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1638,26 +1563,6 @@ export interface paths {
         patch: operations["update_my_custom_team_api_v1_teams_mine_custom__team_id__patch"];
         trace?: never;
     };
-    "/api/v1/teams/mine/remove": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Remove My Teams
-         * @description Batch-remove teams from the caller's list (unlinks globals; deletes own customs).
-         */
-        post: operations["remove_my_teams_api_v1_teams_mine_remove_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/teams/mine/{team_id}": {
         parameters: {
             query?: never;
@@ -1668,8 +1573,14 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Remove From My Teams */
-        delete: operations["remove_from_my_teams_api_v1_teams_mine__team_id__delete"];
+        /**
+         * Delete My Custom Team
+         * @description Delete one of the caller's own custom teams, dropping it from every group.
+         *
+         *     Global teams belong to the admin catalog — remove those from a single group
+         *     via ``DELETE /my/groups/{group_id}/teams/{team_id}`` instead.
+         */
+        delete: operations["delete_my_custom_team_api_v1_teams_mine__team_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1936,11 +1847,6 @@ export interface components {
              * @default false
              */
             undo: boolean;
-        };
-        /** AddTeamsRequest */
-        AddTeamsRequest: {
-            /** Team Ids */
-            team_ids?: number[];
         };
         /** AdminCreateUserRequest */
         AdminCreateUserRequest: {
@@ -2509,11 +2415,6 @@ export interface components {
         RegistrationSetting: {
             /** Registration Open */
             registration_open: boolean;
-        };
-        /** RemoveTeamsRequest */
-        RemoveTeamsRequest: {
-            /** Team Ids */
-            team_ids?: number[];
         };
         /** RenameMyGroupRequest */
         RenameMyGroupRequest: {
@@ -6310,111 +6211,6 @@ export interface operations {
             };
         };
     };
-    list_groups_api_v1_team_groups_get: {
-        parameters: {
-            query?: {
-                /** @description Page size */
-                limit?: number;
-                /** @description Rows to skip */
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: {
-                vsession?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TeamGroupOut"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    copy_group_api_v1_team_groups__group_id__copy_to_mine_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                group_id: number;
-            };
-            cookie?: {
-                vsession?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    my_teams_api_v1_teams_get: {
-        parameters: {
-            query?: {
-                /** @description Page size */
-                limit?: number;
-                /** @description Rows to skip */
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: {
-                vsession?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     catalog_api_v1_teams_catalog_get: {
         parameters: {
             query?: {
@@ -6438,77 +6234,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeamOut"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    my_team_rows_api_v1_teams_mine_get: {
-        parameters: {
-            query?: {
-                /** @description Page size */
-                limit?: number;
-                /** @description Rows to skip */
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: {
-                vsession?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TeamOut"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    add_to_my_teams_api_v1_teams_mine_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: {
-                vsession?: string | null;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddTeamsRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -6594,42 +6319,7 @@ export interface operations {
             };
         };
     };
-    remove_my_teams_api_v1_teams_mine_remove_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: {
-                vsession?: string | null;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RemoveTeamsRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    remove_from_my_teams_api_v1_teams_mine__team_id__delete: {
+    delete_my_custom_team_api_v1_teams_mine__team_id__delete: {
         parameters: {
             query?: never;
             header?: never;

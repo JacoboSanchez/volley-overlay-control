@@ -387,7 +387,7 @@ function CustomTeamsSection({
     });
     if (!ok) return;
     try {
-      await api.removeTeamFromMine(team.id);
+      await api.deleteMyTeam(team.id);
       setEditing(null);
       onChange();
       toast(t('acc.teams.toastRemoved', { n: 1 }));

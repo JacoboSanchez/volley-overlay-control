@@ -9,8 +9,6 @@ every member of a private group live in ``user_group_teams``.
 
 The board team selectors consume ``group_effective_teams_map`` — the existing
 ``APP_TEAMS`` map ``{name: {icon, color, text_color}}`` — scoped to one group.
-The legacy flat-roster helpers (``user_teams``/``*_team_to_user``) remain for
-back-compat with the deprecated ``/teams`` and ``/teams/mine`` routes.
 """
 
 from __future__ import annotations
@@ -22,21 +20,16 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.schemas import is_acceptable_catalog_icon
-from app.db.models.team import (
-    Team,
-    TeamGroup,
-    TeamGroupMember,
-    UserGroupTeam,
-    UserTeamListItem,
-)
+from app.db.models.team import Team, TeamGroup, TeamGroupMember, UserGroupTeam
 
 # APP_TEAMS sub-keys (mirror app.customization.TEAM_VALUES_*).
 ICON = "icon"
 COLOR = "color"
 TEXT_COLOR = "text_color"
 
-# Name of the private group each user is seeded with (and that the 0007
-# migration creates from the legacy flat roster). Must match the migration.
+# Name of the private group each new account is seeded with. Migration 0004
+# copies the legacy flat roster into the group with this name, so the two must
+# agree — ``tests/test_db_migrations.py`` pins them together.
 MY_TEAMS_NAME = "My teams"
 
 
@@ -66,7 +59,13 @@ def list_global(
     return list(
         db.execute(
             _paged(
-                select(Team).where(Team.is_global.is_(True)).order_by(Team.name, Team.id),
+                select(Team)
+                .where(Team.is_global.is_(True))
+                # ``name`` is not unique (see get_global_by_name), so the id
+                # tiebreaker is what makes a paged walk stable: without it the
+                # database may order tied rows differently per query and a
+                # client would see some twice and miss others.
+                .order_by(Team.name, Team.id),
                 limit, offset,
             )
         ).scalars().all()
@@ -224,37 +223,6 @@ def add_group_member(db: Session, group_id: int, team_id: int) -> None:
         db.flush()
 
 
-def _active_shared_groups_where():
-    return (TeamGroup.is_active.is_(True), TeamGroup.owner_user_id.is_(None))
-
-
-def list_active_groups(
-    db: Session, *, limit: int | None = None, offset: int = 0,
-) -> list[TeamGroup]:
-    """Published SHARED groups (admin-curated). Private groups are excluded —
-    they carry ``is_active=True`` but must only ever surface to their owner."""
-    return list(
-        db.execute(
-            _paged(
-                select(TeamGroup)
-                .where(*_active_shared_groups_where())
-                .order_by(TeamGroup.name, TeamGroup.id),
-                limit, offset,
-            )
-        ).scalars().all()
-    )
-
-
-def count_active_groups(db: Session) -> int:
-    return int(
-        db.execute(
-            select(func.count())
-            .select_from(TeamGroup)
-            .where(*_active_shared_groups_where())
-        ).scalar_one()
-    )
-
-
 def list_all_groups(
     db: Session, *, limit: int | None = None, offset: int = 0,
 ) -> list[TeamGroup]:
@@ -322,7 +290,7 @@ def group_member_teams(db: Session, group_id: int) -> list[Team]:
             select(Team)
             .join(TeamGroupMember, TeamGroupMember.team_id == Team.id)
             .where(TeamGroupMember.group_id == group_id, Team.is_global.is_(True))
-            .order_by(Team.name)
+            .order_by(Team.name, Team.id)
         ).scalars().all()
     )
 
@@ -349,141 +317,6 @@ def group_member_teams_bulk(
     return out
 
 
-# ---- per-user team list ----------------------------------------------------
-
-
-def list_user_team_rows(
-    db: Session, user_id: int, *, limit: int | None = None, offset: int = 0,
-) -> list[Team]:
-    return list(
-        db.execute(
-            _paged(
-                select(Team)
-                .join(UserTeamListItem, UserTeamListItem.team_id == Team.id)
-                .where(UserTeamListItem.user_id == user_id)
-                .order_by(UserTeamListItem.sort_order, Team.name, Team.id),
-                limit, offset,
-            )
-        ).scalars().all()
-    )
-
-
-def count_user_team_rows(db: Session, user_id: int) -> int:
-    return int(
-        db.execute(
-            select(func.count())
-            .select_from(UserTeamListItem)
-            .where(UserTeamListItem.user_id == user_id)
-        ).scalar_one()
-    )
-
-
-def user_teams(
-    db: Session, user_id: int, *, limit: int | None = None, offset: int = 0,
-) -> dict[str, dict[str, Any]]:
-    return {
-        t.name: team_to_entry(t)
-        for t in list_user_team_rows(db, user_id, limit=limit, offset=offset)
-    }
-
-
-def _next_sort_order(db: Session, user_id: int) -> int:
-    current = db.execute(
-        select(func.coalesce(func.max(UserTeamListItem.sort_order), -1)).where(
-            UserTeamListItem.user_id == user_id,
-        )
-    ).scalar_one()
-    return int(current) + 1
-
-
-def add_team_to_user(db: Session, user_id: int, team_id: int) -> bool:
-    """Add a catalog team to the user's list (idempotent). Returns True if added."""
-    if db.get(Team, team_id) is None:
-        raise TeamError("Team not found.")
-    exists = db.execute(
-        select(UserTeamListItem).where(
-            UserTeamListItem.user_id == user_id, UserTeamListItem.team_id == team_id,
-        )
-    ).scalar_one_or_none()
-    if exists is not None:
-        return False
-    db.add(UserTeamListItem(
-        user_id=user_id, team_id=team_id, sort_order=_next_sort_order(db, user_id),
-    ))
-    db.flush()
-    return True
-
-
-def add_teams_to_user(db: Session, user_id: int, team_ids: list[int]) -> int:
-    """Add several catalog teams to the user's list in one batch (idempotent).
-
-    Three queries total (validate ids, find existing links, current max
-    sort order) instead of three per team.
-    """
-    ids = list(dict.fromkeys(team_ids))
-    if not ids:
-        return 0
-    found = set(
-        db.execute(select(Team.id).where(Team.id.in_(ids))).scalars().all()
-    )
-    missing = [tid for tid in ids if tid not in found]
-    if missing:
-        raise TeamError("Team not found.")
-    linked = set(
-        db.execute(
-            select(UserTeamListItem.team_id).where(
-                UserTeamListItem.user_id == user_id,
-                UserTeamListItem.team_id.in_(ids),
-            )
-        ).scalars().all()
-    )
-    to_add = [tid for tid in ids if tid not in linked]
-    if not to_add:
-        return 0
-    sort_order = _next_sort_order(db, user_id)
-    for offset, tid in enumerate(to_add):
-        db.add(UserTeamListItem(
-            user_id=user_id, team_id=tid, sort_order=sort_order + offset,
-        ))
-    db.flush()
-    return len(to_add)
-
-
-def remove_team_from_user(db: Session, user_id: int, team_id: int) -> bool:
-    row = db.execute(
-        select(UserTeamListItem).where(
-            UserTeamListItem.user_id == user_id, UserTeamListItem.team_id == team_id,
-        )
-    ).scalar_one_or_none()
-    if row is None:
-        return False
-    team = db.get(Team, team_id)
-    # A user's custom team only exists inside their list — removing it deletes
-    # it outright (the FK cascade drops the list item). A global team is just
-    # unlinked from the list and stays in the admin catalog.
-    if team is not None and not team.is_global and team.owner_user_id == user_id:
-        db.delete(team)
-    else:
-        db.delete(row)
-    db.flush()
-    return True
-
-
-def remove_teams_from_user(db: Session, user_id: int, team_ids: list[int]) -> int:
-    """Remove several teams from the user's list (idempotent). Returns the count."""
-    return sum(1 for tid in team_ids if remove_team_from_user(db, user_id, tid))
-
-
-def seed_user_with_global_teams(db: Session, user_id: int) -> int:
-    """Copy every current global team into a user's list. Returns the count.
-
-    Called once at account creation so a new user starts with the full admin
-    catalog; later-added global teams are not auto-pushed (the user adds those
-    from the catalog).
-    """
-    return add_teams_to_user(db, user_id, [t.id for t in list_global(db)])
-
-
 # ---- custom (user-owned) teams ---------------------------------------------
 
 
@@ -496,7 +329,12 @@ def create_user_team(
     color: str | None = None,
     text_color: str | None = None,
 ) -> Team:
-    """Create a personal (user-owned) team and add it to the user's list."""
+    """Create a personal (user-owned) team.
+
+    Ownership alone makes it visible: the virtual "All" group is every global
+    team ∪ the caller's customs, so a new team needs no membership row. Add it
+    to a group with :func:`add_user_group_team`.
+    """
     name = (name or "").strip()
     if not name:
         raise TeamError("Team name is required.")
@@ -509,10 +347,6 @@ def create_user_team(
         text_color=(text_color or "").strip() or None,
     )
     db.add(team)
-    db.flush()
-    db.add(UserTeamListItem(
-        user_id=user_id, team_id=team.id, sort_order=_next_sort_order(db, user_id),
-    ))
     db.flush()
     return team
 
@@ -546,14 +380,20 @@ def update_user_team(
     return team
 
 
-def copy_group_to_user(db: Session, user_id: int, group_id: int) -> int:
-    """Copy every team in a SHARED active *group_id* into the user's list
-    (idempotent). Private groups are not copyable through this legacy path."""
-    group = db.get(TeamGroup, group_id)
-    if group is None or group.owner_user_id is not None or not group.is_active:
-        raise TeamError("Group not found.")
-    team_ids = [t.id for t in group_member_teams(db, group_id)]
-    return add_teams_to_user(db, user_id, team_ids)
+def delete_user_team(db: Session, user_id: int, team_id: int) -> bool:
+    """Delete one of the caller's custom teams outright. Returns False when
+    *team_id* is not a custom team they own (a global team belongs to the admin
+    catalog; drop it from a group with :func:`remove_user_group_team` instead).
+
+    Group memberships referencing it go with it via the ``ON DELETE CASCADE``
+    on ``user_group_teams.team_id`` / ``team_group_members.team_id``.
+    """
+    team = db.get(Team, team_id)
+    if team is None or team.is_global or team.owner_user_id != user_id:
+        return False
+    db.delete(team)
+    db.flush()
+    return True
 
 
 # ---- groups as the primary selection unit ----------------------------------
@@ -562,17 +402,6 @@ def copy_group_to_user(db: Session, user_id: int, group_id: int) -> int:
 # additions to a shared group and every member of a private group — lives in
 # ``UserGroupTeam``. The virtual "All" group (group_id None) is the user's whole
 # universe: every global team ∪ the user's own custom teams.
-
-
-def list_user_custom_teams(db: Session, user_id: int) -> list[Team]:
-    """The user's own custom (non-global) teams, ordered by name."""
-    return list(
-        db.execute(
-            select(Team)
-            .where(Team.is_global.is_(False), Team.owner_user_id == user_id)
-            .order_by(Team.name)
-        ).scalars().all()
-    )
 
 
 def list_user_private_groups(db: Session, user_id: int) -> list[TeamGroup]:
@@ -602,8 +431,11 @@ def list_user_visible_groups(
             _paged(
                 select(TeamGroup)
                 .where(_visible_groups_where(user_id))
-                # Shared (owner NULL → 0) before private (→ 1), then by name.
-                .order_by(TeamGroup.owner_user_id.isnot(None), TeamGroup.name, TeamGroup.id),
+                # Shared (owner NULL → 0) before private (→ 1), then by name,
+                # then id so a paged walk cannot repeat or skip a tied name.
+                .order_by(
+                    TeamGroup.owner_user_id.isnot(None), TeamGroup.name, TeamGroup.id,
+                ),
                 limit, offset,
             )
         ).scalars().all()

@@ -75,7 +75,6 @@ def _seed_groups(db_session, user_id: int, *, shared: int, private: int) -> None
     ("path", "as_admin"),
     [
         ("/api/v1/my/groups", False),
-        ("/api/v1/team-groups", False),
         ("/api/v1/admin/team-groups", True),
     ],
 )
@@ -368,10 +367,7 @@ def test_default_page_is_unchanged_for_existing_clients(db_session):
 @pytest.mark.parametrize(
     "path",
     [
-        "/api/v1/teams",
-        "/api/v1/teams/mine",
         "/api/v1/teams/catalog",
-        "/api/v1/team-groups",
         "/api/v1/my/groups",
         "/api/v1/overlays",
         "/api/v1/icons",

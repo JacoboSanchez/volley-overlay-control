@@ -1,14 +1,14 @@
 """Cross-layer OID / overlay-id validation matrix.
 
 Ensures API OIDs, overlay-store ids, and admin names stay aligned via
-:mod:`app.id_validation`. The legacy :mod:`app.api.oid_validation` shim is
-also locked here so callers that still import from it stay in sync.
+:mod:`app.id_validation`, the one module every id-accepting surface
+validates through.
 """
 
 import pytest
 
-from app.api.oid_validation import is_valid_oid as legacy_is_valid_oid
 from app.id_validation import (
+    API_OID_PATTERN,
     api_oid_compatible_with_overlay_store,
     api_oid_overlay_base,
     is_valid_api_oid,
@@ -89,27 +89,20 @@ def test_overlay_store_rejects_empty_and_whitespace(overlay_id: str) -> None:
         validate_overlay_id(overlay_id)
 
 
-def test_legacy_oid_validation_matches_api_layer() -> None:
-    """The pre-unification shim must still mirror the new API rules.
+def test_oid_accepting_modules_share_the_canonical_pattern() -> None:
+    """Every OID-accepting module must match against the same compiled regex.
 
-    Several modules (schemas, action_log, match_archive, session_persistence)
-    still import ``is_valid_oid`` from :mod:`app.api.oid_validation`. If that
-    shim ever drifts from :func:`is_valid_api_oid`, those callers silently
-    accept or reject OIDs the rest of the stack disagrees with.
+    ``schemas`` gates request bodies, while ``action_log`` and
+    ``session_persistence`` gate the filenames they derive from an OID. If any
+    of them grew a private copy of the pattern, it would silently accept or
+    reject OIDs the rest of the stack disagrees with — which is exactly what
+    the old ``app.api.oid_validation`` shim allowed to drift.
     """
-    cases = [
-        "mybroadcast",
-        "C-mybroadcast",
-        "mybroadcast/line",
-        "a" * 200,
-        "a" * 201,
-        "..",
-        "foo..bar",
-        "",
-        "foo bar",
-    ]
-    for value in cases:
-        assert legacy_is_valid_oid(value) == is_valid_api_oid(value), value
+    from app.api import action_log, schemas, session_persistence
+
+    assert schemas.API_OID_PATTERN is API_OID_PATTERN
+    assert action_log._OID_PATTERN is API_OID_PATTERN
+    assert session_persistence._OID_PATTERN is API_OID_PATTERN
 
 
 def test_api_oid_overlay_base_rejects_legacy_prefix_only() -> None:

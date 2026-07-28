@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.api.oid_validation import OID_PATTERN
+from app.id_validation import API_OID_PATTERN
 
 # ---------------------------------------------------------------------------
 # Request models
@@ -18,7 +18,7 @@ class InitRequest(BaseModel):
     @field_validator('oid')
     @classmethod
     def validate_oid(cls, v):
-        if not OID_PATTERN.match(v):
+        if not API_OID_PATTERN.match(v):
             raise ValueError(
                 'OID must contain only alphanumeric characters, hyphens, '
                 'underscores, slashes, and dots. ".." is not allowed.'

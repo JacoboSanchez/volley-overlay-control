@@ -10,8 +10,9 @@ Groups are the primary unit of team selection:
 - ``PUT  /api/v1/board/selected-group``  remember the board's selected group (per overlay)
 - ``/api/v1/admin/teams*`` + ``/admin/team-groups*``  admin catalog + shared-group authoring
 
-The legacy flat-roster routes (``/teams``, ``/teams/mine*``, ``/team-groups``,
-``copy-to-mine``) are kept for back-compat and deprecated.
+Personal teams are owned rather than listed: ``POST``/``PATCH``
+``/api/v1/teams/mine/custom`` author them and ``DELETE /api/v1/teams/mine/{id}``
+deletes one outright. Ownership alone puts a team in the virtual "All" group.
 """
 
 from __future__ import annotations
@@ -69,14 +70,6 @@ class TeamOut(BaseModel):
             id=t.id, name=t.name, icon=t.icon_url, color=t.color,
             text_color=t.text_color, is_global=t.is_global,
         )
-
-
-class AddTeamsRequest(BaseModel):
-    team_ids: list[int] = Field(default_factory=list)
-
-
-class RemoveTeamsRequest(BaseModel):
-    team_ids: list[int] = Field(default_factory=list)
 
 
 def _validate_catalog_icon(value: str | None) -> str | None:
@@ -208,8 +201,8 @@ def _all_group_detail(db: Session, user_id: int) -> GroupDetailOut:
 
 
 def _group_rows_out(db: Session, groups: list[TeamGroup]) -> list[TeamGroupOut]:
-    """Shared-group listings (``/team-groups``, ``/admin/team-groups``) with
-    their admin-curated members — one membership query for the whole page."""
+    """The admin shared-group listing with its curated members — one membership
+    query for the whole page instead of one per group."""
     members = teams_service.group_member_teams_bulk(db, [g.id for g in groups])
     return [
         TeamGroupOut(
@@ -223,33 +216,6 @@ def _group_rows_out(db: Session, groups: list[TeamGroup]) -> list[TeamGroupOut]:
 # ---- user-facing -----------------------------------------------------------
 
 
-@router.get("/teams")
-def my_teams(
-    response: Response,
-    user: User = Depends(require_user),
-    db: Session = Depends(get_db),
-    page: Page = PageDep,
-):
-    """The caller's team list, in the APP_TEAMS map shape."""
-    with_total(response, teams_service.count_user_team_rows(db, user.id))
-    return teams_service.user_teams(db, user.id, limit=page.limit, offset=page.offset)
-
-
-@router.get("/teams/mine", response_model=list[TeamOut])
-def my_team_rows(
-    response: Response,
-    user: User = Depends(require_user),
-    db: Session = Depends(get_db),
-    page: Page = PageDep,
-):
-    """The caller's team list as rows with ids (global + own custom teams)."""
-    with_total(response, teams_service.count_user_team_rows(db, user.id))
-    rows = teams_service.list_user_team_rows(
-        db, user.id, limit=page.limit, offset=page.offset,
-    )
-    return [TeamOut.of(t) for t in rows]
-
-
 @router.get("/teams/catalog", response_model=list[TeamOut])
 def catalog(
     response: Response,
@@ -260,20 +226,6 @@ def catalog(
     with_total(response, teams_service.count_global(db))
     rows = teams_service.list_global(db, limit=page.limit, offset=page.offset)
     return [TeamOut.of(t) for t in rows]
-
-
-@router.post("/teams/mine")
-def add_to_my_teams(
-    body: AddTeamsRequest,
-    user: User = Depends(require_user),
-    db: Session = Depends(get_db),
-):
-    try:
-        added = teams_service.add_teams_to_user(db, user.id, body.team_ids)
-    except teams_service.TeamError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    db.commit()
-    return {"added": added}
 
 
 @router.post("/teams/mine/custom", response_model=TeamOut, status_code=201)
@@ -313,55 +265,21 @@ def update_my_custom_team(
     return TeamOut.of(team)
 
 
-@router.post("/teams/mine/remove")
-def remove_my_teams(
-    body: RemoveTeamsRequest,
-    user: User = Depends(require_user),
-    db: Session = Depends(get_db),
-):
-    """Batch-remove teams from the caller's list (unlinks globals; deletes own customs)."""
-    removed = teams_service.remove_teams_from_user(db, user.id, body.team_ids)
-    db.commit()
-    return {"removed": removed}
-
-
 @router.delete("/teams/mine/{team_id}")
-def remove_from_my_teams(
+def delete_my_custom_team(
     team_id: int,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    if not teams_service.remove_team_from_user(db, user.id, team_id):
-        raise HTTPException(status_code=404, detail="Not in your team list.")
+    """Delete one of the caller's own custom teams, dropping it from every group.
+
+    Global teams belong to the admin catalog — remove those from a single group
+    via ``DELETE /my/groups/{group_id}/teams/{team_id}`` instead.
+    """
+    if not teams_service.delete_user_team(db, user.id, team_id):
+        raise HTTPException(status_code=404, detail="Not one of your custom teams.")
     db.commit()
     return {"ok": True}
-
-
-@router.get("/team-groups", response_model=list[TeamGroupOut])
-def list_groups(
-    response: Response,
-    user: User = Depends(require_user),
-    db: Session = Depends(get_db),
-    page: Page = PageDep,
-):
-    with_total(response, teams_service.count_active_groups(db))
-    return _group_rows_out(
-        db, teams_service.list_active_groups(db, limit=page.limit, offset=page.offset),
-    )
-
-
-@router.post("/team-groups/{group_id}/copy-to-mine")
-def copy_group(
-    group_id: int,
-    user: User = Depends(require_user),
-    db: Session = Depends(get_db),
-):
-    try:
-        added = teams_service.copy_group_to_user(db, user.id, group_id)
-    except teams_service.TeamError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    db.commit()
-    return {"added": added}
 
 
 # ---- admin authoring -------------------------------------------------------
@@ -444,7 +362,7 @@ def admin_list_groups(
     page: Page = PageDep,
 ):
     """Every group (active and inactive) with its members — drives the admin
-    group manager. Users only ever see active groups via ``GET /team-groups``."""
+    group manager."""
     with_total(response, teams_service.count_all_groups(db))
     return _group_rows_out(
         db, teams_service.list_all_groups(db, limit=page.limit, offset=page.offset),

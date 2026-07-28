@@ -21,8 +21,8 @@ inside the startup transaction, where Postgres forbids
 write lock; an operator with an unusually large ``teams`` table can create
 them by hand first, at which point this revision is a no-op stamp.
 
-Revision ID: 0004_perf_indexes
-Revises: 0003_drop_overlay_session_meta
+Revision ID: 0005_perf_indexes
+Revises: 0004_drop_user_team_list
 Create Date: 2026-07-28 14:19:22.059434
 """
 from __future__ import annotations
@@ -32,8 +32,8 @@ from collections.abc import Sequence
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '0004_perf_indexes'
-down_revision: str | None = '0003_drop_overlay_session_meta'
+revision: str = '0005_perf_indexes'
+down_revision: str | None = '0004_drop_user_team_list'
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -85,6 +85,14 @@ describe('api/client pagination', () => {
     expect(fetchMock()).toHaveBeenCalledTimes(1);
   });
 
+  it('returns what it has when a page body is not the expected array', async () => {
+    // An error envelope or a shape change must not surface as an opaque
+    // "spread requires an iterable" TypeError from inside the walk.
+    fetchMock().mockResolvedValue(page({}, 5));
+    await expect(getTeamCatalog()).resolves.toEqual([]);
+    expect(fetchMock()).toHaveBeenCalledTimes(1);
+  });
+
   it('pages /my/groups, where the synthetic "All" group is row 0', async () => {
     const all = { id: null, name: 'All teams', kind: 'all', is_private: false, teams: [] };
     const first = [all, ...Array.from({ length: 199 }, (_, i) => ({ id: i, name: `G${i}` }))];

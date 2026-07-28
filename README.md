@@ -328,9 +328,9 @@ login-cookie lifetime) are documented in the **Advanced tuning** section of
 Teams and presets are stored in the database, not in environment variables:
 
 *   **Teams** — A global catalog (curated and activated by admins) plus each
-    user's own team list. Users work with `/api/v1/teams`, `/teams/catalog`,
-    `/teams/mine`, and admin-published `/team-groups` (with
-    `/team-groups/{id}/copy-to-mine`). Admins manage the catalog under
+    user's own custom teams, organised into groups. Users work with
+    `/api/v1/teams/catalog`, `/teams/mine/custom`, and `/my/groups…` (their own
+    groups plus the admin-published ones). Admins manage the catalog under
     `/api/v1/admin/teams…` and `/admin/team-groups…`.
 *   **Presets** — A user's own customization presets follow them across all
     of their scoreboards; admins can additionally activate global presets that
