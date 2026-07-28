@@ -138,6 +138,21 @@ def test_html_csp_allows_exact_overlay_public_origin(monkeypatch):
     assert "https:" not in frame_src_directive.split()
 
 
+def test_html_csp_normalizes_idn_like_a_browser(monkeypatch):
+    monkeypatch.setenv("OVERLAY_PUBLIC_URL", "https://faß.de/overlay")
+    res = TestClient(_build_headers_app()).get("/manage")
+    csp = res.headers["content-security-policy"]
+    frame_src_directive = next(
+        (p.strip() for p in csp.split(";") if p.strip().startswith("frame-src")),
+        "",
+    )
+    assert frame_src_directive.split() == [
+        "frame-src",
+        "'self'",
+        "https://xn--fa-hia.de",
+    ]
+
+
 @pytest.mark.parametrize(
     "public_url",
     [

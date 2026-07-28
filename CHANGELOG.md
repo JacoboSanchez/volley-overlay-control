@@ -20,8 +20,9 @@ archive by hand.
   evaluation or arbitrary HTTPS iframes.** `script-src` drops the unused
   `'unsafe-eval'`; `frame-src` now allows only `'self'` and, for split-host
   deployments, the exact HTTP(S) origin configured by
-  `OVERLAY_PUBLIC_URL`. The broad `img-src https:` source remains
-  intentional because operators can configure external team-logo URLs.
+  `OVERLAY_PUBLIC_URL`, using browser-compatible UTS #46 normalization
+  for internationalized hostnames. The broad `img-src https:` source
+  remains intentional because operators can configure external team-logo URLs.
   Fixes [#431](https://github.com/JacoboSanchez/volley-overlay-control/issues/431).
 
 - **The rate limiter now covers the capability-token routes, and counts

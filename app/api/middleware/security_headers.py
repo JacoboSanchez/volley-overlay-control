@@ -40,9 +40,10 @@ from __future__ import annotations
 
 import ipaddress
 import os
-import re
 from collections.abc import Iterable
 from urllib.parse import urlsplit
+
+import idna
 
 from app.env_vars_manager import EnvVarsManager
 
@@ -76,9 +77,6 @@ _DEFAULT_CSP = (
     "frame-ancestors 'self'"
 )
 
-_CSP_DNS_HOST_RE = re.compile(
-    r"[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.?",
-)
 _OVERLAY_CSP_FRAME_ANCESTORS = "frame-ancestors *"
 # Overlay templates pull webfonts from Google Fonts (Outfit, Inter,
 # Roboto, Oswald, Montserrat, Rajdhani, Barlow Condensed, Chakra Petch,
@@ -153,12 +151,13 @@ def _overlay_public_origin() -> str | None:
         address = ipaddress.ip_address(hostname)
     except ValueError:
         try:
-            ascii_host = hostname.encode("idna").decode("ascii")
-        except UnicodeError:
+            host = idna.encode(
+                hostname,
+                uts46=True,
+                std3_rules=True,
+            ).decode("ascii").lower()
+        except (idna.IDNAError, UnicodeError):
             return None
-        if _CSP_DNS_HOST_RE.fullmatch(ascii_host) is None:
-            return None
-        host = ascii_host.lower()
     else:
         host = address.compressed
         if address.version == 6:
