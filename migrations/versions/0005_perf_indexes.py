@@ -82,11 +82,18 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Only drop what this revision could have created — an index an operator
-    # made by hand under a different name is theirs to keep.
-    for table, column in reversed(_INDEXES):
-        name = _index_name(table, column)
-        if not any(ix['name'] == name for ix in _reflected_indexes(table)):
-            continue
-        with op.batch_alter_table(table, schema=None) as batch_op:
-            batch_op.drop_index(batch_op.f(name))
+    """Deliberately a no-op — the indexes are left in place.
+
+    There is no way to tell an index this revision created from one the
+    operator pre-created concurrently: the README procedure has them use these
+    exact names, so the name proves nothing about who made it. Dropping by name
+    would delete operator-managed indexes on a rollback, and re-upgrading would
+    rebuild them with the blocking ``CREATE INDEX`` the whole procedure exists
+    to avoid.
+
+    Leaving them costs nothing that matters. They are pure performance
+    artefacts — no query depends on one for correctness, ``upgrade`` skips any
+    that survive, and the model/migration drift check compares declared indexes
+    as a subset, so extras do not register as drift.
+    """
+

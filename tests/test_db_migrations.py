@@ -374,6 +374,33 @@ def test_0005_skips_indexes_an_operator_precreated(tmp_path, monkeypatch):
     engine.dispose()
 
 
+def test_0005_downgrade_keeps_operator_precreated_indexes(tmp_path, monkeypatch):
+    """A rollback must not delete indexes the operator built concurrently.
+
+    The README procedure has operators pre-create these under the revision's
+    own generated names, so the name cannot distinguish ours from theirs.
+    Dropping by name would destroy operator-managed indexes and force the next
+    upgrade to rebuild them with the blocking statement the procedure exists to
+    avoid — so the downgrade leaves every one of them alone.
+    """
+    db_file = tmp_path / "keep.db"
+    url = f"sqlite:///{db_file}"
+    monkeypatch.setenv("DATABASE_URL", url)
+    cfg = _alembic_config(url)
+    command.upgrade(cfg, "0004_drop_user_team_list")
+
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        conn.execute(text("CREATE INDEX ix_teams_name ON teams (name)"))
+
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0004_drop_user_team_list")
+
+    names = {ix["name"] for ix in inspect(engine).get_indexes("teams")}
+    assert "ix_teams_name" in names, "downgrade dropped an operator-managed index"
+    engine.dispose()
+
+
 def test_0005_is_rerunnable_after_a_full_upgrade(tmp_path, monkeypatch):
     """Downgrading and re-upgrading 0005 is a no-op, not a duplicate-index error."""
     db_file = tmp_path / "rerun.db"

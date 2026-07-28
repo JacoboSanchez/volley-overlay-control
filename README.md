@@ -289,8 +289,10 @@ CREATE INDEX CONCURRENTLY ix_teams_is_global ON teams (is_global);
 the migration itself does not use it. The revision skips any index that is
 already present — matched by name *or* by indexed column — so pre-creating
 them (under these names or your own) is safe and the upgrade proceeds
-normally. This is not required; it is only worth doing when the write lock
-would be disruptive.
+normally. Rolling the revision back leaves the indexes in place rather than
+dropping them, so a downgrade never destroys one you created yourself. This
+is not required; it is only worth doing when the write lock would be
+disruptive.
 
 ---
 
