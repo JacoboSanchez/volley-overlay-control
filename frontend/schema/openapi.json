@@ -3847,6 +3847,33 @@
         "operationId": "list_users_api_v1_admin_users_get",
         "parameters": [
           {
+            "description": "Page size",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "description": "Page size",
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Rows to skip",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Rows to skip",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
             "in": "cookie",
             "name": "vsession",
             "required": false,
@@ -3876,7 +3903,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {

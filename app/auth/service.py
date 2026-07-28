@@ -182,10 +182,20 @@ def delete_user(db: Session, user: User) -> None:
     db.flush()
 
 
-def list_users(db: Session) -> list[User]:
-    return list(
-        db.execute(select(User).order_by(User.username)).scalars().all()
-    )
+def list_users(
+    db: Session, *, limit: int | None = None, offset: int = 0,
+) -> list[User]:
+    # ``username`` is unique, so it is already a stable paging key on its own.
+    stmt = select(User).order_by(User.username)
+    if offset:
+        stmt = stmt.offset(offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return list(db.execute(stmt).scalars().all())
+
+
+def count_users(db: Session) -> int:
+    return int(db.execute(select(func.count()).select_from(User)).scalar_one())
 
 
 def get_by_id(db: Session, user_id: int) -> User | None:

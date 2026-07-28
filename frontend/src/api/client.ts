@@ -196,11 +196,11 @@ async function sendWithResponse<T>(
 }
 
 // ---- paginated listings -----------------------------------------------------
-// The API caps any single list response (LIST_DEFAULT_LIMIT, 500 by default)
-// and reports the full in-scope size in X-Total-Count. A one-shot GET would
-// therefore silently hide every row past the first page, so these helpers walk
-// the pages until the client holds the whole listing — the SPA's own screens
-// (overlays, team catalog, groups, icons, presets) all expect the complete set.
+// The API caps any single list response (at LIST_DEFAULT_LIMIT) and reports the
+// full in-scope size in X-Total-Count. A one-shot GET would therefore silently
+// hide every row past the first page, so these helpers walk the pages until the
+// client holds the whole listing — the SPA's own screens (overlays, team
+// catalog, groups, icons, presets, admin users) all expect the complete set.
 
 function pagedPath(path: string, offset: number): string {
   const sep = path.includes('?') ? '&' : '?';
@@ -773,7 +773,7 @@ export function deleteMatch(matchId: string): Promise<void> {
 // ---- Admin -----------------------------------------------------------------
 
 export function adminListUsers(): Promise<UserOut[]> {
-  return request<UserOut[]>('GET', '/admin/users');
+  return getAllPages<UserOut[], UserOut>('/admin/users', (rows) => rows);
 }
 
 export function adminCreateUser(

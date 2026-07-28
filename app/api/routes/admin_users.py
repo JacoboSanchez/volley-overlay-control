@@ -4,12 +4,13 @@ and toggle open registration. All endpoints require an admin session.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app import settings_service, teams_service
+from app.api.pagination import PAGINATED_RESPONSES, Page, PageDep, with_total
 from app.auth import service
 from app.auth.dependencies import require_admin
 from app.auth.schemas import (
@@ -29,9 +30,18 @@ class RegistrationSetting(BaseModel):
     registration_open: bool
 
 
-@router.get("/users", response_model=list[UserOut])
-def list_users(_admin: User = Depends(require_admin), db: Session = Depends(get_db)):
-    return [UserOut.from_user(u) for u in service.list_users(db)]
+@router.get(
+    "/users", response_model=list[UserOut], responses=PAGINATED_RESPONSES,
+)
+def list_users(
+    response: Response,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    page: Page = PageDep,
+):
+    with_total(response, service.count_users(db))
+    rows = service.list_users(db, limit=page.limit, offset=page.offset)
+    return [UserOut.from_user(u) for u in rows]
 
 
 @router.post("/users", response_model=TempPasswordResponse, status_code=201)

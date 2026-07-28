@@ -51,8 +51,8 @@ archive by hand.
   the last unbounded reads
   ([#433](https://github.com/JacoboSanchez/volley-overlay-control/issues/433)).
   `GET /teams/catalog`, `/my/groups`, `/overlays`, `/icons`,
-  `/customization/presets`, `/admin/team-groups` and `/admin/presets` all
-  take the two parameters and push them into SQL. **Response bodies are unchanged** — a bare JSON array
+  `/customization/presets`, `/admin/team-groups`, `/admin/presets` and
+  `/admin/users` all take the two parameters and push them into SQL. **Response bodies are unchanged** — a bare JSON array
   is still a bare JSON array; the full in-scope total travels in a new
   `X-Total-Count` header (exposed through CORS), so a client can tell a
   complete page from a truncated one without every existing consumer

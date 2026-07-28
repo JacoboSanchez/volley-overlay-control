@@ -486,6 +486,7 @@ def test_list_endpoints_reject_an_unbounded_page(db_session, path):
         "/api/v1/customization/presets",
         "/api/v1/admin/team-groups",
         "/api/v1/admin/presets",
+        "/api/v1/admin/users",
     ],
 )
 def test_total_count_header_is_in_the_committed_contract(path):
@@ -504,6 +505,33 @@ def test_total_count_header_is_in_the_committed_contract(path):
         f"GET {path} pages but does not declare X-Total-Count in the contract"
     )
     assert headers["X-Total-Count"]["schema"]["type"] == "integer"
+
+
+def test_admin_user_listing_pages(db_session):
+    """``GET /admin/users`` was the last account listing reading a whole table
+    with ``.scalars().all()``."""
+    admin = _admin(db_session)
+    for i in range(4):
+        assert admin.post(
+            "/api/v1/admin/users", json={"username": f"member{i}"},
+        ).status_code == 201
+
+    page = admin.get("/api/v1/admin/users?limit=2")
+    assert page.status_code == 200
+    # 4 created + the admin itself.
+    assert page.headers["X-Total-Count"] == "5"
+    assert len(page.json()) == 2
+
+    walked: list[str] = []
+    for offset in range(0, 5, 2):
+        walked.extend(
+            u["username"] for u in admin.get(
+                f"/api/v1/admin/users?limit=2&offset={offset}",
+            ).json()
+        )
+    assert len(walked) == 5
+    assert walked == sorted(walked)  # username order, no repeats across pages
+    assert len(set(walked)) == 5
 
 
 def test_admin_preset_and_group_listings_page(db_session):
