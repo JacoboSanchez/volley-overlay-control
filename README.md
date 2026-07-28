@@ -178,8 +178,9 @@ toggled per overlay from the dashboard.
 > ⚠️ Unlike the operator link, **this URL contains no secret** — anyone who
 > guesses your username and overlay id gets full control of the board. Only
 > turn it on when a kiosk needs a URL that survives token rotation, and only on
-> a trusted network. [AUTHENTICATION.md §1.2](AUTHENTICATION.md) explains the
-> trade-off and how it is enforced.
+> a trusted network.
+> [AUTHENTICATION.md §1.2](AUTHENTICATION.md#12-board-credentials--the-four-ways-to-reach-one-overlay)
+> explains the trade-off and how it is enforced.
 
 The OBS output link (`/overlay/{public_token}`) is a third, separate token. It
 is **output only** — it renders the scoreboard and cannot change anything — so

@@ -50,7 +50,6 @@ happily while guarding nothing.
 """
 
 import json
-import os
 import re
 import subprocess
 from pathlib import Path
@@ -330,26 +329,32 @@ def test_every_ci_gate_is_documented():
 # rather than routes.
 #
 # An exemption is a hole in both directions at once — the forward check skips
-# it and the inverse check never sees it — so the WebSocket entries are
-# verified against the real routers by test_exempt_websocket_routes_exist
-# rather than trusted. The static mounts are checked there too.
-WEBSOCKET_EXEMPTIONS = {"/api/v1/ws", "/ws/{public_token}"}
+# it and the inverse check never sees it — so every entry is verified against
+# the real router or mount rather than trusted. Operations, not paths, are the
+# unit here: otherwise an inventory row could change ``WS /api/v1/ws`` into
+# ``GET /api/v1/ws`` and still satisfy every check.
+WEBSOCKET_EXEMPT_OPERATIONS = {
+    ("ws", "/api/v1/ws"),
+    ("ws", "/ws/{public_token}"),
+}
 # Registered with ``include_in_schema=False``: genuinely absent from the
 # schema, but an ordinary route object and therefore enumerable. "Not in the
-# schema" and "not verifiable" are different claims, and conflating them is
-# how /favicon.ico ended up in the unverifiable set below.
-SCHEMA_HIDDEN_EXEMPTIONS = {"/favicon.ico"}
-MOUNT_EXEMPTIONS = {"/fonts/**", "/static/**", "/media/**", "/pwa/**"}
-# Served by the SPA catch-all, so there is no route object to enumerate.
-# Anything added here is unguarded — justify it or find a way to check it.
-UNVERIFIABLE_EXEMPTIONS = {"/assets/**"}
+# schema" and "not verifiable" are different claims.
+SCHEMA_HIDDEN_EXEMPT_OPERATIONS = {("get", "/favicon.ico")}
 
-OPERATIONS_NOT_IN_SCHEMA = (
-    WEBSOCKET_EXEMPTIONS
-    | SCHEMA_HIDDEN_EXEMPTIONS
-    | MOUNT_EXEMPTIONS
-    | UNVERIFIABLE_EXEMPTIONS
+# These mounts exist without a frontend build. Vite's fingerprinted assets are
+# a separate, real Mount created only when ``frontend/dist/assets`` exists.
+BASE_MOUNT_EXEMPTIONS = {"/fonts/**", "/static/**", "/media/**", "/pwa/**"}
+FRONTEND_MOUNT_EXEMPTIONS = {"/assets/**"}
+MOUNT_EXEMPTIONS = BASE_MOUNT_EXEMPTIONS | FRONTEND_MOUNT_EXEMPTIONS
+MOUNT_EXEMPT_OPERATIONS = {("get", path) for path in MOUNT_EXEMPTIONS}
+
+EXEMPT_INVENTORY_OPERATIONS = (
+    WEBSOCKET_EXEMPT_OPERATIONS
+    | SCHEMA_HIDDEN_EXEMPT_OPERATIONS
+    | MOUNT_EXEMPT_OPERATIONS
 )
+OPERATIONS_NOT_IN_SCHEMA = {path for _, path in EXEMPT_INVENTORY_OPERATIONS}
 
 # Inventory rows that describe a family rather than one route.
 WILDCARD_INVENTORY_PATHS = {"/**"}
@@ -457,9 +462,9 @@ def test_exempt_websocket_routes_exist():
     from app.overlay import obs_broadcast_hub, overlay_state_store
     from app.overlay.routes import create_overlay_router
 
-    def ws_paths(router, prefix: str = "") -> set[str]:
+    def ws_operations(router, prefix: str = "") -> set[tuple[str, str]]:
         return {
-            prefix + r.path
+            ("ws", prefix + r.path)
             for r in router.routes
             if type(r).__name__ == "APIWebSocketRoute"
         }
@@ -469,95 +474,102 @@ def test_exempt_websocket_routes_exist():
         obs_broadcast_hub,
         Jinja2Templates(directory=str(TEMPLATES_DIR)),
     )
-    registered = ws_paths(websocket_routes.router, api_router.prefix)
-    registered |= ws_paths(overlay_router)
+    registered = ws_operations(websocket_routes.router, api_router.prefix)
+    registered |= ws_operations(overlay_router)
 
     # Routes hidden from the schema are still ordinary route objects, so hold
     # them to the same standard rather than taking them on trust.
     hidden = {
-        r.path
+        (method.lower(), r.path)
         for r in overlay_router.routes
         if type(r).__name__ == "APIRoute" and not r.include_in_schema
+        for method in r.methods
     }
-    assert hidden == SCHEMA_HIDDEN_EXEMPTIONS, (
+    assert hidden == SCHEMA_HIDDEN_EXEMPT_OPERATIONS, (
         f"include_in_schema=False routes {sorted(hidden)} do not match "
-        f"SCHEMA_HIDDEN_EXEMPTIONS {sorted(SCHEMA_HIDDEN_EXEMPTIONS)}. A route "
-        "hidden from the schema is invisible to both inventory directions, so "
-        "it must be listed here *and* documented in AUTHENTICATION.md §2."
+        "SCHEMA_HIDDEN_EXEMPT_OPERATIONS "
+        f"{sorted(SCHEMA_HIDDEN_EXEMPT_OPERATIONS)}. A route hidden from the "
+        "schema is invisible to both inventory directions, so its exact method "
+        "and path must be listed here *and* documented in AUTHENTICATION.md §2."
     )
 
-    missing = sorted(WEBSOCKET_EXEMPTIONS - registered)
-    assert not missing, (
-        f"WEBSOCKET_EXEMPTIONS names routes that are not registered: "
-        f"{missing} (found {sorted(registered)}). Either the route was "
-        "renamed — in which case AUTHENTICATION.md is advertising a dead "
-        "path — or the exemption is stale and should be dropped."
-    )
-    unexempted = sorted(registered - WEBSOCKET_EXEMPTIONS)
-    assert not unexempted, (
-        f"WebSocket routes with no exemption entry: {unexempted}. They have "
-        "no OpenAPI entry, so the inverse inventory check cannot see them; "
-        "add them to WEBSOCKET_EXEMPTIONS *and* give them a row in "
-        "AUTHENTICATION.md §2."
+    assert registered == WEBSOCKET_EXEMPT_OPERATIONS, (
+        f"Registered WebSocket operations {sorted(registered)} do not match "
+        "WEBSOCKET_EXEMPT_OPERATIONS "
+        f"{sorted(WEBSOCKET_EXEMPT_OPERATIONS)}. WebSockets have no OpenAPI "
+        "entry, so add or remove the exact operation here and in "
+        "AUTHENTICATION.md §2 together."
     )
 
 
-def test_exempt_paths_stay_inventoried():
-    """Exempting a path from the schema checks must not un-document it.
+def test_exempt_operations_stay_inventoried():
+    """Exempting an operation must not un-document or misstate it.
 
     Being exempt removes a route from *both* schema-driven directions, so
     without this the inventory could drop the WebSocket and static-mount
     rows entirely and stay green: the forward check skips them and the
-    inverse check never sees them. The exemption is from the *schema*, not
-    from the documentation.
+    inverse check never sees them. Compare exact ``(method, path)`` pairs so
+    an exempt WebSocket cannot quietly become a documented GET route.
     """
-    inventoried = {p for _, p in _inventoried_operations()}
-    # Derived from OPERATIONS_NOT_IN_SCHEMA rather than re-listing the sets:
-    # re-listing them is how SCHEMA_HIDDEN_EXEMPTIONS was added without being
-    # added here, silently un-guarding /favicon.ico one commit after it was
-    # guarded. Any new exemption set is covered automatically.
-    missing = sorted(OPERATIONS_NOT_IN_SCHEMA - inventoried)
-    assert not missing, (
-        f"Schema-exempt paths with no row in AUTHENTICATION.md §2: {missing}. "
-        "An exemption only means 'absent from the OpenAPI schema'; these are "
-        "still reachable surfaces and still need documenting."
+    inventoried = _inventoried_operations()
+    inventoried_exempt = {
+        operation
+        for operation in inventoried
+        if operation[1] in OPERATIONS_NOT_IN_SCHEMA
+    }
+    assert inventoried_exempt == EXEMPT_INVENTORY_OPERATIONS, (
+        "Schema-exempt operations in AUTHENTICATION.md §2 "
+        f"{sorted(inventoried_exempt)} do not match the expected operations "
+        f"{sorted(EXEMPT_INVENTORY_OPERATIONS)}. An exemption only means "
+        "'absent from the OpenAPI schema'; its exact method/protocol and path "
+        "must still be documented."
     )
 
 
-def test_exempt_mounts_match_the_app():
+@pytest.mark.parametrize("frontend_built", [False, True])
+def test_exempt_mounts_match_the_app(tmp_path, monkeypatch, frontend_built):
     """Same argument as the WebSocket check, and in both directions.
 
     Starlette mounts are absent from the OpenAPI schema, so the inverse
     inventory check cannot see them: a mount added without a row would be
-    documented nowhere and noticed by nothing. Compare the sets for
-    equality rather than only checking the documented ones still exist.
+    documented nowhere and noticed by nothing. Exercise both supported app
+    layouts explicitly: backend-only checkouts and built frontend bundles.
     """
-    import tempfile
-
     from starlette.routing import Mount
 
-    from app.bootstrap import create_app
+    from app import bootstrap
 
-    with tempfile.TemporaryDirectory() as tmp:
-        os.environ["DATABASE_URL"] = f"sqlite:///{tmp}/docs_guard.db"
-        app = create_app()
-        mounted = {r.path for r in app.routes if isinstance(r, Mount)}
+    frontend_dir = tmp_path / "frontend-dist"
+    if frontend_built:
+        (frontend_dir / "assets").mkdir(parents=True)
+    monkeypatch.setattr(bootstrap, "FRONTEND_DIR", frontend_dir)
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        f"sqlite:///{tmp_path / 'docs_guard.db'}",
+    )
+    app = bootstrap.create_app()
+    mounted = {r.path for r in app.routes if isinstance(r, Mount)}
 
     # The SPA catch-all is mounted at the root — Starlette normalises that to
-    # the empty string, not "/" — and only when frontend/dist exists, so it is
-    # present in a built checkout and absent in a backend-only one. Both forms
-    # are excluded here: matching only "/" made this test fail on any built
-    # checkout, which is the normal state for anyone running the app.
+    # the empty string, not "/" — and only when the frontend exists.
     spa_paths = {"", "/"}
     spa_mounted = bool(mounted & spa_paths)
     static = {f"{path}/**" for path in mounted - spa_paths}
+    expected = set(BASE_MOUNT_EXEMPTIONS)
+    if frontend_built:
+        expected.update(FRONTEND_MOUNT_EXEMPTIONS)
 
-    assert static == MOUNT_EXEMPTIONS, (
-        f"Static mounts {sorted(static)} do not match MOUNT_EXEMPTIONS "
-        f"{sorted(MOUNT_EXEMPTIONS)}. A mount that exists but is not listed "
+    assert static == expected, (
+        f"Static mounts {sorted(static)} do not match the expected mounts "
+        f"{sorted(expected)} for frontend_built={frontend_built}. A mount "
+        "that exists but is not listed "
         "is invisible to every other check here — add it to MOUNT_EXEMPTIONS "
         "*and* give it a row in AUTHENTICATION.md §2.6. A listed mount that "
         "no longer exists means the docs advertise a dead surface."
+    )
+    assert spa_mounted is frontend_built, (
+        f"SPA root mount presence was {spa_mounted}, expected "
+        f"{frontend_built} for frontend_built={frontend_built}."
     )
     if spa_mounted:
         assert "/**" in {p for _, p in _inventoried_operations()}, (

@@ -2,21 +2,22 @@
 
 > ℹ️ **Rewritten for the multi-user refactor.** The app moved from a
 > single-tenant Bearer/admin-password posture to **multi-user cookie
-> sessions with roles** (`app/auth/`). The scoreboard API, control
-> WebSocket, and account self-service are gated by a **logged-in user via
-> an HttpOnly `vsession` cookie**, and every session is addressed by the
-> per-user storage key `"<user_id>:<oid>"`, so a user can only ever reach
-> their own scoreboards. The public OBS surface
-> (`/overlay/{token}`, `/follow/{token}`, `/ws/{token}`) is addressed by an
-> unguessable per-overlay `public_token` and carries no credential. The app
-> is purely in-process — there is no external overlay server and no
-> machine-to-machine Bearer layer. The legacy `SCOREBOARD_USERS` Bearer
-> ladder, the `OVERLAY_MANAGER_PASSWORD` admin Bearer + `/manage`,
-> `check_oid_access` / `STRICT_OID_ACCESS`, and the match-report
-> `?token=<password>` flow were all **removed in the multi-user refactor**;
-> they are noted here only where a reader might expect them.
+> sessions with roles** (`app/auth/`). Account and admin surfaces require
+> an HttpOnly `vsession` cookie. The scoreboard API and control WebSocket
+> instead accept any board credential: the owner's cookie, an unguessable
+> `control_token`, or an opted-in, guessable public bookmark. Each resolves
+> to the per-user storage key `"<user_id>:<oid>"`, so it reaches only its
+> intended scoreboard. The public OBS surface (`/overlay/{token}`,
+> `/follow/{token}`, `/ws/{token}`) uses a separate, unguessable
+> `public_token` path capability for read-only output. The app is purely
+> in-process — there is no external overlay server and no machine-to-machine
+> Bearer layer. The legacy `SCOREBOARD_USERS` Bearer ladder, the
+> `OVERLAY_MANAGER_PASSWORD` admin Bearer + `/manage`, `check_oid_access` /
+> `STRICT_OID_ACCESS`, and the match-report `?token=<password>` flow were all
+> **removed in the multi-user refactor**; they are noted here only where a
+> reader might expect them.
 
-Last audited: 2026-06-19 (multi-user cookie-session refactor).
+Last audited: 2026-07-28 (board credentials and complete route inventory).
 
 This document is the single source of truth for **the auth model and
 which routes are protected, which are intentionally public, and where
@@ -28,12 +29,13 @@ organisation; both point at this file for the model itself.
 
 ## 1. Auth mechanisms in use
 
-Two kinds of credential exist: a **cookie-session layer for human users**
-(the SPA, account self-service, and everything a signed-in owner does) and
-**per-overlay capability tokens** for the two surfaces that must work with
-no login — the shareable operator board link and the OBS output pages
-(§1.2). The app is purely in-process, so there is no machine-to-machine
-Bearer layer to gate any external overlay server.
+Three credential families exist: **cookie sessions** for human users,
+**board-control credentials** for login-free operator access (an unguessable
+`control_token` or an explicitly enabled public bookmark), and the separate
+**`public_token` output capability** used by OBS pages (§1.2). A signed-in
+owner's cookie is also accepted by the board-control gate. The app is purely
+in-process, so there is no machine-to-machine Bearer layer to gate an
+external overlay server.
 
 | Layer | Credential | How it's enforced | Where |
 | :--- | :--- | :--- | :--- |
@@ -54,10 +56,12 @@ A session is an opaque `secrets.token_urlsafe(32)` value carried in the
 `vsession` cookie (`SameSite=Lax`, `HttpOnly`, `Path=/`; `Secure`
 auto-set over HTTPS, forceable via `SESSION_COOKIE_SECURE`). Only its
 SHA-256 (`token_hash`) is stored, alongside `user_id`, `expires_at`, and
-`last_seen_at` in `auth_sessions`. Storing server-side is what makes
-logout, admin password-reset, and "log out everywhere on password change"
-possible — a stateless signed cookie could not be revoked without a
-denylist table. TTL is `SESSION_TTL_HOURS` (default `336` = 14 days).
+`last_seen_at` in `auth_sessions`. Server-side storage makes selective
+revocation possible: logout removes the current session, self password
+change removes every other session, and an admin password reset removes
+all sessions (§1.2). A stateless signed cookie could not provide that
+control without a denylist table. TTL is `SESSION_TTL_HOURS` (default
+`336` = 14 days).
 
 Roles are `user` and `admin`. The dependency chain in
 `app/auth/dependencies.py`:
@@ -127,7 +131,7 @@ password change is pending.
 > trusted room; reach for `public_control` only on a private network, and
 > pick a non-obvious `oid` if you do.
 
-Both credential-less paths are exercised by
+Both login-free board-control paths are exercised by
 `tests/test_control_token.py` (token accepted, revoked token rejected,
 `public_control` off → `403`).
 
@@ -262,7 +266,7 @@ board and cannot touch the owner's account.
 | `GET` | `/matches` | Y | Lists only the caller's archived matches. |
 | `GET` | `/matches/{id}` | Y | Owner-only (`404` otherwise). |
 | `DELETE` | `/matches/{id}` | Y | Owner-only delete (§8 / §7.1). |
-| `POST` | `/matches/{id}/sign-url` | Y | Owner mints an HMAC capability URL for the gated match report. Body: `{"ttl_seconds": int}`. Response embeds `?exp=&sig=` — never a credential. Key is `SESSION_SECRET`. |
+| `POST` | `/matches/{id}/sign-url` | Y | Owner mints an HMAC capability URL for the gated match report. Body: `{"ttl_seconds": int}`. Response embeds the time-bounded bearer capability `?exp=&sig=`; the signing key remains server-side in `SESSION_SECRET`. |
 | `GET` | `/icons` | Y | Icon library listing (globals + the caller's own + quota). |
 | `POST` | `/icons/mine` | Y | Multipart icon upload into the caller's personal library (server-side resize → WebP; quota-capped). |
 | `PATCH` / `DELETE` | `/icons/mine/{id}` | Y | Rename / delete an own icon (delete also clears referencing teams). `404` for ids outside the caller's scope. |
@@ -320,7 +324,7 @@ state, and cannot mutate anything. Control needs one of credentials 1–3.
 | Method | Path | Auth | Classification |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/favicon.ico` | — | Public OK |
-| `GET` | `/overlay/{public_token}` | — | Public for OBS browser sources. Addressed by the unguessable per-overlay `public_token` (a capability URL); carries no credential. |
+| `GET` | `/overlay/{public_token}` | — | Public for OBS browser sources. The unguessable per-overlay `public_token` is itself the path capability; no cookie or secondary credential is required. |
 | `GET` | `/follow/{public_token}` | — | Public spectator/follow page; same `public_token` capability URL, same `/ws/{public_token}` feed. |
 | `WS` | `/ws/{public_token}` | — | Public for OBS browser sources. Same `public_token` capability URL. |
 | `GET` | `/api/themes` | — | Public OK (theme name list is not sensitive). |
@@ -632,12 +636,23 @@ always preserved.
 
 ## 7. Credential transport patterns
 
-This section documents how access travels on the wire. The
-multi-user refactor moved both the match report and the control
-WebSocket off the URL line entirely: nothing in either flow puts a
-credential in a request line, query string, or proxy access log.
+This section documents how access travels on the wire. Credentials use
+cookies, headers, query parameters, and capability paths:
 
-### 7.1 Match report — three ways in, no credential on the wire
+* The owner's `vsession` uses an HttpOnly cookie and does not appear in the
+  request URL.
+* HTTP board clients may put a `control_token` in `X-Control-Token`, but the
+  shareable `/board?c=` link and browser WebSocket use the `?c=` query form.
+* The public bookmark uses `?u=<username>&oid=<oid>`. It contains no secret by
+  design, but authorizes control when that overlay has opted in.
+* An overlay `public_token` appears in the path. A signed match-report
+  capability appears as `?exp=&sig=`.
+
+Treat URLs containing `c`, `public_token`, or `sig` as bearer secrets. They can
+appear in browser history and in request/proxy logs unless the deployment
+redacts them.
+
+### 7.1 Match report — owner cookie, signed URL, or public mode
 
 Access to ``/match/{match_id}/report`` is resolved by
 ``app/match_report_access.py`` in this order:
@@ -651,8 +666,8 @@ Access to ``/match/{match_id}/report`` is resolved by
    ``/match/{id}/report?exp=<unix_seconds>&sig=<hmac_hex>``. The
    signing key is ``SESSION_SECRET``, so:
    * Anyone who holds the URL can read the report until ``exp`` passes.
-   * No credential — neither the cookie nor ``SESSION_SECRET`` — ever
-     leaves the server; only an opaque, TTL-bounded signature does.
+   * The `exp` + `sig` pair is a TTL-bounded bearer credential. The
+     `SESSION_SECRET` signing key never leaves the server.
    * Rotating ``SESSION_SECRET`` invalidates every outstanding signed
      URL — the desired behaviour after a suspected leak.
 3. **Public mode.** ``MATCH_REPORT_PUBLIC=true`` opens the report to
@@ -665,22 +680,30 @@ Deleting a match is owner-only (``DELETE /api/v1/matches/{id}``).
 > ``/match/{id}/report?token=$OVERLAY_MANAGER_PASSWORD`` flow — which
 > leaked the admin password into URLs, bookmarks, and ``Referer``
 > headers — is gone, along with the admin-password signing key. The
-> three paths above replace it.
+> signed replacement is still a URL credential, but it is scoped to one
+> report and expires instead of exposing a global, long-lived password.
 
-### 7.2 ``/api/v1/ws``: cookie-authenticated upgrade
+### 7.2 `/api/v1/ws` — three board credentials
 
-Browsers send cookies on **same-origin** WebSocket upgrades, so the
-control socket simply reuses the ``vsession`` cookie — no subprotocol
-token, no ``?token=`` query parameter, nothing on the request line.
-``_resolve_skey`` resolves the cookie to the caller's
-``make_skey(user.id, oid)`` and the socket only ever streams a session
-that key owns. The server closes with ``4003`` when the cookie is
-missing/invalid and ``4004`` when no session exists for ``(user, oid)``.
+The control socket accepts the same modes as the REST board surface, in
+the same precedence order:
+
+1. `?c=<control_token>` for a shareable operator link. Browser WebSocket
+   APIs cannot set `X-Control-Token`, so the token is on the request URL.
+2. `?u=<username>&oid=<oid>` for an opted-in public bookmark.
+3. `?oid=<oid>` plus the owner's `vsession` cookie, sent automatically on
+   a same-origin WebSocket upgrade.
+
+Each mode resolves to one storage key before the connection is accepted.
+The server closes with `4400` when neither `oid` nor `c` is supplied,
+`4003` when the credential does not resolve, and `4004` when that board
+has no active session.
 
 > **Removed in the multi-user refactor:** the old
 > ``Sec-WebSocket-Protocol: bearer, <token>`` / ``Authorization:
 > Bearer`` / ``?token=`` ladder is gone — the same-origin cookie makes
-> it unnecessary.
+> that legacy account-auth ladder unnecessary. The per-overlay `?c=`
+> query is a different, current board credential.
 
 ## 8. Hashed credentials at rest
 

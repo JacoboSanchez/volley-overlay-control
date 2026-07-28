@@ -70,6 +70,11 @@ archive by hand.
 
 ### Fixed
 
+- Stale credential-transport and reconnect documentation no longer describes
+  the control WebSocket as cookie-only or claims capability signatures and
+  tokens never travel in URLs. It now follows the implemented cookie,
+  `?c=`, and `?u=&oid=` modes and the client's backoff behaviour.
+
 - A dangling `#state-model` anchor in `FRONTEND_DEVELOPMENT.md` (the
   heading is *State Model Reference*), and the `/api/v1/ws` module
   docstring, which said the endpoint was authorized "two ways" when it
@@ -103,7 +108,7 @@ archive by hand.
   documented.** An overlay's `control_token` (the shareable
   `/board?c=<token>` operator link) and the `public_control` flag (the
   stable `?u=<username>&oid=<oid>` bookmark) both grant *full board
-  control with no credential*, and neither appeared anywhere in the
+  control with no login*, and neither appeared anywhere in the
   operator-facing docs — not even in the auth audit, which carefully
   covered `/media/**` while omitting these. `AUTHENTICATION.md` gains
   §1.2, a four-credential table (owner cookie, control token, public
@@ -133,12 +138,13 @@ archive by hand.
   teams/groups/presets surface, and the two unauthenticated endpoints
   (`/app-config`, `/_log`). Five non-API surfaces were missing too
   (`/metrics`, `/health/ready`, both `/match/{id}/report*` routes, and the
-  public `/matches/{public_token}` listing). A document calling itself the
+  gated `/matches/{public_token}` history listing). A document calling itself the
   per-route auth inventory while omitting 43% of the API is worse than
   none: a reader takes absence for "not an access path".
 
-  The legend also gained a `G` class for routes that are gated by something
-  other than a session — the two match-report routes and the
+  The legend also gained a `G` class for routes that use hand-written,
+  multi-mode access checks rather than a uniform route dependency — the two
+  match-report routes and the
   `/matches/{public_token}` history listing, which were
   listed as `—` ("always public") under a section that closes by calling
   everything in it intentionally public, while `check_read_access` in fact
@@ -154,7 +160,9 @@ archive by hand.
   in both directions. Path-only comparison had let rows advertise methods
   that 405 — `GET /api/v1/admin/teams` among seven such claims, all from
   over-compressed rows that listed two methods against two paths where each
-  method belonged to only one.
+  method belonged to only one. Schema-exempt WebSockets, hidden routes, and
+  static mounts are also checked as exact operations, and mount coverage is
+  exercised in both backend-only and built-frontend layouts.
 
 - **The route inventory now distinguishes "needs a login" from "needs a
   board credential".** `AUTHENTICATION.md` §2.3 marked the whole scoring
