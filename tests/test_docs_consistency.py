@@ -178,6 +178,7 @@ CI_GATES = {
     "tsc": ("npm run typecheck",),
     "eslint": ("npm run lint",),
     "prettier --check": ("npm run format:check",),
+    "stylelint": ("npm run stylelint",),
     "npm audit": ("npm audit ",),
     # The table promises "OpenAPI schema + generated types"; the drift step
     # diffs both paths, so both must stay in the command.

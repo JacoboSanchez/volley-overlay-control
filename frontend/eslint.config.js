@@ -14,6 +14,7 @@ export default tseslint.config(
       'node_modules/**',
       'src/api/schema.d.ts',
       'dev-dist/**',
+      'overlay_static/js/gsap.min.js',
       '*.config.js',
     ],
   },
@@ -97,6 +98,30 @@ export default tseslint.config(
       'jsx-a11y/label-has-associated-control': 'off',
       'jsx-a11y/click-events-have-key-events': 'off',
       'jsx-a11y/no-static-element-interactions': 'off',
+    },
+  },
+  {
+    // `npm run lint:overlays` invokes this config from the repository root:
+    // ESLint otherwise treats files outside frontend/ as outside its base
+    // path and silently ignores the on-air scripts.
+    files: ['overlay_static/js/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'script',
+      globals: {
+        ...globals.browser,
+        ...globals.es2022,
+        gsap: 'readonly',
+        wsUrl: 'readonly',
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-undef': 'error',
+      'no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
     },
   },
   prettier,
