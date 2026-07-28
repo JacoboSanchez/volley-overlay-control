@@ -2903,6 +2903,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value. */
+                    "X-Total-Count"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -3174,6 +3176,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value. */
+                    "X-Total-Count"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -4395,6 +4399,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value. */
+                    "X-Total-Count"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -5190,6 +5196,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value. */
+                    "X-Total-Count"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -5625,6 +5633,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value. */
+                    "X-Total-Count"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -5837,6 +5847,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value. */
+                    "X-Total-Count"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -6230,6 +6242,8 @@ export interface operations {
             /** @description Successful Response */
             200: {
                 headers: {
+                    /** @description Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value. */
+                    "X-Total-Count"?: number;
                     [name: string]: unknown;
                 };
                 content: {

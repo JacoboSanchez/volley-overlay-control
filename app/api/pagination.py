@@ -21,7 +21,7 @@ silently truncated page would mean silently losing data.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from fastapi import Depends, Query, Response
 
@@ -32,6 +32,25 @@ from app.constants import LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT
 _S = TypeVar("_S")
 
 TOTAL_COUNT_HEADER = "X-Total-Count"
+
+# Every paginated route passes this as its ``responses=`` so the header is part
+# of the *committed* contract, not just the runtime response. Without it an
+# integrator reading ``frontend/schema/openapi.json`` has no way to discover
+# the one signal that distinguishes a complete listing from a default-limited
+# page — and the generated frontend types would not mention it either.
+PAGINATED_RESPONSES: dict[int | str, dict[str, Any]] = {
+    200: {
+        "headers": {
+            TOTAL_COUNT_HEADER: {
+                "description": (
+                    "Total rows in scope, ignoring `limit`/`offset`. Page until "
+                    "the accumulated row count reaches this value."
+                ),
+                "schema": {"type": "integer", "minimum": 0},
+            },
+        },
+    },
+}
 
 
 @dataclass(frozen=True)

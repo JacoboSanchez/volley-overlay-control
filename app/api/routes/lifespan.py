@@ -67,15 +67,23 @@ async def _auth_session_sweep_loop():
     ``resolve_session`` only drops an expired row when its own token is
     presented again, so without this loop a row survives forever once the
     client stops presenting the cookie.
+
+    The first sweep runs immediately, *before* the first sleep. Sleeping first
+    would mean an instance redeployed more often than
+    ``AUTH_SESSION_SWEEP_INTERVAL_SECONDS`` (6 h by default — shorter than many
+    deploy cadences) is always cancelled before it ever purges, so the table
+    would grow unbounded on exactly the deployments that restart most. The
+    purge runs in a worker thread and the task is created after startup, so it
+    never delays the app coming up.
     """
     while True:
-        await asyncio.sleep(AUTH_SESSION_SWEEP_INTERVAL_SECONDS)
         try:
             removed = await asyncio.to_thread(purge_expired_auth_sessions)
             if removed:
                 logger.info("Purged %d expired login sessions", removed)
         except Exception:
             logger.exception("Error during expired login-session sweep")
+        await asyncio.sleep(AUTH_SESSION_SWEEP_INTERVAL_SECONDS)
 
 
 @asynccontextmanager

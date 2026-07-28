@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from app import teams_service
 from app.api.dependencies import control_token, get_session, resolve_board_skey
-from app.api.pagination import Page, PageDep, with_total
+from app.api.pagination import PAGINATED_RESPONSES, Page, PageDep, with_total
 from app.api.schemas import is_acceptable_catalog_icon
 from app.api.session_manager import GameSession
 from app.api.session_persistence import load_session_meta
@@ -216,7 +216,9 @@ def _group_rows_out(db: Session, groups: list[TeamGroup]) -> list[TeamGroupOut]:
 # ---- user-facing -----------------------------------------------------------
 
 
-@router.get("/teams/catalog", response_model=list[TeamOut])
+@router.get(
+    "/teams/catalog", response_model=list[TeamOut], responses=PAGINATED_RESPONSES,
+)
 def catalog(
     response: Response,
     user: User = Depends(require_user),
@@ -354,7 +356,10 @@ def admin_import_teams(
     return {"imported": count}
 
 
-@router.get("/admin/team-groups", response_model=list[TeamGroupOut])
+@router.get(
+    "/admin/team-groups", response_model=list[TeamGroupOut],
+    responses=PAGINATED_RESPONSES,
+)
 def admin_list_groups(
     response: Response,
     _admin: User = Depends(require_admin),
@@ -556,7 +561,9 @@ def _group_detail(db: Session, user_id: int, group: TeamGroup) -> GroupDetailOut
     return _details_for(db, user_id, [group])[0]
 
 
-@router.get("/my/groups", response_model=list[GroupDetailOut])
+@router.get(
+    "/my/groups", response_model=list[GroupDetailOut], responses=PAGINATED_RESPONSES,
+)
 def my_visible_groups(
     response: Response,
     user: User = Depends(require_user),

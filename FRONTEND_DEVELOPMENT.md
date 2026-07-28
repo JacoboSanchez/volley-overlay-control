@@ -263,10 +263,22 @@ reported in the `X-Total-Count` response header instead, so a client knows
 whether it has everything:
 
 ```js
-const res = await fetch('/api/v1/teams/catalog?limit=100&offset=0', { credentials: 'include' });
-const total = Number(res.headers.get('X-Total-Count'));
-const page = await res.json();          // page.length <= 100
-const hasMore = page.length < total;    // keep walking offset until it doesn't
+const LIMIT = 100;
+const rows = [];
+
+for (let offset = 0; ; offset += LIMIT) {
+  const res = await fetch(`/api/v1/teams/catalog?limit=${LIMIT}&offset=${offset}`, {
+    credentials: 'include',
+  });
+  const total = Number(res.headers.get('X-Total-Count'));
+  const page = await res.json(); //  page.length <= LIMIT
+  rows.push(...page);
+
+  // Compare the *accumulated* count with the total — never one page's length,
+  // which is < total on every page and would loop forever. The short-page test
+  // is the belt-and-braces exit if rows are deleted mid-walk.
+  if (rows.length >= total || page.length < LIMIT) break;
+}
 ```
 
 Cross-origin callers need `CORS_ALLOWED_ORIGINS` set for the header to be

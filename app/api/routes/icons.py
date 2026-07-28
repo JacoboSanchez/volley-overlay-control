@@ -33,7 +33,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app import icons_service
-from app.api.pagination import Page, PageDep, with_total
+from app.api.pagination import PAGINATED_RESPONSES, Page, PageDep, with_total
 from app.auth.dependencies import require_admin, require_user
 from app.constants import (
     ICONS_IMPORT_MAX_BATCH,
@@ -242,7 +242,9 @@ def _import_endpoint(
 # ---- personal scope ----------------------------------------------------------
 
 
-@router.get("/icons", response_model=IconLibraryOut)
+@router.get(
+    "/icons", response_model=IconLibraryOut, responses=PAGINATED_RESPONSES,
+)
 def list_icons(
     response: Response,
     user: User = Depends(require_user),

@@ -24,7 +24,7 @@ from starlette.concurrency import run_in_threadpool
 from app import presets_service
 from app.api.dependencies import get_session
 from app.api.game_service import GameService
-from app.api.pagination import Page, PageDep, with_total
+from app.api.pagination import PAGINATED_RESPONSES, Page, PageDep, with_total
 from app.api.schemas import ActionResponse
 from app.api.session_manager import GameSession
 from app.auth.dependencies import require_admin, require_user
@@ -110,6 +110,7 @@ class SetActiveRequest(BaseModel):
     "/customization/presets",
     response_model=PresetListResponse,
     summary="List active global presets plus the caller's own.",
+    responses=PAGINATED_RESPONSES,
 )
 def list_presets(
     response: Response,
@@ -177,6 +178,7 @@ def delete_preset(
 @router.get(
     "/admin/presets", response_model=PresetListResponse,
     summary="List all global presets (active and inactive) for management.",
+    responses=PAGINATED_RESPONSES,
 )
 def admin_list_presets(
     response: Response,

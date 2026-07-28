@@ -2743,7 +2743,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -3210,7 +3219,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -5741,7 +5759,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -8140,7 +8167,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -9084,7 +9120,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -9475,7 +9520,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -10475,7 +10529,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total rows in scope, ignoring `limit`/`offset`. Page until the accumulated row count reaches this value.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {

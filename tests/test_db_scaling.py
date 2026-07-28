@@ -265,6 +265,34 @@ def test_lifespan_sweep_helper_purges_through_its_own_session(db_session):
     assert db_session.query(AuthSession).count() == 0
 
 
+async def test_sweep_loop_purges_before_its_first_sleep(monkeypatch):
+    """The first sweep must land *before* the interval elapses.
+
+    The default interval is 6 h — longer than many deploy cadences — so a
+    loop that slept first would be cancelled before ever purging on exactly
+    the deployments that restart most often, and the table would grow
+    unbounded while the sweeper looked enabled.
+    """
+    import asyncio
+
+    from app.api.routes import lifespan
+
+    swept: list[int] = []
+    monkeypatch.setattr(
+        lifespan, "purge_expired_auth_sessions", lambda: swept.append(1) or 1,
+    )
+
+    task = asyncio.create_task(lifespan._auth_session_sweep_loop())
+    # Yield until the first purge lands; the loop's own sleep is the full
+    # interval, so anything observed here happened before it.
+    for _ in range(50):
+        if swept:
+            break
+        await asyncio.sleep(0)
+    task.cancel()
+    assert swept, "the sweep loop slept before its first purge"
+
+
 # ---- 4. pagination ----------------------------------------------------------
 
 
@@ -385,6 +413,36 @@ def test_list_endpoints_reject_an_unbounded_page(db_session, path):
     ok = client.get(f"{path}?limit={LIST_MAX_LIMIT}")
     assert ok.status_code == 200
     assert "X-Total-Count" in ok.headers
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/v1/teams/catalog",
+        "/api/v1/my/groups",
+        "/api/v1/overlays",
+        "/api/v1/icons",
+        "/api/v1/customization/presets",
+        "/api/v1/admin/team-groups",
+        "/api/v1/admin/presets",
+    ],
+)
+def test_total_count_header_is_in_the_committed_contract(path):
+    """``X-Total-Count`` is the only signal distinguishing a complete listing
+    from a default-limited page, so it must be discoverable from the committed
+    OpenAPI schema — not just present at runtime."""
+    import json
+    from pathlib import Path
+
+    spec = json.loads(
+        (Path(__file__).resolve().parent.parent / "frontend" / "schema" /
+         "openapi.json").read_text(encoding="utf-8")
+    )
+    headers = spec["paths"][path]["get"]["responses"]["200"].get("headers", {})
+    assert "X-Total-Count" in headers, (
+        f"GET {path} pages but does not declare X-Total-Count in the contract"
+    )
+    assert headers["X-Total-Count"]["schema"]["type"] == "integer"
 
 
 def test_admin_preset_and_group_listings_page(db_session):
