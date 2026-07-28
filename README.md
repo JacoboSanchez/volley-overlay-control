@@ -267,6 +267,31 @@ The Dockerfile uses a multi-stage build: Node.js builds the React frontend, then
 > admin pages, or `POST /api/v1/admin/{teams,presets}/import`). In-progress
 > overlay state and historical match reports are not migrated.
 
+### Upgrading a large PostgreSQL deployment
+
+Schema migrations run automatically on startup, inside a transaction. One
+revision (`0005_perf_indexes`) adds indexes to `teams`, `team_groups`,
+`icons`, `presets` and `auth_sessions`, and a plain `CREATE INDEX` briefly
+locks the table against writes. For any normal deployment this is
+imperceptible.
+
+If your `teams` table is large enough that you would rather not take that
+lock during a restart, create the indexes ahead of time without blocking
+writes, then upgrade as usual:
+
+```sql
+CREATE INDEX CONCURRENTLY ix_teams_name      ON teams (name);
+CREATE INDEX CONCURRENTLY ix_teams_is_global ON teams (is_global);
+-- …and the same for the other indexed columns, if wanted.
+```
+
+`CREATE INDEX CONCURRENTLY` cannot run inside a transaction, which is why
+the migration itself does not use it. The revision skips any index that is
+already present — matched by name *or* by indexed column — so pre-creating
+them (under these names or your own) is safe and the upgrade proceeds
+normally. This is not required; it is only worth doing when the write lock
+would be disruptive.
+
 ---
 
 ## Configuration

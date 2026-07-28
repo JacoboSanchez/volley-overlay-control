@@ -123,7 +123,10 @@ archive by hand.
   [#433](https://github.com/JacoboSanchez/volley-overlay-control/issues/433).
 
 - **Indexes on the columns every listing filters and orders by**
-  (migration `0005_perf_indexes`): `teams.is_global`, `teams.name`,
+  (migration `0005_perf_indexes`, which skips any index already present so a
+  large PostgreSQL deployment can create them with `CREATE INDEX
+  CONCURRENTLY` beforehand — see README, *Upgrading a large PostgreSQL
+  deployment*): `teams.is_global`, `teams.name`,
   `team_groups.is_active`, `icons.is_global`, `presets.scope`,
   `presets.is_active`, and `auth_sessions.expires_at` — the last of which
   is what keeps the new session sweeper from being a full-table scan. The
