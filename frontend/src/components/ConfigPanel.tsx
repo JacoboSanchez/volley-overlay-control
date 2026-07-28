@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
 import { useI18n } from '../i18n';
 import { useSettings, type ThemePreference } from '../hooks/useSettings';
 import { useOrientation } from '../hooks/useOrientation';
@@ -187,14 +187,21 @@ export default function ConfigPanel({
     }
   }, [customization]);
 
-  // Assigned during render rather than in an effect. The popstate listener
-  // reads this ref *synchronously*, but a passive effect runs after the commit
-  // — so an effect-based sync leaves a window where the panel has already
-  // rendered clean (Save disabled) while the ref still says dirty. A user who
-  // saves and immediately presses Back lands in that window and gets a spurious
-  // "unsaved changes" prompt. Writing it here closes the gap by construction.
+  // Synced in a *layout* effect, deliberately. The popstate listener reads this
+  // ref synchronously, and a passive `useEffect` runs after the commit — that
+  // gap let the panel render clean (Save disabled) while the ref still said
+  // dirty, so a user who saved and immediately pressed Back got a spurious
+  // "unsaved changes" prompt. `useLayoutEffect` closes it by running
+  // synchronously at commit time.
+  //
+  // Not assigned during render either: the app mounts under createRoot +
+  // StrictMode, where a render can be interrupted or thrown away, and a
+  // render-phase write would leave this shared ref reflecting a render that
+  // never committed.
   const isDirtyRef = useRef(isDirty);
-  isDirtyRef.current = isDirty;
+  useLayoutEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
 
   const [predefinedTeams, setPredefinedTeams] = useState<PredefinedTeams>({});
   const [teamGroups, setTeamGroups] = useState<api.BoardGroup[]>([]);
