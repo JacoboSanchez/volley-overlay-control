@@ -14,7 +14,7 @@ import threading
 from typing import Any
 
 from app.api import action_log
-from app.match_report_stats import (
+from app.match_report.stats import (
     _compute_stats,
     _result_set,
     _running_score_pair,

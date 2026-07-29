@@ -77,7 +77,7 @@ def _summary(r: MatchReport) -> dict:
     # ``app.api`` <-> ``match_report_render`` cycle that breaks whenever the
     # render module is imported before the ``app.api`` package finishes
     # initializing. By call time both modules are fully loaded.
-    from app.match_report_render import _team_name
+    from app.match_report.render import _team_name
     cust = r.customization or {}
     name1 = _team_name(cust, 1)
     name2 = _team_name(cust, 2)

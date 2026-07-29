@@ -1,4 +1,4 @@
-"""Server-rendered, print-friendly match report at ``/match/{match_id}/report``.
+"""Server-rendered match-report routes at ``/match/{match_id}/report``.
 
 Reads the archive snapshot written by :mod:`app.api.match_archive` and
 renders a single self-contained HTML page suitable for the browser's
@@ -37,27 +37,29 @@ from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, Response
 
 from app.api import match_archive
-from app.match_report_access import check_read_access
-from app.match_report_export import csv_filename, render_point_log_csv
-from app.match_report_i18n import SUPPORTED_LOCALES, resolve_locale
-from app.match_report_i18n import t as _t
-from app.match_report_render import (
+from app.match_report.access import check_read_access
+from app.match_report.cards import _render_highlights
+from app.match_report.charts import _render_charts
+from app.match_report.color_utils import (
     _CHART_FALLBACK_DARK,
     _CHART_SURFACE_DARK,
     _chart_color,
     _ensure_distinct_chart_colors,
+)
+from app.match_report.export import csv_filename, render_point_log_csv
+from app.match_report.i18n import SUPPORTED_LOCALES, resolve_locale
+from app.match_report.i18n import t as _t
+from app.match_report.render import (
     _fmt_seconds,
     _fmt_ts,
     _fmt_ts_html,
-    _render_charts,
-    _render_highlights,
     _render_logo,
     _render_set_durations_row,
     _render_timeline,
     _team_color,
     _team_name,
 )
-from app.match_report_stats import (
+from app.match_report.stats import (
     _collapse_undos,
     _compute_stats,
     _initial_serve_from_pregame,
@@ -66,7 +68,7 @@ from app.match_report_stats import (
     _timeouts_per_set,
     _trim_pregame,
 )
-from app.match_report_template import REPORT_TEMPLATE as _REPORT_TEMPLATE
+from app.match_report.template import REPORT_TEMPLATE as _REPORT_TEMPLATE
 
 
 def _is_supported_locale_tag(value: str | None) -> bool:

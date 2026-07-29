@@ -741,6 +741,23 @@ def test_update_customization_accepts_safe_payload(api_session):
     assert res.success is True
 
 
+def test_update_customization_ignores_nested_unknown_values(api_session):
+    """Unknown client metadata must reach the service allow-list filter."""
+    from app.api.game_service import GameService
+    from app.api.schemas import CustomizationUpdateRequest
+
+    request = CustomizationUpdateRequest.model_validate(
+        {
+            "Team 1 Name": "Wolves",
+            "client_metadata": {"source": "legacy-client"},
+        }
+    )
+    res = GameService.update_customization(api_session, request.root)
+
+    assert res.success is True
+    assert api_session.customization.get_model()["Team 1 Name"] == "Wolves"
+
+
 def test_update_customization_rejects_non_dict(api_session):
     from app.api.game_service import GameService
 
