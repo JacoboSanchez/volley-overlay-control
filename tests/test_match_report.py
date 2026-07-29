@@ -2035,7 +2035,7 @@ class TestReportSigningKeySeparation:
     """
 
     def _digest(self, match_id="m-1", exp=1234567890):
-        from app.match_report_signing import _digest
+        from app.match_report.signing import _digest
 
         return _digest(match_id, exp)
 
@@ -2079,7 +2079,7 @@ class TestReportSigningKeySeparation:
     def test_no_key_at_all_yields_none(self, monkeypatch):
         monkeypatch.delenv("MATCH_REPORT_SECRET", raising=False)
         monkeypatch.delenv("SESSION_SECRET", raising=False)
-        from app.match_report_signing import make_signed_query
+        from app.match_report.signing import make_signed_query
 
         assert self._digest() is None
         assert make_signed_query("m-1") is None
@@ -2090,7 +2090,7 @@ class TestReportSigningKeySeparation:
         monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
         monkeypatch.setenv("SESSION_SECRET", "session-key")
         monkeypatch.setenv("MATCH_REPORT_SECRET", "report-key")
-        from app.match_report_signing import make_signed_query
+        from app.match_report.signing import make_signed_query
 
         app = FastAPI()
         app.include_router(match_report_router)

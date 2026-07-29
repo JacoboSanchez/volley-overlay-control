@@ -31,6 +31,7 @@ TEXT_COLOR = "text_color"
 # copies the legacy flat roster into the group with this name, so the two must
 # agree — ``tests/test_db_migrations.py`` pins them together.
 MY_TEAMS_NAME = "My teams"
+ALL_GROUP_NAME = "All teams"
 
 
 class TeamError(ValueError):
@@ -88,9 +89,7 @@ def get_global_by_name(db: Session, name: str) -> Team | None:
     # ``.first()`` (not ``scalar_one_or_none``) is deliberate: there is no DB
     # uniqueness on global team name, so a concurrent double-insert must not
     # turn every later lookup into a MultipleResultsFound 500.
-    return db.execute(
-        select(Team).where(Team.is_global.is_(True), Team.name == name)
-    ).scalars().first()
+    return db.execute(select(Team).where(Team.is_global.is_(True), Team.name == name)).scalars().first()
 
 
 def upsert_global(db: Session, name: str, *, icon=None, color=None, text_color=None) -> Team:
@@ -168,8 +167,11 @@ def import_app_teams(db: Session, payload: dict, *, replace: bool = False) -> in
         if icon is not None and not is_acceptable_catalog_icon(icon):
             icon = None
         upsert_global(
-            db, name,
-            icon=icon, color=cfg.get(COLOR), text_color=cfg.get(TEXT_COLOR),
+            db,
+            name,
+            icon=icon,
+            color=cfg.get(COLOR),
+            text_color=cfg.get(TEXT_COLOR),
         )
         count += 1
     return count
@@ -215,7 +217,8 @@ def set_group_active(db: Session, group_id: int, active: bool) -> TeamGroup:
 def add_group_member(db: Session, group_id: int, team_id: int) -> None:
     exists = db.execute(
         select(TeamGroupMember).where(
-            TeamGroupMember.group_id == group_id, TeamGroupMember.team_id == team_id,
+            TeamGroupMember.group_id == group_id,
+            TeamGroupMember.team_id == team_id,
         )
     ).scalar_one_or_none()
     if exists is None:
@@ -254,7 +257,8 @@ def remove_group_member(db: Session, group_id: int, team_id: int) -> bool:
     """Unlink a team from a group (idempotent). Returns True if a row was removed."""
     member = db.execute(
         select(TeamGroupMember).where(
-            TeamGroupMember.group_id == group_id, TeamGroupMember.team_id == team_id,
+            TeamGroupMember.group_id == group_id,
+            TeamGroupMember.team_id == team_id,
         )
     ).scalar_one_or_none()
     if member is None:
@@ -272,9 +276,7 @@ def delete_group(db: Session, group_id: int) -> bool:
     group = get_shared_group(db, group_id)
     if group is None:
         return False
-    for member in db.execute(
-        select(TeamGroupMember).where(TeamGroupMember.group_id == group_id)
-    ).scalars().all():
+    for member in db.execute(select(TeamGroupMember).where(TeamGroupMember.group_id == group_id)).scalars().all():
         db.delete(member)
     db.delete(group)
     db.flush()
@@ -406,11 +408,7 @@ def delete_user_team(db: Session, user_id: int, team_id: int) -> bool:
 
 def list_user_private_groups(db: Session, user_id: int) -> list[TeamGroup]:
     return list(
-        db.execute(
-            select(TeamGroup)
-            .where(TeamGroup.owner_user_id == user_id)
-            .order_by(TeamGroup.name)
-        ).scalars().all()
+        db.execute(select(TeamGroup).where(TeamGroup.owner_user_id == user_id).order_by(TeamGroup.name)).scalars().all()
     )
 
 
@@ -630,7 +628,9 @@ def group_effective_teams(db: Session, user_id: int, group_id: int | None) -> li
 
 
 def group_effective_teams_map(
-    db: Session, user_id: int, group_id: int | None,
+    db: Session,
+    user_id: int,
+    group_id: int | None,
 ) -> dict[str, dict[str, Any]]:
     """``group_effective_teams`` in the APP_TEAMS wire shape consumed by the
     board's ``TeamCard`` selectors."""
@@ -642,7 +642,10 @@ def create_private_group(db: Session, user_id: int, name: str) -> TeamGroup:
     if not name:
         raise TeamError("Group name is required.")
     group = TeamGroup(
-        name=name, is_active=True, owner_user_id=user_id, created_by_user_id=user_id,
+        name=name,
+        is_active=True,
+        owner_user_id=user_id,
+        created_by_user_id=user_id,
     )
     db.add(group)
     db.flush()
@@ -667,9 +670,7 @@ def delete_private_group(db: Session, user_id: int, group_id: int) -> bool:
     group = db.get(TeamGroup, group_id)
     if group is None or group.owner_user_id != user_id:
         return False
-    for row in db.execute(
-        select(UserGroupTeam).where(UserGroupTeam.group_id == group_id)
-    ).scalars().all():
+    for row in db.execute(select(UserGroupTeam).where(UserGroupTeam.group_id == group_id)).scalars().all():
         db.delete(row)
     db.delete(group)
     db.flush()
@@ -679,7 +680,8 @@ def delete_private_group(db: Session, user_id: int, group_id: int) -> bool:
 def _next_group_sort_order(db: Session, user_id: int, group_id: int) -> int:
     current = db.execute(
         select(func.coalesce(func.max(UserGroupTeam.sort_order), -1)).where(
-            UserGroupTeam.user_id == user_id, UserGroupTeam.group_id == group_id,
+            UserGroupTeam.user_id == user_id,
+            UserGroupTeam.group_id == group_id,
         )
     ).scalar_one()
     return int(current) + 1
@@ -706,16 +708,23 @@ def add_user_group_team(db: Session, user_id: int, group_id: int, team_id: int) 
     ).scalar_one_or_none()
     if exists is not None:
         return False
-    db.add(UserGroupTeam(
-        user_id=user_id, group_id=group_id, team_id=team_id,
-        sort_order=_next_group_sort_order(db, user_id, group_id),
-    ))
+    db.add(
+        UserGroupTeam(
+            user_id=user_id,
+            group_id=group_id,
+            team_id=team_id,
+            sort_order=_next_group_sort_order(db, user_id, group_id),
+        )
+    )
     db.flush()
     return True
 
 
 def add_user_group_teams(
-    db: Session, user_id: int, group_id: int, team_ids: list[int],
+    db: Session,
+    user_id: int,
+    group_id: int,
+    team_ids: list[int],
 ) -> int:
     """Add several teams to a group in one batch (idempotent). Returns the
     count added. Group and teams are each validated with a single query."""
@@ -730,7 +739,9 @@ def add_user_group_teams(
                 Team.id.in_(ids),
                 or_(Team.is_global.is_(True), Team.owner_user_id == user_id),
             )
-        ).scalars().all()
+        )
+        .scalars()
+        .all()
     )
     if any(tid not in visible for tid in ids):
         raise TeamError("Team not found.")
@@ -741,17 +752,23 @@ def add_user_group_teams(
                 UserGroupTeam.group_id == group_id,
                 UserGroupTeam.team_id.in_(ids),
             )
-        ).scalars().all()
+        )
+        .scalars()
+        .all()
     )
     to_add = [tid for tid in ids if tid not in member]
     if not to_add:
         return 0
     sort_order = _next_group_sort_order(db, user_id, group_id)
     for offset, tid in enumerate(to_add):
-        db.add(UserGroupTeam(
-            user_id=user_id, group_id=group_id, team_id=tid,
-            sort_order=sort_order + offset,
-        ))
+        db.add(
+            UserGroupTeam(
+                user_id=user_id,
+                group_id=group_id,
+                team_id=tid,
+                sort_order=sort_order + offset,
+            )
+        )
     db.flush()
     return len(to_add)
 
@@ -780,8 +797,13 @@ def seed_user_default_group(db: Session, user_id: int) -> int:
     group = create_private_group(db, user_id, MY_TEAMS_NAME)
     globals_ = list_global(db)
     for index, team in enumerate(globals_):
-        db.add(UserGroupTeam(
-            user_id=user_id, group_id=group.id, team_id=team.id, sort_order=index,
-        ))
+        db.add(
+            UserGroupTeam(
+                user_id=user_id,
+                group_id=group.id,
+                team_id=team.id,
+                sort_order=index,
+            )
+        )
     db.flush()
     return len(globals_)

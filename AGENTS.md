@@ -76,15 +76,19 @@ volley-overlay-control/
 │
 ├── app/                       # Backend source code
 │   ├── bootstrap.py           # FastAPI factory — wires routers, middleware stack, SPA mount
+│   ├── pwa_manifest.py        # Runtime SPA title + PWA manifest variants
+│   ├── static_files.py        # SPA fallback and immutable-cache policies
+│   ├── system_routes.py       # Service worker, manifest, health, readiness
 │   ├── state.py               # Data model — match state dictionary
 │   ├── game_manager.py        # Business logic — volleyball rules & score mutations
 │   ├── backend.py             # Coordinator — delegates to overlay backend strategies
+│   ├── overlay_payload.py     # Overlay/spectator wire-payload construction
 │   ├── overlay_backends/      # local.py (LocalOverlayBackend, the only backend), base.py, utils.py (resolve_overlay_kind)
 │   ├── customization.py       # Team names, colors, logos, layout geometry
 │   ├── conf.py                # Configuration object — wraps env vars
 │   ├── password_hash.py       # scrypt-based credential hashing (CLI: `python -m app.password_hash`)
 │   ├── security_bootstrap.py  # Startup machine-credential resolution (auto-mints SESSION_SECRET)
-│   ├── match_report_signing.py # HMAC-signed capability URLs for /match/{id}/report (signed with SESSION_SECRET)
+│   ├── match_report/          # Report/history routes, access, signing, stats, renderers, export, template
 │   ├── overlay_key.py         # Storage-key helpers — make_skey/split_skey ("<user_id>:<oid>")
 │   ├── overlays_service.py    # Per-user overlay CRUD + public_token / skey resolution
 │   ├── teams_service.py       # DB-backed team lists, global catalog, groups, per-user custom teams + seeding
@@ -115,7 +119,13 @@ volley-overlay-control/
 │   │   ├── routes/            # Domain-split FastAPI endpoints under /api/v1/ (game, session, customization, …)
 │   │   ├── middleware/        # ASGI middlewares — errors, logging, auth_rate_limit, security_headers
 │   │   ├── schemas.py         # Pydantic request/response models
-│   │   ├── game_service.py    # Service layer — single entry point for all game actions
+│   │   ├── game_service.py    # Stable facade over focused game services
+│   │   ├── game_actions.py    # Scoring, rules, lifecycle, audit, webhooks
+│   │   ├── game_state_presenter.py # Builds GameStateResponse
+│   │   ├── game_display_service.py # Display and side-swap toggles
+│   │   ├── game_customization_service.py # Customization reads/writes
+│   │   ├── team_groups_service.py # Team-group response assembly and board policy
+│   │   ├── overlay_links_service.py # Board output/report link policy
 │   │   ├── session_manager.py # Thread-safe game session management by OID
 │   │   ├── session_persistence.py  # Per-skey JSON file persistence for session-level flags (hashed filename)
 │   │   ├── action_log.py      # Append-only per-skey audit log (data/audit_<hash>.jsonl)
@@ -125,11 +135,10 @@ volley-overlay-control/
 │   │   ├── ws_hub.py          # WebSocket notification hub for real-time state push
 │   │   └── dependencies.py    # Session FastAPI deps — get_session authorizes + resolves by skey
 │   │
-│   ├── match_report.py        # Print-friendly /match/{match_id}/report HTML route
-│   │
 │   ├── overlay/               # In-process overlay serving (from volleyball-scoreboard-overlay)
 │   │   ├── __init__.py        # Singletons: OverlayStateStore, ObsBroadcastHub
 │   │   ├── state_store.py     # Overlay state — in-memory + JSON file persistence
+│   │   ├── style_catalog.py   # Template discovery and capability scanning
 │   │   ├── broadcast.py       # OBS WebSocket broadcast hub — 50ms debounced pushes
 │   │   └── routes.py          # HTTP/WS via public_token: /overlay/, /follow/, /ws/ + public /api/themes
 │   │

@@ -7,10 +7,10 @@ import os
 
 from fastapi import Request
 
-from app.match_report_i18n import (
+from app.match_report.i18n import (
     SUPPORTED_LOCALES,
 )
-from app.match_report_i18n import (
+from app.match_report.i18n import (
     resolve_locale as _resolve_accept_language,
 )
 

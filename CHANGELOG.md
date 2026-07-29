@@ -533,6 +533,21 @@ archive by hand.
 
 ### Changed
 
+- **The largest backend coordinators are now split by responsibility.**
+  `GameService` remains the stable route-facing facade while state
+  presentation, scoring/lifecycle actions, display toggles, and customization
+  live in focused services; overlay payload assembly and style discovery no
+  longer live in `Backend` or `OverlayStateStore`; PWA/static/system-route
+  policy no longer lives in the app factory; and the flat `match_report_*`
+  cluster is now an `app.match_report` package with separate color, chart,
+  and card renderers plus focused access, signing, export, stats, and template
+  modules.
+  Route request/response models also moved into the central API schema module,
+  while team-group presentation and overlay-link policy moved into focused
+  services.
+  Compatibility facades preserve existing imports and runtime behavior.
+  Fixes [#439](https://github.com/JacoboSanchez/volley-overlay-control/issues/439).
+
 - **Type checking now covers the bodies of unannotated functions.**
   `check_untyped_defs` was off, so mypy skipped the body of every function
   without annotations while reporting "no issues found in 114 source

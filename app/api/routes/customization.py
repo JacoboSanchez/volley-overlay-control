@@ -14,10 +14,8 @@ both sources in a single list. System presets cannot be deleted.
 """
 
 import logging
-from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Response, status
-from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -25,11 +23,19 @@ from app import presets_service
 from app.api.dependencies import get_session
 from app.api.game_service import GameService
 from app.api.pagination import PAGINATED_RESPONSES, Page, PageDep, with_total
-from app.api.schemas import ActionResponse
+from app.api.schemas import (
+    ActionResponse,
+    AdminPresetCreateRequest,
+    CustomizationUpdateRequest,
+    ImportThemesRequest,
+    PresetCreateRequest,
+    PresetListResponse,
+    PresetSetActiveRequest,
+    PresetSummary,
+)
 from app.api.session_manager import GameSession
 from app.auth.dependencies import require_admin, require_user
 from app.db.engine import get_db
-from app.db.models.preset import Preset
 from app.db.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -45,65 +51,18 @@ async def get_customization(session: GameSession = Depends(get_session)):
     "/customization",
     response_model=ActionResponse,
 )
-async def update_customization(data: dict,
-                               session: GameSession = Depends(get_session)):
+async def update_customization(
+    data: CustomizationUpdateRequest,
+    session: GameSession = Depends(get_session),
+):
     async with session.lock:
-        logger.debug("Customization updated (%d keys)", len(data))
-        return GameService.update_customization(session, data)
+        logger.debug("Customization updated (%d keys)", len(data.root))
+        return GameService.update_customization(session, data.root)
 
 
 # ---------------------------------------------------------------------------
 # Operator-facing preset CRUD
 # ---------------------------------------------------------------------------
-
-
-class PresetSummary(BaseModel):
-    slug: str
-    name: str
-    source: Literal["user", "global"] = Field(
-        "user",
-        description="``user`` for the caller's own presets; ``global`` for "
-        "admin-authored, admin-activated presets shared with everyone. "
-        "Only the owner may delete a ``user`` preset; globals are admin-only.",
-    )
-    is_active: bool = True
-    categories: list[str] = Field(default_factory=list)
-    values: dict[str, Any] = Field(default_factory=dict)
-
-    @classmethod
-    def of(cls, p: Preset) -> "PresetSummary":
-        source: Literal["user", "global"] = "global" if p.scope == "global" else "user"
-        return cls(
-            slug=p.slug, name=p.name, source=source, is_active=p.is_active,
-            categories=list(p.categories or []), values=dict(p.values or {}),
-        )
-
-
-class PresetListResponse(BaseModel):
-    items: list[PresetSummary]
-
-
-class PresetCreateRequest(BaseModel):
-    name: str = Field(..., min_length=1, max_length=120)
-    values: dict[str, Any] = Field(
-        ...,
-        description="Subset of the caller's flat customization model to "
-        "capture. Keys outside ``ALLOWED_CUSTOMIZATION_KEYS`` are dropped; "
-        "an empty result is rejected with 400.",
-    )
-
-
-class AdminPresetCreateRequest(PresetCreateRequest):
-    is_active: bool = True
-
-
-class ImportThemesRequest(BaseModel):
-    themes: dict[str, dict[str, Any]]
-    replace: bool = False
-
-
-class SetActiveRequest(BaseModel):
-    is_active: bool
 
 
 @router.get(
@@ -138,7 +97,10 @@ def create_preset(
     """Create a per-user preset (usable across all the caller's scoreboards)."""
     try:
         preset = presets_service.create_user_preset(
-            db, user.id, payload.name, payload.values,
+            db,
+            user.id,
+            payload.name,
+            payload.values,
         )
     except presets_service.PresetError as exc:
         detail = str(exc)
@@ -167,7 +129,8 @@ def delete_preset(
         return
     if presets_service.get_global_preset(db, slug) is not None:
         raise HTTPException(
-            status_code=403, detail="Global presets are managed by an administrator.",
+            status_code=403,
+            detail="Global presets are managed by an administrator.",
         )
     raise HTTPException(status_code=404, detail=f"Preset '{slug}' not found.")
 
@@ -176,7 +139,8 @@ def delete_preset(
 
 
 @router.get(
-    "/admin/presets", response_model=PresetListResponse,
+    "/admin/presets",
+    response_model=PresetListResponse,
     summary="List all global presets (active and inactive) for management.",
     responses=PAGINATED_RESPONSES,
 )
@@ -194,7 +158,9 @@ def admin_list_presets(
 
 
 @router.post(
-    "/admin/presets", response_model=PresetSummary, status_code=201,
+    "/admin/presets",
+    response_model=PresetSummary,
+    status_code=201,
     summary="Author a global preset.",
 )
 def admin_create_preset(
@@ -204,7 +170,10 @@ def admin_create_preset(
 ) -> PresetSummary:
     try:
         preset = presets_service.create_global_preset(
-            db, payload.name, payload.values, is_active=payload.is_active,
+            db,
+            payload.name,
+            payload.values,
+            is_active=payload.is_active,
         )
     except presets_service.PresetError as exc:
         detail = str(exc)
@@ -216,7 +185,7 @@ def admin_create_preset(
 
 @router.patch("/admin/presets/{slug}", summary="Activate/deactivate a global preset.")
 def admin_set_preset_active(
-    body: SetActiveRequest,
+    body: PresetSetActiveRequest,
     slug: str = Path(..., min_length=1, max_length=120),
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
@@ -230,7 +199,8 @@ def admin_set_preset_active(
 
 
 @router.delete(
-    "/admin/presets/{slug}", status_code=status.HTTP_204_NO_CONTENT,
+    "/admin/presets/{slug}",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a global preset.",
 )
 def admin_delete_preset(
@@ -245,7 +215,8 @@ def admin_delete_preset(
 
 @router.get("/admin/presets/export", summary="Export global presets as APP_THEMES JSON.")
 def admin_export_presets(
-    _admin: User = Depends(require_admin), db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
 ):
     return presets_service.export_app_themes(db)
 
