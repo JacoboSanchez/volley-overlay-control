@@ -84,7 +84,20 @@ class EnvVarsManager:
 
     @classmethod
     def _refresh(cls, remote_config_url: str) -> None:
-        """Fetch and install the remote config. Callers hold ``_lock``."""
+        """Fetch and install the remote config. Callers hold ``_lock``.
+
+        A failed fetch **retains** the previous values rather than dropping
+        to ``{}``. This class advertises stale-while-revalidate semantics
+        (see :meth:`_load_remote_config_if_needed`), and discarding the
+        cache contradicted that: every remotely-supplied value silently
+        reverted to "unset" for the duration of the outage, because
+        :meth:`get_env_var` then falls through to ``os.environ`` and finds
+        nothing. For a security-relevant value that is a fail-open — a
+        ``METRICS_TOKEN`` supplied only through remote config would stop
+        being required, serving ``/metrics`` unauthenticated until the
+        config host recovered. A successful fetch still replaces the cache
+        wholesale, so *deleting* a key remotely takes effect as before.
+        """
         cls._cache_timestamp = time.time()
         try:
             logger.info("Fetching remote config from %s", redact_url(remote_config_url))
@@ -93,8 +106,11 @@ class EnvVarsManager:
             response.raise_for_status()
             cls._remote_config_cache = cls._unwrap_remote_config(response.json())
         except (requests.exceptions.RequestException, json.JSONDecodeError):
-            logger.exception("Error loading remote configuration")
-            cls._remote_config_cache = {}
+            logger.exception(
+                "Error loading remote configuration; retaining the %d "
+                "previously-fetched value(s)",
+                len(cls._remote_config_cache),
+            )
 
     @staticmethod
     def _unwrap_remote_config(payload):

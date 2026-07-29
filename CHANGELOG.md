@@ -82,6 +82,36 @@ archive by hand.
   restart.
   Part of [#447](https://github.com/JacoboSanchez/volley-overlay-control/issues/447).
 
+- **A remotely-supplied config value no longer disappears when the config
+  fetch fails.** `EnvVarsManager` documents stale-while-revalidate
+  semantics but discarded its cache on a failed refresh, so every value
+  supplied only through `REMOTE_CONFIG_URL` silently reverted to "unset"
+  for the duration of the outage — `get_env_var` fell through to
+  `os.environ` and found nothing. For a security-relevant value that is a
+  fail-open: a `METRICS_TOKEN` configured remotely stopped being required,
+  serving `/metrics` unauthenticated until the config host recovered. A
+  failed fetch now retains the last good values; a *successful* one still
+  replaces the cache wholesale, so removing a key remotely takes effect as
+  before.
+
+- **Error reports are scrubbed of credentials before they leave the
+  process.** `send_default_pii=False` withholds cookies, the client IP and
+  sensitive headers — it does **not** strip the request URL, query string
+  or body, and this app puts live capability tokens in all three
+  (`/overlay/<public_token>`, `?c=<control_token>`, the report `?sig=`,
+  and a plaintext password in the `POST /api/v1/auth/login` body). An
+  unhandled exception on those routes would have handed a working
+  credential to a third-party service. The `before_send` hook now masks
+  capability path segments and drops the query string, body, cookies and
+  credential headers. It is unconditional rather than tied to
+  `LOG_REDACT`: that flag exists so a developer can read raw values in
+  their own terminal, and letting it also open a channel to an external
+  service would be a footgun.
+
+- **`SENTRY_*` settings resolve through `REMOTE_CONFIG_URL`.** They were
+  read straight from `os.environ`, so an operator who configures the app
+  remotely got no error reporting at all.
+
 - **Signed match-report URLs can be keyed separately from sessions.**
   `SESSION_SECRET` signed both cookie sessions and report capability
   URLs, coupling two unrelated revocations: rotating it because a cookie
@@ -119,7 +149,9 @@ archive by hand.
   wins), and is attached to log records and error reports as `trace_id`.
   Records carry the field only when a trace was actually supplied, so a
   deployment with no upstream tracing sees exactly the JSON log shape it
-  saw before.
+  saw before. Text logs (the default format) render `trace=` in the
+  context block when it differs from the request id, so the correlation is
+  visible without switching to `LOG_FORMAT=json`.
 
 - **The JavaScript and CSS that render the on-air overlays now pass the same
   automated quality gates as the React SPA.** ESLint checks every first-party

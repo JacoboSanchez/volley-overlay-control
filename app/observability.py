@@ -31,9 +31,10 @@ back to the same trace the upstream proxy recorded.
 from __future__ import annotations
 
 import logging
-import os
 from collections.abc import Callable
+from urllib.parse import urlparse, urlunparse
 
+from app.env_vars_manager import EnvVarsManager
 from app.logging_context import get_request_id, get_trace_id
 
 logger = logging.getLogger(__name__)
@@ -44,9 +45,91 @@ _capture_hook: Callable[[BaseException], object] | None = None
 _initialised = False
 
 
+# ---------------------------------------------------------------------------
+# Event scrubbing
+#
+# ``send_default_pii=False`` is necessary but NOT sufficient. It withholds
+# cookies, the client IP and sensitive headers — it does **not** strip the
+# request URL, the query string, or the request body, all of which carry
+# live credentials in this app:
+#
+# * ``/overlay/<public_token>``, ``/follow/<…>``, ``/ws/<…>``,
+#   ``/matches/<…>`` and ``/match/<match_id>/report`` put an unguessable
+#   capability token in the *path*.
+# * ``?c=<control_token>`` (shareable operator board link) and the report
+#   ``?exp=&sig=`` signature live in the *query string*, and ``?u=`` is a
+#   username.
+# * ``POST /api/v1/auth/login`` carries a plaintext password in the *body*.
+#
+# Any unhandled exception on those routes would otherwise hand a working
+# credential to a third-party service, where anyone with event access could
+# replay it. So the event is scrubbed here, in ``before_send``, which is
+# version-independent — doing it through init options would mean guessing
+# which of ``max_request_body_size`` / ``request_bodies`` the installed
+# sentry-sdk major accepts, and an unknown option makes ``init`` raise.
+#
+# Scrubbing is unconditional, deliberately NOT tied to ``LOG_REDACT``. That
+# flag exists so a developer can read raw values in their *own* terminal;
+# letting it also open a channel to an external service would be a footgun.
+# ---------------------------------------------------------------------------
+
+_MASK = "[redacted]"
+
+# Route prefixes whose next path segment is a capability token.
+_CAPABILITY_PREFIXES = frozenset(
+    {"overlay", "follow", "ws", "matches", "match"},
+)
+
+# Dropped outright: Sentry filters most of these itself when PII is off,
+# but repeating it here is cheap and does not depend on that behaviour.
+_SENSITIVE_HEADERS = frozenset(
+    {"authorization", "cookie", "set-cookie", "x-control-token",
+     "x-webhook-signature", "proxy-authorization"},
+)
+
+
+def _scrub_path(path: str) -> str:
+    """Mask a capability token carried as a path segment."""
+    parts = path.split("/")
+    # An absolute path splits to ["", "<prefix>", "<token>", ...].
+    if len(parts) > 2 and parts[1] in _CAPABILITY_PREFIXES and parts[2]:
+        parts[2] = _MASK
+    return "/".join(parts)
+
+
+def _scrub_url(url: str) -> str:
+    """Drop userinfo, query and fragment; mask capability path segments."""
+    try:
+        parts = urlparse(url)
+    except ValueError:
+        return _MASK
+    netloc = parts.netloc.rpartition("@")[-1]
+    return urlunparse(
+        (parts.scheme, netloc, _scrub_path(parts.path), "", "", ""),
+    )
+
+
+def _scrub_request(request: dict) -> None:
+    """Strip credential-bearing fields from an event's request context."""
+    url = request.get("url")
+    if isinstance(url, str):
+        request["url"] = _scrub_url(url)
+    # The query string and body are removed rather than filtered
+    # key-by-key: an allow-list would silently start leaking the first
+    # time a new credential-bearing parameter is added.
+    for field in ("query_string", "data", "cookies"):
+        if field in request:
+            request[field] = _MASK
+    headers = request.get("headers")
+    if isinstance(headers, dict):
+        for name in list(headers):
+            if isinstance(name, str) and name.lower() in _SENSITIVE_HEADERS:
+                headers[name] = _MASK
+
+
 def _sample_rate() -> float | None:
     """Parse ``SENTRY_TRACES_SAMPLE_RATE`` into ``[0.0, 1.0]``, or ``None``."""
-    raw = (os.environ.get("SENTRY_TRACES_SAMPLE_RATE") or "").strip()
+    raw = (EnvVarsManager.get_env_var("SENTRY_TRACES_SAMPLE_RATE", "") or "").strip()
     if not raw:
         return None
     try:
@@ -65,12 +148,22 @@ def _sample_rate() -> float | None:
 
 
 def _before_send(event: dict, _hint: object) -> dict:
-    """Tag every outgoing event with our own correlation ids.
+    """Scrub credentials from an outgoing event, then tag it for correlation.
 
-    Lets an operator pivot from an aggregated exception straight to the
-    matching log lines (``request_id``) or to the upstream trace
+    Tagging lets an operator pivot from an aggregated exception straight to
+    the matching log lines (``request_id``) or to the upstream trace
     (``trace_id``, only when an inbound ``traceparent`` supplied one).
+    Scrubbing keeps capability tokens and passwords from leaving the
+    process — see the module comment above.
     """
+    try:
+        request = event.get("request")
+        if isinstance(request, dict):
+            _scrub_request(request)
+    except Exception:  # pragma: no cover - defensive
+        # A scrubber that fails must not ship the unscrubbed event.
+        logger.warning("Failed to scrub error report; dropping it", exc_info=True)
+        event["request"] = _MASK
     try:
         tags = event.setdefault("tags", {})
         if isinstance(tags, dict):
@@ -96,7 +189,7 @@ def init_error_tracking() -> bool:
         return _capture_hook is not None
     _initialised = True
 
-    dsn = (os.environ.get("SENTRY_DSN") or "").strip()
+    dsn = (EnvVarsManager.get_env_var("SENTRY_DSN", "") or "").strip()
     if not dsn:
         return False
 
@@ -119,7 +212,9 @@ def init_error_tracking() -> bool:
         "send_default_pii": False,
         "before_send": _before_send,
     }
-    environment = (os.environ.get("SENTRY_ENVIRONMENT") or "").strip()
+    environment = (
+        EnvVarsManager.get_env_var("SENTRY_ENVIRONMENT", "") or ""
+    ).strip()
     if environment:
         options["environment"] = environment
     sample_rate = _sample_rate()

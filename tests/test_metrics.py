@@ -147,6 +147,41 @@ class TestMetricsToken:
         monkeypatch.setenv("METRICS_TOKEN", "   ")
         assert client.get("/metrics").status_code == 200
 
+    def test_remote_config_blip_does_not_open_the_gate(self, client, monkeypatch):
+        """A remotely-supplied token must survive a config-fetch failure.
+
+        The cache used to drop to ``{}`` on a failed refresh, so the token
+        reverted to "unset" and ``/metrics`` served the exposition with no
+        auth until the config host recovered.
+        """
+        import time
+        from unittest.mock import patch
+
+        import requests
+
+        from app.env_vars_manager import EnvVarsManager
+
+        monkeypatch.delenv("METRICS_TOKEN", raising=False)
+        monkeypatch.setenv("REMOTE_CONFIG_URL", "http://config.example/env.json")
+        EnvVarsManager._remote_config_cache = {"METRICS_TOKEN": "remote-secret"}
+        EnvVarsManager._cache_timestamp = time.time()
+        EnvVarsManager._refresh_in_flight = False
+        try:
+            assert client.get("/metrics").status_code == 401
+            with patch(
+                "app.env_vars_manager.requests.get",
+                side_effect=requests.exceptions.ConnectionError("blip"),
+            ):
+                EnvVarsManager._refresh("http://config.example/env.json")
+                assert client.get("/metrics").status_code == 401
+                assert client.get(
+                    "/metrics", headers={"Authorization": "Bearer remote-secret"},
+                ).status_code == 200
+        finally:
+            EnvVarsManager._remote_config_cache = {}
+            EnvVarsManager._cache_timestamp = 0
+            EnvVarsManager._refresh_in_flight = False
+
     def test_non_ascii_token_rejects_rather_than_500s(self, client, monkeypatch):
         # hmac.compare_digest raises TypeError on non-ASCII str arguments,
         # so a misconfigured operator could turn every scrape into a 500.

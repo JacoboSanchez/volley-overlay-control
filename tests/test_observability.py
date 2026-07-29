@@ -159,6 +159,176 @@ class TestFailuresNeverBreakTheApp:
         observability.capture_exception(ValueError("boom"))
 
 
+class TestEventScrubbing:
+    """Credentials must not leave the process in an error report.
+
+    ``send_default_pii=False`` withholds cookies, the client IP and
+    sensitive headers — it does **not** strip the request URL, query
+    string or body, which is where this app's capability tokens and
+    passwords live.
+    """
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/overlay/tok_abc123",
+            "/follow/tok_abc123",
+            "/ws/tok_abc123",
+            "/matches/tok_abc123",
+            "/match/tok_abc123/report",
+        ],
+    )
+    def test_capability_path_segments_are_masked(self, path):
+        event = observability._before_send(
+            {"request": {"url": f"https://scores.example.com{path}"}}, None,
+        )
+        assert "tok_abc123" not in event["request"]["url"]
+        assert observability._MASK in event["request"]["url"]
+
+    def test_ordinary_paths_are_left_readable(self):
+        # Masking everything would make the reports useless for triage.
+        event = observability._before_send(
+            {"request": {"url": "https://scores.example.com/api/v1/game/add-point"}},
+            None,
+        )
+        assert event["request"]["url"].endswith("/api/v1/game/add-point")
+
+    def test_query_string_is_dropped(self):
+        # ?c= is the shareable operator board token; ?sig= signs a report.
+        event = observability._before_send(
+            {
+                "request": {
+                    "url": "https://scores.example.com/board?c=ctl_secret",
+                    "query_string": "c=ctl_secret&u=alice",
+                },
+            },
+            None,
+        )
+        assert "ctl_secret" not in str(event["request"])
+        assert "alice" not in str(event["request"])
+
+    def test_request_body_is_dropped(self):
+        # POST /api/v1/auth/login carries a plaintext password.
+        event = observability._before_send(
+            {
+                "request": {
+                    "url": "https://scores.example.com/api/v1/auth/login",
+                    "data": {"username": "alice", "password": "hunter2"},
+                },
+            },
+            None,
+        )
+        assert event["request"]["data"] == observability._MASK
+        assert "hunter2" not in str(event)
+
+    def test_cookies_are_dropped(self):
+        event = observability._before_send(
+            {"request": {"cookies": {"vsession": "sess_secret"}}}, None,
+        )
+        assert "sess_secret" not in str(event)
+
+    @pytest.mark.parametrize(
+        "header", ["Authorization", "authorization", "Cookie", "X-Control-Token"],
+    )
+    def test_sensitive_headers_are_masked(self, header):
+        event = observability._before_send(
+            {"request": {"headers": {header: "creds", "User-Agent": "obs/1.0"}}},
+            None,
+        )
+        assert event["request"]["headers"][header] == observability._MASK
+        # Non-sensitive headers stay — they are useful for triage.
+        assert event["request"]["headers"]["User-Agent"] == "obs/1.0"
+
+    def test_userinfo_is_stripped_from_the_url(self):
+        event = observability._before_send(
+            {"request": {"url": "https://user:pw@scores.example.com/api/v1/state"}},
+            None,
+        )
+        assert "pw" not in event["request"]["url"]
+        assert "user" not in event["request"]["url"]
+
+    def test_scrubbing_is_independent_of_log_redact(self, monkeypatch):
+        # LOG_REDACT=0 lets a developer read raw values in their own
+        # terminal; it must not open a channel to an external service.
+        monkeypatch.setenv("LOG_REDACT", "0")
+        event = observability._before_send(
+            {"request": {"url": "https://scores.example.com/overlay/tok_abc123"}},
+            None,
+        )
+        assert "tok_abc123" not in event["request"]["url"]
+
+    def test_event_without_request_context_is_fine(self):
+        event = observability._before_send({}, None)
+        assert "request" not in event or event["request"] == observability._MASK
+
+    def test_malformed_request_context_is_not_shipped_raw(self, monkeypatch):
+        # If the scrubber itself fails, the event must lose its request
+        # context rather than going out unscrubbed.
+        def boom(_request):
+            raise RuntimeError("scrubber bug")
+
+        monkeypatch.setattr(observability, "_scrub_request", boom)
+        event = observability._before_send(
+            {"request": {"url": "https://scores.example.com/overlay/tok_abc123"}},
+            None,
+        )
+        assert event["request"] == observability._MASK
+
+    def test_unparseable_url_is_masked(self):
+        event = observability._before_send(
+            {"request": {"url": "http://[oops"}}, None,
+        )
+        assert event["request"]["url"] == observability._MASK
+
+
+class TestRemoteConfigIsHonoured:
+    """``SENTRY_*`` must resolve through the remote-config manager.
+
+    An operator who supplies the DSN only via ``REMOTE_CONFIG_URL`` would
+    otherwise get no reporting at all, since a bare ``os.environ`` read
+    never sees those values.
+    """
+
+    @pytest.fixture
+    def remote_config(self, monkeypatch):
+        """Serve a remote-config payload without any network access."""
+        import time
+
+        from app.env_vars_manager import EnvVarsManager
+
+        saved_cache = EnvVarsManager._remote_config_cache
+        saved_ts = EnvVarsManager._cache_timestamp
+
+        def _install(values: dict):
+            # A configured URL is what stops _load_remote_config_if_needed
+            # from clearing the cache; a fresh timestamp keeps it on the
+            # no-refetch fast path.
+            monkeypatch.setenv("REMOTE_CONFIG_URL", "https://cfg.invalid/c.json")
+            EnvVarsManager._remote_config_cache = values
+            EnvVarsManager._cache_timestamp = time.time()
+
+        yield _install
+        EnvVarsManager._remote_config_cache = saved_cache
+        EnvVarsManager._cache_timestamp = saved_ts
+
+    def test_dsn_from_remote_config_enables_reporting(
+        self, monkeypatch, stub_sentry, remote_config,
+    ):
+        stub = stub_sentry()
+        monkeypatch.delenv("SENTRY_DSN", raising=False)
+        monkeypatch.delenv("SENTRY_ENVIRONMENT", raising=False)
+        monkeypatch.delenv("SENTRY_TRACES_SAMPLE_RATE", raising=False)
+        remote_config({
+            "SENTRY_DSN": "https://key@example.invalid/9",
+            "SENTRY_ENVIRONMENT": "staging",
+            "SENTRY_TRACES_SAMPLE_RATE": "0.5",
+        })
+        assert observability.init_error_tracking() is True
+        assert stub.init_kwargs["dsn"] == "https://key@example.invalid/9"
+        assert stub.init_kwargs["environment"] == "staging"
+        assert stub.init_kwargs["traces_sample_rate"] == 0.5
+
+
 class TestEventTagging:
     def test_correlation_ids_are_attached(self):
         rid = request_id_var.set("rid-42")

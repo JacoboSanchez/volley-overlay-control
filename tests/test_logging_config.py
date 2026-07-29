@@ -40,6 +40,39 @@ class TestTextFormatter:
         assert "rid=req-1" in out
         assert "oid=abcd***" in out
 
+    def test_renders_trace_id_when_it_differs_from_the_request_id(self):
+        # The case that matters: the caller sent both an X-Request-ID and a
+        # traceparent, so the trace is the only link to the upstream trace.
+        # text is the DEFAULT format, so omitting it hid the correlation
+        # from everyone not running JSON logs.
+        record = _make_record()
+        record.request_id = "caller-chosen"
+        record.trace_id = "0af7651916cd43dd8448eb211c80319c"
+        out = TextFormatter().format(record)
+        assert "rid=caller-chosen" in out
+        assert "trace=0af7651916cd43dd8448eb211c80319c" in out
+
+    def test_omits_trace_id_when_it_duplicates_the_request_id(self):
+        # With no explicit X-Request-ID the trace-id *becomes* the rid;
+        # printing it twice on every line is noise.
+        record = _make_record()
+        record.request_id = "0af7651916cd43dd8448eb211c80319c"
+        record.trace_id = "0af7651916cd43dd8448eb211c80319c"
+        out = TextFormatter().format(record)
+        assert "trace=" not in out
+        assert "rid=0af7651916cd43dd8448eb211c80319c" in out
+
+    def test_omits_trace_id_when_absent(self):
+        record = _make_record()
+        record.request_id = "req-1"
+        assert "trace=" not in TextFormatter().format(record)
+
+    def test_trace_only_context_still_renders(self):
+        record = _make_record()
+        record.trace_id = "0af7651916cd43dd8448eb211c80319c"
+        out = TextFormatter().format(record)
+        assert "trace=0af7651916cd43dd8448eb211c80319c" in out
+
 
 class TestJsonFormatter:
     def test_emits_valid_json(self):

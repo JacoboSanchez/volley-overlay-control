@@ -48,7 +48,19 @@ class TextFormatter(logging.Formatter):
         ts = self.formatTime(record, self.datefmt)
         rid = getattr(record, "request_id", "-")
         oid = getattr(record, "oid", "-")
-        ctx = f" [rid={rid} oid={oid}]" if rid != "-" or oid != "-" else ""
+        # ``trace_id`` is only set when an inbound ``traceparent`` supplied
+        # one. It is usually redundant (with no explicit X-Request-ID the
+        # trace-id *is* the rid), but when the caller sends both headers it
+        # is the only link to the upstream trace — and ``text`` is the
+        # default format, so omitting it here hid the correlation from
+        # everyone not running JSON logs.
+        trace = getattr(record, "trace_id", None)
+        trace_part = f" trace={trace}" if trace and trace != rid else ""
+        ctx = (
+            f" [rid={rid} oid={oid}{trace_part}]"
+            if rid != "-" or oid != "-" or trace_part
+            else ""
+        )
         line = (
             f"{_ANSI_TIME}{ts}{_ANSI_RESET} "
             f"{colour}{record.levelname}{_ANSI_RESET} "

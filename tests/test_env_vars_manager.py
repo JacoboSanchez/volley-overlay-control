@@ -176,3 +176,79 @@ def test_stale_cache_is_served_while_revalidating(monkeypatch):
     EnvVarsManager._remote_config_cache = {}
     EnvVarsManager._cache_timestamp = 0
     EnvVarsManager._refresh_in_flight = False
+
+
+def test_failed_refresh_retains_the_previous_config(monkeypatch):
+    """A fetch failure must not silently un-set every remote value.
+
+    Dropping the cache to ``{}`` made ``get_env_var`` fall through to
+    ``os.environ``, so a value supplied *only* through remote config
+    reverted to "unset" for the duration of the outage. For a
+    security-relevant one that is a fail-open: a ``METRICS_TOKEN``
+    configured remotely would stop being required, serving ``/metrics``
+    unauthenticated until the config host recovered.
+    """
+    import time as time_mod
+    from unittest.mock import patch
+
+    import requests
+
+    from app.env_vars_manager import EnvVarsManager
+
+    monkeypatch.setenv("REMOTE_CONFIG_URL", "http://config.example/env.json")
+    monkeypatch.delenv("METRICS_TOKEN", raising=False)
+    EnvVarsManager._remote_config_cache = {"METRICS_TOKEN": "remote-secret"}
+    EnvVarsManager._cache_timestamp = time_mod.time()
+    EnvVarsManager._refresh_in_flight = False
+
+    try:
+        assert EnvVarsManager.get_env_var("METRICS_TOKEN") == "remote-secret"
+
+        with patch(
+            "app.env_vars_manager.requests.get",
+            side_effect=requests.exceptions.ConnectionError("blip"),
+        ):
+            EnvVarsManager._refresh("http://config.example/env.json")
+
+        # Still enforced after the blip.
+        assert EnvVarsManager._remote_config_cache == {
+            "METRICS_TOKEN": "remote-secret",
+        }
+        assert EnvVarsManager.get_env_var("METRICS_TOKEN") == "remote-secret"
+    finally:
+        EnvVarsManager._remote_config_cache = {}
+        EnvVarsManager._cache_timestamp = 0
+        EnvVarsManager._refresh_in_flight = False
+
+
+def test_successful_refresh_still_drops_removed_keys(monkeypatch):
+    """Retaining on *failure* must not make remote deletions ineffective."""
+    import time as time_mod
+    from unittest.mock import patch
+
+    from app.env_vars_manager import EnvVarsManager
+
+    monkeypatch.setenv("REMOTE_CONFIG_URL", "http://config.example/env.json")
+    EnvVarsManager._remote_config_cache = {"METRICS_TOKEN": "remote-secret"}
+    EnvVarsManager._cache_timestamp = time_mod.time()
+    EnvVarsManager._refresh_in_flight = False
+
+    class EmptyResponse:
+        status_code = 200
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {}
+
+    try:
+        with patch(
+            "app.env_vars_manager.requests.get", return_value=EmptyResponse(),
+        ):
+            EnvVarsManager._refresh("http://config.example/env.json")
+        assert EnvVarsManager._remote_config_cache == {}
+    finally:
+        EnvVarsManager._remote_config_cache = {}
+        EnvVarsManager._cache_timestamp = 0
+        EnvVarsManager._refresh_in_flight = False
