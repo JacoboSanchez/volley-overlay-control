@@ -20,6 +20,7 @@ tools without parsing the free-form message.
 import logging
 
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.logging_context import get_request_id
 
@@ -27,10 +28,15 @@ logger = logging.getLogger(__name__)
 
 
 class ExceptionLoggingMiddleware:
-    def __init__(self, app):
+    def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(
+        self,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+    ) -> None:
         if scope["type"] not in ("http", "websocket"):
             await self.app(scope, receive, send)
             return

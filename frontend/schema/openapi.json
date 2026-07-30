@@ -2358,7 +2358,16 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "title": "Response List Themes Api Themes Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -2872,7 +2881,14 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Admin Export Presets Api V1 Admin Presets Export Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -2929,7 +2945,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Admin Import Presets Api V1 Admin Presets Import Post",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -3048,7 +3070,20 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "boolean"
+                      }
+                    ]
+                  },
+                  "title": "Response Admin Set Preset Active Api V1 Admin Presets  Slug  Patch",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -3357,7 +3392,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Admin Delete Group Api V1 Admin Team Groups  Group Id  Delete",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -3421,7 +3462,20 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  },
+                  "title": "Response Admin Set Group Active Api V1 Admin Team Groups  Group Id  Patch",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -3487,7 +3541,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Admin Add Group Member Api V1 Admin Team Groups  Group Id  Members Post",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -3552,7 +3612,20 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  },
+                  "title": "Response Admin Remove Group Member Api V1 Admin Team Groups  Group Id  Members  Team Id  Delete",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -3659,7 +3732,14 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Admin Export Teams Api V1 Admin Teams Export Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -3717,7 +3797,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Admin Import Teams Api V1 Admin Teams Import Post",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -3773,7 +3859,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Admin Delete Team Api V1 Admin Teams  Team Id  Delete",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -4042,7 +4134,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Delete User Api V1 Admin Users  User Id  Delete",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -4247,7 +4345,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Replay Dead Letter Webhooks Api V1 Admin Webhooks Replay Post",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -4437,7 +4541,11 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Audit Log Api V1 Audit Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -5026,7 +5134,23 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "title": "Response Board Select Group Api V1 Board Selected Group Put",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -5312,7 +5436,14 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Board Group Teams Api V1 Board Team Groups  Group Key  Teams Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -5449,7 +5580,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Get Config Api V1 Config Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -5586,7 +5723,11 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Customization Api V1 Customization Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -8664,7 +8805,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Get Links Api V1 Links Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -8757,7 +8904,11 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Matches Api V1 Matches Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -8909,7 +9060,11 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Live Stats Api V1 Matches Live Stats Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -9014,7 +9169,11 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Match Api V1 Matches  Match Id  Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -9089,7 +9248,20 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  },
+                  "title": "Response Sign Match Url Api V1 Matches  Match Id  Sign Url Post",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -9292,7 +9464,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Delete My Group Api V1 My Groups  Group Id  Delete",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -9424,7 +9602,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Add Teams To My Group Api V1 My Groups  Group Id  Teams Post",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -9489,7 +9673,20 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  },
+                  "title": "Response Remove Team From My Group Api V1 My Groups  Group Id  Teams  Team Id  Delete",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -9694,7 +9891,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Delete My Overlay Api V1 Overlays  Oid  Delete",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -10361,7 +10564,11 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Style Capabilities Api V1 Style Capabilities Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -10499,7 +10706,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Get Styles Api V1 Styles Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -10791,7 +11004,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Delete My Custom Team Api V1 Teams Mine  Team Id  Delete",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -10863,7 +11082,20 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  },
+                  "title": "Response Health Check Health Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -11266,8 +11498,15 @@
             "name": "style",
             "required": false,
             "schema": {
-              "title": "Style",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Style"
             }
           },
           {
@@ -11275,8 +11514,15 @@
             "name": "lang",
             "required": false,
             "schema": {
-              "title": "Lang",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lang"
             }
           }
         ],

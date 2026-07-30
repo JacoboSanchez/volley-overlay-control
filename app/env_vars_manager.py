@@ -3,6 +3,7 @@ import logging
 import os
 import threading
 import time
+from typing import Any
 
 import requests
 
@@ -19,7 +20,7 @@ def is_truthy(value: object) -> bool:
 
 
 class EnvVarsManager:
-    _remote_config_cache: dict[str, str] = {}
+    _remote_config_cache: dict[str, Any] = {}
     _cache_timestamp: float = 0
     _CACHE_EXPIRATION_SECONDS = 10
     # Serialises the refetch so concurrent callers (request pool + webhook
@@ -29,7 +30,11 @@ class EnvVarsManager:
     _refresh_in_flight = False
 
     @classmethod
-    def get_env_var(cls, key, default=None):
+    def get_env_var(
+        cls,
+        key: str,
+        default: Any = None,
+    ) -> Any:
         cls._load_remote_config_if_needed()
         return cls._remote_config_cache.get(key, os.environ.get(key, default))
 
@@ -42,7 +47,7 @@ class EnvVarsManager:
         return is_truthy(raw if isinstance(raw, str) else str(raw))
 
     @classmethod
-    def _load_remote_config_if_needed(cls):
+    def _load_remote_config_if_needed(cls) -> None:
         remote_config_url = os.environ.get('REMOTE_CONFIG_URL', None)
         if remote_config_url is None:
             cls._remote_config_cache = {}
@@ -97,7 +102,7 @@ class EnvVarsManager:
             cls._remote_config_cache = {}
 
     @staticmethod
-    def _unwrap_remote_config(payload):
+    def _unwrap_remote_config(payload: Any) -> dict[str, Any]:
         """Return the flat env-var mapping from a remote config payload.
 
         The remote config is expected to be a flat ``{KEY: value}`` object

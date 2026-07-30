@@ -33,6 +33,7 @@ without the cardinality risk.
 from __future__ import annotations
 
 import logging
+from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
 
@@ -66,37 +67,40 @@ except ImportError:  # pragma: no cover — handled at runtime
         ``prometheus_client`` is missing.
         """
 
-        def __init__(self, *_args, **_kwargs):
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
             pass
 
-        def labels(self, **_kwargs):
+        def labels(self, **_kwargs: Any) -> _NoOp:
             return self
 
-        def inc(self, *_a, **_kw):
-            return None
+        def inc(self, *_a: Any, **_kw: Any) -> None:
+            pass
 
-        def dec(self, *_a, **_kw):
-            return None
+        def dec(self, *_a: Any, **_kw: Any) -> None:
+            pass
 
-        def set(self, *_a, **_kw):
-            return None
+        def set(self, *_a: Any, **_kw: Any) -> None:
+            pass
 
-        def observe(self, *_a, **_kw):
-            return None
+        def observe(self, *_a: Any, **_kw: Any) -> None:
+            pass
 
-        def time(self):  # context manager fallback
+        def time(self) -> _NoOpTimer:  # context manager fallback
             return _NoOpTimer()
 
     class _NoOpTimer:
-        def __enter__(self):
+        def __enter__(self) -> _NoOpTimer:
             return self
 
-        def __exit__(self, *args):
+        def __exit__(self, *args: object) -> Literal[False]:
             return False
 
     Counter = Gauge = Histogram = _NoOp  # type: ignore[assignment, misc, unused-ignore]
 
-    def generate_latest(*_a, **_kw):  # type: ignore[misc, unused-ignore]
+    def generate_latest(  # type: ignore[misc, unused-ignore]
+        *_a: Any,
+        **_kw: Any,
+    ) -> bytes:
         return b""
 
 

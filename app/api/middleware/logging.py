@@ -9,6 +9,8 @@ correlate their own logs with ours.
 
 from urllib.parse import parse_qs
 
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
 from app.logging_context import (
     new_request_id,
     oid_var,
@@ -21,10 +23,15 @@ REQUEST_ID_HEADER = b"x-request-id"
 class RequestContextMiddleware:
     """Pure-ASGI middleware: works for both ``http`` and ``websocket`` scopes."""
 
-    def __init__(self, app):
+    def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(
+        self,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+    ) -> None:
         if scope["type"] not in ("http", "websocket"):
             await self.app(scope, receive, send)
             return
@@ -35,7 +42,7 @@ class RequestContextMiddleware:
         rid_token = request_id_var.set(rid)
         oid_token = oid_var.set(oid or "-")
 
-        async def send_wrapper(message):
+        async def send_wrapper(message: Message) -> None:
             if (
                 scope["type"] == "http"
                 and message.get("type") == "http.response.start"
@@ -52,14 +59,14 @@ class RequestContextMiddleware:
             oid_var.reset(oid_token)
 
 
-def _extract_request_id(scope) -> str | None:
+def _extract_request_id(scope: Scope) -> str | None:
     for key, value in scope.get("headers") or ():
         if key == REQUEST_ID_HEADER:
             return value.decode("latin-1").strip() or None
     return None
 
 
-def _extract_oid(scope) -> str | None:
+def _extract_oid(scope: Scope) -> str | None:
     qs = scope.get("query_string") or b""
     if not qs:
         return None

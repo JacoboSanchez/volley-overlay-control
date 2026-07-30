@@ -20,7 +20,7 @@ class InitRequest(BaseModel):
 
     @field_validator("oid")
     @classmethod
-    def validate_oid(cls, v):
+    def validate_oid(cls, v: str) -> str:
         if not API_OID_PATTERN.match(v):
             raise ValueError(
                 'OID must contain only alphanumeric characters, hyphens, underscores, slashes, and dots. ".." is not allowed.'

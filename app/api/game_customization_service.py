@@ -1,7 +1,10 @@
 """Customization reads, validation, and persistence."""
 
+from __future__ import annotations
+
 import logging
 import time
+from typing import TYPE_CHECKING, Any, cast
 
 from app.api import game_rapid_pair as _rapid_pair
 from app.api.schemas import (
@@ -15,6 +18,10 @@ from app.api.schemas import (
 )
 from app.customization_cache_ttl import customization_cache_ttl_seconds
 from app.match_report.i18n import SUPPORTED_LOCALES as _SUPPORTED_LOCALES
+
+if TYPE_CHECKING:
+    from app.api.game_service import GameService
+    from app.api.session_manager import GameSession
 
 logger = logging.getLogger(__name__)
 
@@ -46,20 +53,26 @@ def _cache_ttl_seconds() -> float:
     return float(game_service.CUSTOMIZATION_CACHE_TTL_SECONDS)
 
 
-def _service(cls: type):
+def _service(cls: type) -> type[GameService]:
     """Return the composed facade class for cross-mixin calls."""
-    return cls
+    return cast("type[GameService]", cls)
 
 
 class GameCustomizationService:
     """Manage customization state without owning gameplay actions."""
 
     @classmethod
-    def get_customization(cls, session) -> dict:
+    def get_customization(
+        cls,
+        session: GameSession,
+    ) -> dict[str, Any]:
         return session.customization.get_model()
 
     @classmethod
-    def refresh_customization(cls, session) -> dict:
+    def refresh_customization(
+        cls,
+        session: GameSession,
+    ) -> dict[str, Any]:
         """Re-fetch customization from the overlay server and update the session cache.
 
         For custom overlays this performs an HTTP round-trip to the overlay server
@@ -104,7 +117,7 @@ class GameCustomizationService:
     # ------------------------------------------------------------------
 
     @classmethod
-    def set_selected_team_group(cls, session, group_id: int | None) -> None:
+    def set_selected_team_group(cls, session: GameSession, group_id: int | None) -> None:
         """Remember the board's selected team group (``None`` = the "All"
         group). Persist-only — the selection changes which teams the control
         selectors offer, not the rendered overlay, so no broadcast is needed."""
@@ -112,7 +125,11 @@ class GameCustomizationService:
         session.persist_meta()
 
     @classmethod
-    def update_customization(cls, session, data: dict) -> ActionResponse:
+    def update_customization(
+        cls,
+        session: GameSession,
+        data: dict[str, Any],
+    ) -> ActionResponse:
         # Reject obviously malformed payloads before doing any work. The
         # cap on top-level keys keeps a malicious client from streaming
         # tens of thousands of unknown keys (the filter below drops them,

@@ -1,5 +1,7 @@
 """GET /audit — read recent action audit records for a session."""
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, Query
 
 from app.api import action_log
@@ -24,7 +26,7 @@ async def get_audit_log(
             "the previous response. Omit for the first page."
         ),
     ),
-):
+) -> dict[str, Any]:
     """Return one page of audit records, newest page first.
 
     First call (``before_ts`` omitted) returns the most recent

@@ -13,14 +13,17 @@ from app.env_vars_manager import EnvVarsManager
 logger = logging.getLogger(__name__)
 
 
-async def build_overlay_links(request: Request, session: GameSession):
+async def build_overlay_links(
+    request: Request,
+    session: GameSession,
+) -> dict[str, str]:
     """Return overlay, preview, and spectator links for the session."""
     # ``raw_oid`` for backend resolution; ``skey`` (== session.oid) for
     # per-user archive lookups.
     oid = session.raw_oid
     skey = session.oid
     output = session.conf.output
-    links = {}
+    links: dict[str, str] = {}
 
     if output and output.strip():
         links["overlay"] = output
@@ -77,7 +80,7 @@ async def build_overlay_links(request: Request, session: GameSession):
     return links
 
 
-def _latest_match_id_for(oid: str):
+def _latest_match_id_for(oid: str) -> str | None:
     """Return the most-recent ``match_id`` archived for *oid*, or ``None``."""
     summaries = match_archive.list_matches(oid=oid, limit=1)
     return summaries[0]["match_id"] if summaries else None

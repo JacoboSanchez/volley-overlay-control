@@ -5,7 +5,7 @@ import os
 logger = logging.getLogger(__name__)
 
 
-def validate_config():
+def validate_config() -> None:
     """
     Validates critical environment variables on startup.
     Logs warnings and sets safe defaults in os.environ for invalid configurations.

@@ -12,7 +12,7 @@ import secrets
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.db.models.overlay import UserOverlay
 from app.id_validation import validate_overlay_id
@@ -32,7 +32,10 @@ class OverlayNotFoundError(OverlayError, NotFoundServiceError):
     status_code = 404
 
 
-def _generate_token(db: Session, column) -> str:
+def _generate_token(
+    db: Session,
+    column: InstrumentedAttribute[str | None],
+) -> str:
     """Return a fresh, collision-checked url-safe token unique on *column*."""
     for _ in range(8):
         token = secrets.token_urlsafe(_PUBLIC_TOKEN_BYTES)

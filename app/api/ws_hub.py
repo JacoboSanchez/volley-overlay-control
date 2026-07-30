@@ -2,6 +2,8 @@ import asyncio
 import json
 import logging
 import time
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from fastapi import WebSocket
 
@@ -26,7 +28,7 @@ class WSHubFull(Exception):
     log correlation.
     """
 
-    def __init__(self, oid: str, cap: int):
+    def __init__(self, oid: str, cap: int) -> None:
         super().__init__(
             f"OID {oid!r} is at the {cap}-client cap.")
         self.oid = oid
@@ -42,17 +44,17 @@ class WSHub:
     """
 
     # {oid: set[WebSocket]}
-    _connections: dict = {}
+    _connections: dict[str, set[WebSocket]] = {}
     # Strong references to in-flight fire-and-forget broadcast tasks. Without
     # this, the asyncio event loop may garbage-collect a task created via
     # ``loop.create_task(...)`` before it finishes, dropping the broadcast.
-    _pending_tasks: set = set()
+    _pending_tasks: set[asyncio.Task[None]] = set()
     # {WebSocket: monotonic timestamp of last client activity}. Populated
     # by ``connect`` and bumped by the endpoint on every received frame
     # so the heartbeat loop can tell zombies from healthy idle clients.
-    _last_seen: dict = {}
+    _last_seen: dict[WebSocket, float] = {}
     # Background heartbeat task (created by ``start_heartbeat``).
-    _heartbeat_task = None
+    _heartbeat_task: asyncio.Task[None] | None = None
     # The application's event loop, captured at startup. The sync broadcast
     # helpers are called from ``GameService``, which runs in a worker thread
     # (routes hand it to ``run_in_threadpool`` so its blocking I/O stays off
@@ -66,7 +68,7 @@ class WSHub:
 
     @classmethod
     async def connect(cls, ws: WebSocket, oid: str, *,
-                      subprotocol: str | None = None):
+                      subprotocol: str | None = None) -> None:
         """Accept *ws* and register it under *oid*.
 
         Raises :class:`WSHubFull` (without ``accept``-ing) when the OID
@@ -127,7 +129,7 @@ class WSHub:
         set_ws_gauges(total, len(cls._connections))
 
     @classmethod
-    def disconnect(cls, ws: WebSocket, oid: str):
+    def disconnect(cls, ws: WebSocket, oid: str) -> None:
         conns = cls._connections.get(oid)
         if conns:
             conns.discard(ws)
@@ -143,7 +145,7 @@ class WSHub:
     _BROADCAST_SEND_TIMEOUT = WS_BROADCAST_SEND_TIMEOUT_SECONDS
 
     @classmethod
-    async def _broadcast_text(cls, oid: str, message: str):
+    async def _broadcast_text(cls, oid: str, message: str) -> None:
         """Send the pre-serialized *message* to every client for *oid*.
 
         Sends run concurrently with a per-socket timeout so a single stuck
@@ -156,7 +158,7 @@ class WSHub:
 
         targets = list(conns)
 
-        async def _send(ws):
+        async def _send(ws: WebSocket) -> WebSocket | None:
             try:
                 await asyncio.wait_for(
                     ws.send_text(message),
@@ -188,13 +190,17 @@ class WSHub:
             cls._refresh_gauges()
 
     @classmethod
-    async def broadcast(cls, oid: str, data: dict):
+    async def broadcast(
+        cls,
+        oid: str,
+        data: dict[str, Any],
+    ) -> None:
         """Send a JSON ``state_update`` message to every client for *oid*."""
         message = json.dumps({"type": "state_update", "data": data})
         await cls._broadcast_text(oid, message)
 
     @classmethod
-    async def broadcast_payload_json(cls, oid: str, payload_json: str):
+    async def broadcast_payload_json(cls, oid: str, payload_json: str) -> None:
         """Variant of :meth:`broadcast` that accepts the ``data`` field
         already serialized to JSON. Wraps it in the standard
         ``{"type":"state_update","data":<payload>}`` envelope and sends.
@@ -217,7 +223,11 @@ class WSHub:
         cls._loop = asyncio.get_running_loop()
 
     @classmethod
-    def _schedule(cls, oid: str, coro_factory):
+    def _schedule(
+        cls,
+        oid: str,
+        coro_factory: Callable[[], Coroutine[Any, Any, None]],
+    ) -> None:
         """Schedule a broadcast coroutine, on- or off-loop.
 
         On the loop, create the task directly. Off it (``GameService``
@@ -225,7 +235,7 @@ class WSHub:
         via ``call_soon_threadsafe``. Only when no loop can be found at all
         — genuinely synchronous unit tests — is the broadcast skipped.
         """
-        def _create():
+        def _create() -> None:
             task = asyncio.ensure_future(coro_factory())
             cls._pending_tasks.add(task)
             task.add_done_callback(cls._pending_tasks.discard)
@@ -244,18 +254,18 @@ class WSHub:
         _create()
 
     @classmethod
-    def broadcast_sync(cls, oid: str, data: dict):
+    def broadcast_sync(cls, oid: str, data: dict[str, Any]) -> None:
         """Fire-and-forget broadcast usable from synchronous code."""
         cls._schedule(oid, lambda: cls.broadcast(oid, data))
 
     @classmethod
-    def broadcast_payload_json_sync(cls, oid: str, payload_json: str):
+    def broadcast_payload_json_sync(cls, oid: str, payload_json: str) -> None:
         """Sync wrapper around :meth:`broadcast_payload_json` for use from
         synchronous code paths (the ``GameService`` action methods)."""
         cls._schedule(oid, lambda: cls.broadcast_payload_json(oid, payload_json))
 
     @classmethod
-    def clear(cls):
+    def clear(cls) -> None:
         """Remove all connections (for testing)."""
         cls._connections.clear()
         cls._last_seen.clear()
@@ -340,7 +350,7 @@ class WSHub:
         healthy_coros = [_ping_healthy(oid, ws) for oid, ws in healthy]
         if zombie_coros:
             await asyncio.gather(*zombie_coros, return_exceptions=True)
-        ping_results: list = []
+        ping_results: list[bool | BaseException] = []
         if healthy_coros:
             ping_results = await asyncio.gather(
                 *healthy_coros, return_exceptions=True,

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -36,7 +37,7 @@ def _alembic_config() -> Config:
 
 
 @contextmanager
-def _migration_lock():
+def _migration_lock() -> Iterator[None]:
     """Best-effort cross-process lock so concurrent workers don't double-migrate.
 
     Uses an ``flock`` on a file in the data dir. If locking is unavailable

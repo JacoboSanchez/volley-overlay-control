@@ -17,7 +17,7 @@ deletes one outright. Ownership alone puts a team in the virtual "All" group.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
@@ -73,7 +73,7 @@ def catalog(
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
     page: Page = PageDep,
-):
+) -> list[TeamOut]:
     """The team catalog, paged.
 
     ``scope=all`` exists so the "All teams" roster has a pageable home of its
@@ -98,7 +98,7 @@ def create_my_custom_team(
     body: CustomTeamRequest,
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> TeamOut:
     """Create a personal team and add it to the caller's list."""
     team = teams_service.create_user_team(
         db,
@@ -117,7 +117,7 @@ def update_my_custom_team(
     body: CustomTeamUpdateRequest,
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> TeamOut:
     """Edit one of the caller's own custom teams."""
     team = teams_service.update_user_team(
         db,
@@ -136,7 +136,7 @@ def delete_my_custom_team(
     team_id: int,
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, bool]:
     """Delete one of the caller's own custom teams, dropping it from every group.
 
     Global teams belong to the admin catalog — remove those from a single group
@@ -155,7 +155,7 @@ def admin_create_team(
     body: AdminTeamRequest,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> TeamOut:
     team = teams_service.upsert_global(
         db,
         body.name,
@@ -172,7 +172,7 @@ def admin_update_team(
     body: AdminTeamUpdateRequest,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> TeamOut:
     team = teams_service.update_global(
         db,
         team_id,
@@ -189,7 +189,7 @@ def admin_delete_team(
     team_id: int,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, bool]:
     if not teams_service.delete_global(db, team_id):
         raise HTTPException(status_code=404, detail="Team not found.")
     return {"ok": True}
@@ -199,7 +199,7 @@ def admin_delete_team(
 def admin_export_teams(
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, dict[str, Any]]:
     """Export the global catalog as an APP_TEAMS JSON map."""
     return teams_service.export_app_teams(db)
 
@@ -209,7 +209,7 @@ def admin_import_teams(
     body: ImportTeamsRequest,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, int]:
     """Import an APP_TEAMS JSON map into the global catalog (upsert by name)."""
     count = teams_service.import_app_teams(db, body.teams, replace=body.replace)
     return {"imported": count}
@@ -224,7 +224,7 @@ def admin_list_groups(
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
     page: Page = PageDep,
-):
+) -> list[TeamGroupOut]:
     """Every group (active and inactive) with its members — drives the admin
     group manager."""
     with_total(response, teams_service.count_all_groups(db))
@@ -238,7 +238,7 @@ def admin_create_group(
     body: CreateGroupRequest,
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> TeamGroupOut:
     group = teams_service.create_group(db, body.name, created_by_user_id=admin.id)
     return TeamGroupOut(id=group.id, name=group.name, is_active=group.is_active, teams=[])
 
@@ -249,7 +249,7 @@ def admin_add_group_member(
     body: GroupMemberRequest,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, bool]:
     if teams_service.get_shared_group(db, group_id) is None:
         raise HTTPException(status_code=404, detail="Group not found.")
     team = db.get(Team, body.team_id)
@@ -268,7 +268,7 @@ def admin_remove_group_member(
     team_id: int,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, bool | int]:
     if teams_service.get_shared_group(db, group_id) is None:
         raise HTTPException(status_code=404, detail="Group not found.")
     removed = teams_service.remove_group_member(db, group_id, team_id)
@@ -281,7 +281,7 @@ def admin_set_group_active(
     body: TeamGroupSetActiveRequest,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, bool | int]:
     group = teams_service.set_group_active(db, group_id, body.is_active)
     return {"id": group.id, "is_active": group.is_active}
 
@@ -291,7 +291,7 @@ def admin_delete_group(
     group_id: int,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, bool]:
     if not teams_service.delete_group(db, group_id):
         raise HTTPException(status_code=404, detail="Group not found.")
     return {"ok": True}
@@ -308,7 +308,7 @@ def admin_delete_group(
 def board_team_groups(
     skey: str = Depends(board_skey),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> BoardGroupListOut:
     owner_id, _oid = split_skey(skey)
     return team_groups_service.board_group_list(db, owner_id, skey)
 
@@ -318,7 +318,7 @@ def board_group_teams(
     group_key: str,
     skey: str = Depends(board_skey),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, dict[str, Any]]:
     """The APP_TEAMS map for one group, consumed by the board team selectors."""
     owner_id, _oid = split_skey(skey)
     group_id = team_groups_service.parse_group_key(group_key)
@@ -330,7 +330,7 @@ def board_select_group(
     body: SelectGroupRequest,
     session: GameSession = Depends(get_session),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, bool | int | None]:
     owner_id, _oid = split_skey(session.skey)
     if (
         body.group_id is not None
@@ -359,7 +359,7 @@ def my_visible_groups(
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
     page: Page = PageDep,
-):
+) -> list[GroupDetailOut]:
     """The caller's selectable groups: the synthetic "All" first, then shared
     published groups and the user's own private groups, each with their teams.
 
@@ -389,7 +389,7 @@ def create_my_group(
     body: CreateMyGroupRequest,
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> GroupDetailOut:
     group = teams_service.create_private_group(db, user.id, body.name)
     return team_groups_service.group_detail(db, user.id, group)
 
@@ -400,7 +400,7 @@ def rename_my_group(
     body: RenameMyGroupRequest,
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> GroupDetailOut:
     group = teams_service.rename_private_group(db, user.id, group_id, body.name)
     return team_groups_service.group_detail(db, user.id, group)
 
@@ -410,7 +410,7 @@ def delete_my_group(
     group_id: int,
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, bool]:
     if not teams_service.delete_private_group(db, user.id, group_id):
         raise HTTPException(status_code=404, detail="Group not found.")
     return {"ok": True}
@@ -422,7 +422,7 @@ def add_teams_to_my_group(
     body: GroupTeamsRequest,
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, int]:
     added = teams_service.add_user_group_teams(db, user.id, group_id, body.team_ids)
     return {"added": added}
 
@@ -433,7 +433,7 @@ def remove_team_from_my_group(
     team_id: int,
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, bool | int]:
     if teams_service.get_visible_group(db, user.id, group_id) is None:
         raise HTTPException(status_code=404, detail="Group not found.")
     removed = teams_service.remove_user_group_team(db, user.id, group_id, team_id)

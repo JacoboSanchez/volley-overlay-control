@@ -240,7 +240,7 @@ def list_icons(
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
     page: Page = PageDep,
-):
+) -> IconLibraryOut:
     """Globals + the caller's own + quota.
 
     ``limit``/``offset`` page the **global** library, which is deliberately
@@ -272,7 +272,7 @@ async def upload_my_icon(
     file: UploadFile = File(...),
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> IconOut:
     return await _create_icon_endpoint(db, name=name, file=file, user_id=user.id)
 
 
@@ -282,7 +282,7 @@ def rename_my_icon(
     body: IconRenameRequest,
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> IconOut:
     return _rename_endpoint(db, icon_id, body.name, user_id=user.id)
 
 
@@ -291,7 +291,7 @@ def my_icon_usage(
     icon_id: int,
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> IconUsageOut:
     icon = _get_scoped_or_404(db, icon_id, user_id=user.id)
     return IconUsageOut(teams=icons_service.usage_count(db, icon))
 
@@ -301,7 +301,7 @@ def delete_my_icon(
     icon_id: int,
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> IconDeleteOut:
     return _delete_endpoint(db, icon_id, user_id=user.id)
 
 
@@ -310,7 +310,7 @@ def import_icons_from_my_teams(
     body: IconImportRequest,
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> IconImportOut:
     return _import_endpoint(db, body.team_ids, scope_user_id=user.id)
 
 
@@ -328,7 +328,7 @@ async def admin_upload_icon(
     file: UploadFile = File(...),
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> IconOut:
     return await _create_icon_endpoint(db, name=name, file=file, user_id=None)
 
 
@@ -338,7 +338,7 @@ def admin_rename_icon(
     body: IconRenameRequest,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> IconOut:
     return _rename_endpoint(db, icon_id, body.name, user_id=None)
 
 
@@ -347,7 +347,7 @@ def admin_icon_usage(
     icon_id: int,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> IconUsageOut:
     icon = _get_scoped_or_404(db, icon_id, user_id=None)
     return IconUsageOut(teams=icons_service.usage_count(db, icon))
 
@@ -357,7 +357,7 @@ def admin_delete_icon(
     icon_id: int,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> IconDeleteOut:
     return _delete_endpoint(db, icon_id, user_id=None)
 
 
@@ -366,5 +366,5 @@ def admin_import_icons_from_teams(
     body: IconImportRequest,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> IconImportOut:
     return _import_endpoint(db, body.team_ids, scope_user_id=None)

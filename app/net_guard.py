@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+from typing import Any
 from urllib.parse import urljoin, urlparse, urlunparse
 
 import requests
@@ -135,11 +136,17 @@ class _PinnedTLSAdapter(HTTPAdapter):
     verification against it (urllib3 v2 pool kwargs).
     """
 
-    def __init__(self, hostname: str):
+    def __init__(self, hostname: str) -> None:
         self._hostname = hostname
         super().__init__()
 
-    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+    def init_poolmanager(
+        self,
+        connections: int,
+        maxsize: int,
+        block: bool = False,
+        **pool_kwargs: Any,
+    ) -> None:
         pool_kwargs["server_hostname"] = self._hostname
         pool_kwargs["assert_hostname"] = self._hostname
         return super().init_poolmanager(

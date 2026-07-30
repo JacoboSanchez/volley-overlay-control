@@ -432,7 +432,7 @@ def match_history(
     page: int = Query(default=1, ge=1),
     lang: str | None = Query(default=None),
     accept_language: str | None = Header(default=None),
-):
+) -> HTMLResponse:
     resolved = _resolve_overlay(public_token)
     if resolved is None:
         raise HTTPException(status_code=404, detail="Not found.")

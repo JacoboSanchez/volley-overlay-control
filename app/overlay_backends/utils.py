@@ -5,6 +5,8 @@ from collections.abc import Callable
 from enum import Enum
 from typing import Any
 
+import requests
+
 logger = logging.getLogger(__name__)
 
 # DEPRECATED — removal target: 7.0.0.
@@ -25,7 +27,7 @@ class OverlayKind(str, Enum):
     INVALID = "invalid"
 
 
-def is_custom_overlay(oid: str) -> bool:
+def is_custom_overlay(oid: str | None) -> bool:
     """Return True when *oid* uses the legacy ``C-`` custom overlay prefix.
 
     Kept for backward compatibility — new code should prefer
@@ -60,7 +62,7 @@ def split_custom_oid(oid: str | None) -> tuple[str, str | None]:
 
 
 def resolve_overlay_kind(
-    oid: str,
+    oid: str | None,
     local_overlay_exists: Callable[[str], bool],
 ) -> OverlayKind:
     """Decide whether *oid* refers to a known local overlay.
@@ -80,7 +82,10 @@ def resolve_overlay_kind(
     return OverlayKind.INVALID
 
 
-def safe_json(response, default: Any = None) -> Any:
+def safe_json(
+    response: requests.Response,
+    default: Any = None,
+) -> Any:
     """Decode *response*'s JSON body, returning *default* on parse error.
 
     Overlay responses occasionally come back as HTML error pages even on 2xx,
@@ -94,7 +99,10 @@ def safe_json(response, default: Any = None) -> Any:
         return default
 
 
-def _mock_response(status_code=200, payload=None):
+def _mock_response(
+    status_code: int = 200,
+    payload: Any = None,
+) -> Any:
     """Create a minimal response-like object for error paths."""
     body = payload or {}
     return type('MockResponse', (object,), {
@@ -102,4 +110,3 @@ def _mock_response(status_code=200, payload=None):
         'text': '',
         'json': lambda self: body,
     })()
-

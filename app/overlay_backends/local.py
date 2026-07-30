@@ -2,10 +2,17 @@
 
 import copy
 import logging
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from app.env_vars_manager import EnvVarsManager
 from app.overlay_backends.base import CustomOidMixin, OverlayBackend
 from app.state import State
+
+if TYPE_CHECKING:
+    from app.conf import Conf
+    from app.overlay.broadcast import ObsBroadcastHub
+    from app.overlay.state_store import OverlayStateStore
 
 logger = logging.getLogger(__name__)
 
@@ -17,16 +24,16 @@ class LocalOverlayBackend(CustomOidMixin, OverlayBackend):
     of sending HTTP requests or WebSocket messages to an external server.
     """
 
-    def __init__(self, conf):
+    def __init__(self, conf: Conf) -> None:
         self.conf = conf
         # Build overlay payload callback — set by Backend after construction
-        self._build_payload = None
+        self._build_payload: Callable[..., dict[str, Any]] | None = None
 
-    def _store(self):
+    def _store(self) -> OverlayStateStore:
         from app.overlay import overlay_state_store
         return overlay_state_store
 
-    def _custom_id(self, oid=None):
+    def _custom_id(self, oid: str | None = None) -> str:
         """Per-user storage key for this session's overlay.
 
         A ``LocalOverlayBackend`` is bound to one session's ``conf``; when
@@ -35,11 +42,11 @@ class LocalOverlayBackend(CustomOidMixin, OverlayBackend):
         which raw ``oid`` a caller passes. Falls back to the mixin's bare-id
         behaviour for standalone/legacy construction.
         """
-        if getattr(self.conf, "skey", None):
+        if self.conf.skey:
             return self.conf.skey
         return super()._custom_id(oid)
 
-    def _broadcast(self):
+    def _broadcast(self) -> ObsBroadcastHub:
         from app.overlay import obs_broadcast_hub
         return obs_broadcast_hub
 
@@ -53,12 +60,12 @@ class LocalOverlayBackend(CustomOidMixin, OverlayBackend):
 
     # -- OverlayBackend interface --
 
-    def save_model(self, current_model: dict) -> None:
+    def save_model(self, current_model: dict[str, Any]) -> None:
         custom_id = self._custom_id()
         self._store().ensure_overlay(custom_id)
         self._store().set_raw_config(custom_id, model=current_model)
 
-    def save_customization(self, data: dict) -> None:
+    def save_customization(self, data: dict[str, Any]) -> None:
         custom_id = self._custom_id()
         self._store().ensure_overlay(custom_id)
         self._store().set_raw_config(custom_id, customization=data)
@@ -68,14 +75,22 @@ class LocalOverlayBackend(CustomOidMixin, OverlayBackend):
         self._store().ensure_overlay(custom_id)
         self._store().set_visibility(custom_id, show)
 
-    def get_model(self, oid: str = None, save_result: bool = False) -> dict | None:
+    def get_model(
+        self,
+        oid: str | None = None,
+        save_result: bool = False,
+    ) -> dict[str, Any] | None:
         custom_id = self._custom_id(oid)
         self._store().ensure_overlay(custom_id)
         raw = self._store().get_raw_config(custom_id)
         model = raw.get("model", {})
         return model if model else State().get_reset_model()
 
-    def _get_default_customization(self, style, custom_id):
+    def _get_default_customization(
+        self,
+        style: str | None,
+        custom_id: str,
+    ) -> dict[str, Any]:
         """Return a default customization dict, persisting preferredStyle."""
         from app.customization import Customization
         data = copy.copy(Customization.reset_state)
@@ -84,7 +99,10 @@ class LocalOverlayBackend(CustomOidMixin, OverlayBackend):
         self._store().set_raw_config(custom_id, customization=data)
         return data
 
-    def get_customization(self, oid: str = None) -> dict | None:
+    def get_customization(
+        self,
+        oid: str | None = None,
+    ) -> dict[str, Any] | None:
         check_oid = oid if oid is not None else self.conf.oid
         custom_id = self._custom_id(check_oid)
         style = self._style(check_oid)
@@ -109,13 +127,19 @@ class LocalOverlayBackend(CustomOidMixin, OverlayBackend):
             False, "false", 0, "0",
         )
 
-    def get_available_styles(self, oid: str = None) -> list:
+    def get_available_styles(
+        self,
+        oid: str | None = None,
+    ) -> list[str]:
         return self._store().get_available_styles_list()
 
-    def get_style_capabilities(self, oid: str = None) -> dict:
+    def get_style_capabilities(
+        self,
+        oid: str | None = None,
+    ) -> dict[str, Any]:
         return self._store().get_style_capabilities()
 
-    def fetch_output_token(self, oid: str = None) -> str | None:
+    def fetch_output_token(self, oid: str | None = None) -> str | None:
         from app.overlay.state_store import OverlayStateStore
         # The public OBS URL uses the per-overlay capability token when one
         # is bound to the session; otherwise fall back to the derived output
@@ -139,30 +163,42 @@ class LocalOverlayBackend(CustomOidMixin, OverlayBackend):
     def fetch_and_update_overlay_id(self, oid: str) -> None:
         logger.debug('Local overlay detected, skipping ID fetch')
 
-    def send_overlay_state(self, payload: dict, force_visibility=None,
-                           customization_state=None,
-                           show_only_current_set=None) -> None:
+    def send_overlay_state(
+        self,
+        payload: dict[str, Any],
+        force_visibility: bool | None = None,
+        customization_state: dict[str, Any] | None = None,
+        show_only_current_set: bool | None = None,
+    ) -> None:
         """Push state update into the in-process state store."""
         custom_id = self._custom_id()
         self._store().ensure_overlay(custom_id)
         self._store().update_state_sync(custom_id, payload)
 
-    def send_json_model(self, to_save: dict) -> None:
+    def send_json_model(self, to_save: dict[str, Any]) -> None:
         pass  # Local overlays don't use Uno's SetOverlayContent
 
     def reduce_games_to_one(self) -> None:
         pass  # Local overlays don't use Uno's SetOverlayContent
 
-    def push_model_update(self, current_model, to_save,
-                          show_only_current_set=None):
+    def push_model_update(
+        self,
+        current_model: dict[str, Any],
+        to_save: dict[str, Any],
+        show_only_current_set: bool | None = None,
+    ) -> None:
         if self._build_payload:
             payload = self._build_payload(
                 current_model, show_only_current_set=show_only_current_set,
             )
             self.send_overlay_state(payload)
 
-    def on_customization_saved(self, get_model, customization):
-        if self._build_payload and get_model:
+    def on_customization_saved(
+        self,
+        get_model: Callable[[], dict[str, Any] | None],
+        customization: dict[str, Any],
+    ) -> None:
+        if self._build_payload:
             current_model = get_model()
             if current_model:
                 payload = self._build_payload(
@@ -170,7 +206,11 @@ class LocalOverlayBackend(CustomOidMixin, OverlayBackend):
                 )
                 self.send_overlay_state(payload)
 
-    def change_visibility_with_fallback(self, show, get_model=None):
+    def change_visibility_with_fallback(
+        self,
+        show: bool,
+        get_model: Callable[[], dict[str, Any] | None] | None = None,
+    ) -> None:
         self.change_visibility(show)
         if self._build_payload and get_model:
             current_model = get_model()
@@ -181,11 +221,11 @@ class LocalOverlayBackend(CustomOidMixin, OverlayBackend):
                 self.send_overlay_state(payload)
 
     # WebSocket lifecycle not needed — no external WS connection
-    def init_ws_client(self, oid=None):
+    def init_ws_client(self, oid: str | None = None) -> None:
         pass
 
-    def close_ws_client(self):
+    def close_ws_client(self) -> None:
         pass
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         pass

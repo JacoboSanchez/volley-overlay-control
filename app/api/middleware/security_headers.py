@@ -44,6 +44,7 @@ from collections.abc import Iterable
 from urllib.parse import urlsplit
 
 import idna
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.env_vars_manager import EnvVarsManager
 
@@ -304,7 +305,12 @@ class SecurityHeadersMiddleware:
     ``bootstrap`` are respected).
     """
 
-    def __init__(self, app, *, hsts_seconds: int | None = None) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        hsts_seconds: int | None = None,
+    ) -> None:
         self.app = app
         # HSTS is opt-in: setting it on a deployment that's not HTTPS-only
         # will lock browsers out. Operators enable it via env var.
@@ -316,14 +322,19 @@ class SecurityHeadersMiddleware:
                 hsts_seconds = None
         self._hsts_seconds = hsts_seconds
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(
+        self,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+    ) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
 
         path = scope.get("path", "") or ""
 
-        async def send_wrapper(message):
+        async def send_wrapper(message: Message) -> None:
             if message.get("type") != "http.response.start":
                 await send(message)
                 return

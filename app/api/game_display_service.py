@@ -1,12 +1,20 @@
 """Display-only toggles and side-swap behavior."""
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING, cast
 
 from app.api import game_rapid_pair as _rapid_pair
 from app.api.schemas import (
     ActionResponse,
 )
 from app.customization_cache_ttl import customization_cache_ttl_seconds
+from app.state import State
+
+if TYPE_CHECKING:
+    from app.api.game_service import GameService
+    from app.api.session_manager import GameSession
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +39,16 @@ RAPID_PAIR_WINDOW_S = _rapid_pair.RAPID_PAIR_WINDOW_S
 CUSTOMIZATION_CACHE_TTL_SECONDS = customization_cache_ttl_seconds()
 
 
-def _service(cls: type):
+def _service(cls: type) -> type[GameService]:
     """Return the composed facade class for cross-mixin calls."""
-    return cls
+    return cast("type[GameService]", cls)
 
 
 class GameDisplayService:
     """Manage overlay presentation flags without scoring mutations."""
 
     @classmethod
-    def set_visibility(cls, session, visible: bool) -> ActionResponse:
+    def set_visibility(cls, session: GameSession, visible: bool) -> ActionResponse:
         session.visible = visible
         session.backend.change_overlay_visibility(visible)
         state_response = _service(cls).get_state(session)
@@ -48,7 +56,7 @@ class GameDisplayService:
         return ActionResponse(success=True, state=state_response)
 
     @classmethod
-    def set_simple_mode(cls, session, enabled: bool) -> ActionResponse:
+    def set_simple_mode(cls, session: GameSession, enabled: bool) -> ActionResponse:
         session.simple = enabled
         if enabled:
             session.backend.reduce_games_to_one()
@@ -57,7 +65,11 @@ class GameDisplayService:
         return ActionResponse(success=True, state=state_response)
 
     @classmethod
-    def _auto_swap_component(cls, session, state) -> bool:
+    def _auto_swap_component(
+        cls,
+        session: GameSession,
+        state: State,
+    ) -> bool:
         """Auto-derived side-swap parity for the session's live state."""
         from app.api.match_rules import compute_sides_swapped_auto
 
@@ -74,7 +86,11 @@ class GameDisplayService:
         )
 
     @classmethod
-    def effective_sides_swapped(cls, session, state) -> bool:
+    def effective_sides_swapped(
+        cls,
+        session: GameSession,
+        state: State,
+    ) -> bool:
         """The orientation every live view should render right now.
 
         Manual base XOR the auto component (when auto-swap is on), so
@@ -86,7 +102,7 @@ class GameDisplayService:
         return swapped
 
     @classmethod
-    def set_sides_swapped(cls, session, swapped: bool) -> ActionResponse:
+    def set_sides_swapped(cls, session: GameSession, swapped: bool) -> ActionResponse:
         """Set the *effective* display orientation to ``swapped``.
 
         The stored manual base absorbs the auto component so the
@@ -104,7 +120,7 @@ class GameDisplayService:
         return ActionResponse(success=True, state=state_response)
 
     @classmethod
-    def set_auto_swap_sides(cls, session, enabled: bool) -> ActionResponse:
+    def set_auto_swap_sides(cls, session: GameSession, enabled: bool) -> ActionResponse:
         """Toggle automatic side swapping.
 
         The manual base is re-anchored so the orientation visible at
@@ -126,7 +142,7 @@ class GameDisplayService:
         return ActionResponse(success=True, state=state_response)
 
     @classmethod
-    def set_set_summary_mode(cls, session, enabled: bool) -> ActionResponse:
+    def set_set_summary_mode(cls, session: GameSession, enabled: bool) -> ActionResponse:
         """Toggle the set-summary overlay panel.
 
         The summary picks the "last played" set: if the current set has
@@ -141,7 +157,7 @@ class GameDisplayService:
         return ActionResponse(success=True, state=state_response)
 
     @classmethod
-    def set_set_summary_style(cls, session, style: str) -> ActionResponse:
+    def set_set_summary_style(cls, session: GameSession, style: str) -> ActionResponse:
         """Pick the visual variant for the set-summary overlay.
 
         ``style`` is validated against

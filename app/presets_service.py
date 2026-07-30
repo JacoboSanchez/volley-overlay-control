@@ -15,6 +15,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import ColumnElement
 
 from app.api.preset_categories import categories_for_keys, filter_to_known
 from app.constants import PRESETS_MAX_NAME_LEN
@@ -115,7 +116,7 @@ def create_user_preset(db: Session, user_id: int, name: str, values: dict) -> Pr
     return preset
 
 
-def _for_user_where(user_id: int):
+def _for_user_where(user_id: int) -> ColumnElement[bool]:
     return ((Preset.scope == SCOPE_GLOBAL) & (Preset.is_active.is_(True))) | (
         Preset.owner_user_id == user_id
     )

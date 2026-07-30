@@ -2,8 +2,11 @@
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from weakref import WeakValueDictionary
+
+from fastapi import FastAPI
 
 from app.api.session_manager import SessionManager
 from app.api.webhooks import webhook_dispatcher
@@ -17,8 +20,8 @@ logger = logging.getLogger(__name__)
 # so the two knobs stay independent.
 _GAME_SESSION_CLEANUP_INTERVAL_SECONDS = 3600
 
-_cleanup_task: asyncio.Task | None = None
-_auth_sweep_task: asyncio.Task | None = None
+_cleanup_task: asyncio.Task[None] | None = None
+_auth_sweep_task: asyncio.Task[None] | None = None
 # WeakValueDictionary auto-evicts entries once all strong refs to the lock are
 # released — i.e. once every caller has exited its ``async with get_init_lock``
 # block. This avoids a race where a manual cleanup could delete a lock between
@@ -36,7 +39,7 @@ def get_init_lock(oid: str) -> asyncio.Lock:
     return lock
 
 
-async def _session_cleanup_loop():
+async def _session_cleanup_loop() -> None:
     """Periodically remove expired in-memory game sessions."""
     while True:
         await asyncio.sleep(_GAME_SESSION_CLEANUP_INTERVAL_SECONDS)
@@ -61,7 +64,7 @@ def purge_expired_auth_sessions() -> int:
         return auth_sessions.purge_expired(db)
 
 
-async def _auth_session_sweep_loop():
+async def _auth_session_sweep_loop() -> None:
     """Periodically purge expired login sessions from the database.
 
     ``resolve_session`` only drops an expired row when its own token is
@@ -87,7 +90,7 @@ async def _auth_session_sweep_loop():
 
 
 @asynccontextmanager
-async def router_lifespan(app):
+async def router_lifespan(app: FastAPI) -> AsyncIterator[None]:
     global _cleanup_task, _auth_sweep_task
     _cleanup_task = asyncio.create_task(_session_cleanup_loop())
     # 0 disables the sweep entirely (operators running an external janitor).

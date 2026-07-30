@@ -25,9 +25,11 @@ from __future__ import annotations
 import datetime
 import logging
 import re
+from typing import Any
 
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
+from sqlalchemy.sql import Select
 
 from app.api import action_log
 from app.api._persistence_paths import DEFAULT_HASH_LEN, hashed_filename
@@ -164,7 +166,11 @@ def archive_match(
     return match_id
 
 
-def _scope_predicates(stmt, oid: str | None, user_id: int | None):
+def _scope_predicates(
+    stmt: Select[Any],
+    oid: str | None,
+    user_id: int | None,
+) -> Select[Any] | None:
     """Apply the skey / user_id scoping shared by list and count.
 
     Returns the scoped statement, or ``None`` when a provided-but-invalid

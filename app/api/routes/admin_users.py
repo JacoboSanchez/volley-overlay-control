@@ -51,7 +51,7 @@ def list_users(
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
     page: Page = PageDep,
-):
+) -> list[UserOut]:
     with_total(response, service.count_users(db))
     rows = service.list_users(db, limit=page.limit, offset=page.offset)
     return [UserOut.from_user(u) for u in rows]
@@ -62,7 +62,7 @@ def create_user(
     body: AdminCreateUserRequest,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> TempPasswordResponse:
     """Create a user. With no password, a temp one is minted and returned;
     the user must change it on first login."""
     # Treat a falsy password (None or "") uniformly: mint a temp password and
@@ -90,7 +90,7 @@ def update_user(
     body: AdminUpdateUserRequest,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> UserOut:
     user = service.get_by_id(db, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found.")
@@ -110,7 +110,7 @@ def reset_password(
     user_id: int,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> TempPasswordResponse:
     """Reset a user to a temporary password (forced change on next login)
     and log out all their existing sessions."""
     from app.auth import sessions
@@ -128,7 +128,7 @@ def delete_user(
     user_id: int,
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, bool]:
     user = service.get_by_id(db, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found.")
@@ -155,7 +155,10 @@ def delete_user(
 
 
 @router.get("/registration", response_model=RegistrationSetting)
-def get_registration(_admin: User = Depends(require_admin), db: Session = Depends(get_db, scope="function")):
+def get_registration(
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db, scope="function"),
+) -> RegistrationSetting:
     return RegistrationSetting(registration_open=settings_service.registration_open(db))
 
 
@@ -164,7 +167,7 @@ def set_registration(
     body: RegistrationSetting,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> RegistrationSetting:
     settings_service.set_registration_open(db, body.registration_open)
     return RegistrationSetting(registration_open=body.registration_open)
 
@@ -176,7 +179,7 @@ async def replay_dead_letter_webhooks(
         None, description="Only replay records whose ts is >= this Unix-seconds value."),
     max_records: int = Query(
         50, ge=1, le=500, description="Cap the records redelivered in this call."),
-):
+) -> dict[str, int]:
     """Replay a slice of the webhook dead-letter file (oldest first).
 
     Successful redeliveries are removed; unknown-URL and still-failing records

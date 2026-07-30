@@ -15,14 +15,21 @@ from __future__ import annotations
 
 import time
 
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
 from app.metrics import http_request_duration_seconds
 
 
 class MetricsMiddleware:
-    def __init__(self, app):
+    def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(
+        self,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+    ) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
@@ -30,7 +37,7 @@ class MetricsMiddleware:
         start = time.monotonic()
         status_code_holder = {"code": 0}
 
-        async def _send(message):
+        async def _send(message: Message) -> None:
             if message["type"] == "http.response.start":
                 status_code_holder["code"] = int(message.get("status", 0))
             await send(message)

@@ -8,6 +8,8 @@ import asyncio
 import functools
 import json
 import logging
+from collections.abc import Callable
+from typing import Any
 
 from fastapi import WebSocket
 
@@ -26,7 +28,7 @@ class ObsHubFull(Exception):
     upgrade with WebSocket code 1013 ("Try Again Later").
     """
 
-    def __init__(self, overlay_id: str, cap: int):
+    def __init__(self, overlay_id: str, cap: int) -> None:
         super().__init__(
             f"overlay '{overlay_id}' is at its client cap ({cap})"
         )
@@ -42,9 +44,9 @@ class ObsBroadcastHub:
     _BROADCAST_SEND_TIMEOUT = WS_BROADCAST_SEND_TIMEOUT_SECONDS
     _MAX_CLIENTS_PER_OVERLAY = OBS_MAX_CLIENTS_PER_OVERLAY
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._clients: dict[str, list[WebSocket]] = {}
-        self._broadcast_tasks: dict[str, asyncio.Task] = {}
+        self._broadcast_tasks: dict[str, asyncio.Task[None]] = {}
         self._loop: asyncio.AbstractEventLoop | None = None
 
     def capture_event_loop(self) -> None:
@@ -83,7 +85,11 @@ class ObsBroadcastHub:
 
     # -- Broadcasting ------------------------------------------------------
 
-    def schedule_broadcast(self, overlay_id: str, get_state) -> None:
+    def schedule_broadcast(
+        self,
+        overlay_id: str,
+        get_state: Callable[[], dict[str, Any]],
+    ) -> None:
         """Cancel any pending broadcast and schedule a new 50ms debounced one.
 
         *get_state* is a callable returning the current state dict.
@@ -98,12 +104,20 @@ class ObsBroadcastHub:
         self._broadcast_tasks[overlay_id] = task
         task.add_done_callback(functools.partial(self._reap_task, overlay_id))
 
-    def _reap_task(self, overlay_id: str, task: asyncio.Task) -> None:
+    def _reap_task(
+        self,
+        overlay_id: str,
+        task: asyncio.Task[None],
+    ) -> None:
         """Drop the task-map entry once its task finishes (if still current)."""
         if self._broadcast_tasks.get(overlay_id) is task:
             del self._broadcast_tasks[overlay_id]
 
-    def schedule_broadcast_from_sync(self, overlay_id: str, get_state) -> None:
+    def schedule_broadcast_from_sync(
+        self,
+        overlay_id: str,
+        get_state: Callable[[], dict[str, Any]],
+    ) -> None:
         """Schedule a broadcast from a synchronous context (e.g. ThreadPoolExecutor)."""
         loop = self._loop
         if loop is None or loop.is_closed():
@@ -116,7 +130,7 @@ class ObsBroadcastHub:
         if not clients:
             return
 
-        async def _send(client):
+        async def _send(client: WebSocket) -> WebSocket | None:
             try:
                 # A slow or wedged client (TCP backpressure from a stuck
                 # OBS source) must not stall delivery to the rest — treat
@@ -150,7 +164,10 @@ class ObsBroadcastHub:
             )
 
     async def _debounced_broadcast(
-        self, overlay_id: str, get_state, delay: float = 0.05
+        self,
+        overlay_id: str,
+        get_state: Callable[[], dict[str, Any]],
+        delay: float = 0.05,
     ) -> None:
         """Wait *delay* seconds then broadcast the current state."""
         try:
@@ -167,7 +184,11 @@ class ObsBroadcastHub:
                 "Broadcast for overlay '%s' failed", overlay_id,
             )
 
-    async def broadcast_now(self, overlay_id: str, state: dict) -> None:
+    async def broadcast_now(
+        self,
+        overlay_id: str,
+        state: dict[str, Any],
+    ) -> None:
         """Immediately broadcast *state* to all clients (no debounce)."""
         message = json.dumps(state)
         await self._send_to_clients(overlay_id, message)

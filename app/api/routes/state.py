@@ -14,12 +14,16 @@ router = APIRouter()
     "/state",
     response_model=GameStateResponse,
 )
-async def get_state(session: GameSession = Depends(get_session)):
+async def get_state(
+    session: GameSession = Depends(get_session),
+) -> GameStateResponse:
     return GameService.get_state(session)
 
 
 @router.get("/config")
-async def get_config(session: GameSession = Depends(get_session)):
+async def get_config(
+    session: GameSession = Depends(get_session),
+) -> dict[str, int]:
     return {
         "points_limit": session.points_limit,
         "points_limit_last_set": session.points_limit_last_set,

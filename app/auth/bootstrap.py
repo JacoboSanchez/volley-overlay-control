@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from app import security_bootstrap, settings_service
 from app.auth import service
 from app.db.engine import session_scope
+from app.db.models.user import User
 from app.settings_service import set_admin_bootstrap_claimed
 
 logger = logging.getLogger(__name__)
@@ -95,7 +96,7 @@ def claim_first_admin(
     password: str,
     display_name: str | None = None,
     email: str | None = None,
-):
+) -> User:
     """Create the first admin if the token matches and no admin exists.
 
     Returns the created :class:`User`. Raises ``ValueError`` subclasses /

@@ -18,6 +18,7 @@ from typing import Any
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import ColumnElement, Select
 
 from app.api.schemas import is_acceptable_catalog_icon
 from app.db.models.team import Team, TeamGroup, TeamGroupMember, UserGroupTeam
@@ -62,7 +63,11 @@ def team_to_entry(team: Team) -> dict[str, Any]:
 # ---- global catalog --------------------------------------------------------
 
 
-def _paged(stmt, limit: int | None, offset: int):
+def _paged(
+    stmt: Select[Any],
+    limit: int | None,
+    offset: int,
+) -> Select[Any]:
     """Push a ``limit``/``offset`` window into *stmt*; ``limit=None`` = all."""
     if offset:
         stmt = stmt.offset(offset)
@@ -109,7 +114,14 @@ def get_global_by_name(db: Session, name: str) -> Team | None:
     return db.execute(select(Team).where(Team.is_global.is_(True), Team.name == name)).scalars().first()
 
 
-def upsert_global(db: Session, name: str, *, icon=None, color=None, text_color=None) -> Team:
+def upsert_global(
+    db: Session,
+    name: str,
+    *,
+    icon: str | None = None,
+    color: str | None = None,
+    text_color: str | None = None,
+) -> Team:
     name = (name or "").strip()
     if not name:
         raise TeamError("Team name is required.")
@@ -429,7 +441,7 @@ def list_user_private_groups(db: Session, user_id: int) -> list[TeamGroup]:
     )
 
 
-def _visible_groups_where(user_id: int):
+def _visible_groups_where(user_id: int) -> ColumnElement[bool]:
     return or_(
         and_(TeamGroup.owner_user_id.is_(None), TeamGroup.is_active.is_(True)),
         TeamGroup.owner_user_id == user_id,

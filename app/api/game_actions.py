@@ -1,7 +1,10 @@
 """Score, rules, lifecycle, audit, and webhook game actions."""
 
+from __future__ import annotations
+
 import logging
 import time
+from typing import TYPE_CHECKING, Any, cast
 
 from app.api import action_log
 from app.api import game_audit_hooks as _audit_hooks
@@ -17,6 +20,10 @@ from app.api.schemas import (
     GameStateResponse,
 )
 from app.customization_cache_ttl import customization_cache_ttl_seconds
+
+if TYPE_CHECKING:
+    from app.api.game_service import GameService
+    from app.api.session_manager import GameSession
 
 logger = logging.getLogger(__name__)
 
@@ -41,16 +48,16 @@ RAPID_PAIR_WINDOW_S = _rapid_pair.RAPID_PAIR_WINDOW_S
 CUSTOMIZATION_CACHE_TTL_SECONDS = customization_cache_ttl_seconds()
 
 
-def _service(cls: type):
+def _service(cls: type) -> type[GameService]:
     """Return the composed facade class for cross-mixin calls."""
-    return cls
+    return cast("type[GameService]", cls)
 
 
 class GameActions:
     """Mutate match state through GameManager and fan out side effects."""
 
     @classmethod
-    def _match_finished_response(cls, session) -> ActionResponse | None:
+    def _match_finished_response(cls, session: GameSession) -> ActionResponse | None:
         """Return the early-exit ``ActionResponse`` when the match is already over.
 
         ``add_point`` / ``add_set`` / ``add_timeout`` all share the same
@@ -66,7 +73,7 @@ class GameActions:
         return None
 
     @classmethod
-    def _ended_set_index(cls, session) -> int:
+    def _ended_set_index(cls, session: GameSession) -> int:
         """Set number that just ended (1-indexed).
 
         ``current_set`` is advanced on a set win unless the match
@@ -80,7 +87,12 @@ class GameActions:
         return session.current_set - 1
 
     @classmethod
-    def _fire_serve_change_if_changed(cls, session, serve_before, state_response: GameStateResponse) -> None:
+    def _fire_serve_change_if_changed(
+        cls,
+        session: GameSession,
+        serve_before: object,
+        state_response: GameStateResponse,
+    ) -> None:
         """Fire a ``serve_change`` webhook when the current serve flipped."""
         serve_after = session.game_manager.get_current_state().get_current_serve()
         if serve_before != serve_after:
@@ -92,7 +104,7 @@ class GameActions:
             )
 
     @classmethod
-    def _sync_match_finished_at(cls, session, was_finished_before: bool) -> None:
+    def _sync_match_finished_at(cls, session: GameSession, was_finished_before: bool) -> None:
         """Stamp / clear ``session.match_finished_at`` to match the
         current match-finished state.
 
@@ -124,7 +136,7 @@ class GameActions:
     @classmethod
     def _consume_rapid_pair(
         cls,
-        session,
+        session: GameSession,
         team: int,
         undo: bool,
         point_type: str | None = None,
@@ -141,22 +153,22 @@ class GameActions:
     @classmethod
     def _record_rapid_pair_seed(
         cls,
-        session,
+        session: GameSession,
         team: int,
         undo: bool,
-        audit_record: dict | None,
-        popped: dict | None,
+        audit_record: dict[str, Any] | None,
+        popped: dict[str, Any] | None,
     ) -> None:
         _rapid_pair.record_rapid_pair_seed(session, team, undo, audit_record, popped)
 
     @classmethod
-    def _invalidate_rapid_pair_cache(cls, session) -> None:
+    def _invalidate_rapid_pair_cache(cls, session: GameSession) -> None:
         _rapid_pair.invalidate_rapid_pair_cache(session)
 
     @classmethod
     def add_point(
         cls,
-        session,
+        session: GameSession,
         team: int,
         undo: bool = False,
         point_type: str | None = None,
@@ -310,7 +322,7 @@ class GameActions:
         return ActionResponse(success=True, state=state_response)
 
     @classmethod
-    def add_set(cls, session, team: int, undo: bool = False) -> ActionResponse:
+    def add_set(cls, session: GameSession, team: int, undo: bool = False) -> ActionResponse:
         if not undo:
             blocked = _service(cls)._match_finished_response(session)
             if blocked is not None:
@@ -382,7 +394,7 @@ class GameActions:
         return ActionResponse(success=True, state=state_response)
 
     @classmethod
-    def add_timeout(cls, session, team: int, undo: bool = False) -> ActionResponse:
+    def add_timeout(cls, session: GameSession, team: int, undo: bool = False) -> ActionResponse:
         if not undo:
             blocked = _service(cls)._match_finished_response(session)
             if blocked is not None:
@@ -438,7 +450,7 @@ class GameActions:
         return ActionResponse(success=True, state=state_response)
 
     @classmethod
-    def change_serve(cls, session, team: int) -> ActionResponse:
+    def change_serve(cls, session: GameSession, team: int) -> ActionResponse:
         _service(cls)._invalidate_rapid_pair_cache(session)
         serve_before = session.game_manager.get_current_state().get_current_serve()
         if session.mode == "table_tennis":
@@ -470,7 +482,7 @@ class GameActions:
         return ActionResponse(success=True, state=state_response)
 
     @classmethod
-    def set_score(cls, session, team: int, set_number: int, value: int) -> ActionResponse:
+    def set_score(cls, session: GameSession, team: int, set_number: int, value: int) -> ActionResponse:
         if not (1 <= set_number <= session.sets_limit):
             return ActionResponse(
                 success=False,
@@ -512,7 +524,7 @@ class GameActions:
         return ActionResponse(success=True, state=state_response)
 
     @classmethod
-    def set_sets_value(cls, session, team: int, value: int) -> ActionResponse:
+    def set_sets_value(cls, session: GameSession, team: int, value: int) -> ActionResponse:
         _service(cls)._invalidate_rapid_pair_cache(session)
         was_finished_before = session.game_manager.match_finished(session.sets_limit)
         session.game_manager.set_sets_value(team, value)
@@ -527,7 +539,7 @@ class GameActions:
         return ActionResponse(success=True, state=state_response)
 
     @classmethod
-    def undo_last(cls, session) -> ActionResponse:
+    def undo_last(cls, session: GameSession) -> ActionResponse:
         """Reverse the most-recent undoable forward action.
 
         The audit log is the single source of truth for the undo
@@ -578,7 +590,7 @@ class GameActions:
     @classmethod
     def set_rules(
         cls,
-        session,
+        session: GameSession,
         mode: str | None = None,
         points_limit: int | None = None,
         points_limit_last_set: int | None = None,
@@ -656,7 +668,7 @@ class GameActions:
         return ActionResponse(success=True, state=state_response)
 
     @classmethod
-    def start_match(cls, session) -> ActionResponse:
+    def start_match(cls, session: GameSession) -> ActionResponse:
         """Arm the match-start clock without scoring a point.
 
         Idempotent: a second call after the match has already started
@@ -678,7 +690,7 @@ class GameActions:
         return ActionResponse(success=True, state=_service(cls).get_state(session))
 
     @classmethod
-    def reset(cls, session) -> ActionResponse:
+    def reset(cls, session: GameSession) -> ActionResponse:
         # Reset wipes the audit log; the rapid-pair cache that
         # references audit timestamps must vanish with it.
         _service(cls)._invalidate_rapid_pair_cache(session)
@@ -704,17 +716,17 @@ class GameActions:
         return ActionResponse(success=True, state=state_response)
 
     @classmethod
-    def _save_and_broadcast(cls, session, state_response: GameStateResponse | None = None):
+    def _save_and_broadcast(cls, session: GameSession, state_response: GameStateResponse | None = None) -> None:
         _broadcast.save_and_broadcast(session, state_response)
 
     @classmethod
-    def _broadcast(cls, session, state_response: GameStateResponse | None = None):
+    def _broadcast(cls, session: GameSession, state_response: GameStateResponse | None = None) -> None:
         _broadcast.broadcast(session, state_response)
 
     @classmethod
     def _archive_if_finished(
         cls,
-        session,
+        session: GameSession,
         was_finished_before: bool,
         winning_team: int,
         state_response: GameStateResponse | None = None,
@@ -729,12 +741,12 @@ class GameActions:
     @classmethod
     def _audit(
         cls,
-        session,
+        session: GameSession,
         action: str,
-        params: dict,
-        popped_forward: dict | None = None,
+        params: dict[str, Any],
+        popped_forward: dict[str, Any] | None = None,
         target_set: int | None = None,
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         return _audit_hooks.audit(
             session,
             action,
@@ -744,5 +756,11 @@ class GameActions:
         )
 
     @classmethod
-    def _fire(cls, session, event: str, state_response, details: dict) -> None:
+    def _fire(
+        cls,
+        session: GameSession,
+        event: str,
+        state_response: GameStateResponse,
+        details: dict[str, Any],
+    ) -> None:
         _audit_hooks.fire_webhook(session, event, state_response, details)
