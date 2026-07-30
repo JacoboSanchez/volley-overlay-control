@@ -29,7 +29,7 @@ router = APIRouter()
     summary="Prometheus exposition",
     response_class=Response,
 )
-def metrics_endpoint():
+def metrics_endpoint() -> Response:
     """Return the registry's current exposition in Prometheus text format."""
     if not PROMETHEUS_AVAILABLE:
         raise HTTPException(

@@ -12,7 +12,7 @@ class GameManager:
     Manages the game logic, state, and backend communication.
     """
 
-    def __init__(self, conf: Conf, backend: Backend):
+    def __init__(self, conf: Conf, backend: Backend) -> None:
         logger.debug("Initializing GameManager")
         self.conf = conf
         self.backend = backend
@@ -23,19 +23,19 @@ class GameManager:
         logger.debug("Getting current state")
         return self.main_state
 
-    def reset(self):
+    def reset(self) -> None:
         """Resets the game state."""
         logger.debug("Resetting game state")
         self.backend.reset(self.main_state)
         self.main_state = State(self.backend.get_current_model())
 
-    def save(self, simple: bool, current_set: int):
+    def save(self, simple: bool, current_set: int) -> None:
         """Saves the current game state."""
         logger.debug("Saving state, simple mode: %s, current set: %s", simple, current_set)
         self.main_state.set_current_set(current_set)
         self.backend.save(self.main_state, simple)
 
-    def change_serve(self, team: int, force: bool = False):
+    def change_serve(self, team: int, force: bool = False) -> None:
         """Changes the serving team."""
         logger.debug("Changing serve to team %s, force: %s", team, force)
         current_serve = self.main_state.get_current_serve()
@@ -48,7 +48,7 @@ class GameManager:
                 new_serve = State.SERVE_2
         self.main_state.set_current_serve(new_serve)
 
-    def add_timeout(self, team: int, undo: bool):
+    def add_timeout(self, team: int, undo: bool) -> None:
         """Adds or removes a timeout for a team."""
         logger.debug("Adding timeout for team %s, undo: %s", team, undo)
         current_timeouts = self.main_state.get_timeout(team)
@@ -59,12 +59,12 @@ class GameManager:
             if current_timeouts < 2:
                 self.main_state.set_timeout(team, current_timeouts + 1)
 
-    def set_game_value(self, team: int, value: int, current_set: int):
+    def set_game_value(self, team: int, value: int, current_set: int) -> None:
         """Directly sets the game score for a team."""
         logger.debug("Setting game value for team %s to %s in set %s", team, value, current_set)
         self.main_state.set_game(current_set, team, value)
 
-    def set_sets_value(self, team: int, value: int):
+    def set_sets_value(self, team: int, value: int) -> None:
         """Directly sets the sets won for a team."""
         logger.debug("Setting sets value for team %s to %s", team, value)
         self.main_state.set_sets(team, value)
@@ -121,7 +121,12 @@ class GameManager:
                 return True
         return False
 
-    def add_set(self, team: int, undo: bool, sets_limit: int = None):
+    def add_set(
+        self,
+        team: int,
+        undo: bool,
+        sets_limit: int | None = None,
+    ) -> None:
         """Adds or removes a set to a team."""
         logger.debug("Adding set for team %s, undo: %s", team, undo)
         if not undo and self.match_finished(sets_limit):
@@ -141,7 +146,7 @@ class GameManager:
             self.change_serve(0)
 
 
-    def match_finished(self, sets_limit: int = None) -> bool:
+    def match_finished(self, sets_limit: int | None = None) -> bool:
         """Checks if the match has finished.
 
         ``sets_limit`` is the per-session "best of N" rule; when omitted it

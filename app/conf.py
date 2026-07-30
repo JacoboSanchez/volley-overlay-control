@@ -22,7 +22,7 @@ def _int_env(key: str, default: int) -> int:
 
 
 class Conf:
-    def __init__(self):
+    def __init__(self) -> None:
         # Legacy layout id (used only for the championship-layout special case
         # in ``Backend.save_model``). Kept as a constant default — no env knob.
         self.id = '8637cb0f-df01-45bb-9782-c6d705aeff46'

@@ -54,7 +54,7 @@ async def websocket_endpoint(
     control: str | None = Query(None, description="Alias of `oid` for backward compatibility"),
     c: str | None = Query(None, description="Control capability token (shareable board link)"),
     u: str | None = Query(None, description="Username for a public ?u=&oid= board URL"),
-):
+) -> None:
     resolved = oid or control
     if not resolved and not c:
         await ws.close(code=4400, reason="Missing 'oid' (or 'c' control token) query parameter.")

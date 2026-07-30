@@ -19,6 +19,8 @@ errors earlier) stay where they are.
 import json
 import logging
 
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
 from app.constants import REQUEST_MAX_BODY_BYTES
 
 logger = logging.getLogger(__name__)
@@ -27,11 +29,20 @@ logger = logging.getLogger(__name__)
 class BodySizeLimitMiddleware:
     """Reject request bodies larger than *max_bytes* with a 413."""
 
-    def __init__(self, app, max_bytes: int = REQUEST_MAX_BODY_BYTES):
+    def __init__(
+        self,
+        app: ASGIApp,
+        max_bytes: int = REQUEST_MAX_BODY_BYTES,
+    ) -> None:
         self.app = app
         self.max_bytes = max_bytes
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(
+        self,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+    ) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
@@ -46,14 +57,16 @@ class BodySizeLimitMiddleware:
             except ValueError:
                 pass  # malformed header — let the framework reject it
 
-        state = {"received": 0, "response_started": False, "tripped": False}
+        received = 0
+        tripped = False
 
-        async def limited_receive():
+        async def limited_receive() -> Message:
+            nonlocal received, tripped
             message = await receive()
             if message["type"] == "http.request":
-                state["received"] += len(message.get("body", b""))
-                if state["received"] > self.max_bytes:
-                    state["tripped"] = True
+                received += len(message.get("body", b""))
+                if received > self.max_bytes:
+                    tripped = True
                     logger.warning(
                         "Request body exceeded REQUEST_MAX_BODY_BYTES (%d) for %s %s",
                         self.max_bytes, scope.get("method"), scope.get("path"),
@@ -63,14 +76,13 @@ class BodySizeLimitMiddleware:
                     return {"type": "http.request", "body": b"", "more_body": False}
             return message
 
-        async def guarded_send(message):
+        async def guarded_send(message: Message) -> None:
             if message["type"] == "http.response.start":
-                if state["tripped"]:
+                if tripped:
                     # Replace whatever the app produced from the truncated
                     # body with the 413.
                     await self._send_413(send)
                     raise _ResponseSent()
-                state["response_started"] = True
             # A response that started before the cap tripped (streaming
             # handler) passes through untouched — too late to replace it.
             await send(message)
@@ -81,7 +93,7 @@ class BodySizeLimitMiddleware:
             pass
 
     @staticmethod
-    async def _send_413(send):
+    async def _send_413(send: Send) -> None:
         body = json.dumps({"detail": "Request body is too large."}).encode()
         await send({
             "type": "http.response.start",

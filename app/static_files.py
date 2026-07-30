@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import Response
+from starlette.types import Scope
 
 from app.app_config import get_app_title
 from app.pwa_manifest import _render_index_html
@@ -15,7 +18,7 @@ from app.pwa_manifest import _render_index_html
 class SPAStaticFiles(StaticFiles):
     """Serve the SPA shell for unknown paths and rewrite its runtime title."""
 
-    async def get_response(self, path, scope):
+    async def get_response(self, path: str, scope: Scope) -> Response:
         try:
             response = await super().get_response(path, scope)
         except StarletteHTTPException as exc:
@@ -26,7 +29,7 @@ class SPAStaticFiles(StaticFiles):
             return await self._index_response(scope)
         return response
 
-    async def _index_response(self, scope):
+    async def _index_response(self, scope: Scope) -> Response:
         if self.directory is None:
             return await super().get_response("index.html", scope)
         index_path = Path(self.directory) / "index.html"
@@ -46,11 +49,16 @@ class SPAStaticFiles(StaticFiles):
 class CachedStaticFiles(StaticFiles):
     """Apply a shared cache policy to successful static-file responses."""
 
-    def __init__(self, *args, cache_control: str, **kwargs):
+    def __init__(
+        self,
+        *args: Any,
+        cache_control: str,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self._cache_control = cache_control
 
-    async def get_response(self, path, scope):
+    async def get_response(self, path: str, scope: Scope) -> Response:
         response = await super().get_response(path, scope)
         if response.status_code in (200, 206, 304):
             response.headers.setdefault("Cache-Control", self._cache_control)

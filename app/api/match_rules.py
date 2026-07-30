@@ -40,9 +40,17 @@ Table tennis:
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, TypedDict
 
 MatchMode = Literal["indoor", "beach", "table_tennis"]
+
+
+class BeachSideSwitchData(TypedDict):
+    interval: int
+    points_in_set: int
+    next_switch_at: int
+    points_until_switch: int
+    is_switch_pending: bool
 
 VALID_MODES: tuple[str, ...] = ("indoor", "beach", "table_tennis")
 
@@ -52,12 +60,12 @@ class RulesPreset:
 
     def __init__(
         self, points_limit: int, points_limit_last_set: int, sets_limit: int,
-    ):
+    ) -> None:
         self.points_limit = points_limit
         self.points_limit_last_set = points_limit_last_set
         self.sets_limit = sets_limit
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, int]:
         return {
             "points_limit": self.points_limit,
             "points_limit_last_set": self.points_limit_last_set,
@@ -124,7 +132,7 @@ def compute_side_switch(
     *, mode: str, current_set: int, sets_limit: int,
     team1_score: int, team2_score: int,
     points_limit: int, points_limit_last_set: int,
-) -> dict | None:
+) -> BeachSideSwitchData | None:
     """Return the beach side-switch indicator for the current set.
 
     Returns ``None`` for non-beach modes — callers attach the field

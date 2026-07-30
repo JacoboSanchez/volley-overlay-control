@@ -96,7 +96,7 @@ def _enable_sqlite_fk(engine: Engine) -> None:
     """
 
     @event.listens_for(engine, "connect")
-    def _set_pragma(dbapi_conn, _record):
+    def _set_pragma(dbapi_conn: Any, _record: Any) -> None:
         cursor = dbapi_conn.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()

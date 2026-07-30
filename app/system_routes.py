@@ -32,7 +32,7 @@ def register_system_routes(
     """Register runtime/system endpoints before the SPA catch-all."""
 
     @application.get("/sw.js")
-    def serve_sw():
+    def serve_sw() -> FileResponse:
         frontend_sw = frontend_dir / "sw.js"
         if not frontend_sw.is_file():
             raise HTTPException(
@@ -53,7 +53,7 @@ def register_system_routes(
     def serve_webmanifest(
         request: Request,
         db: Session = Depends(get_db, scope="function"),
-    ):
+    ) -> JSONResponse:
         source = _vite_manifest_path()
         if source is None:
             return JSONResponse(
@@ -91,7 +91,7 @@ def register_system_routes(
         )
 
     @application.get("/manifest.json")
-    def serve_manifest():
+    def serve_manifest() -> JSONResponse:
         source = _vite_manifest_path()
         if source is None:
             return JSONResponse(
@@ -108,7 +108,7 @@ def register_system_routes(
         )
 
     @application.get("/health")
-    def health_check():
+    def health_check() -> dict[str, str | int]:
         return {
             "status": "ok",
             "timestamp": int(time.time()),
@@ -116,7 +116,7 @@ def register_system_routes(
         }
 
     @application.get("/health/ready")
-    def readiness_check():
+    def readiness_check() -> JSONResponse:
         """Readiness probe for writable local persistence."""
         from app.api import action_log
 

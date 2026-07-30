@@ -2,7 +2,8 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from app.overlay_backends.utils import split_custom_oid
 from app.state import State
@@ -46,11 +47,11 @@ class OverlayBackend(ABC):
     """Abstract interface for overlay communication."""
 
     @abstractmethod
-    def save_model(self, current_model: dict) -> None:
+    def save_model(self, current_model: dict[str, Any]) -> None:
         """Persist the raw game model to the overlay backend."""
 
     @abstractmethod
-    def save_customization(self, data: dict) -> None:
+    def save_customization(self, data: dict[str, Any]) -> None:
         """Persist customization data."""
 
     @abstractmethod
@@ -58,11 +59,18 @@ class OverlayBackend(ABC):
         """Toggle overlay visibility."""
 
     @abstractmethod
-    def get_model(self, oid: str = None, save_result: bool = False) -> dict | None:
+    def get_model(
+        self,
+        oid: str | None = None,
+        save_result: bool = False,
+    ) -> dict[str, Any] | None:
         """Retrieve the current raw game model."""
 
     @abstractmethod
-    def get_customization(self, oid: str = None) -> dict | None:
+    def get_customization(
+        self,
+        oid: str | None = None,
+    ) -> dict[str, Any] | None:
         """Retrieve the current customization dict."""
 
     @abstractmethod
@@ -70,15 +78,21 @@ class OverlayBackend(ABC):
         """Return whether the overlay is currently visible."""
 
     @abstractmethod
-    def get_available_styles(self, oid: str = None) -> list:
+    def get_available_styles(
+        self,
+        oid: str | None = None,
+    ) -> list[str]:
         """Return list of available overlay styles."""
 
-    def get_style_capabilities(self, oid: str = None) -> dict:
+    def get_style_capabilities(
+        self,
+        oid: str | None = None,
+    ) -> dict[str, Any]:
         """Per-style UI capability flags (theme / vertical-anchor support)."""
         return {}
 
     @abstractmethod
-    def fetch_output_token(self, oid: str = None) -> str | None:
+    def fetch_output_token(self, oid: str | None = None) -> str | None:
         """Fetch the output URL or token for this overlay."""
 
     @abstractmethod
@@ -90,21 +104,29 @@ class OverlayBackend(ABC):
         """Fetch the specific overlay layout ID from the provider."""
 
     @abstractmethod
-    def send_overlay_state(self, payload: dict, force_visibility=None,
-                           customization_state=None,
-                           show_only_current_set=None) -> None:
+    def send_overlay_state(
+        self,
+        payload: dict[str, Any],
+        force_visibility: bool | None = None,
+        customization_state: dict[str, Any] | None = None,
+        show_only_current_set: bool | None = None,
+    ) -> None:
         """Push a full overlay state update to connected displays."""
 
     @abstractmethod
-    def send_json_model(self, to_save: dict) -> None:
+    def send_json_model(self, to_save: dict[str, Any]) -> None:
         """Send a partial model update to the overlay provider."""
 
     @abstractmethod
     def reduce_games_to_one(self) -> None:
         """Reset scores of sets 2-5 to zero."""
 
-    def push_model_update(self, current_model: dict, to_save: dict,
-                          show_only_current_set=None) -> None:
+    def push_model_update(
+        self,
+        current_model: dict[str, Any],
+        to_save: dict[str, Any],
+        show_only_current_set: bool | None = None,
+    ) -> None:
         """Push a model update using the backend-appropriate mechanism.
 
         :class:`LocalOverlayBackend` overrides this to send a full overlay
@@ -112,15 +134,21 @@ class OverlayBackend(ABC):
         """
         self.send_json_model(to_save)
 
-    def on_customization_saved(self, get_model,
-                               customization: dict) -> None:
+    def on_customization_saved(
+        self,
+        get_model: Callable[[], dict[str, Any] | None],
+        customization: dict[str, Any],
+    ) -> None:
         """Hook called after customization is persisted (no-op by default).
 
         *get_model* is a callable returning the current model dict.
         """
 
-    def change_visibility_with_fallback(self, show: bool,
-                                        get_model=None) -> None:
+    def change_visibility_with_fallback(
+        self,
+        show: bool,
+        get_model: Callable[[], dict[str, Any] | None] | None = None,
+    ) -> None:
         """Toggle visibility with an optional HTTP fallback.
 
         *get_model* is a callable returning the current model dict (called
@@ -129,7 +157,7 @@ class OverlayBackend(ABC):
         """
         self.change_visibility(show)
 
-    def init_ws_client(self, oid: str = None) -> None:
+    def init_ws_client(self, oid: str | None = None) -> None:
         """Initialize WebSocket client (no-op by default)."""
 
     def close_ws_client(self) -> None:

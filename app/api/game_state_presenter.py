@@ -1,7 +1,10 @@
 """Presentation of live game state as API response models."""
 
+from __future__ import annotations
+
 import logging
 import time
+from typing import TYPE_CHECKING, Any, cast
 
 from app.api import game_rapid_pair as _rapid_pair
 from app.api.match_rules import (
@@ -20,6 +23,10 @@ from app.api.schemas import (
 from app.customization_cache_ttl import customization_cache_ttl_seconds
 from app.env_vars_manager import EnvVarsManager
 from app.state import State
+
+if TYPE_CHECKING:
+    from app.api.game_service import GameService
+    from app.api.session_manager import GameSession
 
 logger = logging.getLogger(__name__)
 
@@ -44,16 +51,16 @@ RAPID_PAIR_WINDOW_S = _rapid_pair.RAPID_PAIR_WINDOW_S
 CUSTOMIZATION_CACHE_TTL_SECONDS = customization_cache_ttl_seconds()
 
 
-def _service(cls: type):
+def _service(cls: type) -> type[GameService]:
     """Return the composed facade class for cross-mixin calls."""
-    return cls
+    return cast("type[GameService]", cls)
 
 
 class GameStatePresenter:
     """Build response models and presentation-only derived values."""
 
     @classmethod
-    def _obs_client_count(cls, session) -> int:
+    def _obs_client_count(cls, session: GameSession) -> int:
         """Live output clients (OBS + spectator) on this overlay, 0 on error.
 
         Defensive: not every backend tracks this (e.g. bare/test backends),
@@ -70,7 +77,7 @@ class GameStatePresenter:
             return 0
 
     @classmethod
-    def _resolve_last_match_id(cls, session) -> str | None:
+    def _resolve_last_match_id(cls, session: GameSession) -> str | None:
         """``match_id`` of the just-finished match for the report link.
 
         Prefers the id stashed on the session when the match was archived
@@ -94,7 +101,7 @@ class GameStatePresenter:
             return None
 
     @classmethod
-    def _sync_table_tennis_serve(cls, session) -> None:
+    def _sync_table_tennis_serve(cls, session: GameSession) -> None:
         """Recompute the live serve for a table-tennis session.
 
         Volleyball serve follows the rally winner (handled in
@@ -126,16 +133,16 @@ class GameStatePresenter:
             state.set_current_serve(desired)
 
     @classmethod
-    def get_state(cls, session) -> GameStateResponse:
+    def get_state(cls, session: GameSession) -> GameStateResponse:
         """Build a ``GameStateResponse`` from the current session state."""
         t0 = time.perf_counter()
         _service(cls)._sync_table_tennis_serve(session)
         state = session.game_manager.get_current_state()
         serve = state.get_current_serve()
 
-        def team_state(team):
-            scores = {}
-            timeouts_by_set = {}
+        def team_state(team: int) -> TeamState:
+            scores: dict[str, int] = {}
+            timeouts_by_set: dict[str, int] = {}
             for i in range(1, session.sets_limit + 1):
                 scores[f"set_{i}"] = state.get_game(team, i)
                 timeouts_by_set[f"set_{i}"] = state.get_timeout(team, set_num=i)
@@ -198,7 +205,7 @@ class GameStatePresenter:
         # audit mutation is shared with the overlay push, which needs the
         # full stats payload anyway. ``None`` here is safe — the helpers
         # treat it as "no stats available" and fall back to defaults.
-        points_by_set_cache: dict | None
+        points_by_set_cache: dict[Any, Any] | None
         try:
             from app.api.live_stats import compute_live_stats
 
@@ -277,8 +284,8 @@ class GameStatePresenter:
     @classmethod
     def _current_set_started_at(
         cls,
-        session,
-        points_by_set: dict | None = None,
+        session: GameSession,
+        points_by_set: dict[Any, Any] | None = None,
     ) -> float | None:
         """Wall-clock timestamp of the first scoring event in the
         operator's current set.
@@ -325,8 +332,8 @@ class GameStatePresenter:
     @classmethod
     def _resolve_summary_set(
         cls,
-        session,
-        points_by_set: dict | None = None,
+        session: GameSession,
+        points_by_set: dict[Any, Any] | None = None,
     ) -> int:
         """Return the set number the summary panel should show.
 

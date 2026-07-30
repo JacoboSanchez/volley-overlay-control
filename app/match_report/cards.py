@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import html
+from collections.abc import Callable
+from typing import Any
 
 from app.api.schemas import ERROR_TYPES
 from app.match_report.i18n import t as _t
+
+CardWriter = Callable[[str, str, str], None]
+TeamLabel = Callable[[int | None], str]
 
 
 def _fmt_seconds(seconds: float | None) -> str:
@@ -41,7 +46,11 @@ def _pct(n: int, denom: int) -> int:
 
 
 def _comeback_card(
-    card, team_label, locale: str, data: dict, *,
+    card: CardWriter,
+    team_label: TeamLabel,
+    locale: str,
+    data: dict[Any, Any],
+    *,
     qualifies: bool, label_key: str, value_key: str,
     field: str = "deficit",
 ) -> None:
@@ -75,8 +84,11 @@ def _comeback_card(
 
 
 def _point_composition_cards(
-    card, team_label, locale: str,
-    point_types: dict, totals_by_team: dict,
+    card: CardWriter,
+    team_label: TeamLabel,
+    locale: str,
+    point_types: dict[Any, Any],
+    totals_by_team: dict[Any, Any],
 ) -> None:
     """Point composition: how each team scored, each type as a share
     of that team's total points won (the remainder, if any, is
@@ -107,8 +119,12 @@ def _point_composition_cards(
 
 
 def _own_error_cards(
-    card, team_label, locale: str,
-    point_types: dict, error_types: dict, totals_by_team: dict,
+    card: CardWriter,
+    team_label: TeamLabel,
+    locale: str,
+    point_types: dict[Any, Any],
+    error_types: dict[Any, Any],
+    totals_by_team: dict[Any, Any],
 ) -> None:
     """Own errors: points a team gave away through its own faults,
     i.e. the opponent's ``opp_error`` tally (and its cause breakdown),
@@ -144,7 +160,10 @@ def _own_error_cards(
 
 
 def _serve_receive_cards(
-    card, team_label, locale: str, serve_receive: dict,
+    card: CardWriter,
+    team_label: TeamLabel,
+    locale: str,
+    serve_receive: dict[Any, Any],
 ) -> None:
     """Serve/receive split: how many of a team's points came on its
     own serve vs on receive (side-outs). One card per team with at
@@ -184,7 +203,8 @@ def _serve_receive_cards(
 
 
 def _render_highlights(
-    stats: dict, locale: str,
+    stats: dict[str, Any],
+    locale: str,
     *, team1_name: str, team2_name: str,
 ) -> str:
     """Build the Highlights grid (longest streak / comeback / totals / set durations).

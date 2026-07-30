@@ -1,5 +1,7 @@
 """GET /matches/live/stats — live match statistics derived from audit."""
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, Query
 
 from app.api.dependencies import get_session
@@ -21,7 +23,7 @@ async def get_live_stats(
         le=200,
         description="Maximum number of recent points returned in ``points_history``.",
     ),
-):
+) -> dict[str, Any]:
     """Return rolling stats computed from the per-OID audit log.
 
     The payload reconciles with the post-match report so external

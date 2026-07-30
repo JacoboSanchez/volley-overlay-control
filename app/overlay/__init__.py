@@ -20,10 +20,10 @@ overlay_state_store = OverlayStateStore(_data_dir, _templates_dir)
 obs_broadcast_hub = ObsBroadcastHub()
 
 
-def _on_state_changed(overlay_id):
+def _on_state_changed(overlay_id: str) -> None:
     """Broadcast callback — triggered after every state change."""
     obs_broadcast_hub.schedule_broadcast_from_sync(
-        overlay_id, lambda oid=overlay_id: overlay_state_store.get_state(oid)
+        overlay_id, lambda: overlay_state_store.get_state(overlay_id)
     )
 
 

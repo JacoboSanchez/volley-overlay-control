@@ -3,6 +3,7 @@
 import logging
 import urllib.parse
 from functools import partial
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
@@ -17,6 +18,7 @@ from app.api.schemas import CreateOverlayRequest, OverlayOut, UpdateOverlayReque
 from app.api.session_manager import GameSession
 from app.auth.dependencies import require_user
 from app.db.engine import after_commit, get_db
+from app.db.models.overlay import UserOverlay
 from app.db.models.user import User
 from app.env_vars_manager import EnvVarsManager
 
@@ -37,7 +39,12 @@ def _delete_overlay_runtime(skey: str) -> None:
     match_archive.delete_for_oid(skey)
 
 
-def _overlay_out(request: Request, overlay, *, username: str | None = None) -> OverlayOut:
+def _overlay_out(
+    request: Request,
+    overlay: UserOverlay,
+    *,
+    username: str | None = None,
+) -> OverlayOut:
     public_url = (EnvVarsManager.get_env_var("OVERLAY_PUBLIC_URL", "") or "").rstrip("/")
     base = public_url or str(request.base_url).rstrip("/")
     local_url = f"{base}/overlay/{overlay.public_token}"
@@ -68,7 +75,7 @@ def list_my_overlays(
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
     page: Page = PageDep,
-):
+) -> list[OverlayOut]:
     """Return the overlays owned by the caller."""
     with_total(response, overlays_service.count_overlays(db, user.id))
     return [
@@ -85,7 +92,7 @@ def create_my_overlay(
     request: Request,
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> OverlayOut:
     """Register a new overlay for the caller (mints a public output token)."""
     overlay = overlays_service.create_overlay(
         db,
@@ -103,7 +110,7 @@ def update_my_overlay(
     request: Request,
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> OverlayOut:
     """Edit an overlay's description and no-login control toggle.
 
     Only the fields present in the request body are changed (``exclude_unset``),
@@ -123,7 +130,7 @@ def delete_my_overlay(
     oid: str,
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, bool]:
     """Delete one of the caller's overlays and its in-process session/state.
 
     Sync handler — the whole body (DB delete, state-store and archive file
@@ -144,7 +151,7 @@ def regenerate_control_token(
     request: Request,
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> OverlayOut:
     """Mint a fresh control token for one of the caller's overlays.
 
     This revokes any previously-shared control link for that board.
@@ -162,19 +169,23 @@ def regenerate_control_token(
 async def get_links(
     request: Request,
     session: GameSession = Depends(get_session),
-):
+) -> dict[str, str]:
     """Return overlay, preview, spectator, and public-report links."""
     return await build_overlay_links(request, session)
 
 
 @router.get("/styles")
-async def get_styles(session: GameSession = Depends(get_session)):
+async def get_styles(
+    session: GameSession = Depends(get_session),
+) -> list[str]:
     """Return available overlay styles."""
     return await run_in_threadpool(session.backend.get_available_styles)
 
 
 @router.get("/style-capabilities")
-async def get_style_capabilities(session: GameSession = Depends(get_session)):
+async def get_style_capabilities(
+    session: GameSession = Depends(get_session),
+) -> dict[str, Any]:
     """Per-style UI capability flags (theme / vertical-anchor support).
 
     The control UI uses this to only surface the dark/light theme selector

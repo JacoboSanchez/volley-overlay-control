@@ -87,7 +87,7 @@ def _safe_json_list(raw: str) -> list[dict]:
     return [item for item in parsed if isinstance(item, dict)]
 
 
-def _normalise_events(value) -> set[str] | None:
+def _normalise_events(value: object) -> set[str] | None:
     if value is None:
         return None
     if isinstance(value, str):
@@ -107,7 +107,7 @@ class WebhookTarget:
 
     def __init__(self, url: str, secret: str | None = None,
                  events: Iterable[str] | None = None,
-                 timeout_s: float = _DEFAULT_TIMEOUT_S):
+                 timeout_s: float = _DEFAULT_TIMEOUT_S) -> None:
         self.url = url
         self.secret = secret or None
         self.events = _normalise_events(events)
@@ -127,7 +127,7 @@ class WebhookDispatcher:
     pick up monkey-patched env vars between cases.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._lock = threading.Lock()
         self._targets: list[WebhookTarget] | None = None
         self._executor: ThreadPoolExecutor | None = None

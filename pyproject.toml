@@ -40,9 +40,6 @@ ignore = [
     # ``_connections: dict = {}`` pattern on classmethod-only registries).
     # Real but pre-existing; tighten in a follow-up.
     "RUF012",
-    # Implicit Optional in function signatures — large mechanical sweep.
-    # Kept off until a dedicated typing pass.
-    "RUF013",
     # ``str, Enum`` → ``StrEnum`` is a behaviour change (str() output) and
     # would need test coverage of the enum boundary; defer to refactor PR.
     "UP042",
@@ -99,16 +96,16 @@ files = [
 python_version = "3.11"
 follow_imports = "silent"
 ignore_missing_imports = true
-implicit_optional = true
+implicit_optional = false
 # ``check_untyped_defs`` is on: without it mypy skips the *body* of every
 # unannotated function, which hid 4 real errors across 3 modules while the
 # gate reported "no issues found in 114 source files".
 check_untyped_defs = true
-# Still off: ~374 functions lack a return/parameter annotation, so turning
-# this on wholesale would fail the build. It is the remaining typing debt,
-# to be flipped module-by-module (heaviest first: app/customization.py 51,
-# app/api/game_service.py 43, app/backend.py 38, app/api/routes/teams.py 30).
-disallow_untyped_defs = false
+# Keep every function signature inside the checked backend surface typed.
+# Dynamic framework/JSON boundaries use explicit ``Any`` where a narrower
+# contract is not available, so new untyped definitions cannot silently
+# bypass body checking.
+disallow_untyped_defs = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 

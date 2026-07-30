@@ -14,6 +14,7 @@ both sources in a single list. System presets cannot be deleted.
 """
 
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Response, status
 from sqlalchemy.orm import Session
@@ -43,7 +44,9 @@ router = APIRouter()
 
 
 @router.get("/customization")
-async def get_customization(session: GameSession = Depends(get_session)):
+async def get_customization(
+    session: GameSession = Depends(get_session),
+) -> dict[str, Any]:
     return await run_in_threadpool(GameService.refresh_customization, session)
 
 
@@ -54,7 +57,7 @@ async def get_customization(session: GameSession = Depends(get_session)):
 async def update_customization(
     data: CustomizationUpdateRequest,
     session: GameSession = Depends(get_session),
-):
+) -> ActionResponse:
     async with session.lock:
         logger.debug("Customization updated (%d keys)", len(data.root))
         return GameService.update_customization(session, data.root)
@@ -176,7 +179,7 @@ def admin_set_preset_active(
     slug: str = Path(..., min_length=1, max_length=120),
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, str | bool]:
     preset = presets_service.set_global_active(db, slug, body.is_active)
     return {"slug": preset.slug, "is_active": preset.is_active}
 
@@ -199,7 +202,7 @@ def admin_delete_preset(
 def admin_export_presets(
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, dict[str, Any]]:
     return presets_service.export_app_themes(db)
 
 
@@ -208,6 +211,6 @@ def admin_import_presets(
     body: ImportThemesRequest,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db, scope="function"),
-):
+) -> dict[str, int]:
     count = presets_service.import_app_themes(db, body.themes, replace=body.replace)
     return {"imported": count}

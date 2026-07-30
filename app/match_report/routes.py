@@ -135,7 +135,7 @@ def match_report(
         ),
     ),
     accept_language: str | None = Header(default=None),
-):
+) -> HTMLResponse:
     check_read_access(request, match_id, exp=exp, sig=sig)
     payload = match_archive.load_match(match_id)
     if payload is None:

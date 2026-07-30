@@ -16,7 +16,7 @@ from fastapi.routing import APIRoute
 from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
 
-from app.overlay.broadcast import ObsHubFull
+from app.overlay.broadcast import ObsBroadcastHub, ObsHubFull
 from app.overlay.locale import _resolve_overlay_locale
 from app.overlay.state_store import OverlayStateStore
 from app.overlay.themes import get_theme_names
@@ -73,7 +73,7 @@ def _deterministic_operation_id(route: APIRoute) -> str:
 
 def create_overlay_router(
     store: OverlayStateStore,
-    broadcast,  # ObsBroadcastHub — not type-hinted to avoid circular import
+    broadcast: ObsBroadcastHub,
     templates: Jinja2Templates,
 ) -> APIRouter:
     """Create and return the overlay router with injected dependencies."""
@@ -89,7 +89,7 @@ def create_overlay_router(
 def _register_page_routes(
     router: APIRouter,
     store: OverlayStateStore,
-    broadcast,
+    broadcast: ObsBroadcastHub,
     templates: Jinja2Templates,
 ) -> None:
     """HTML pages + the OBS browser-source WebSocket."""
@@ -97,16 +97,18 @@ def _register_page_routes(
     # -- Favicon -----------------------------------------------------------
 
     @router.get("/favicon.ico", include_in_schema=False)
-    async def favicon():
+    async def favicon() -> Response:
         return Response(content=b"", media_type="image/x-icon", status_code=200)
 
     # -- Overlay HTML rendering --------------------------------------------
 
     @router.get("/overlay/{public_token}", response_class=HTMLResponse)
     async def serve_overlay(
-        request: Request, public_token: str, style: str = None,
-        lang: str = None,
-    ):
+        request: Request,
+        public_token: str,
+        style: str | None = None,
+        lang: str | None = None,
+    ) -> Response:
         skey = await run_in_threadpool(_resolve_public_token, public_token)
         if skey is None:
             raise HTTPException(status_code=404, detail="Overlay ID not found.")
@@ -164,7 +166,10 @@ def _register_page_routes(
     # -- Public spectator (follow) page ------------------------------------
 
     @router.get("/follow/{public_token}", response_class=HTMLResponse)
-    async def serve_spectator(request: Request, public_token: str):
+    async def serve_spectator(
+        request: Request,
+        public_token: str,
+    ) -> Response:
         """Mobile-friendly read-only follow view.
 
         Resolves the public token like ``/overlay/{token}`` and serves a
@@ -191,7 +196,7 @@ def _register_page_routes(
     # -- OBS browser source WebSocket --------------------------------------
 
     @router.websocket("/ws/{public_token}")
-    async def obs_websocket(websocket: WebSocket, public_token: str):
+    async def obs_websocket(websocket: WebSocket, public_token: str) -> None:
         skey = await run_in_threadpool(_resolve_public_token, public_token)
         if skey is None:
             await websocket.close(code=4004, reason="Overlay not found")
@@ -225,7 +230,7 @@ def _register_page_routes(
 def _register_api_routes(
     router: APIRouter,
     store: OverlayStateStore,
-    broadcast,
+    broadcast: ObsBroadcastHub,
 ) -> None:
     """Public JSON API for the in-process overlay engine.
 
@@ -236,5 +241,5 @@ def _register_api_routes(
     """
 
     @router.get("/api/themes")
-    async def list_themes():
+    async def list_themes() -> dict[str, list[str]]:
         return {"themes": get_theme_names()}

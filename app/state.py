@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 
 class Serve(str, Enum):
@@ -100,7 +101,7 @@ class State:
         return f'Team {team} Set {set_num} Timeouts'
 
     @staticmethod
-    def keys_to_reset_simple_mode():
+    def keys_to_reset_simple_mode() -> set[str]:
         keys = {State.T1SET7_INT,
                 State.T2SET7_INT,
                 State.T1SET6_INT,
@@ -124,7 +125,7 @@ class State:
     # Construction & serialization
     # ------------------------------------------------------------------
 
-    def __init__(self, new_state=None):
+    def __init__(self, new_state: dict[str, Any] | None = None) -> None:
         if new_state is None:
             self._state = GameState()
         else:
@@ -196,10 +197,10 @@ class State:
             d[State._t_timeouts_key(2, i)] = str(s.team2_timeouts_by_set[i])
         return d
 
-    def get_reset_model(self):
+    def get_reset_model(self) -> dict[str, str]:
         return self.reset_model.copy()
 
-    def get_current_model(self):
+    def get_current_model(self) -> dict[str, str]:
         return self._to_dict()
 
     # ------------------------------------------------------------------
@@ -207,8 +208,8 @@ class State:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def simplify_model(simplified):
-        current_set = simplified[State.CURRENT_SET_INT]
+    def simplify_model(simplified: dict[str, str]) -> dict[str, str]:
+        current_set = int(simplified[State.CURRENT_SET_INT])
         t1_points = simplified[f'Team 1 Game {current_set} Score']
         t2_points = simplified[f'Team 2 Game {current_set} Score']
         # Capture per-set timeout values for the current set before we
@@ -236,10 +237,10 @@ class State:
     # Typed getters & setters
     # ------------------------------------------------------------------
 
-    def set_current_set(self, value):
+    def set_current_set(self, value: int | str) -> None:
         self._state.current_set = int(value)
 
-    def get_timeout(self, team, set_num=None):
+    def get_timeout(self, team: int, set_num: int | None = None) -> int:
         """Return the timeouts taken by *team* in *set_num*.
 
         ``set_num`` defaults to the current set when omitted, preserving
@@ -264,7 +265,12 @@ class State:
         )
         return slots[set_num]
 
-    def set_timeout(self, team, value, set_num=None):
+    def set_timeout(
+        self,
+        team: int,
+        value: int | str,
+        set_num: int | None = None,
+    ) -> None:
         """Set the timeout count for *team* in *set_num* (defaults to
         the current set).
 
@@ -285,7 +291,7 @@ class State:
         )
         slots[set_num] = int(value)
 
-    def get_timeouts_by_set(self, team) -> dict[int, int]:
+    def get_timeouts_by_set(self, team: int) -> dict[int, int]:
         """Return the full per-set timeout history for *team* as a
         1-indexed dict (set 1 through 5)."""
         if team not in (1, 2):
@@ -296,12 +302,12 @@ class State:
         )
         return {i: slots[i] for i in range(1, 8)}
 
-    def get_sets(self, team):
+    def get_sets(self, team: int) -> int:
         if team not in (1, 2):
             raise KeyError(f'Team {team} Sets')
         return self._state.team1_sets if team == 1 else self._state.team2_sets
 
-    def set_sets(self, team, value):
+    def set_sets(self, team: int, value: int | str) -> None:
         if team not in (1, 2):
             raise KeyError(f'Team {team} Sets')
         if team == 1:
@@ -309,7 +315,7 @@ class State:
         else:
             self._state.team2_sets = int(value)
 
-    def get_game(self, team, set_num):
+    def get_game(self, team: int, set_num: int) -> int:
         if team not in (1, 2):
             raise KeyError(f'Team {team} Game {set_num} Score')
         if not (1 <= set_num <= 7):
@@ -317,7 +323,12 @@ class State:
         scores = self._state.team1_scores if team == 1 else self._state.team2_scores
         return scores[set_num]
 
-    def set_game(self, set_num, team, value):
+    def set_game(
+        self,
+        set_num: int,
+        team: int,
+        value: int | str,
+    ) -> None:
         if team not in (1, 2):
             raise KeyError(f'Team {team} Game {set_num} Score')
         if not (1 <= set_num <= 7):
@@ -325,11 +336,11 @@ class State:
         scores = self._state.team1_scores if team == 1 else self._state.team2_scores
         scores[set_num] = int(value)
 
-    def set_current_serve(self, value):
+    def set_current_serve(self, value: Serve | str) -> None:
         if isinstance(value, Serve):
             self._state.serve = value
         else:
             self._state.serve = Serve(value)
 
-    def get_current_serve(self):
+    def get_current_serve(self) -> Serve:
         return self._state.serve

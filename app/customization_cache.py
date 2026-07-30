@@ -24,7 +24,7 @@ import time
 class CustomizationCache:
     """A single-slot TTL cache for an overlay-customization dict."""
 
-    def __init__(self, ttl_seconds: float):
+    def __init__(self, ttl_seconds: float) -> None:
         if ttl_seconds <= 0:
             raise ValueError("ttl_seconds must be positive")
         self._ttl = float(ttl_seconds)

@@ -57,6 +57,13 @@ archive by hand.
 
 ### Added
 
+- **The backend typing gate now rejects every unannotated function.**
+  All remaining application signatures are typed, including the
+  `GameSession`/`Backend` game-service path and ASGI middleware boundaries;
+  mypy now enables `disallow_untyped_defs` and disables implicit optionals,
+  with Ruff `RUF013` enforcing the same optional-parameter syntax.
+  Fixes [#443](https://github.com/JacoboSanchez/volley-overlay-control/issues/443).
+
 - **The JavaScript and CSS that render the on-air overlays now pass the same
   automated quality gates as the React SPA.** ESLint checks every first-party
   script in `overlay_static/js/` with browser globals plus blocking

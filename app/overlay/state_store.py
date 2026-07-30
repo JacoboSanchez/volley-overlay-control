@@ -13,7 +13,7 @@ import logging
 import os
 import re
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 
 from app.api._persistence_paths import DEFAULT_HASH_LEN, atomic_write_json, hashed_filename
 from app.id_validation import is_valid_overlay_id, validate_overlay_id
@@ -190,7 +190,7 @@ class OverlayStateStore:
     ``_meta.overlay_id`` so listings and cache lookups can recover it.
     """
 
-    def __init__(self, data_dir: str, templates_dir: str):
+    def __init__(self, data_dir: str, templates_dir: str) -> None:
         self._data_dir = data_dir
         self._overlays: dict[str, dict] = {}
         self._lock = threading.RLock()
@@ -199,7 +199,7 @@ class OverlayStateStore:
         # without making unrelated overlays wait on one another. These locks
         # are always acquired before ``self._lock``.
         self._persistence_locks: dict[str, threading.Lock] = {}
-        self._broadcast_callback: Callable | None = None
+        self._broadcast_callback: Callable[[str], None] | None = None
         # Maps any accepted URL token (output_key or raw overlay_id) to the
         # real overlay id. Populated lazily by resolve_overlay_id and kept
         # in sync by create/copy/delete.
@@ -207,7 +207,10 @@ class OverlayStateStore:
         self._all_overlays_scanned = False
         os.makedirs(data_dir, exist_ok=True)
 
-    def set_broadcast_callback(self, callback: Callable) -> None:
+    def set_broadcast_callback(
+        self,
+        callback: Callable[[str], None],
+    ) -> None:
         """Set the callback invoked after state changes to trigger broadcasts."""
         self._broadcast_callback = callback
 
@@ -366,7 +369,7 @@ class OverlayStateStore:
             self._populate_cache_locked()
             return self._output_key_cache.get(token)
 
-    def _iter_persisted_ids(self):
+    def _iter_persisted_ids(self) -> Iterator[tuple[str, str]]:
         """Yield ``(overlay_id, basename)`` for every state file on disk.
 
         Filenames are hash-based so the id is recovered from
@@ -406,10 +409,10 @@ class OverlayStateStore:
 
     # -- Available styles --------------------------------------------------
 
-    def get_available_styles_list(self) -> list:
+    def get_available_styles_list(self) -> list[str]:
         return self._style_catalog.get_available_styles_list()
 
-    def get_renderable_styles(self) -> list:
+    def get_renderable_styles(self) -> list[str]:
         return self._style_catalog.get_renderable_styles()
 
     # -- Style capabilities ------------------------------------------------
@@ -420,27 +423,30 @@ class OverlayStateStore:
     # Compatibility properties for fixtures and extensions that clear the
     # historical store-level caches between test/application lifecycles.
     @property
-    def _available_styles(self):
+    def _available_styles(self) -> list[str] | None:
         return self._style_catalog._available_styles
 
     @_available_styles.setter
-    def _available_styles(self, value):
+    def _available_styles(self, value: list[str] | None) -> None:
         self._style_catalog._available_styles = value
 
     @property
-    def _renderable_styles(self):
+    def _renderable_styles(self) -> list[str] | None:
         return self._style_catalog._renderable_styles
 
     @_renderable_styles.setter
-    def _renderable_styles(self, value):
+    def _renderable_styles(self, value: list[str] | None) -> None:
         self._style_catalog._renderable_styles = value
 
     @property
-    def _style_capabilities(self):
+    def _style_capabilities(self) -> dict[str, dict[str, bool]] | None:
         return self._style_catalog._style_capabilities
 
     @_style_capabilities.setter
-    def _style_capabilities(self, value):
+    def _style_capabilities(
+        self,
+        value: dict[str, dict[str, bool]] | None,
+    ) -> None:
         self._style_catalog._style_capabilities = value
 
     # -- CRUD --------------------------------------------------------------

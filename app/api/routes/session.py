@@ -25,7 +25,7 @@ router = APIRouter()
 async def init_session(
     req: InitRequest,
     access: BoardAccess = Depends(board_access),
-):
+) -> ActionResponse:
     """Initialise (or re-use) a game session for an overlay.
 
     Reachable by the owner (cookie + ``oid``), an operator holding the overlay's
@@ -112,7 +112,7 @@ async def init_session(
 async def set_rules(
     req: SetRulesRequest,
     session: GameSession = Depends(get_session),
-):
+) -> ActionResponse:
     """Update match-rule preset for the session.
 
     All fields are optional. ``mode`` accepts ``"indoor"`` or

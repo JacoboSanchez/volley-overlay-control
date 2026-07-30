@@ -2,6 +2,7 @@ import asyncio
 import logging
 import threading
 import time
+from typing import Any
 
 from app.api import action_log
 from app.api.match_rules import is_valid_mode
@@ -22,8 +23,15 @@ logger = logging.getLogger(__name__)
 class GameSession:
     """Holds all state for one overlay/match session."""
 
-    def __init__(self, oid, conf, backend,
-                 points_limit=None, points_limit_last_set=None, sets_limit=None):
+    def __init__(
+        self,
+        oid: str,
+        conf: Conf,
+        backend: Backend,
+        points_limit: int | None = None,
+        points_limit_last_set: int | None = None,
+        sets_limit: int | None = None,
+    ) -> None:
         # ``oid`` here is the *storage key* (``<user_id>:<oid>`` for a
         # logged-in user, or a bare id in standalone/legacy/test paths). It
         # is what every per-overlay persistence surface keys on — overlay
@@ -47,7 +55,8 @@ class GameSession:
         # dependency is part of Backend's public surface.
         backend.set_rule_overrides_getter(self._build_rule_overrides)
         self.customization = Customization(
-            backend.get_current_customization())
+            backend.get_current_customization() or {})
+        self._last_customization_fetch: float | None = None
         self.visible = backend.is_visible()
         self.simple = False
         # Set summary overlay (off by default — feature is hidden in the
@@ -120,7 +129,7 @@ class GameSession:
         # set_score, change_serve, set_sets_value) so a stale cache
         # can't trigger a false-positive recovery after the operator
         # moved on.
-        self.rapid_pair_cache: dict[int, dict] = {}
+        self.rapid_pair_cache: dict[int, dict[str, Any]] = {}
         self.points_limit = points_limit if points_limit is not None else conf.points
         self.points_limit_last_set = (
             points_limit_last_set if points_limit_last_set is not None
@@ -143,7 +152,7 @@ class GameSession:
             oid, self.points_limit, self.points_limit_last_set,
             self.sets_limit)
 
-    def _compute_current_set(self):
+    def _compute_current_set(self) -> int:
         state = self.game_manager.get_current_state()
         t1sets = state.get_sets(1)
         t2sets = state.get_sets(2)
@@ -152,7 +161,7 @@ class GameSession:
             current += 1
         return max(1, min(current, self.sets_limit))
 
-    def _build_rule_overrides(self) -> dict:
+    def _build_rule_overrides(self) -> dict[str, Any]:
         """Snapshot of the session's rule fields for the backend payload."""
         return {
             "mode": self.mode,
@@ -174,11 +183,11 @@ class GameSession:
             "auto_swap_sides": bool(self.auto_swap_sides),
         }
 
-    def touch(self):
+    def touch(self) -> None:
         """Update last access time."""
         self.last_accessed = time.monotonic()
 
-    def to_meta_dict(self) -> dict:
+    def to_meta_dict(self) -> dict[str, Any]:
         """Return the session-level fields that should survive restart.
 
         Match-state fields (scores, sets, current_set, serve, timeouts)
@@ -211,7 +220,7 @@ class GameSession:
             ),
         }
 
-    def apply_meta(self, meta: dict) -> None:
+    def apply_meta(self, meta: dict[str, Any]) -> None:
         """Restore session-level fields from a previously persisted dict.
 
         Silently ignores missing or malformed keys so a stale meta file
@@ -259,7 +268,7 @@ class GameSession:
                 except (TypeError, ValueError):
                     pass
 
-    def _restore_optional_float(self, meta: dict, key: str) -> None:
+    def _restore_optional_float(self, meta: dict[str, Any], key: str) -> None:
         """Restore an optional ``float | None`` attribute from *meta*.
 
         Missing key → left untouched. Explicit ``None`` → cleared.
@@ -280,7 +289,7 @@ class GameSession:
         """Best-effort save of :meth:`to_meta_dict` to disk."""
         save_session_meta(self.oid, self.to_meta_dict())
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """Clean up background resources to prevent leaks."""
         if hasattr(self.backend, 'shutdown'):
             self.backend.shutdown()
@@ -290,13 +299,19 @@ class GameSession:
 class SessionManager:
     """Thread-safe singleton managing GameSession instances by OID."""
 
-    _sessions: dict = {}
+    _sessions: dict[str, GameSession] = {}
     _lock = threading.Lock()
 
     @classmethod
-    def get_or_create(cls, oid, conf=None, backend=None,
-                      points_limit=None, points_limit_last_set=None,
-                      sets_limit=None):
+    def get_or_create(
+        cls,
+        oid: str,
+        conf: Conf | None = None,
+        backend: Backend | None = None,
+        points_limit: int | None = None,
+        points_limit_last_set: int | None = None,
+        sets_limit: int | None = None,
+    ) -> GameSession:
         """Get an existing session or create a new one.
 
         If *conf* or *backend* are ``None`` and the session doesn't exist yet,
@@ -308,7 +323,7 @@ class SessionManager:
         + ``requests.Session``). Lock contention is bounded because the
         fast path (existing session) never enters the construction block.
         """
-        def _apply_limits(session):
+        def _apply_limits(session: GameSession) -> None:
             changed = False
             if points_limit is not None and session.points_limit != points_limit:
                 session.points_limit = points_limit
@@ -365,7 +380,7 @@ class SessionManager:
             return new_session
 
     @classmethod
-    def get(cls, oid):
+    def get(cls, oid: str) -> GameSession | None:
         """Return an existing session or ``None``."""
         with cls._lock:
             session = cls._sessions.get(oid)
@@ -374,7 +389,7 @@ class SessionManager:
             return session
 
     @classmethod
-    def peek(cls, oid):
+    def peek(cls, oid: str) -> GameSession | None:
         """Return an existing session without bumping ``last_accessed``.
 
         Used by inspect-only paths (admin usage endpoint) that need to
@@ -384,7 +399,7 @@ class SessionManager:
             return cls._sessions.get(oid)
 
     @classmethod
-    def _release_oid_caches(cls, oid):
+    def _release_oid_caches(cls, oid: str) -> None:
         """Drop the process-local caches keyed by *oid*.
 
         Both the parsed audit records and the live-stats payload are held
@@ -401,7 +416,7 @@ class SessionManager:
             logger.exception("Failed to release caches for OID=%s", oid)
 
     @classmethod
-    def remove(cls, oid):
+    def remove(cls, oid: str) -> None:
         """Remove a session (e.g. on disconnect)."""
         with cls._lock:
             session = cls._sessions.pop(oid, None)
@@ -411,7 +426,7 @@ class SessionManager:
         cls._release_oid_caches(oid)
 
     @classmethod
-    def clear(cls):
+    def clear(cls) -> None:
         """Remove all sessions (mainly for testing)."""
         with cls._lock:
             for session in cls._sessions.values():
@@ -420,7 +435,7 @@ class SessionManager:
             set_active_sessions(0)
 
     @classmethod
-    def cleanup_expired(cls):
+    def cleanup_expired(cls) -> int:
         """Remove sessions that have not been accessed within the TTL."""
         now = time.monotonic()
         with cls._lock:

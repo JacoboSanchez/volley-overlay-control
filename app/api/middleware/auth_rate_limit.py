@@ -67,6 +67,8 @@ import time
 from collections import OrderedDict, deque
 from collections.abc import Iterable
 
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
 _MAX_CLIENTS = 4096
 
 # Surface name -> (watched path prefixes, statuses that count as a failure).
@@ -131,7 +133,7 @@ _buckets: OrderedDict[tuple[str, str], _Bucket] = OrderedDict()
 _lock = asyncio.Lock()
 
 
-def _client_ip(scope) -> str:
+def _client_ip(scope: Scope) -> str:
     """Best-effort peer identifier from the ASGI scope.
 
     Reads ``scope["client"]`` only — uvicorn populates this from the
@@ -221,10 +223,15 @@ def _reset_for_tests() -> None:
 class AuthRateLimitMiddleware:
     """Pure-ASGI middleware enforcing the per-(surface, IP) failure limit."""
 
-    def __init__(self, app) -> None:
+    def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(
+        self,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+    ) -> None:
         # WebSocket handshakes arrive as scope type "websocket" and are not
         # observable here — see the module docstring.
         if scope["type"] != "http":
@@ -246,7 +253,7 @@ class AuthRateLimitMiddleware:
 
         status_holder = {"code": 0}
 
-        async def send_wrapper(message):
+        async def send_wrapper(message: Message) -> None:
             if message.get("type") == "http.response.start":
                 status_holder["code"] = int(message.get("status") or 0)
             await send(message)
@@ -266,7 +273,7 @@ def _record_block(surface: str) -> None:
         pass
 
 
-async def _send_429(send) -> None:
+async def _send_429(send: Send) -> None:
     body = (
         b'{"detail":"Too many authentication failures. '
         b'Please retry later."}'

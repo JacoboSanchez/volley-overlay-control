@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -47,7 +48,7 @@ OVERLAY_STATIC_DIR = Path("overlay_static")
 
 
 @asynccontextmanager
-async def _lifespan(application: FastAPI):
+async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
     """Capture the event loop for background-thread broadcasts."""
     try:
         from app.overlay import obs_broadcast_hub

@@ -6,6 +6,7 @@ human-facing ``oid`` (never the internal storage key) in responses.
 """
 
 import time
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
@@ -18,7 +19,7 @@ from app.overlay_key import is_valid_skey, make_skey, split_skey
 router = APIRouter()
 
 
-def _present(summary: dict) -> dict:
+def _present(summary: dict[str, Any]) -> dict[str, Any]:
     """Return a copy with the storage-key ``oid`` mapped to the raw oid."""
     out = dict(summary)
     skey = out.get("oid")
@@ -48,7 +49,7 @@ def list_matches(
     limit: int = Query(100, ge=1, le=500, description="Page size"),
     offset: int = Query(0, ge=0, description="Rows to skip (newest first)"),
     user: User = Depends(require_user),
-):
+) -> dict[str, Any]:
     """Return a page of the caller's archived matches, newest first.
 
     ``count`` is the total in scope (not the page length), so a client can
@@ -76,7 +77,10 @@ def list_matches(
 
 
 @router.get("/matches/{match_id}", summary="Full archived match snapshot")
-def get_match(match_id: str, user: User = Depends(require_user)):
+def get_match(
+    match_id: str,
+    user: User = Depends(require_user),
+) -> dict[str, Any]:
     payload = match_archive.load_match(match_id)
     if payload is None or not _owns(payload.get("oid"), user):
         raise HTTPException(status_code=404, detail="Match not found.")
@@ -84,7 +88,7 @@ def get_match(match_id: str, user: User = Depends(require_user)):
 
 
 @router.delete("/matches/{match_id}", status_code=204, summary="Delete one of the caller's matches")
-def delete_match(match_id: str, user: User = Depends(require_user)):
+def delete_match(match_id: str, user: User = Depends(require_user)) -> None:
     _require_owned(match_id, user)
     match_archive.delete_match(match_id)
 
@@ -95,7 +99,7 @@ def sign_match_url(
     request: Request,
     ttl_seconds: int | None = Query(None, description="URL lifetime in seconds."),
     user: User = Depends(require_user),
-):
+) -> dict[str, str | int]:
     """Return a short-lived capability URL for the caller's own match report.
 
     The URL embeds an HMAC signature (key: SESSION_SECRET), so it can be

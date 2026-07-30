@@ -22,7 +22,7 @@ router = APIRouter()
     response_model=ActionResponse,
 )
 async def add_point(req: AddPointRequest,
-                    session: GameSession = Depends(get_session)):
+                    session: GameSession = Depends(get_session)) -> ActionResponse:
     async with session.lock:
         return GameService.add_point(
             session, req.team, req.undo,
@@ -35,7 +35,7 @@ async def add_point(req: AddPointRequest,
     response_model=ActionResponse,
 )
 async def add_set(req: TeamActionRequest,
-                  session: GameSession = Depends(get_session)):
+                  session: GameSession = Depends(get_session)) -> ActionResponse:
     async with session.lock:
         return GameService.add_set(session, req.team, req.undo)
 
@@ -45,7 +45,7 @@ async def add_set(req: TeamActionRequest,
     response_model=ActionResponse,
 )
 async def add_timeout(req: TeamActionRequest,
-                      session: GameSession = Depends(get_session)):
+                      session: GameSession = Depends(get_session)) -> ActionResponse:
     async with session.lock:
         return GameService.add_timeout(session, req.team, req.undo)
 
@@ -55,7 +55,7 @@ async def add_timeout(req: TeamActionRequest,
     response_model=ActionResponse,
 )
 async def change_serve(req: ServeRequest,
-                       session: GameSession = Depends(get_session)):
+                       session: GameSession = Depends(get_session)) -> ActionResponse:
     async with session.lock:
         return GameService.change_serve(session, req.team)
 
@@ -65,7 +65,7 @@ async def change_serve(req: ServeRequest,
     response_model=ActionResponse,
 )
 async def set_score(req: SetScoreRequest,
-                    session: GameSession = Depends(get_session)):
+                    session: GameSession = Depends(get_session)) -> ActionResponse:
     async with session.lock:
         return GameService.set_score(session, req.team, req.set_number, req.value)
 
@@ -75,7 +75,7 @@ async def set_score(req: SetScoreRequest,
     response_model=ActionResponse,
 )
 async def set_sets(req: SetSetsRequest,
-                   session: GameSession = Depends(get_session)):
+                   session: GameSession = Depends(get_session)) -> ActionResponse:
     async with session.lock:
         return GameService.set_sets_value(session, req.team, req.value)
 
@@ -84,7 +84,7 @@ async def set_sets(req: SetSetsRequest,
     "/game/reset",
     response_model=ActionResponse,
 )
-async def reset_game(session: GameSession = Depends(get_session)):
+async def reset_game(session: GameSession = Depends(get_session)) -> ActionResponse:
     async with session.lock:
         return GameService.reset(session)
 
@@ -94,7 +94,7 @@ async def reset_game(session: GameSession = Depends(get_session)):
     response_model=ActionResponse,
     summary="Arm the match-start timer without scoring a point",
 )
-async def start_match(session: GameSession = Depends(get_session)):
+async def start_match(session: GameSession = Depends(get_session)) -> ActionResponse:
     """Stamps ``match_started_at`` with the current wallclock if the
     match isn't already armed. Idempotent — a second call leaves the
     original anchor in place. The HUD timer / report duration / undo
@@ -109,7 +109,7 @@ async def start_match(session: GameSession = Depends(get_session)):
     response_model=ActionResponse,
     summary="Reverse the most recent undoable action",
 )
-async def undo_last(session: GameSession = Depends(get_session)):
+async def undo_last(session: GameSession = Depends(get_session)) -> ActionResponse:
     """Pops the most recent forward ``add_point`` / ``add_set`` /
     ``add_timeout`` from the audit log and applies the inverse via
     ``undo=True``. Returns ``success=false`` with message
