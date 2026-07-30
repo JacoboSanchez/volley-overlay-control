@@ -36,6 +36,7 @@ from urllib.parse import urlparse, urlunparse
 
 from app.env_vars_manager import EnvVarsManager
 from app.logging_context import get_request_id, get_trace_id
+from app.logging_utils import mask_capability_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,18 @@ _initialised = False
 # which of ``max_request_body_size`` / ``request_bodies`` the installed
 # sentry-sdk major accepts, and an unknown option makes ``init`` raise.
 #
+# ``request`` is not the only channel, and this is the part that is easy to
+# get wrong. Sentry's logging integration promotes ``ERROR`` records into
+# events in their own right, so the formatted message (``logentry``) and the
+# ``extra`` payload carry whatever a log call passed them — and the project's
+# own ``redact`` filter does **not** apply, because it is registered on the
+# stdout/file *handlers* rather than on a logger, and Sentry installs its own
+# handler. ``_scrub_event`` therefore sweeps ``logentry``, ``extra``,
+# ``breadcrumbs``, ``transaction`` and ``message`` as well. Call sites help by
+# not putting a raw path on the record in the first place (see
+# ``app.api.middleware.errors``), but this hook is the backstop that does not
+# depend on every future call site remembering.
+#
 # Scrubbing is unconditional, deliberately NOT tied to ``LOG_REDACT``. That
 # flag exists so a developer can read raw values in their *own* terminal;
 # letting it also open a channel to an external service would be a footgun.
@@ -75,26 +88,12 @@ _initialised = False
 
 _MASK = "[redacted]"
 
-# Route prefixes whose next path segment is a capability token.
-_CAPABILITY_PREFIXES = frozenset(
-    {"overlay", "follow", "ws", "matches", "match"},
-)
-
 # Dropped outright: Sentry filters most of these itself when PII is off,
 # but repeating it here is cheap and does not depend on that behaviour.
 _SENSITIVE_HEADERS = frozenset(
     {"authorization", "cookie", "set-cookie", "x-control-token",
      "x-webhook-signature", "proxy-authorization"},
 )
-
-
-def _scrub_path(path: str) -> str:
-    """Mask a capability token carried as a path segment."""
-    parts = path.split("/")
-    # An absolute path splits to ["", "<prefix>", "<token>", ...].
-    if len(parts) > 2 and parts[1] in _CAPABILITY_PREFIXES and parts[2]:
-        parts[2] = _MASK
-    return "/".join(parts)
 
 
 def _scrub_url(url: str) -> str:
@@ -105,8 +104,20 @@ def _scrub_url(url: str) -> str:
         return _MASK
     netloc = parts.netloc.rpartition("@")[-1]
     return urlunparse(
-        (parts.scheme, netloc, _scrub_path(parts.path), "", "", ""),
+        (parts.scheme, netloc, mask_capability_tokens(parts.path), "", "", ""),
     )
+
+
+def _scrub_value(value: object) -> object:
+    """Recursively mask capability tokens in strings inside *value*."""
+    if isinstance(value, str):
+        return mask_capability_tokens(value)
+    if isinstance(value, dict):
+        return {k: _scrub_value(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        scrubbed = [_scrub_value(v) for v in value]
+        return tuple(scrubbed) if isinstance(value, tuple) else scrubbed
+    return value
 
 
 def _scrub_request(request: dict) -> None:
@@ -125,6 +136,33 @@ def _scrub_request(request: dict) -> None:
         for name in list(headers):
             if isinstance(name, str) and name.lower() in _SENSITIVE_HEADERS:
                 headers[name] = _MASK
+
+
+def _scrub_event(event: dict) -> None:
+    """Mask capability tokens everywhere they can reach an event.
+
+    ``request`` is not the only channel. Sentry's logging integration
+    promotes ``ERROR`` records into events of their own, carrying the
+    formatted message under ``logentry`` and the ``extra`` payload
+    alongside it — and our ``redact`` filter cannot help there, because it
+    is attached to *handlers*, which Sentry's own handler is not. So every
+    field that can hold a request path is swept, not just the request
+    context.
+    """
+    request = event.get("request")
+    if isinstance(request, dict):
+        _scrub_request(request)
+
+    for field in ("logentry", "extra", "transaction", "message"):
+        if field in event:
+            event[field] = _scrub_value(event[field])
+
+    # Breadcrumbs are either a bare list or {"values": [...]}.
+    crumbs = event.get("breadcrumbs")
+    if isinstance(crumbs, dict) and "values" in crumbs:
+        crumbs["values"] = _scrub_value(crumbs["values"])
+    elif isinstance(crumbs, list):
+        event["breadcrumbs"] = _scrub_value(crumbs)
 
 
 def _sample_rate() -> float | None:
@@ -147,7 +185,7 @@ def _sample_rate() -> float | None:
     return value
 
 
-def _before_send(event: dict, _hint: object) -> dict:
+def _before_send(event: dict, _hint: object) -> dict | None:
     """Scrub credentials from an outgoing event, then tag it for correlation.
 
     Tagging lets an operator pivot from an aggregated exception straight to
@@ -157,13 +195,14 @@ def _before_send(event: dict, _hint: object) -> dict:
     process — see the module comment above.
     """
     try:
-        request = event.get("request")
-        if isinstance(request, dict):
-            _scrub_request(request)
-    except Exception:  # pragma: no cover - defensive
-        # A scrubber that fails must not ship the unscrubbed event.
+        _scrub_event(event)
+    except Exception:
+        # A scrubber that fails must not ship the unscrubbed event. There
+        # is no safe partial state to fall back to, so the event is
+        # dropped entirely (``before_send`` returning None) rather than
+        # sent with fields we could not verify.
         logger.warning("Failed to scrub error report; dropping it", exc_info=True)
-        event["request"] = _MASK
+        return None
     try:
         tags = event.setdefault("tags", {})
         if isinstance(tags, dict):

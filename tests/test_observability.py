@@ -182,8 +182,12 @@ class TestEventScrubbing:
         event = observability._before_send(
             {"request": {"url": f"https://scores.example.com{path}"}}, None,
         )
-        assert "tok_abc123" not in event["request"]["url"]
-        assert observability._MASK in event["request"]["url"]
+        url = event["request"]["url"]
+        assert "tok_abc123" not in url
+        # The route prefix survives — masking it too would cost the triage
+        # value of knowing *which* surface blew up.
+        assert "***" in url
+        assert url.startswith(f"https://scores.example.com/{path.split('/')[1]}/")
 
     def test_ordinary_paths_are_left_readable(self):
         # Masking everything would make the reports useless for triage.
@@ -259,20 +263,112 @@ class TestEventScrubbing:
 
     def test_event_without_request_context_is_fine(self):
         event = observability._before_send({}, None)
-        assert "request" not in event or event["request"] == observability._MASK
+        assert event is not None
+        assert "request" not in event
 
-    def test_malformed_request_context_is_not_shipped_raw(self, monkeypatch):
-        # If the scrubber itself fails, the event must lose its request
-        # context rather than going out unscrubbed.
-        def boom(_request):
+    def test_a_failing_scrubber_drops_the_event(self, monkeypatch):
+        # There is no safe partial state to fall back to, so the event must
+        # not be sent at all rather than sent with unverified fields.
+        def boom(_event):
             raise RuntimeError("scrubber bug")
 
-        monkeypatch.setattr(observability, "_scrub_request", boom)
-        event = observability._before_send(
+        monkeypatch.setattr(observability, "_scrub_event", boom)
+        assert observability._before_send(
             {"request": {"url": "https://scores.example.com/overlay/tok_abc123"}},
             None,
+        ) is None
+
+
+class TestScrubbingBeyondTheRequestContext:
+    """The request context is not the only way a token reaches an event.
+
+    Sentry's logging integration promotes ERROR records into events of
+    their own, carrying the formatted message under ``logentry`` and the
+    ``extra`` payload with it. The project's ``redact`` filter cannot help
+    there: it is attached to the stdout/file *handlers*, and Sentry
+    installs its own handler, which those filters never touch.
+    """
+
+    def test_logentry_message_and_params_are_scrubbed(self):
+        event = observability._before_send(
+            {
+                "logentry": {
+                    "message": "Unhandled http on GET %s — RuntimeError",
+                    "params": ["/overlay/tok_abc123"],
+                    "formatted": (
+                        "Unhandled http on GET /overlay/tok_abc123 — RuntimeError"
+                    ),
+                },
+            },
+            None,
         )
-        assert event["request"] == observability._MASK
+        assert "tok_abc123" not in str(event)
+
+    def test_extra_http_path_is_scrubbed(self):
+        # ExceptionLoggingMiddleware puts the path in `extra` too.
+        event = observability._before_send(
+            {"extra": {"http_path": "/overlay/tok_abc123", "http_method": "GET"}},
+            None,
+        )
+        assert event["extra"]["http_path"] == "/overlay/***"
+        assert event["extra"]["http_method"] == "GET"
+
+    def test_breadcrumbs_are_scrubbed(self):
+        for crumbs in (
+            {"values": [{"message": "GET /follow/tok_abc123"}]},
+            [{"message": "GET /follow/tok_abc123"}],
+        ):
+            event = observability._before_send({"breadcrumbs": crumbs}, None)
+            assert "tok_abc123" not in str(event)
+
+    def test_transaction_and_top_level_message_are_scrubbed(self):
+        event = observability._before_send(
+            {
+                "transaction": "/ws/tok_abc123",
+                "message": "boom in /matches/tok_abc123",
+            },
+            None,
+        )
+        assert "tok_abc123" not in str(event)
+
+    def test_nested_structures_are_swept(self):
+        event = observability._before_send(
+            {"extra": {"ctx": {"paths": ["/overlay/tok_abc123", "/api/v1/state"]}}},
+            None,
+        )
+        paths = event["extra"]["ctx"]["paths"]
+        assert paths[0] == "/overlay/***"
+        # Unrelated paths stay intact.
+        assert paths[1] == "/api/v1/state"
+
+    def test_middleware_never_puts_a_raw_path_on_the_record(self, caplog):
+        """The call site is fixed too, so our own log sinks stay clean."""
+        import logging
+
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from app.api.middleware.errors import ExceptionLoggingMiddleware
+
+        app = FastAPI()
+
+        @app.get("/overlay/{public_token}")
+        async def boom(public_token: str):
+            raise RuntimeError("kapow")
+
+        app.add_middleware(ExceptionLoggingMiddleware)
+        client = TestClient(app, raise_server_exceptions=False)
+
+        with caplog.at_level(logging.ERROR, logger="app.api.middleware.errors"):
+            assert client.get("/overlay/tok_abc123").status_code == 500
+
+        records = [
+            r for r in caplog.records if r.name == "app.api.middleware.errors"
+        ]
+        assert records
+        record = records[0]
+        assert "tok_abc123" not in record.getMessage()
+        assert record.http_path == "/overlay/***"
 
     def test_unparseable_url_is_masked(self):
         event = observability._before_send(

@@ -106,7 +106,22 @@ archive by hand.
   credential headers. It is unconditional rather than tied to
   `LOG_REDACT`: that flag exists so a developer can read raw values in
   their own terminal, and letting it also open a channel to an external
-  service would be a footgun.
+  service would be a footgun. A scrub that fails drops the event outright
+  rather than sending fields it could not verify.
+
+  The request context is not the only channel, and the fix covers the rest
+  of them. Sentry's logging integration promotes `ERROR` records into
+  events carrying the formatted message and the `extra` payload, and the
+  project's `redact` filter cannot help there — it is registered on the
+  stdout/file *handlers*, which Sentry's own handler is not. So
+  `logentry`, `extra`, `breadcrumbs`, `transaction` and `message` are swept
+  too, and `ExceptionLoggingMiddleware` no longer puts a raw path on the
+  record in the first place: it masks via the new
+  `logging_utils.redact_path()`, which also keeps the token out of the
+  app's own log files. Masking is scoped so it does not over-redact —
+  `/api/v1/matches/<id>` (an authenticated API route that merely contains a
+  watched word) stays readable, and the route prefix always survives, since
+  knowing *which* surface failed is the point of the report.
 
 - **`SENTRY_*` settings resolve through `REMOTE_CONFIG_URL`.** They were
   read straight from `os.environ`, so an operator who configures the app

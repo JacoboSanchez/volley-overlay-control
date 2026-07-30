@@ -27,6 +27,7 @@ import logging
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.logging_context import get_request_id
+from app.logging_utils import redact_path
 from app.observability import capture_exception
 
 logger = logging.getLogger(__name__)
@@ -46,7 +47,14 @@ class ExceptionLoggingMiddleware:
             raise
         except Exception as exc:
             method = scope.get("method") or scope["type"].upper()
-            path = scope.get("path", "<unknown>")
+            # Masked before it ever reaches the record. A raw
+            # ``/overlay/<public_token>`` here is a live credential, and
+            # the record travels further than our own stdout: the
+            # ``redact`` filter is attached to *handlers*, so anything that
+            # installs its own logger handler (Sentry's logging
+            # integration promotes ERROR records to events) would receive
+            # the unfiltered value.
+            path = redact_path(scope.get("path")) or "<unknown>"
             exc_class = type(exc).__name__
             # ``extra`` keys must not shadow built-in LogRecord
             # attributes (``message``, ``levelname``, …) — we use the
