@@ -48,7 +48,7 @@
     "globals": "^17.7.0",
     "jsdom": "^29.1.1",
     "openapi-typescript": "^7.13.0",
-    "prettier": "^3.8.4",
+    "prettier": "^3.9.6",
     "rollup-plugin-visualizer": "^7.0.1",
     "stylelint": "^17.14.1",
     "stylelint-config-recommended": "^18.0.0",
