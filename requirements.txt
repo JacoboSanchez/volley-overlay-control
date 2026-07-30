@@ -6,7 +6,7 @@ idna>=3.15
 python-dotenv==1.2.2
 websocket-client>=1.9.0
 jinja2>=3.1.6
-prometheus-client>=0.25.0
+prometheus-client>=0.26.0
 # Database layer (multi-user refactor): SQLAlchemy ORM + Alembic migrations.
 # DATABASE_URL selects the backend: SQLite (the default) or Postgres via
 # ``postgresql+psycopg://...``. The psycopg 3 driver below ships in the image
