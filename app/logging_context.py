@@ -1,9 +1,9 @@
 """Request-scoped logging context.
 
-Holds ``request_id`` and ``oid`` in :mod:`contextvars` so that every log
-record emitted during a request (whether from an HTTP handler, a
-WebSocket endpoint, or a background task spawned from one) can be
-correlated without having to thread the values through every function.
+Holds ``request_id`` and ``oid`` in :mod:`contextvars` and enriches log
+records with the W3C ``trace_id`` from :mod:`app.trace_context` so that every
+record emitted during a request can be correlated without threading values
+through every function.
 """
 
 import contextvars
@@ -11,12 +11,15 @@ import logging
 import uuid
 
 from app.logging_utils import redact_oid
+from app.trace_context import trace_id_var
 
 request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "request_id", default="-",
+    "request_id",
+    default="-",
 )
 oid_var: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "oid", default="-",
+    "oid",
+    default="-",
 )
 
 
@@ -42,7 +45,7 @@ def set_oid(value: str | None) -> contextvars.Token:
 
 
 class ContextFilter(logging.Filter):
-    """Inject ``request_id`` and ``oid`` into each :class:`LogRecord`.
+    """Inject request, trace, and overlay context into each log record.
 
     Attaching as a ``logging.Filter`` (rather than formatter override) means
     the values are also available to JSON handlers and any third-party
@@ -52,6 +55,8 @@ class ContextFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         if not hasattr(record, "request_id"):
             record.request_id = request_id_var.get()
+        if not hasattr(record, "trace_id"):
+            record.trace_id = trace_id_var.get()
         if not hasattr(record, "oid"):
             raw = oid_var.get()
             record.oid = raw if raw == "-" else redact_oid(raw)

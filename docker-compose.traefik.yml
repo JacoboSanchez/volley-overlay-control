@@ -7,7 +7,7 @@
 # `proxy` network. No host ports are exposed — Traefik is the only ingress.
 #
 # Storage defaults to SQLite on the `overlay_data` volume (which also holds the
-# auto-generated session secret + bootstrap / overlay-server tokens), so no
+# auto-generated cookie/report secrets + admin-bootstrap token), so no
 # external database is required. To use PostgreSQL instead, uncomment the `db`
 # service + `internal` network at the bottom and set DATABASE_URL.
 #
@@ -81,7 +81,7 @@ services:
       # See .env.example for the full list of optional app knobs. New settings
       # added there do not need a matching entry in this Compose file.
     volumes:
-      # SQLite DB + session secret + bootstrap / overlay-server tokens.
+      # SQLite DB + cookie/report secrets + admin-bootstrap token.
       - overlay_data:/app/data
     healthcheck:
       # The slim base image has no curl; probe with urllib. The port comes

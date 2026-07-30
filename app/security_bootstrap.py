@@ -1,10 +1,10 @@
-"""Startup security bootstrap — auto-mint ``SESSION_SECRET``.
+"""Startup security bootstrap for persistent machine credentials.
 
 User-level auth is a mandatory cookie-session model (``app.auth``); the
 first admin is claimed via a one-time token minted by
 ``app.auth.bootstrap.ensure_admin_bootstrap``. This module covers the
-machine credential ``SESSION_SECRET`` (cookie-session hardening + the HMAC
-key for signed match-report URLs).
+machine credentials ``SESSION_SECRET`` (cookie-session hardening) and
+``MATCH_REPORT_SIGNING_SECRET`` (HMAC report capabilities).
 """
 
 from __future__ import annotations
@@ -19,7 +19,9 @@ logger = logging.getLogger(__name__)
 
 
 _SESSION_SECRET_FILENAME = ".session_secret"
+_MATCH_REPORT_SIGNING_SECRET_FILENAME = ".match_report_signing_secret"
 _TOKEN_BYTES = 32  # → 43-char URL-safe string
+
 
 def _data_dir() -> str:
     """Return the data directory used by the rest of the app.
@@ -40,8 +42,9 @@ def _read_persisted_token(path: Path) -> str | None:
         return None
     except OSError as exc:
         logger.warning(
-            "Could not read persisted overlay-server token from %s: %s",
-            path, exc,
+            "Could not read persisted machine credential from %s: %s",
+            path,
+            exc,
         )
         return None
     return text or None
@@ -83,8 +86,9 @@ def _write_persisted_token(path: Path, token: str) -> bool:
         os.replace(str(tmp), str(path))
     except OSError as exc:
         logger.warning(
-            "Could not persist overlay-server token to %s: %s",
-            path, exc,
+            "Could not persist machine credential to %s: %s",
+            path,
+            exc,
         )
         return False
     return True
@@ -93,12 +97,11 @@ def _write_persisted_token(path: Path, token: str) -> bool:
 def ensure_session_secret() -> str | None:
     """Resolve / mint / persist ``SESSION_SECRET``.
 
-    Used as defense-in-depth for the cookie sessions and as the HMAC key
-    for match-report capability URLs. Resolution order:
+    Used as defense-in-depth for cookie sessions. Resolution order:
 
     1. ``SESSION_SECRET=<value>`` set → honour it.
     2. ``data/.session_secret`` exists → load it (stable across restarts so
-       outstanding signed report URLs keep validating).
+       login sessions remain valid).
     3. Otherwise mint ``secrets.token_urlsafe(32)``, persist ``0o600``, and
        inject into ``os.environ``.
     """
@@ -117,17 +120,54 @@ def ensure_session_secret() -> str | None:
     os.environ["SESSION_SECRET"] = new_secret
     if persisted_ok:
         logger.info(
-            "Auto-generated SESSION_SECRET and persisted to %s. Set "
-            "SESSION_SECRET explicitly to pin it across deployments.",
+            "Auto-generated SESSION_SECRET and persisted to %s. Set SESSION_SECRET explicitly to pin it across deployments.",
             path,
         )
     else:
         logger.warning(
             "Auto-generated SESSION_SECRET but could not persist it; it will "
-            "rotate on every restart (invalidating signed report URLs and "
-            "logging every session out). Set SESSION_SECRET explicitly to fix."
+            "rotate on every restart (logging every session out). Set "
+            "SESSION_SECRET explicitly to fix."
         )
     return new_secret
+
+
+def ensure_match_report_signing_secret(
+    session_secret: str | None = None,
+) -> str | None:
+    """Resolve and persist the key for signed match-report capabilities.
+
+    On the first upgraded boot, the existing ``SESSION_SECRET`` seeds the new
+    file. That preserves outstanding report links while immediately
+    decoupling future session-secret rotations. Subsequent boots read the
+    dedicated file, and operators can pin the same value across replicas with
+    ``MATCH_REPORT_SIGNING_SECRET``.
+    """
+    existing = (os.environ.get("MATCH_REPORT_SIGNING_SECRET") or "").strip()
+    if existing:
+        return existing
+
+    path = Path(_data_dir()) / _MATCH_REPORT_SIGNING_SECRET_FILENAME
+    persisted = _read_persisted_token(path)
+    if persisted:
+        os.environ["MATCH_REPORT_SIGNING_SECRET"] = persisted
+        return persisted
+
+    seed = session_secret or (os.environ.get("SESSION_SECRET") or "").strip() or secrets.token_urlsafe(_TOKEN_BYTES)
+    persisted_ok = _write_persisted_token(path, seed)
+    os.environ["MATCH_REPORT_SIGNING_SECRET"] = seed
+    if persisted_ok:
+        logger.info(
+            "Initialized MATCH_REPORT_SIGNING_SECRET and persisted it to %s. "
+            "Set it explicitly to pin the same key across replicas.",
+            path,
+        )
+    else:
+        logger.warning(
+            "Initialized MATCH_REPORT_SIGNING_SECRET but could not persist it; "
+            "set it explicitly to keep report links stable across restarts."
+        )
+    return seed
 
 
 def run_security_bootstrap() -> None:
@@ -139,7 +179,12 @@ def run_security_bootstrap() -> None:
     The first-admin bootstrap runs separately in
     :func:`app.auth.bootstrap.ensure_admin_bootstrap` (it needs the DB).
     """
+    session_secret: str | None = None
     try:
-        ensure_session_secret()
+        session_secret = ensure_session_secret()
     except Exception:
         logger.exception("ensure_session_secret failed")
+    try:
+        ensure_match_report_signing_secret(session_secret)
+    except Exception:
+        logger.exception("ensure_match_report_signing_secret failed")

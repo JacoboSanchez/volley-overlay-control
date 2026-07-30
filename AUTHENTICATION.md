@@ -144,7 +144,8 @@ owner's cookie session), always scoped to the resolved storage key
 `"<user_id>:<oid>"`; `G` = **gated, multi-mode** — no `require_user`
 dependency, but a hand-rolled gate admitting any of several credentials,
 which differ per route (table below); `—` = always public (capability URL
-or intentionally open).
+or intentionally open); `T` = the dedicated metrics bearer token when
+configured (otherwise open, or disabled entirely).
 
 `B` is deliberately not `Y`: those routes are reachable with no login at
 all when a valid `?c=` token or an opted-in `?u=` bookmark is present.
@@ -263,7 +264,7 @@ board and cannot touch the owner's account.
 | `GET` | `/matches` | Y | Lists only the caller's archived matches. |
 | `GET` | `/matches/{id}` | Y | Owner-only (`404` otherwise). |
 | `DELETE` | `/matches/{id}` | Y | Owner-only delete (§8 / §7.1). |
-| `POST` | `/matches/{id}/sign-url` | Y | Owner mints an HMAC capability URL for the gated match report. Body: `{"ttl_seconds": int}`. Response embeds the time-bounded bearer capability `?exp=&sig=`; the signing key remains server-side in `SESSION_SECRET`. |
+| `POST` | `/matches/{id}/sign-url` | Y | Owner mints an HMAC capability URL for the gated match report. Body: `{"ttl_seconds": int}`. Response embeds the time-bounded bearer capability `?exp=&sig=`; the signing key remains server-side in `MATCH_REPORT_SIGNING_SECRET`. |
 | `GET` | `/icons` | Y | Icon library listing (globals + the caller's own + quota). |
 | `POST` | `/icons/mine` | Y | Multipart icon upload into the caller's personal library (server-side resize → WebP; quota-capped). |
 | `PATCH` / `DELETE` | `/icons/mine/{id}` | Y | Rename / delete an own icon (delete also clears referencing teams). `404` for ids outside the caller's scope. |
@@ -361,7 +362,7 @@ state, and cannot mutate anything. Control needs one of credentials 1–3.
 | `GET` | `/manifest.json` | — | PWA manifest |
 | `GET` | `/health` | — | Health check |
 | `GET` | `/health/ready` | — | Readiness probe: additionally touches the DB and the data dir, so an orchestrator does not route traffic to a pod that cannot serve. Reports status only, never configuration. |
-| `GET` | `/metrics` | — | Prometheus exposition. Unauthenticated by deliberate choice — aggregates only, no payloads and no per-OID labels (§10). |
+| `GET` | `/metrics` | T | Prometheus exposition. Open by default; optional dedicated bearer token `METRICS_TOKEN`, or hidden with `METRICS_ENABLED=false` (§10). |
 | `GET` | `/match/{match_id}/report` | G | Print-friendly match report. `check_read_access` admits `MATCH_REPORT_PUBLIC=true`, then a valid HMAC signature, then the owner's cookie; otherwise **401** (§7.1). |
 | `GET` | `/match/{match_id}/report.csv` | G | Point-log CSV for the same match, gated identically. A signed *report* link's `exp`/`sig` open the CSV too — the signature covers `match_id\|exp`, not the path. |
 | `GET` | `/matches/{public_token}` | G | Per-overlay archived-match listing. **The token is an identifier here, not a credential**: it selects the overlay (`404` if unknown), then the same gate as the report runs — `MATCH_REPORT_PUBLIC=true` or the owner's cookie, else `401`. Unlike `/follow/{public_token}`, holding the token is not sufficient. |
@@ -458,12 +459,14 @@ Deployment-visible changes operators should be aware of:
    `data/.admin_bootstrap_token` (mode `0o600`). Claim the first admin
    by POSTing it to `/api/v1/auth/claim-admin` (SPA route
    `/claim-admin`); see §9. Set `ADMIN_BOOTSTRAP_TOKEN` to pin it.
-2. **`SESSION_SECRET` is auto-minted if unset.** It hardens sessions and
-   is the HMAC key for signed match-report share URLs. On first boot,
-   if unset, the bootstrap mints `secrets.token_urlsafe(...)` and
-   persists it to `data/.session_secret` (mode `0o600`). Pin it
-   explicitly (`SESSION_SECRET=…`) across multiple replicas, or each
-   replica will reject the others' sessions and signed URLs.
+2. **Session and report-signing keys are auto-minted if unset.**
+   `SESSION_SECRET` hardens login sessions and is persisted to
+   `data/.session_secret` (mode `0o600`). `MATCH_REPORT_SIGNING_SECRET`
+   signs report share URLs and is persisted separately to
+   `data/.match_report_signing_secret`. On the first upgraded boot the
+   report key is seeded from the current session key so existing links keep
+   working; later session-key rotations do not revoke them. Pin both values
+   explicitly across multiple replicas.
 3. **Registration auto-closes once the instance has its admin.** With
    `REGISTRATION_OPEN` unset, public sign-ups are allowed only during the
    bootstrap window; claiming the first admin writes the DB flag to
@@ -510,7 +513,9 @@ is short-circuited with `429 Too Many Requests` and a `Retry-After`
 header before reaching the handler, and
 `voc_rate_limit_blocks_total{surface}` is incremented so a lockout is
 visible in `/metrics` rather than hiding as a `status="429"` label on
-the latency histogram.
+the latency histogram. `voc_rate_limit_blocked_buckets{surface}` reports
+the number of buckets that are blocked right now and drops expired buckets
+back to zero when metrics are scraped.
 
 Three surfaces are deliberately **not** watched:
 
@@ -523,8 +528,9 @@ Three surfaces are deliberately **not** watched:
   does nothing about, while counting its 404s would risk blocking a
   venue's icons after an ordinary delete. Volume limiting belongs at the
   proxy.
-* **`/metrics`** — the concern there is that it is unauthenticated, not
-  that it is brute-forceable.
+* **`/metrics`** — its route owns enablement and optional dedicated bearer
+  authentication (§10); it is not a credential-probing surface for this
+  failure-counting limiter.
 The bucket is reset only by the sliding window — non-failure
 responses are intentionally ignored so an attacker cannot launder
 failures by interleaving login attempts (`POST /api/v1/auth/login`)
@@ -600,9 +606,12 @@ explicit allow-list semantics:
   sends the cookie cross-origin (and the response is readable) when
   credentials are explicitly allowed.
 * `Access-Control-Allow-Headers` includes `Authorization`,
-  `Content-Type`, `X-Request-ID`, and `Sec-WebSocket-Protocol`. The
+  `Content-Type`, `X-Request-ID`, `traceparent`, `tracestate`, and
+  `Sec-WebSocket-Protocol`. The
   cookie itself needs no allow-listed header; `Content-Type` /
   `X-Request-ID` cover ordinary JSON requests.
+* `Access-Control-Expose-Headers` includes `X-Request-ID`, `traceparent`,
+  and the paging header `X-Total-Count`.
 
 | Env var | Default | Meaning |
 | :--- | :--- | :--- |
@@ -665,12 +674,12 @@ Access to ``/match/{match_id}/report`` is resolved by
    ``POST /api/v1/matches/{match_id}/sign-url`` (owner-only,
    ``require_user``). The response carries
    ``/match/{id}/report?exp=<unix_seconds>&sig=<hmac_hex>``. The
-   signing key is ``SESSION_SECRET``, so:
+   signing key is ``MATCH_REPORT_SIGNING_SECRET``, so:
    * Anyone who holds the URL can read the report until ``exp`` passes.
    * The `exp` + `sig` pair is a TTL-bounded bearer credential. The
-     `SESSION_SECRET` signing key never leaves the server.
-   * Rotating ``SESSION_SECRET`` invalidates every outstanding signed
-     URL — the desired behaviour after a suspected leak.
+     signing key never leaves the server.
+   * Rotating ``MATCH_REPORT_SIGNING_SECRET`` invalidates every outstanding
+     signed URL. Rotating the cookie-only ``SESSION_SECRET`` does not.
 3. **Public mode.** ``MATCH_REPORT_PUBLIC=true`` opens the report to
    anyone who holds the non-guessable ``match_id``.
 
@@ -718,7 +727,10 @@ User passwords are stored hashed via `app/password_hash.py`
 
 Separately, the **session cookie** value is stored hashed too — only the
 SHA-256 of the opaque token reaches the DB (§2.1) — and `SESSION_SECRET`
-hardens sessions and signs match-report share URLs.
+hardens sessions. `MATCH_REPORT_SIGNING_SECRET` is the distinct HMAC key
+for match-report share URLs. When auto-provisioned, both machine credentials
+are owner-readable files under `data/`; pin them as environment variables
+across replicas.
 
 ### 8.1 Hash format
 
@@ -781,8 +793,11 @@ send the operator there.
 
 ## 10. Metrics endpoint
 
-`GET /metrics` (`app/api/routes/metrics.py`) is **always unauthenticated
-(aggregates only)** — Prometheus exposition. It exposes only aggregate
-counters and histograms, never per-user data or any credential, so there
-is no auth gate on it: a scraper cannot carry a `vsession` cookie, and
-the endpoint has nothing sensitive to protect.
+`GET /metrics` (`app/api/routes/metrics.py`) exposes aggregate Prometheus
+telemetry without per-user, per-OID, payload, or credential labels. It is
+open by default for backwards-compatible local and service-mesh scraping.
+Operators can set `METRICS_ENABLED=false` to make the route return `404`, or
+set `METRICS_TOKEN` to require `Authorization: Bearer <token>`. The token is
+compared in constant time and is deliberately not accepted in a query string,
+where it would leak into browser and proxy logs. A failed or missing token
+returns `401` with `WWW-Authenticate: Bearer realm="metrics"`.

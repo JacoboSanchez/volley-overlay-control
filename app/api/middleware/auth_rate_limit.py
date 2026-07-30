@@ -47,8 +47,9 @@ Deliberately **not** watched:
     icons after an ordinary delete. Volume limiting belongs at the proxy.
 
 ``/metrics``
-    The concern there is that it is unauthenticated, not that it is
-    brute-forceable. Tracked separately.
+    Enablement and optional dedicated bearer authentication live in the
+    metrics route. It is not a credential-probing surface for this
+    failure-counting limiter.
 
 All state is process-local — clusters with multiple replicas should front
 the app with a layer-7 limiter (Cloudflare, Nginx, etc.) that shares
@@ -61,8 +62,8 @@ visible, but the tradeoff is inherent to keying on IP.
 
 from __future__ import annotations
 
-import asyncio
 import os
+import threading
 import time
 from collections import OrderedDict, deque
 from collections.abc import Iterable
@@ -130,7 +131,7 @@ class _Bucket:
 # Keyed by (surface, ip) — see the module docstring for why the surface is
 # part of the key.
 _buckets: OrderedDict[tuple[str, str], _Bucket] = OrderedDict()
-_lock = asyncio.Lock()
+_lock = threading.Lock()
 
 
 def _client_ip(scope: Scope) -> str:
@@ -177,7 +178,7 @@ def _trim_failures_locked(bucket: _Bucket, now: float, window: float) -> None:
 async def _is_blocked(key: tuple[str, str]) -> bool:
     """Return True if the bucket for *key* is currently blocked."""
     now = time.monotonic()
-    async with _lock:
+    with _lock:
         bucket = _buckets.get(key)
         if bucket is None:
             return False
@@ -186,7 +187,9 @@ async def _is_blocked(key: tuple[str, str]) -> bool:
 
 
 async def _record_outcome(
-    key: tuple[str, str], status_code: int, failure_statuses: frozenset[int],
+    key: tuple[str, str],
+    status_code: int,
+    failure_statuses: frozenset[int],
 ) -> None:
     """Update the bucket for *key* based on the response *status_code*.
 
@@ -200,7 +203,7 @@ async def _record_outcome(
     if status_code not in failure_statuses:
         return
     now = time.monotonic()
-    async with _lock:
+    with _lock:
         bucket = _buckets.get(key)
         if bucket is None:
             bucket = _Bucket()
@@ -217,7 +220,30 @@ async def _record_outcome(
 
 def _reset_for_tests() -> None:
     """Test hook to clear all buckets between cases."""
-    _buckets.clear()
+    with _lock:
+        _buckets.clear()
+
+
+def blocked_bucket_counts() -> dict[str, int]:
+    """Return currently-blocked buckets by bounded surface label.
+
+    Expiration is evaluated when Prometheus scrapes this snapshot, not only
+    when another authentication attempt happens, so the gauge returns to
+    zero even after traffic stops.
+    """
+    now = time.monotonic()
+    counts = {
+        _API_SURFACE: 0,
+        _CAPABILITY_SURFACE: 0,
+    }
+    with _lock:
+        for (surface, _client), bucket in _buckets.items():
+            _trim_failures_locked(bucket, now, _window_seconds())
+            if bucket.blocked_until > now:
+                counts[surface] = counts.get(surface, 0) + 1
+            elif bucket.blocked_until:
+                bucket.blocked_until = 0.0
+    return counts
 
 
 class AuthRateLimitMiddleware:
@@ -274,22 +300,23 @@ def _record_block(surface: str) -> None:
 
 
 async def _send_429(send: Send) -> None:
-    body = (
-        b'{"detail":"Too many authentication failures. '
-        b'Please retry later."}'
+    body = b'{"detail":"Too many authentication failures. Please retry later."}'
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 429,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(body)).encode("latin-1")),
+                (b"retry-after", str(int(_block_seconds())).encode("latin-1")),
+                (b"cache-control", b"no-store"),
+            ],
+        }
     )
-    await send({
-        "type": "http.response.start",
-        "status": 429,
-        "headers": [
-            (b"content-type", b"application/json"),
-            (b"content-length", str(len(body)).encode("latin-1")),
-            (b"retry-after", str(int(_block_seconds())).encode("latin-1")),
-            (b"cache-control", b"no-store"),
-        ],
-    })
-    await send({
-        "type": "http.response.body",
-        "body": body,
-        "more_body": False,
-    })
+    await send(
+        {
+            "type": "http.response.body",
+            "body": body,
+            "more_body": False,
+        }
+    )

@@ -16,7 +16,7 @@ admits a reader if any of:
   overlay produced the match);
 * the URL carries a valid HMAC capability (``?exp=…&sig=…``), minted
   by the owner via ``POST /api/v1/matches/{id}/sign-url`` and signed
-  with ``SESSION_SECRET`` — no credential travels in the URL;
+  with ``MATCH_REPORT_SIGNING_SECRET``;
 * ``MATCH_REPORT_PUBLIC=true``, in which case any caller with the
   (non-guessable, hash-prefixed) ``match_id`` can read the report.
   This matches the ``/overlay/{public_token}`` model and is

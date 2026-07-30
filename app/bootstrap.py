@@ -28,6 +28,7 @@ from app.auth.bootstrap import ensure_admin_bootstrap
 from app.auth.routes import auth_router
 from app.config_validator import validate_config
 from app.db import migrate as db_migrate
+from app.error_tracking import configure_error_tracking
 from app.match_report import match_report_router
 from app.match_report.history import match_history_router
 from app.pwa_manifest import _BOARD_TOKEN_RE as _BOARD_TOKEN_RE
@@ -99,8 +100,7 @@ def _register_api_routes(application: FastAPI) -> None:
 def _register_overlay_routes(application: FastAPI) -> None:
     if not OVERLAY_TEMPLATES_DIR.is_dir():
         logger.warning(
-            "Overlay templates directory not found at %s — "
-            "overlay routes disabled.",
+            "Overlay templates directory not found at %s — overlay routes disabled.",
             OVERLAY_TEMPLATES_DIR,
         )
         return
@@ -209,8 +209,7 @@ def _maybe_register_cors(application: FastAPI) -> None:
         return
     if any(origin == "*" for origin in origins):
         logger.error(
-            "CORS_ALLOWED_ORIGINS=* is not accepted on a credentialed "
-            "API — refusing to enable CORS. Use explicit origins."
+            "CORS_ALLOWED_ORIGINS=* is not accepted on a credentialed API — refusing to enable CORS. Use explicit origins."
         )
         return
     application.add_middleware(
@@ -221,12 +220,14 @@ def _maybe_register_cors(application: FastAPI) -> None:
         allow_headers=[
             "Authorization",
             "Content-Type",
+            "traceparent",
+            "tracestate",
             "X-Request-ID",
             "Sec-WebSocket-Protocol",
         ],
         # Paginated listings report the full in-scope total here; a
         # cross-origin SPA cannot read it unless it is explicitly exposed.
-        expose_headers=["X-Total-Count"],
+        expose_headers=["traceparent", "X-Request-ID", "X-Total-Count"],
     )
     logger.info(
         "CORSMiddleware enabled (origins=%s)",
@@ -237,6 +238,7 @@ def _maybe_register_cors(application: FastAPI) -> None:
 def create_app() -> FastAPI:
     """Build the application in route/middleware precedence order."""
     validate_config()
+    configure_error_tracking()
     run_security_bootstrap()
     db_migrate.run_migrations()
     ensure_admin_bootstrap()
@@ -256,11 +258,13 @@ def create_app() -> FastAPI:
     # Starlette wraps middleware in reverse registration order.
     application.add_middleware(ExceptionLoggingMiddleware)
     application.add_middleware(MetricsMiddleware)
-    application.add_middleware(RequestContextMiddleware)
     application.add_middleware(GZipMiddleware, minimum_size=1024)
     application.add_middleware(SecurityHeadersMiddleware)
     application.add_middleware(BodySizeLimitMiddleware)
     application.add_middleware(AuthRateLimitMiddleware)
     _maybe_register_cors(application)
     _maybe_register_trusted_hosts(application)
+    # Registered last so request/trace context wraps early responses from
+    # TrustedHost, CORS, body-size, and rate-limit middleware too.
+    application.add_middleware(RequestContextMiddleware)
     return application

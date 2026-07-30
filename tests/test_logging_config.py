@@ -13,6 +13,7 @@ from app.logging_config import (
     build_dict_config,
 )
 from app.logging_context import oid_var, request_id_var
+from app.trace_context import trace_id_var
 
 
 def _make_record(
@@ -35,9 +36,11 @@ class TestTextFormatter:
     def test_includes_context_when_present(self):
         record = _make_record()
         record.request_id = "req-1"
+        record.trace_id = "trace-1"
         record.oid = "abcd***"
         out = TextFormatter().format(record)
         assert "rid=req-1" in out
+        assert "trace=trace-1" in out
         assert "oid=abcd***" in out
 
 
@@ -62,14 +65,17 @@ class TestJsonFormatter:
         record = _make_record()
         payload = json.loads(JsonFormatter().format(record))
         assert payload["request_id"] == "-"
+        assert payload["trace_id"] == "-"
         assert payload["oid"] == "-"
 
     def test_includes_context_fields_from_record(self):
         record = _make_record()
         record.request_id = "req-7"
+        record.trace_id = "trace-7"
         record.oid = "zzzz"
         payload = json.loads(JsonFormatter().format(record))
         assert payload["request_id"] == "req-7"
+        assert payload["trace_id"] == "trace-7"
         assert payload["oid"] == "zzzz"
 
     def test_serializes_exc_info(self):
@@ -210,15 +216,18 @@ def test_context_filter_uses_contextvar_values():
     from app.logging_context import ContextFilter
 
     rid_token = request_id_var.set("ctx-rid")
+    trace_token = trace_id_var.set("ctx-trace")
     oid_token = oid_var.set("abcdef")
     try:
         record = _make_record()
         ContextFilter().filter(record)
         assert record.request_id == "ctx-rid"
+        assert record.trace_id == "ctx-trace"
         # oid is redacted at the logging boundary (first 4 + ***).
         assert record.oid == "abcd***"
     finally:
         request_id_var.reset(rid_token)
+        trace_id_var.reset(trace_token)
         oid_var.reset(oid_token)
 
 
@@ -229,4 +238,5 @@ def test_context_filter_passes_dash_through_unredacted():
     record = _make_record()
     ContextFilter().filter(record)
     assert record.request_id == "-"
+    assert record.trace_id == "-"
     assert record.oid == "-"

@@ -16,6 +16,20 @@ archive by hand.
 
 ### Security
 
+- **Request correlation and observability surfaces are now bounded and
+  operator-controlled.** Client-provided `X-Request-ID` values are accepted
+  only from a safe 64-character alphabet before being echoed or logged;
+  malformed values are replaced. The request middleware now participates in
+  W3C `traceparent`/`tracestate`, emits trace IDs in text and JSON logs, and
+  propagates context through webhook and guarded outbound HTTP calls.
+  `/metrics` remains open by default for compatibility, but can require a
+  constant-time-compared `METRICS_TOKEN` bearer credential or be hidden with
+  `METRICS_ENABLED=false`. Match-report HMACs now use a separately persisted
+  `MATCH_REPORT_SIGNING_SECRET`; an upgraded installation seeds it from the
+  current cookie key once so existing links survive, while later
+  `SESSION_SECRET` rotation no longer affects report links.
+  Fixes [#447](https://github.com/JacoboSanchez/volley-overlay-control/issues/447).
+
 - **The default Content Security Policy no longer permits string
   evaluation or arbitrary HTTPS iframes.** `script-src` drops the unused
   `'unsafe-eval'`; `frame-src` now allows only `'self'` and, for split-host
@@ -56,6 +70,14 @@ archive by hand.
   to change a limit. They are read per call now.
 
 ### Added
+
+- **Opt-in privacy-scrubbed Sentry reporting and live operational gauges.**
+  Setting `SENTRY_DSN` enables FastAPI error reporting and optional
+  transaction sampling without sending request bodies, cookies, query strings,
+  or capability-bearing URL paths. `voc_rate_limit_blocked_buckets{surface}`
+  reports buckets blocked right now, and the existing dead-letter gauge is
+  refreshed from persistent storage at scrape time so restart does not reset
+  the observed queue depth.
 
 - **The backend typing gate now rejects every unannotated function.**
   All remaining application signatures are typed, including the

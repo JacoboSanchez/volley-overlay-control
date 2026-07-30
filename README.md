@@ -67,7 +67,7 @@ It includes 27 overlay style templates served **in-process** directly to OBS bro
 
 ### Match History
 *   **Auto-archive on match end**: Every finished match is recorded as a row in the `match_reports` table (DB-backed, scoped to the owning user) with the final state, customization, audit log, and config — frozen so cosmetic edits made afterwards do not retroactively rewrite history. Browse your own reports from the account area via `GET /api/v1/matches`, fetch or delete one via `GET`/`DELETE /api/v1/matches/{id}`.
-*   **Print-friendly per-match report** at `/match/{match_id}/report` (designed for the browser's "Save as PDF" workflow). The route is gated three ways: the owner's session cookie, an owner-minted signed share URL (`POST /api/v1/matches/{match_id}/sign-url`, HMAC-keyed by `SESSION_SECRET`), or fully open when `MATCH_REPORT_PUBLIC=true`.
+*   **Print-friendly per-match report** at `/match/{match_id}/report` (designed for the browser's "Save as PDF" workflow). The route is gated three ways: the owner's session cookie, an owner-minted signed share URL (`POST /api/v1/matches/{match_id}/sign-url`, HMAC-keyed by the separately persisted `MATCH_REPORT_SIGNING_SECRET`), or fully open when `MATCH_REPORT_PUBLIC=true`.
 *   **Per-OID action audit log** capturing every state mutation with a compact post-state snapshot, kept on disk as JSONL re-keyed by the per-user storage key. Exposed read-only via `GET /api/v1/audit?oid=...`.
 *   **Outbound webhooks** on `set_end`, `match_end`, `timeout`, and `serve_change` events. Configure via `WEBHOOKS_URL` (single endpoint) or `WEBHOOKS_JSON` (multi-target with per-event filtering); bodies are HMAC-SHA256-signed when a secret is set.
 
@@ -128,8 +128,9 @@ For the full endpoint reference, request/response schemas, and WebSocket protoco
 > (`data/app.db`), PostgreSQL supported (`postgresql+psycopg://…`). The schema
 > migrates to head automatically on startup; nothing to run by hand.
 >
-> **Sessions:** HttpOnly cookies — no API keys or Bearer tokens. The
-> session-related env vars are in the *Configuration* table below
+> **User sessions:** HttpOnly cookies — no API keys or Bearer tokens are used
+> for account authentication. The session-related env vars are in the
+> *Configuration* table below
 > (`SESSION_SECRET`, `SESSION_TTL_HOURS`, `REGISTRATION_OPEN`,
 > `ADMIN_BOOTSTRAP_TOKEN`, …). A login is not the only way to reach a board;
 > see *[Sharing board control](#sharing-board-control)* below, and
@@ -248,7 +249,7 @@ The Dockerfile uses a multi-stage build: Node.js builds the React frontend, then
 3.  **Claim the first admin:** read the one-time bootstrap token from the
     startup log (`docker compose logs app` — logged at `WARNING`), open
     `/claim-admin`, and create the first administrator. The SQLite database,
-    session secret and bootstrap/overlay-server token files all live under
+    session/report secrets and the admin-bootstrap token file all live under
     `data/`, so persist that directory across container restarts.
 
 ### Upgrading from a single-tenant deployment
@@ -316,9 +317,14 @@ Configure the application using the following environment variables:
 | `LOG_FILE_MAX_BYTES` | Rotation threshold for `LOG_FILE` in bytes. | `10485760` (10 MiB) |
 | `LOG_FILE_BACKUPS` | Number of rotated log files to retain. | `5` |
 | `LOG_REDACT` | If `true`, PII fields (OIDs, URLs) are redacted in log output and error reports from the SPA. | `true` |
+| `SENTRY_DSN` | *(Optional)* Enables Sentry exception aggregation. Request bodies, cookies, credentials, query strings, and capability-bearing URL segments are removed before events leave the app. | *(unset → disabled)* |
+| `SENTRY_ENVIRONMENT` | *(Optional)* Environment label attached to Sentry events (for example `production`). | |
+| `SENTRY_RELEASE` | *(Optional)* Release identifier attached to Sentry events. | |
+| `SENTRY_TRACES_SAMPLE_RATE` | Fraction of requests recorded as Sentry performance traces (`0.0`–`1.0`). Error capture does not require tracing. | `0` |
 | `REST_USER_AGENT` | User-Agent to avoid Cloudflare bot detection. | `curl/8.15.0` |
 | `DATABASE_URL` | SQLAlchemy 2.0 database URL. SQLite by default; point at PostgreSQL (`postgresql+psycopg://…`) with no code change. Alembic migrates to head automatically on startup. | `sqlite:///data/app.db` |
-| `SESSION_SECRET` | Secret that hardens cookie sessions and signs report share URLs. **Auto-minted and persisted to `data/.session_secret` on first start when unset.** | *(auto)* |
+| `SESSION_SECRET` | Secret that hardens cookie sessions. **Auto-minted and persisted to `data/.session_secret` on first start when unset.** | *(auto)* |
+| `MATCH_REPORT_SIGNING_SECRET` | HMAC key for signed match-report share URLs. When unset, startup seeds it once from the current `SESSION_SECRET` (preserving existing links) and persists it separately to `data/.match_report_signing_secret`; later session-key rotations do not revoke report links. Pin it explicitly across replicas. | *(auto)* |
 | `SESSION_COOKIE_SECURE` | Forces the `Secure` flag on the `vsession` cookie. By default it is set automatically when the request is served over HTTPS. | *(auto over HTTPS)* |
 | `SESSION_TTL_HOURS` | Lifetime of a login session in hours. | `336` (14 days) |
 | `REGISTRATION_OPEN` | Pin self-service registration at `/register` open (`true`) or closed (`false`). When unset, registration is open only until the first admin is claimed, then closes automatically. DB-backed once toggled; admins manage it from the `/admin` page. | _(unset — auto-close after first admin)_ |
@@ -339,6 +345,8 @@ Configure the application using the following environment variables:
 | `WEBHOOKS_JSON` | *(Optional)* JSON list of webhook targets, e.g. `[{"url":"…","secret":"…","events":["set_end"],"timeout_s":5}]`. Takes precedence over `WEBHOOKS_URL`. | |
 | `WEBHOOKS_ALLOW_PRIVATE_IPS` | If `true`, allows webhook targets whose host resolves to private / loopback / link-local IPs. Default: `false` — such targets are rejected with a logged warning to block accidental SSRF (`http://localhost/admin`, cloud metadata at `169.254.169.254`, etc.). Trusted-LAN deployments that need to call internal receivers opt in here. | `false` |
 | `MATCH_REPORT_PUBLIC` | If `true`, `/match/{id}/report` is reachable by anyone, with no cookie or signed URL required. When unset, the report is reachable only by its owner's session cookie or an owner-minted signed share URL. | `false` |
+| `METRICS_ENABLED` | Expose Prometheus metrics at `/metrics`. Set `false` to return 404. | `true` |
+| `METRICS_TOKEN` | *(Optional)* Require `Authorization: Bearer <token>` on `/metrics`. Compared in constant time; never accepted in the query string. | *(unset → open)* |
 
 Rarely-needed knobs (auth rate limiting, security response headers, audit-log
 rotation, WebSocket hub limits, webhook retries, preset caps, list-endpoint
@@ -464,7 +472,7 @@ Import non-account configuration from an external resource via `REMOTE_CONFIG_UR
 | `/follow/{public_token}` | Public mobile-first spectator page (no cookie). |
 | `/ws/{public_token}` | WebSocket for OBS browser sources (overlay state broadcast; no cookie). |
 | `/api/themes` | List preset overlay themes (public). |
-| `/metrics` | Prometheus exposition (unauthenticated; aggregates only). |
+| `/metrics` | Prometheus exposition. Open by default for backwards compatibility; disable with `METRICS_ENABLED=false` or require a bearer token with `METRICS_TOKEN`. |
 | `/health` | Health check endpoint. Returns `200 OK` with a timestamp. |
 
 For a full audit of every route and its authentication requirements, see

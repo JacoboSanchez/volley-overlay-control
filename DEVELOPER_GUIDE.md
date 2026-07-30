@@ -98,7 +98,9 @@ dependency.
 │   ├── overlay_key.py       # Per-user storage-key helpers: make_skey/split_skey ("<user_id>:<oid>").
 │   ├── id_validation.py     # Overlay-ID charset/length validation.
 │   ├── password_hash.py     # scrypt credential hashing (stdlib, zero deps).
-│   ├── security_bootstrap.py # Resolve/mint/persist SESSION_SECRET at startup.
+│   ├── security_bootstrap.py # Resolve/persist cookie + report-signing secrets.
+│   ├── error_tracking.py    # Opt-in Sentry setup with privacy scrubbing.
+│   ├── trace_context.py     # W3C trace-context parse/generate/propagation.
 │   ├── oid_utils.py         # OID parsing utilities (extract_oid).
 │   ├── db/                  # SQLAlchemy persistence layer.
 │   │   ├── base.py          # Declarative Base + TimestampMixin (naming convention).
@@ -393,8 +395,9 @@ the HTTP dependency.
 The route is gated by `app/match_report/access.py`, which admits a reader if
 any of: the **owner's** session cookie is present; the URL carries a valid
 HMAC capability (`?exp=…&sig=…`, minted via
-`POST /api/v1/matches/{id}/sign-url` and signed with `SESSION_SECRET` in
-`app/match_report/signing.py`); or `MATCH_REPORT_PUBLIC=true`. The old
+`POST /api/v1/matches/{id}/sign-url` and signed with
+`MATCH_REPORT_SIGNING_SECRET` in `app/match_report/signing.py`); or
+`MATCH_REPORT_PUBLIC=true`. The old
 `?token=` and admin paths are gone.
 
 ### C. Configuration & Extras
@@ -402,7 +405,8 @@ HMAC capability (`?exp=…&sig=…`, minted via
 #### `app/bootstrap.py` — application factory
 
 `create_app()` assembles the FastAPI instance in a fixed order:
-`run_security_bootstrap()` (resolve/mint `SESSION_SECRET`) →
+`configure_error_tracking()` (optional Sentry setup) →
+`run_security_bootstrap()` (resolve/persist the cookie and report keys) →
 `run_migrations()` (schema to head) →
 `ensure_admin_bootstrap()` (mint/log the first-admin claim token) → routers
 (auth first so `/api/v1/auth/*` is never shadowed, then `api_router` +

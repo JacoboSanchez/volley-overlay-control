@@ -6,10 +6,11 @@ an ``exp`` (expiry) and ``sig`` (HMAC-SHA256) parameter instead of any
 credential. Anyone who holds the URL can read the report until ``exp``
 passes; no secret ever leaves the server.
 
-The signing key is derived from ``SESSION_SECRET`` (the same secret that
-hardens the cookie sessions). Rotating it invalidates every outstanding
-signed URL — that's the desired behaviour, since a rotation is usually
-motivated by a compromise.
+The signing key comes from ``MATCH_REPORT_SIGNING_SECRET``, which the startup
+bootstrap persists separately from the cookie ``SESSION_SECRET``. Existing
+deployments seed the dedicated key from their current session secret once so
+upgrades preserve outstanding URLs; later cookie-key rotations do not revoke
+report capabilities.
 
 Format
 ------
@@ -39,20 +40,23 @@ logger = logging.getLogger(__name__)
 # permanent share-link should set ``MATCH_REPORT_PUBLIC=true`` and
 # share the bare URL — that's the documented model. The cap stops
 # someone from accidentally minting a year-long link in chat.
-DEFAULT_TTL_SECONDS = 24 * 60 * 60        # 1 day
-MAX_TTL_SECONDS = 30 * 24 * 60 * 60       # 30 days
-MIN_TTL_SECONDS = 60                      # 1 minute
+DEFAULT_TTL_SECONDS = 24 * 60 * 60  # 1 day
+MAX_TTL_SECONDS = 30 * 24 * 60 * 60  # 30 days
+MIN_TTL_SECONDS = 60  # 1 minute
 
 
 def _signing_key() -> bytes | None:
-    """Return the HMAC key derived from ``SESSION_SECRET``.
+    """Return the dedicated report HMAC key.
 
-    ``SESSION_SECRET`` is minted + persisted on first start (see
-    ``app.security_bootstrap.ensure_session_secret``), so signing is
-    normally always available. Returns ``None`` only if it is somehow
-    unset, in which case the consuming endpoint should 503.
+    The ``SESSION_SECRET`` fallback keeps direct library use and a partially
+    failed bootstrap backwards-compatible. A normally-started app always has
+    ``MATCH_REPORT_SIGNING_SECRET`` populated by
+    :func:`app.security_bootstrap.ensure_match_report_signing_secret`.
     """
-    secret = EnvVarsManager.get_env_var("SESSION_SECRET", None)
+    secret = EnvVarsManager.get_env_var(
+        "MATCH_REPORT_SIGNING_SECRET",
+        EnvVarsManager.get_env_var("SESSION_SECRET", None),
+    )
     if not secret:
         return None
     return str(secret).encode("utf-8")
@@ -90,8 +94,8 @@ def make_signed_query(
 ) -> dict | None:
     """Return ``{exp, sig, expires_at}`` for the signed URL, or ``None``.
 
-    ``None`` means signing is unavailable because ``SESSION_SECRET`` is
-    unset; callers translate that to a 503.
+    ``None`` means signing is unavailable because neither signing key is set;
+    callers translate that to a 503.
 
     *now* is a test seam for deterministic expiry; production callers
     should leave it as ``None``.

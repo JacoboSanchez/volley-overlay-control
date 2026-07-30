@@ -6,9 +6,9 @@ Environment variables:
 - ``LOG_FORMAT``: ``text`` (default, ANSI-coloured for dev) or ``json``
   (one JSON object per line, suitable for log aggregators).
 
-The text formatter renders ``[rid=… oid=…]`` when either value is set
-by :class:`app.api.middleware.logging.RequestContextMiddleware`; JSON
-always emits both fields. Uvicorn's access logger is routed through the
+The text formatter renders ``[rid=… trace=… oid=…]`` when request context is
+set by :class:`app.api.middleware.logging.RequestContextMiddleware`; JSON
+always emits all three fields. Uvicorn's access logger is routed through the
 same pipeline with a filter that drops periodic liveness probes so they
 don't drown the signal.
 """
@@ -33,9 +33,7 @@ _ANSI_TIME = "\033[1;36m"
 # Derived from stdlib so it tracks Python-version changes (e.g. ``taskName``
 # was added in 3.12). Anything the JSON formatter emits explicitly is added
 # back so it cannot leak into the "extras" sweep.
-_STANDARD_LOGRECORD_ATTRS = (
-    frozenset(logging.makeLogRecord({}).__dict__) | {"message", "asctime"}
-)
+_STANDARD_LOGRECORD_ATTRS = frozenset(logging.makeLogRecord({}).__dict__) | {"message", "asctime"}
 
 
 class TextFormatter(logging.Formatter):
@@ -47,8 +45,9 @@ class TextFormatter(logging.Formatter):
         colour = _ANSI_COLORS.get(record.levelname, "")
         ts = self.formatTime(record, self.datefmt)
         rid = getattr(record, "request_id", "-")
+        trace_id = getattr(record, "trace_id", "-")
         oid = getattr(record, "oid", "-")
-        ctx = f" [rid={rid} oid={oid}]" if rid != "-" or oid != "-" else ""
+        ctx = f" [rid={rid} trace={trace_id} oid={oid}]" if rid != "-" or trace_id != "-" or oid != "-" else ""
         line = (
             f"{_ANSI_TIME}{ts}{_ANSI_RESET} "
             f"{colour}{record.levelname}{_ANSI_RESET} "
@@ -75,6 +74,7 @@ class JsonFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
             "request_id": getattr(record, "request_id", "-"),
+            "trace_id": getattr(record, "trace_id", "-"),
             "oid": getattr(record, "oid", "-"),
         }
         if record.exc_info:
@@ -268,17 +268,23 @@ def build_dict_config(
         "handlers": handlers,
         "loggers": {
             "uvicorn": {
-                "handlers": default_handlers, "level": level, "propagate": False,
+                "handlers": default_handlers,
+                "level": level,
+                "propagate": False,
             },
             "uvicorn.error": {
-                "handlers": default_handlers, "level": level, "propagate": False,
+                "handlers": default_handlers,
+                "level": level,
+                "propagate": False,
             },
             "uvicorn.access": {
                 # Tracks ``LOGGING_LEVEL`` like the rest. The
                 # HealthEndpointFilter demotes successful 2xx / 3xx
                 # records to DEBUG so they only escape when the
                 # operator is explicitly debugging.
-                "handlers": access_handlers, "level": level, "propagate": False,
+                "handlers": access_handlers,
+                "level": level,
+                "propagate": False,
             },
         },
         "root": {"handlers": default_handlers, "level": level},

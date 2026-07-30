@@ -64,7 +64,10 @@ def list_matches(
     # ``"<their id>:"``.
     skey = make_skey(user.id, oid) if oid else None
     raw = match_archive.list_matches(
-        oid=skey, user_id=None if oid else user.id, limit=limit, offset=offset,
+        oid=skey,
+        user_id=None if oid else user.id,
+        limit=limit,
+        offset=offset,
     )
     total = match_archive.count_matches(oid=skey, user_id=None if oid else user.id)
     summaries = [s for s in raw if _owns(s.get("oid"), user)]
@@ -102,13 +105,13 @@ def sign_match_url(
 ) -> dict[str, str | int]:
     """Return a short-lived capability URL for the caller's own match report.
 
-    The URL embeds an HMAC signature (key: SESSION_SECRET), so it can be
-    shared without the recipient signing in — and without leaking any
-    credential. Only the report's owner may mint one.
+    The URL embeds an HMAC signature (key: MATCH_REPORT_SIGNING_SECRET),
+    so it can be shared without the recipient signing in. Only the report's
+    owner may mint one.
     """
     _require_owned(match_id, user)
     signed = make_signed_query(match_id, ttl_seconds)
-    if signed is None:  # pragma: no cover - SESSION_SECRET is always set
+    if signed is None:  # pragma: no cover - startup always provisions a key
         raise HTTPException(status_code=503, detail="Report signing is unavailable.")
     base = str(request.base_url).rstrip("/")
     return {

@@ -20,6 +20,13 @@ def load_test_env(monkeypatch):
     monkeypatch.setenv('UNO_OVERLAY_OID', 'test_oid_valid')
     monkeypatch.delenv('PREDEFINED_OVERLAYS', raising=False)
     monkeypatch.delenv('HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED', raising=False)
+    # Host-machine observability/secrets must never leak into tests: a
+    # developer's Sentry DSN would otherwise send synthetic failures, and a
+    # metrics token would make default endpoint assertions order-dependent.
+    monkeypatch.delenv("SENTRY_DSN", raising=False)
+    monkeypatch.delenv("METRICS_TOKEN", raising=False)
+    monkeypatch.setenv("METRICS_ENABLED", "true")
+    monkeypatch.delenv("MATCH_REPORT_SIGNING_SECRET", raising=False)
 
 
 @pytest.fixture(autouse=True)
