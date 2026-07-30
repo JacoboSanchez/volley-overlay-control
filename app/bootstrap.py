@@ -7,10 +7,11 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import api_router
@@ -34,6 +35,7 @@ from app.pwa_manifest import _inject_title_into_html as _inject_title_into_html
 from app.pwa_manifest import _render_index_html as _render_index_html
 from app.pwa_manifest import _render_manifest as _render_manifest
 from app.security_bootstrap import run_security_bootstrap
+from app.service_errors import ServiceError
 from app.static_files import CachedStaticFiles, SPAStaticFiles
 from app.system_routes import register_system_routes
 
@@ -64,6 +66,22 @@ async def _lifespan(application: FastAPI):
 
 def _register_auth(application: FastAPI) -> None:
     logger.info("Cookie-session authentication enabled")
+
+
+async def _service_error_response(
+    _request: Request,
+    exc: Exception,
+) -> JSONResponse:
+    """Translate caller-safe service errors at the application boundary."""
+    assert isinstance(exc, ServiceError)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": str(exc)},
+    )
+
+
+def _register_exception_handlers(application: FastAPI) -> None:
+    application.add_exception_handler(ServiceError, _service_error_response)
 
 
 def _register_api_routes(application: FastAPI) -> None:
@@ -226,6 +244,7 @@ def create_app() -> FastAPI:
         title="Volley Overlay Control",
         lifespan=_lifespan,
     )
+    _register_exception_handlers(application)
     _register_auth(application)
     _register_api_routes(application)
     _register_overlay_routes(application)

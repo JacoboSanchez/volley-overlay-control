@@ -309,8 +309,7 @@ def test_pixel_budget_enforced_before_decode(monkeypatch, db_session):
 
 
 def test_upload_commit_failure_leaves_no_orphan_file(monkeypatch, db_session, tmp_path):
-    """If the route's commit fails after create_icon wrote the file, the
-    file must be unlinked — not orphaned under /media."""
+    """A request-transaction commit failure unlinks the flushed icon file."""
     import io
     import os
 
@@ -318,23 +317,25 @@ def test_upload_commit_failure_leaves_no_orphan_file(monkeypatch, db_session, tm
 
     from app import icons_service
     from app.api.routes.icons import _create_icon_sync
+    from app.db.engine import get_db
 
     monkeypatch.setattr(icons_service, "icons_dir", lambda: str(tmp_path))
     img = Image.new("RGB", (10, 10))
     buf = io.BytesIO()
     img.save(buf, format="PNG")
 
-    real_commit = db_session.commit
+    dependency = get_db()
+    request_db = next(dependency)
     calls = {"n": 0}
 
     def failing_commit():
         calls["n"] += 1
         raise RuntimeError("disk full")
 
-    monkeypatch.setattr(db_session, "commit", failing_commit)
+    monkeypatch.setattr(request_db, "commit", failing_commit)
+    _create_icon_sync(request_db, name="Boom", raw=buf.getvalue(), user_id=None)
     with pytest.raises(RuntimeError, match="disk full"):
-        _create_icon_sync(db_session, name="Boom", raw=buf.getvalue(), user_id=None)
-    monkeypatch.setattr(db_session, "commit", real_commit)
+        next(dependency)
 
     assert calls["n"] == 1
     assert os.listdir(tmp_path) == [], "orphaned icon file left behind"

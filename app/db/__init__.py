@@ -12,6 +12,8 @@ from __future__ import annotations
 from app.db import models  # noqa: F401  (populate Base.metadata)
 from app.db.base import Base
 from app.db.engine import (
+    after_commit,
+    after_rollback,
     configure_engine,
     database_url,
     get_db,
@@ -22,6 +24,8 @@ from app.db.engine import (
 
 __all__ = [
     "Base",
+    "after_commit",
+    "after_rollback",
     "configure_engine",
     "database_url",
     "get_db",

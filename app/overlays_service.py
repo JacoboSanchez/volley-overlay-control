@@ -17,12 +17,19 @@ from sqlalchemy.orm import Session
 from app.db.models.overlay import UserOverlay
 from app.id_validation import validate_overlay_id
 from app.overlay_key import make_skey
+from app.service_errors import NotFoundServiceError, ServiceError
 
 _PUBLIC_TOKEN_BYTES = 18  # → 24-char url-safe token
 
 
-class OverlayError(ValueError):
+class OverlayError(ServiceError):
     """A caller-fixable overlay error (duplicate oid, invalid id, ...)."""
+
+
+class OverlayNotFoundError(OverlayError, NotFoundServiceError):
+    """An overlay does not exist in the caller's scope."""
+
+    status_code = 404
 
 
 def _generate_token(db: Session, column) -> str:
@@ -97,7 +104,7 @@ def update_overlay(
     """Update an overlay's editable settings. Only provided fields change."""
     overlay = get_overlay(db, user_id, oid)
     if overlay is None:
-        raise OverlayError("Overlay not found.")
+        raise OverlayNotFoundError("Overlay not found.")
     if description is not _UNSET:
         overlay.description = (str(description or "").strip()) or None
     if public_control is not _UNSET:
@@ -166,7 +173,7 @@ def regenerate_control_token(db: Session, user_id: int, oid: str) -> UserOverlay
     """Mint a new control token, revoking any previously-shared link."""
     overlay = get_overlay(db, user_id, oid)
     if overlay is None:
-        raise OverlayError("Overlay not found.")
+        raise OverlayNotFoundError("Overlay not found.")
     overlay.control_token = _generate_control_token(db)
     db.flush()
     return overlay

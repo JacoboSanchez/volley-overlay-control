@@ -74,7 +74,7 @@ async def update_customization(
 def list_presets(
     response: Response,
     user: User = Depends(require_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     page: Page = PageDep,
 ) -> PresetListResponse:
     with_total(response, presets_service.count_for_user(db, user.id))
@@ -92,21 +92,15 @@ def list_presets(
 def create_preset(
     payload: PresetCreateRequest,
     user: User = Depends(require_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> PresetSummary:
     """Create a per-user preset (usable across all the caller's scoreboards)."""
-    try:
-        preset = presets_service.create_user_preset(
-            db,
-            user.id,
-            payload.name,
-            payload.values,
-        )
-    except presets_service.PresetError as exc:
-        detail = str(exc)
-        status_code = 409 if "already exists" in detail else 400
-        raise HTTPException(status_code=status_code, detail=detail) from None
-    db.commit()
+    preset = presets_service.create_user_preset(
+        db,
+        user.id,
+        payload.name,
+        payload.values,
+    )
     return PresetSummary.of(preset)
 
 
@@ -118,14 +112,13 @@ def create_preset(
 def delete_preset(
     slug: str = Path(..., min_length=1, max_length=120),
     user: User = Depends(require_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> None:
     # Try the caller's own preset first: a user preset and a global preset may
     # legitimately share a slug, so the 403 global guard must not shadow the
     # user's own deletable row. delete_user_preset is scope-restricted to the
     # owner's user-scoped rows, so it can never touch a global.
     if presets_service.delete_user_preset(db, user.id, slug):
-        db.commit()
         return
     if presets_service.get_global_preset(db, slug) is not None:
         raise HTTPException(
@@ -147,7 +140,7 @@ def delete_preset(
 def admin_list_presets(
     response: Response,
     _admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     page: Page = PageDep,
 ) -> PresetListResponse:
     with_total(response, presets_service.count_global_presets(db))
@@ -166,20 +159,14 @@ def admin_list_presets(
 def admin_create_preset(
     payload: AdminPresetCreateRequest,
     _admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> PresetSummary:
-    try:
-        preset = presets_service.create_global_preset(
-            db,
-            payload.name,
-            payload.values,
-            is_active=payload.is_active,
-        )
-    except presets_service.PresetError as exc:
-        detail = str(exc)
-        status_code = 409 if "already exists" in detail else 400
-        raise HTTPException(status_code=status_code, detail=detail) from None
-    db.commit()
+    preset = presets_service.create_global_preset(
+        db,
+        payload.name,
+        payload.values,
+        is_active=payload.is_active,
+    )
     return PresetSummary.of(preset)
 
 
@@ -188,13 +175,9 @@ def admin_set_preset_active(
     body: PresetSetActiveRequest,
     slug: str = Path(..., min_length=1, max_length=120),
     _admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
-    try:
-        preset = presets_service.set_global_active(db, slug, body.is_active)
-    except presets_service.PresetError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from None
-    db.commit()
+    preset = presets_service.set_global_active(db, slug, body.is_active)
     return {"slug": preset.slug, "is_active": preset.is_active}
 
 
@@ -206,17 +189,16 @@ def admin_set_preset_active(
 def admin_delete_preset(
     slug: str = Path(..., min_length=1, max_length=120),
     _admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> None:
     if not presets_service.delete_global_preset(db, slug):
         raise HTTPException(status_code=404, detail=f"Global preset '{slug}' not found.")
-    db.commit()
 
 
 @router.get("/admin/presets/export", summary="Export global presets as APP_THEMES JSON.")
 def admin_export_presets(
     _admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     return presets_service.export_app_themes(db)
 
@@ -225,11 +207,7 @@ def admin_export_presets(
 def admin_import_presets(
     body: ImportThemesRequest,
     _admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
-    try:
-        count = presets_service.import_app_themes(db, body.themes, replace=body.replace)
-    except presets_service.PresetError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from None
-    db.commit()
+    count = presets_service.import_app_themes(db, body.themes, replace=body.replace)
     return {"imported": count}

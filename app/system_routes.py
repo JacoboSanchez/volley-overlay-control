@@ -52,7 +52,7 @@ def register_system_routes(
     @application.get("/manifest.webmanifest")
     def serve_webmanifest(
         request: Request,
-        db: Session = Depends(get_db),
+        db: Session = Depends(get_db, scope="function"),
     ):
         source = _vite_manifest_path()
         if source is None:

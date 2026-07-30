@@ -3,8 +3,8 @@
 Keeps username normalization/validation, password hashing, and the
 admin-management flows (create, reset-to-temp, role/active changes, delete)
 in one auditable surface. Raises :class:`UserError` for caller-fixable
-problems (duplicate username, invalid input); routes translate those into
-HTTP responses.
+problems (duplicate username, invalid input); the application boundary
+translates those into HTTP responses.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.auth.passwords import generate_temp_password, hash_password, verify_password
 from app.db.models.user import ROLE_ADMIN, ROLE_USER, User
 from app.id_validation import OVERLAY_ID_PATTERN
+from app.service_errors import ServiceError
 
 MIN_PASSWORD_LENGTH = 8
 
@@ -28,7 +29,7 @@ MIN_PASSWORD_LENGTH = 8
 _DUMMY_PASSWORD_HASH = "scrypt$n=16384,r=8,p=1$" + "0" * 32 + "$" + "0" * 64
 
 
-class UserError(ValueError):
+class UserError(ServiceError):
     """A caller-fixable account error (duplicate, invalid input, ...)."""
 
 

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
 
@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 _engine: Engine | None = None
 _SessionLocal: sessionmaker[Session] | None = None
+_AFTER_COMMIT = "volley_after_commit"
+_AFTER_ROLLBACK = "volley_after_rollback"
 
 
 def database_url() -> str:
@@ -133,14 +135,43 @@ def session_scope() -> Iterator[Session]:
         session.close()
 
 
-def get_db() -> Iterator[Session]:
-    """FastAPI dependency yielding a request-scoped session.
+def after_commit(session: Session, callback: Callable[[], None]) -> None:
+    """Run *callback* after the request transaction commits successfully."""
+    session.info.setdefault(_AFTER_COMMIT, []).append(callback)
 
-    Commit/rollback is the handler's responsibility for writes; the
-    session is always closed when the request ends.
+
+def after_rollback(session: Session, callback: Callable[[], None]) -> None:
+    """Run *callback* when the request transaction is rolled back."""
+    session.info.setdefault(_AFTER_ROLLBACK, []).append(callback)
+
+
+def _callbacks(session: Session, key: str) -> list[Callable[[], None]]:
+    return session.info.pop(key, [])
+
+
+def get_db() -> Iterator[Session]:
+    """Transactional FastAPI dependency.
+
+    Every request commits once on success, rolls back on failure, and closes
+    the session.  Routes that coordinate DB rows with files or in-process
+    state can register post-commit or rollback cleanup callbacks above.
     """
     session = get_sessionmaker()()
     try:
         yield session
+        session.commit()
+    except BaseException:
+        session.rollback()
+        _callbacks(session, _AFTER_COMMIT)
+        for callback in _callbacks(session, _AFTER_ROLLBACK):
+            try:
+                callback()
+            except Exception:
+                logger.exception("Request rollback cleanup failed")
+        raise
+    else:
+        _callbacks(session, _AFTER_ROLLBACK)
+        for callback in _callbacks(session, _AFTER_COMMIT):
+            callback()
     finally:
         session.close()

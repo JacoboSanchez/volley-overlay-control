@@ -21,6 +21,11 @@ from sqlalchemy.orm import Session
 
 from app.api.schemas import is_acceptable_catalog_icon
 from app.db.models.team import Team, TeamGroup, TeamGroupMember, UserGroupTeam
+from app.service_errors import (
+    NotFoundServiceError,
+    ServiceError,
+    UnprocessableServiceError,
+)
 
 # APP_TEAMS sub-keys (mirror app.customization.TEAM_VALUES_*).
 ICON = "icon"
@@ -34,8 +39,20 @@ MY_TEAMS_NAME = "My teams"
 ALL_GROUP_NAME = "All teams"
 
 
-class TeamError(ValueError):
+class TeamError(ServiceError):
     """A caller-fixable team error (duplicate, missing, invalid)."""
+
+
+class TeamNotFoundError(TeamError, NotFoundServiceError):
+    """A team or group is not visible in the caller's scope."""
+
+    status_code = 404
+
+
+class TeamKeyError(TeamError, UnprocessableServiceError):
+    """A board group key cannot be parsed."""
+
+    status_code = 422
 
 
 def team_to_entry(team: Team) -> dict[str, Any]:
@@ -119,7 +136,7 @@ def update_global(
     """Edit a global team's fields by id. Only provided fields change."""
     team = db.get(Team, team_id)
     if team is None or not team.is_global:
-        raise TeamError("Team not found.")
+        raise TeamNotFoundError("Team not found.")
     if name is not None:
         name = name.strip()
         if not name:
@@ -208,7 +225,7 @@ def get_shared_group(db: Session, group_id: int) -> TeamGroup | None:
 def set_group_active(db: Session, group_id: int, active: bool) -> TeamGroup:
     group = get_shared_group(db, group_id)
     if group is None:
-        raise TeamError("Group not found.")
+        raise TeamNotFoundError("Group not found.")
     group.is_active = active
     db.flush()
     return group
@@ -366,7 +383,7 @@ def update_user_team(
     """Edit one of the caller's custom teams. Only provided fields change."""
     team = db.get(Team, team_id)
     if team is None or team.is_global or team.owner_user_id != user_id:
-        raise TeamError("Team not found.")
+        raise TeamNotFoundError("Team not found.")
     if name is not None:
         name = name.strip()
         if not name:
@@ -623,7 +640,7 @@ def group_effective_teams(db: Session, user_id: int, group_id: int | None) -> li
         return all_group_teams(db, user_id)
     group = get_visible_group(db, user_id, group_id)
     if group is None:
-        raise TeamError("Group not found.")
+        raise TeamNotFoundError("Group not found.")
     return group_effective_teams_bulk(db, user_id, [group])[group_id]
 
 
@@ -655,7 +672,7 @@ def create_private_group(db: Session, user_id: int, name: str) -> TeamGroup:
 def rename_private_group(db: Session, user_id: int, group_id: int, name: str) -> TeamGroup:
     group = db.get(TeamGroup, group_id)
     if group is None or group.owner_user_id != user_id:
-        raise TeamError("Group not found.")
+        raise TeamNotFoundError("Group not found.")
     name = (name or "").strip()
     if not name:
         raise TeamError("Group name is required.")
@@ -695,10 +712,10 @@ def add_user_group_team(db: Session, user_id: int, group_id: int, team_id: int) 
     row was added. Raises ``TeamError`` on validation failure.
     """
     if get_visible_group(db, user_id, group_id) is None:
-        raise TeamError("Group not found.")
+        raise TeamNotFoundError("Group not found.")
     team = db.get(Team, team_id)
     if team is None or not (team.is_global or team.owner_user_id == user_id):
-        raise TeamError("Team not found.")
+        raise TeamNotFoundError("Team not found.")
     exists = db.execute(
         select(UserGroupTeam).where(
             UserGroupTeam.user_id == user_id,
@@ -729,7 +746,7 @@ def add_user_group_teams(
     """Add several teams to a group in one batch (idempotent). Returns the
     count added. Group and teams are each validated with a single query."""
     if get_visible_group(db, user_id, group_id) is None:
-        raise TeamError("Group not found.")
+        raise TeamNotFoundError("Group not found.")
     ids = list(dict.fromkeys(team_ids))
     if not ids:
         return 0
@@ -744,7 +761,7 @@ def add_user_group_teams(
         .all()
     )
     if any(tid not in visible for tid in ids):
-        raise TeamError("Team not found.")
+        raise TeamNotFoundError("Team not found.")
     member = set(
         db.execute(
             select(UserGroupTeam.team_id).where(

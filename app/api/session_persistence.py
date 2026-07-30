@@ -17,28 +17,17 @@ import json
 import logging
 import os
 
-from app.api._persistence_paths import atomic_write_json, hashed_filename
-from app.api._persistence_paths import data_dir as _shared_data_dir
-from app.id_validation import API_OID_PATTERN
+from app.api._persistence_paths import (
+    atomic_write_json,
+    overlay_hashed_path,
+)
+from app.api._persistence_paths import data_dir as _data_dir
 
 logger = logging.getLogger(__name__)
 
-_OID_PATTERN = API_OID_PATTERN
-
-
-def _data_dir() -> str:
-    # Wrapper kept so tests can monkeypatch this attribute.
-    return _shared_data_dir()
-
 
 def _state_path(oid: str) -> str | None:
-    from app.overlay_key import is_valid_skey
-
-    if not isinstance(oid, str) or (
-        _OID_PATTERN.match(oid) is None and not is_valid_skey(oid)
-    ):
-        return None
-    return os.path.join(_data_dir(), hashed_filename("session_meta_", oid))
+    return overlay_hashed_path(_data_dir(), "session_meta_", oid)
 
 
 def save_session_meta(oid: str, meta: dict) -> None:

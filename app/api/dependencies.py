@@ -20,6 +20,7 @@ action pays a second identical token lookup.
 """
 
 import logging
+from dataclasses import dataclass
 
 from fastapi import Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -60,6 +61,7 @@ def resolve_board_skey(
     public_user: str | None,
     user: User | None,
     oid: str | None,
+    ensure_owner_overlay: bool = False,
 ) -> str:
     """Resolve the storage key for the board from whichever credential is present.
 
@@ -84,16 +86,60 @@ def resolve_board_skey(
             status_code=422,
             detail="Missing required query parameter: 'oid' (or alias 'control').",
         )
+    if ensure_owner_overlay:
+        overlay = overlays_service.get_overlay(db, user.id, oid)  # type: ignore[union-attr]
+        if overlay is None:
+            overlay = overlays_service.create_overlay(db, user.id, oid)  # type: ignore[union-attr]
+        return overlays_service.skey_for(overlay)
     return make_skey(user.id, oid)  # type: ignore[union-attr]  # _require_onboarded ensures non-None
 
 
-def get_session(
-    oid: str | None = Query(None, description="Overlay ID"),
-    control: str | None = Query(None, description="Alias of `oid` for backward compatibility"),
+@dataclass(frozen=True)
+class BoardAccess:
+    """Request-scoped board credentials plus their database session."""
+
+    token: str | None
+    public_user: str | None
+    user: User | None
+    db: Session
+
+    def resolve_skey(
+        self,
+        oid: str | None,
+        *,
+        ensure_owner_overlay: bool = False,
+    ) -> str:
+        return resolve_board_skey(
+            self.db,
+            token=self.token,
+            public_user=self.public_user,
+            user=self.user,
+            oid=oid,
+            ensure_owner_overlay=ensure_owner_overlay,
+        )
+
+
+def board_access(
     token: str | None = Depends(control_token),
     u: str | None = Query(None, description="Username for a public ?u=&oid= board URL"),
     user: User | None = Depends(current_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
+) -> BoardAccess:
+    """Collect the shared credential dependency signature in one place."""
+    return BoardAccess(token=token, public_user=u, user=user, db=db)
+
+
+def board_skey(
+    oid: str | None = Query(None, description="Overlay ID"),
+    control: str | None = Query(None, description="Alias of `oid` for backward compatibility"),
+    access: BoardAccess = Depends(board_access),
+) -> str:
+    """Resolve a board's owner-scoped storage key from request credentials."""
+    return access.resolve_skey(oid or control)
+
+
+def get_session(
+    skey: str = Depends(board_skey),
 ) -> GameSession:
     """Retrieve the board's previously-initialised ``GameSession``.
 
@@ -103,9 +149,6 @@ def get_session(
     when no session exists (call ``POST /api/v1/session/init`` first).
     Sync ``def`` on purpose — the DB lookup runs in the threadpool.
     """
-    skey = resolve_board_skey(
-        db, token=token, public_user=u, user=user, oid=(oid or control),
-    )
     session = SessionManager.get(skey)
     if session is None:
         raise HTTPException(

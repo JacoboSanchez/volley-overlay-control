@@ -92,17 +92,16 @@ def test_overlay_store_rejects_empty_and_whitespace(overlay_id: str) -> None:
 def test_oid_accepting_modules_share_the_canonical_pattern() -> None:
     """Every OID-accepting module must match against the same compiled regex.
 
-    ``schemas`` gates request bodies, while ``action_log`` and
-    ``session_persistence`` gate the filenames they derive from an OID. If any
-    of them grew a private copy of the pattern, it would silently accept or
-    reject OIDs the rest of the stack disagrees with — which is exactly what
-    the old ``app.api.oid_validation`` shim allowed to drift.
+    ``schemas`` gates request bodies, while ``_persistence_paths`` gates the
+    filenames used by both ``action_log`` and ``session_persistence``. If
+    either boundary grew a private copy of the pattern, it would silently
+    accept or reject OIDs the rest of the stack disagrees with — which is
+    exactly what the old ``app.api.oid_validation`` shim allowed to drift.
     """
-    from app.api import action_log, schemas, session_persistence
+    from app.api import _persistence_paths, schemas
 
     assert schemas.API_OID_PATTERN is API_OID_PATTERN
-    assert action_log._OID_PATTERN is API_OID_PATTERN
-    assert session_persistence._OID_PATTERN is API_OID_PATTERN
+    assert _persistence_paths.API_OID_PATTERN is API_OID_PATTERN
 
 
 def test_api_oid_overlay_base_rejects_legacy_prefix_only() -> None:

@@ -4182,7 +4182,7 @@ export interface operations {
             query?: {
                 /** @description Overlay ID */
                 oid?: string | null;
-                /** @description Alias of `oid` */
+                /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
                 /** @description Username for a public ?u=&oid= board URL */
                 u?: string | null;
@@ -4225,7 +4225,7 @@ export interface operations {
             query?: {
                 /** @description Overlay ID */
                 oid?: string | null;
-                /** @description Alias of `oid` */
+                /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
                 /** @description Username for a public ?u=&oid= board URL */
                 u?: string | null;

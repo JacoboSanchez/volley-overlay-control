@@ -20,6 +20,9 @@ import os
 import tempfile
 from typing import Any
 
+from app.id_validation import API_OID_PATTERN
+from app.overlay_key import is_valid_skey
+
 # Hash-prefix length used across all per-OID/slug filenames. Kept here
 # so callers cannot pick a different value by accident.
 DEFAULT_HASH_LEN = 20
@@ -45,6 +48,20 @@ def hashed_filename(
     """Return ``{prefix}{sha256(value)[:hash_len]}{suffix}``."""
     digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:hash_len]
     return f"{prefix}{digest}{suffix}"
+
+
+def overlay_hashed_path(
+    directory: str,
+    prefix: str,
+    value: str,
+    suffix: str = ".json",
+) -> str | None:
+    """Return a hashed path for a valid bare overlay id or storage key."""
+    if not isinstance(value, str) or (
+        API_OID_PATTERN.match(value) is None and not is_valid_skey(value)
+    ):
+        return None
+    return os.path.join(directory, hashed_filename(prefix, value, suffix))
 
 
 def atomic_write_json(path: str, payload: Any, *, ensure_ascii: bool = True) -> None:

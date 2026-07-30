@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from app.api.preset_categories import categories_for_keys, filter_to_known
 from app.constants import PRESETS_MAX_NAME_LEN
 from app.db.models.preset import SCOPE_GLOBAL, SCOPE_USER, Preset
+from app.service_errors import ConflictServiceError, NotFoundServiceError, ServiceError
 
 # A slug is lowercase ASCII alphanumerics plus dashes, beginning and
 # ending with an alphanumeric.
@@ -29,8 +30,20 @@ _SLUG_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
 SYSTEM_SLUG_PREFIX = "system-"
 
 
-class PresetError(ValueError):
+class PresetError(ServiceError):
     """A caller-fixable preset error (duplicate, empty, missing)."""
+
+
+class PresetConflictError(PresetError, ConflictServiceError):
+    """A preset slug already exists in the requested scope."""
+
+    status_code = 409
+
+
+class PresetNotFoundError(PresetError, NotFoundServiceError):
+    """A preset does not exist in the requested scope."""
+
+    status_code = 404
 
 
 def slugify(name: str) -> str:
@@ -92,14 +105,13 @@ def _exists(db: Session, owner_user_id: int | None, slug: str) -> Preset | None:
 def create_user_preset(db: Session, user_id: int, name: str, values: dict) -> Preset:
     preset = _make(name, values, scope=SCOPE_USER, owner_user_id=user_id, is_active=True)
     if _exists(db, user_id, preset.slug) is not None:
-        raise PresetError(f"Preset '{name}' already exists.")
+        raise PresetConflictError(f"Preset '{name}' already exists.")
     db.add(preset)
     try:
         db.flush()
     except IntegrityError as exc:
-        # Keep "already exists" in the message: the route maps it to 409.
         db.rollback()
-        raise PresetError(f"Preset '{name}' already exists.") from exc
+        raise PresetConflictError(f"Preset '{name}' already exists.") from exc
     return preset
 
 
@@ -159,13 +171,13 @@ def delete_user_preset(db: Session, user_id: int, slug: str) -> bool:
 def create_global_preset(db: Session, name: str, values: dict, *, is_active: bool = True) -> Preset:
     preset = _make(name, values, scope=SCOPE_GLOBAL, owner_user_id=None, is_active=is_active)
     if _exists(db, None, preset.slug) is not None:
-        raise PresetError(f"Global preset '{name}' already exists.")
+        raise PresetConflictError(f"Global preset '{name}' already exists.")
     db.add(preset)
     try:
         db.flush()
     except IntegrityError as exc:
         db.rollback()
-        raise PresetError(f"Global preset '{name}' already exists.") from exc
+        raise PresetConflictError(f"Global preset '{name}' already exists.") from exc
     return preset
 
 
@@ -177,7 +189,7 @@ def get_global_preset(db: Session, slug: str) -> Preset | None:
 def set_global_active(db: Session, slug: str, active: bool) -> Preset:
     preset = get_global_preset(db, slug)
     if preset is None:
-        raise PresetError("Global preset not found.")
+        raise PresetNotFoundError("Global preset not found.")
     preset.is_active = active
     db.flush()
     return preset

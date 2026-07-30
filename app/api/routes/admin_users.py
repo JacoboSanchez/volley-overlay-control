@@ -4,6 +4,8 @@ and toggle open registration. All endpoints require an admin session.
 
 from __future__ import annotations
 
+from functools import partial
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -19,8 +21,7 @@ from app.auth.schemas import (
     TempPasswordResponse,
     UserOut,
 )
-from app.auth.service import UserError
-from app.db.engine import get_db
+from app.db.engine import after_commit, get_db
 from app.db.models.user import User
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Admin"])
@@ -30,13 +31,25 @@ class RegistrationSetting(BaseModel):
     registration_open: bool
 
 
+def _cleanup_user_runtime(skeys: list[str], icon_files: list[str]) -> None:
+    """Remove a deleted user's non-database state after commit."""
+    from app import icons_service
+    from app.api.session_manager import SessionManager
+    from app.overlay import overlay_state_store
+
+    for skey in skeys:
+        SessionManager.remove(skey)
+        overlay_state_store.delete_overlay(skey)
+    icons_service.unlink_files(icon_files)
+
+
 @router.get(
     "/users", response_model=list[UserOut], responses=PAGINATED_RESPONSES,
 )
 def list_users(
     response: Response,
     _admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     page: Page = PageDep,
 ):
     with_total(response, service.count_users(db))
@@ -48,7 +61,7 @@ def list_users(
 def create_user(
     body: AdminCreateUserRequest,
     _admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     """Create a user. With no password, a temp one is minted and returned;
     the user must change it on first login."""
@@ -57,18 +70,14 @@ def create_user(
     # with an unknown random password and no forced-change flag.
     temp = body.password or service.generate_temp_password()
     must_change = not body.password
-    try:
-        user = service.create_user(
-            db, username=body.username, password=temp,
-            display_name=body.display_name, email=body.email,
-            role=body.role, must_change_password=must_change,
-        )
-    except UserError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from None
+    user = service.create_user(
+        db, username=body.username, password=temp,
+        display_name=body.display_name, email=body.email,
+        role=body.role, must_change_password=must_change,
+    )
     # Seed the new account with a private "My teams" group holding the full
     # global catalog (one-time; mirrors the 0007 migration for existing users).
     teams_service.seed_user_default_group(db, user.id)
-    db.commit()
     return TempPasswordResponse(
         user=UserOut.from_user(user),
         temp_password=temp if must_change else "",
@@ -80,23 +89,19 @@ def update_user(
     user_id: int,
     body: AdminUpdateUserRequest,
     _admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     user = service.get_by_id(db, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found.")
-    try:
-        if body.display_name is not None or body.email is not None:
-            service.update_profile(
-                db, user, display_name=body.display_name, email=body.email,
-            )
-        if body.role is not None:
-            service.set_role(db, user, body.role)
-        if body.is_active is not None:
-            service.set_active(db, user, body.is_active)
-    except UserError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from None
-    db.commit()
+    if body.display_name is not None or body.email is not None:
+        service.update_profile(
+            db, user, display_name=body.display_name, email=body.email,
+        )
+    if body.role is not None:
+        service.set_role(db, user, body.role)
+    if body.is_active is not None:
+        service.set_active(db, user, body.is_active)
     return UserOut.from_user(user)
 
 
@@ -104,7 +109,7 @@ def update_user(
 def reset_password(
     user_id: int,
     _admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     """Reset a user to a temporary password (forced change on next login)
     and log out all their existing sessions."""
@@ -115,7 +120,6 @@ def reset_password(
         raise HTTPException(status_code=404, detail="User not found.")
     temp = service.reset_to_temp_password(db, user)
     sessions.revoke_all_for_user(db, user.id)
-    db.commit()
     return TempPasswordResponse(user=UserOut.from_user(user), temp_password=temp)
 
 
@@ -123,7 +127,7 @@ def reset_password(
 def delete_user(
     user_id: int,
     admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     user = service.get_by_id(db, user_id)
     if user is None:
@@ -136,28 +140,22 @@ def delete_user(
     # do not) first, then evict runtime state / unlink files after the delete
     # commits — mirroring ``delete_my_overlay``.
     from app import icons_service, overlays_service
-    from app.api.session_manager import SessionManager
     from app.auth import sessions
-    from app.overlay import overlay_state_store
     from app.overlay_key import make_skey
 
     skeys = [make_skey(user.id, o.oid) for o in overlays_service.list_overlays(db, user.id)]
     icon_files = icons_service.filenames_for_user(db, user.id)
     sessions.revoke_all_for_user(db, user.id)
     service.delete_user(db, user)
-    db.commit()
     # Match reports key on the user FK, so the cascade above already deleted
     # them — unlike ``delete_my_overlay``, where the owning user survives and
     # the per-overlay archive delete IS required.
-    for skey in skeys:
-        SessionManager.remove(skey)
-        overlay_state_store.delete_overlay(skey)
-    icons_service.unlink_files(icon_files)
+    after_commit(db, partial(_cleanup_user_runtime, skeys, icon_files))
     return {"ok": True}
 
 
 @router.get("/registration", response_model=RegistrationSetting)
-def get_registration(_admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+def get_registration(_admin: User = Depends(require_admin), db: Session = Depends(get_db, scope="function")):
     return RegistrationSetting(registration_open=settings_service.registration_open(db))
 
 
@@ -165,10 +163,9 @@ def get_registration(_admin: User = Depends(require_admin), db: Session = Depend
 def set_registration(
     body: RegistrationSetting,
     _admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     settings_service.set_registration_open(db, body.registration_open)
-    db.commit()
     return RegistrationSetting(registration_open=body.registration_open)
 
 

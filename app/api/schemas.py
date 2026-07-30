@@ -516,7 +516,7 @@ def _validate_catalog_icon(value: str | None) -> str | None:
     return value
 
 
-class CustomTeamRequest(BaseModel):
+class TeamCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     icon: str | None = Field(default=None, max_length=2048)
     color: str | None = Field(default=None, max_length=32)
@@ -525,13 +525,21 @@ class CustomTeamRequest(BaseModel):
     _icon_ok = field_validator("icon")(_validate_catalog_icon)
 
 
-class CustomTeamUpdateRequest(BaseModel):
+class TeamUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     icon: str | None = Field(default=None, max_length=2048)
     color: str | None = Field(default=None, max_length=32)
     text_color: str | None = Field(default=None, max_length=32)
 
     _icon_ok = field_validator("icon")(_validate_catalog_icon)
+
+
+class CustomTeamRequest(TeamCreateRequest):
+    pass
+
+
+class CustomTeamUpdateRequest(TeamUpdateRequest):
+    pass
 
 
 class TeamGroupOut(BaseModel):
@@ -541,22 +549,12 @@ class TeamGroupOut(BaseModel):
     teams: list[TeamOut]
 
 
-class AdminTeamRequest(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-    icon: str | None = Field(default=None, max_length=2048)
-    color: str | None = Field(default=None, max_length=32)
-    text_color: str | None = Field(default=None, max_length=32)
-
-    _icon_ok = field_validator("icon")(_validate_catalog_icon)
+class AdminTeamRequest(TeamCreateRequest):
+    pass
 
 
-class AdminTeamUpdateRequest(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=120)
-    icon: str | None = Field(default=None, max_length=2048)
-    color: str | None = Field(default=None, max_length=32)
-    text_color: str | None = Field(default=None, max_length=32)
-
-    _icon_ok = field_validator("icon")(_validate_catalog_icon)
+class AdminTeamUpdateRequest(TeamUpdateRequest):
+    pass
 
 
 class ImportTeamsRequest(BaseModel):

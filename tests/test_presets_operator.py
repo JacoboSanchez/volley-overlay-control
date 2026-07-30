@@ -326,7 +326,7 @@ class TestPresetCRUDEndpoints:
 
 def test_create_preset_race_maps_integrity_error(db_session):
     """A duplicate slug that slips past the _exists pre-check must surface
-    as PresetError with 'already exists' (the route maps that to 409)."""
+    as PresetError with 'already exists' (the global handler maps that to 409)."""
     import pytest as _pytest
 
     from app import presets_service

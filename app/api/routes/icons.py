@@ -18,6 +18,8 @@ static mount — overlay pages in OBS carry no cookies.
 
 from __future__ import annotations
 
+from functools import partial
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -40,7 +42,7 @@ from app.constants import (
     ICONS_MAX_PER_USER,
     ICONS_MAX_UPLOAD_BYTES,
 )
-from app.db.engine import get_db
+from app.db.engine import after_commit, after_rollback, get_db
 from app.db.models.icon import Icon
 from app.db.models.team import Team
 from app.db.models.user import User
@@ -143,19 +145,12 @@ async def _read_upload_capped(file: UploadFile) -> bytes:
 def _create_icon_sync(
     db: Session, *, name: str, raw: bytes, user_id: int | None
 ) -> IconOut:
-    """Blocking tail of an upload (Pillow processing + commit) — must run
+    """Blocking tail of an upload (Pillow processing + flush) — must run
     in the threadpool, never on the event loop."""
-    try:
-        icon = icons_service.create_icon(db, name=name, raw=raw, user_id=user_id)
-    except icons_service.IconError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    try:
-        db.commit()
-    except BaseException:
-        # The row is gone with the failed commit; remove the already-written
-        # file too or it stays orphaned under /media forever.
-        icons_service.unlink_files([icon.filename])
-        raise
+    icon = icons_service.create_icon(db, name=name, raw=raw, user_id=user_id)
+    # The row is rolled back if the request later fails; remove the file too
+    # so the two persistence stores stay in sync.
+    after_rollback(db, partial(icons_service.unlink_files, [icon.filename]))
     return IconOut.of(icon)
 
 
@@ -179,21 +174,16 @@ def _rename_endpoint(
     db: Session, icon_id: int, name: str, *, user_id: int | None
 ) -> IconOut:
     icon = _get_scoped_or_404(db, icon_id, user_id=user_id)
-    try:
-        icons_service.rename_icon(db, icon, name)
-    except icons_service.IconError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    db.commit()
+    icons_service.rename_icon(db, icon, name)
     return IconOut.of(icon)
 
 
 def _delete_endpoint(db: Session, icon_id: int, *, user_id: int | None) -> IconDeleteOut:
     icon = _get_scoped_or_404(db, icon_id, user_id=user_id)
     cleared, filename = icons_service.delete_icon(db, icon)
-    db.commit()
-    # Capture → commit → cleanup, like delete_user: the file goes only
-    # once the row deletion is durable.
-    icons_service.unlink_files([filename])
+    # Capture → commit → cleanup, like delete_user: the file goes only once
+    # the row deletion is durable.
+    after_commit(db, partial(icons_service.unlink_files, [filename]))
     return IconDeleteOut(ok=True, teams_cleared=cleared)
 
 
@@ -248,7 +238,7 @@ def _import_endpoint(
 def list_icons(
     response: Response,
     user: User = Depends(require_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     page: Page = PageDep,
 ):
     """Globals + the caller's own + quota.
@@ -281,7 +271,7 @@ async def upload_my_icon(
     name: str = Form(min_length=1, max_length=120),
     file: UploadFile = File(...),
     user: User = Depends(require_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     return await _create_icon_endpoint(db, name=name, file=file, user_id=user.id)
 
@@ -291,7 +281,7 @@ def rename_my_icon(
     icon_id: int,
     body: IconRenameRequest,
     user: User = Depends(require_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     return _rename_endpoint(db, icon_id, body.name, user_id=user.id)
 
@@ -300,7 +290,7 @@ def rename_my_icon(
 def my_icon_usage(
     icon_id: int,
     user: User = Depends(require_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     icon = _get_scoped_or_404(db, icon_id, user_id=user.id)
     return IconUsageOut(teams=icons_service.usage_count(db, icon))
@@ -310,7 +300,7 @@ def my_icon_usage(
 def delete_my_icon(
     icon_id: int,
     user: User = Depends(require_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     return _delete_endpoint(db, icon_id, user_id=user.id)
 
@@ -319,7 +309,7 @@ def delete_my_icon(
 def import_icons_from_my_teams(
     body: IconImportRequest,
     user: User = Depends(require_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     return _import_endpoint(db, body.team_ids, scope_user_id=user.id)
 
@@ -337,7 +327,7 @@ async def admin_upload_icon(
     name: str = Form(min_length=1, max_length=120),
     file: UploadFile = File(...),
     _admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     return await _create_icon_endpoint(db, name=name, file=file, user_id=None)
 
@@ -347,7 +337,7 @@ def admin_rename_icon(
     icon_id: int,
     body: IconRenameRequest,
     _admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     return _rename_endpoint(db, icon_id, body.name, user_id=None)
 
@@ -356,7 +346,7 @@ def admin_rename_icon(
 def admin_icon_usage(
     icon_id: int,
     _admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     icon = _get_scoped_or_404(db, icon_id, user_id=None)
     return IconUsageOut(teams=icons_service.usage_count(db, icon))
@@ -366,7 +356,7 @@ def admin_icon_usage(
 def admin_delete_icon(
     icon_id: int,
     _admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     return _delete_endpoint(db, icon_id, user_id=None)
 
@@ -375,6 +365,6 @@ def admin_delete_icon(
 def admin_import_icons_from_teams(
     body: IconImportRequest,
     _admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     return _import_endpoint(db, body.team_ids, scope_user_id=None)
