@@ -281,12 +281,74 @@ jobs:
         npm audit --omit=dev --audit-level=high
 
   docker-build:
-    name: Docker image build
+    name: Docker image build, scan, and smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
     - uses: actions/checkout@v7
 
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
     - name: Build production image
-      run: docker build -t volley-overlay-control:ci .
+      uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+      with:
+        context: .
+        file: ./Dockerfile
+        load: true
+        tags: volley-overlay-control:ci
+        cache-from: type=gha,scope=docker-ci
+        cache-to: type=gha,mode=max,scope=docker-ci
+
+    - name: Smoke test production image
+      run: |
+        container_id="$(
+          docker run --detach \
+            --name volley-overlay-control-ci \
+            --publish 127.0.0.1:8080:8080 \
+            volley-overlay-control:ci
+        )"
+
+        cleanup() {
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "::group::Container logs"
+            docker logs "$container_id" || true
+            echo "::endgroup::"
+          fi
+          docker rm --force "$container_id" >/dev/null 2>&1 || true
+          trap - EXIT
+          exit "$status"
+        }
+        trap cleanup EXIT
+
+        for attempt in $(seq 1 30); do
+          if curl --fail --silent --output /dev/null \
+              http://127.0.0.1:8080/health; then
+            echo "Container passed its /health smoke test."
+            exit 0
+          fi
+
+          if [ "$(docker inspect --format '{{.State.Running}}' "$container_id")" != "true" ]; then
+            echo "::error::Container exited before /health became ready."
+            exit 1
+          fi
+
+          echo "Waiting for /health (attempt $attempt/30)..."
+          sleep 2
+        done
+
+        echo "::error::Timed out waiting for /health."
+        exit 1
+
+    - name: Scan production image for vulnerabilities
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      with:
+        image-ref: volley-overlay-control:ci
+        scanners: vuln
+        format: table
+        ignore-unfixed: true
+        vuln-type: os,library
+        severity: HIGH,CRITICAL
+        exit-code: 1

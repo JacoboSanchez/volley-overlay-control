@@ -526,6 +526,15 @@ archive by hand.
   hardcodes uid/gid 1000. They invited operators to set a value that
   silently did nothing.
 
+### Dependencies
+
+- **Frontend:** `vite` `8.1.0` → `8.1.5` (patch-level bug fixes; pulls
+  `rolldown` `1.1.3` → `1.1.5`).
+  [#469](https://github.com/JacoboSanchez/volley-overlay-control/pull/469)
+- **CI (GitHub Actions):** `docker/login-action` `4.4.0` → `4.6.0`
+  (still pinned by commit SHA).
+  [#464](https://github.com/JacoboSanchez/volley-overlay-control/pull/464)
+
 ## [6.2.2] - 2026-07-20
 
 ### Changed
