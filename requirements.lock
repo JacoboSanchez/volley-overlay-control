@@ -16,7 +16,7 @@ charset-normalizer==3.4.7
     # via requests
 click==8.3.3
     # via uvicorn
-fastapi==0.140.0
+fastapi==0.141.1
     # via -r requirements.txt
 greenlet==3.5.2
     # via sqlalchemy
