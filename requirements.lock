@@ -83,7 +83,7 @@ urllib3==2.7.0
     # via
     #   -r requirements.txt
     #   requests
-uvicorn==0.51.0
+uvicorn==0.52.0
     # via -r requirements.txt
 uvloop==0.22.1
     # via uvicorn
