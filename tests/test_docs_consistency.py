@@ -156,9 +156,9 @@ def test_readme_style_list_matches_reality(selectable_styles):
 # CI gates
 # --------------------------------------------------------------------------
 
-# Each documented gate → a command fragment that must appear in a ci.yml
-# `run:` block. Keyed by the token AGENTS.md's gate table uses, so the two
-# directions below can name the offender precisely.
+# Each documented gate → an invocation fragment that must appear in a ci.yml
+# `run:` block or gating action. Keyed by the token AGENTS.md's gate table uses,
+# so the two directions below can name the offender precisely.
 #
 # The value is a tuple because one documented gate can promise more than one
 # CI step: the table says pip-audit covers "both lockfiles", so a lone
@@ -186,12 +186,14 @@ CI_GATES = {
         "git diff --exit-code -- frontend/schema/openapi.json",
         "frontend/src/api/schema.d.ts",
     ),
-    "docker build": ("docker build",),
+    "docker build": ("docker/build-push-action@",),
+    "Trivy": ("aquasecurity/trivy-action@",),
+    "/health": ("http://127.0.0.1:8080/health",),
 }
 
 # ci.yml steps that cannot fail on a code problem: environment setup and
-# artifact upload. Anything else that runs a command is a gate and must be
-# documented.
+# artifact upload. Anything else that runs a command or invokes an action is a
+# gate and must be documented.
 NON_GATE_STEPS = {
     "Install dependencies",
     "Install Python dependencies",
@@ -200,9 +202,17 @@ NON_GATE_STEPS = {
     "Regenerate OpenAPI schema and TypeScript types",
 }
 
+NON_GATE_ACTIONS = (
+    "actions/checkout@",
+    "actions/setup-node@",
+    "actions/setup-python@",
+    "actions/upload-artifact@",
+    "docker/setup-buildx-action@",
+)
+
 
 def _ci_gate_steps() -> list[tuple[str, str]]:
-    """Every ``(step name, run command)`` pair that can fail the build.
+    """Every ``(step name, invocation)`` pair that can fail the build.
 
     Setup steps are excluded, and that exclusion is load-bearing rather than
     cosmetic: the dependency-install step pins ``ruff==…`` and ``mypy==…``, so
@@ -215,6 +225,9 @@ def _ci_gate_steps() -> list[tuple[str, str]]:
         for step in job.get("steps", []):
             if "run" in step and step.get("name") not in NON_GATE_STEPS:
                 steps.append((step.get("name", "<unnamed>"), step["run"]))
+            elif "uses" in step and not step["uses"].startswith(NON_GATE_ACTIONS):
+                invocation = f"{step['uses']}\n{yaml.safe_dump(step.get('with', {}))}"
+                steps.append((step.get("name", "<unnamed>"), invocation))
     return steps
 
 

@@ -317,7 +317,7 @@ so satisfying only a subset still produces a red PR:
 | Backend | `pytest` (coverage floor 70%) · `ruff` · `mypy` · `bandit` · `pip-audit` (both lockfiles) · lockfile-satisfies-`requirements.txt` |
 | Frontend / overlay assets | `vitest` (coverage floors in `vite.config.js`) · `tsc` · `eslint` (`--max-warnings 0`) · `prettier --check` · `stylelint` · `npm audit` |
 | Contract | committed OpenAPI schema + generated types must not drift |
-| Image | `docker build` must succeed |
+| Image | `docker build` via Buildx must succeed · Trivy image scan (fixed HIGH/CRITICAL findings fail) · `/health` smoke test |
 
 ```bash
 # Backend
