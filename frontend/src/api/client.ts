@@ -235,7 +235,7 @@ async function getPage<B>(path: string, offset: number): Promise<{ body: B; tota
  */
 async function getAllPages<B, R>(path: string, extract: (body: B) => R[]): Promise<R[]> {
   const rows: R[] = [];
-  for (let offset = 0; ; ) {
+  for (let offset = 0; ;) {
     const { body, total } = await getPage<B>(path, offset);
     const page = extract(body);
     // A body that isn't the expected array (an error envelope, a shape change)
