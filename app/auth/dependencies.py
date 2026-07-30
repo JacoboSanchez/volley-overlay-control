@@ -28,7 +28,7 @@ PASSWORD_CHANGE_REQUIRED = "password_change_required"
 
 def current_user(
     vsession: str | None = Cookie(None),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> User | None:
     """Resolve the logged-in user from the session cookie, or ``None``."""
     return sessions.resolve_session(db, vsession)

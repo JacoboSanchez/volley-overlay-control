@@ -49,6 +49,7 @@ from app.constants import (
 from app.db.models.icon import Icon
 from app.db.models.team import Team
 from app.net_guard import GuardedFetchError, fetch_guarded
+from app.service_errors import ServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ _QUALITY_LADDER_FLOOR = (70, 55, 40)
 _MAX_NAME_LEN = 120
 
 
-class IconError(ValueError):
+class IconError(ServiceError):
     """A caller-fixable icon error (bad image, duplicate, quota, missing)."""
 
 
@@ -321,9 +322,9 @@ def create_icon(
     taken name (batch import); otherwise a duplicate raises.
 
     The file is written before the row; a failing flush unlinks it here.
-    The exception path does NOT see the caller's later ``commit()`` —
-    callers that commit must unlink ``icon.filename`` themselves when
-    that commit fails (see the upload route and the batch import).
+    The exception path does NOT see the caller's later transaction outcome.
+    Request callers register rollback cleanup for ``icon.filename``; the
+    batch importer owns its per-team commits and cleanup directly.
     """
     name = (name or "").strip()
     if not name:
@@ -385,13 +386,11 @@ def delete_icon(db: Session, icon: Icon) -> tuple[int, str]:
     """Delete *icon*'s row, clearing every team that referenced it.
 
     Returns ``(teams_cleared, filename)``. The file is deliberately NOT
-    unlinked here: the caller commits first and then passes the returned
-    filename to :func:`unlink_files` — the same capture→commit→cleanup
-    shape ``delete_user`` uses. That keeps the two stores consistent
-    without session event listeners (which would linger armed on the
-    session after a rollback): a rollback restores the row AND keeps the
-    file; a crash between commit and unlink leaves an orphaned file
-    (inert), never a dangling row pointing at nothing.
+    unlinked here: the request transaction registers a post-commit callback
+    for :func:`unlink_files`, the same capture→commit→cleanup shape
+    ``delete_user`` uses. A rollback restores the row AND keeps the file; a
+    crash between commit and unlink leaves an orphaned file (inert), never a
+    dangling row pointing at nothing.
     """
     url = icon_public_url(icon.filename)
     result = db.execute(

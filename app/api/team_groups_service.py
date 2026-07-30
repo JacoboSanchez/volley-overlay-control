@@ -24,7 +24,7 @@ def parse_group_key(group_key: str) -> int | None:
     try:
         return int(group_key)
     except ValueError as exc:
-        raise teams_service.TeamError("Invalid group key.") from exc
+        raise teams_service.TeamKeyError("Invalid group key.") from exc
 
 
 def all_group_detail(db: Session, user_id: int) -> GroupDetailOut:

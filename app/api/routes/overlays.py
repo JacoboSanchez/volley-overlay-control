@@ -2,6 +2,7 @@
 
 import logging
 import urllib.parse
+from functools import partial
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
@@ -15,13 +16,25 @@ from app.api.pagination import PAGINATED_RESPONSES, Page, PageDep, with_total
 from app.api.schemas import CreateOverlayRequest, OverlayOut, UpdateOverlayRequest
 from app.api.session_manager import GameSession
 from app.auth.dependencies import require_user
-from app.db.engine import get_db
+from app.db.engine import after_commit, get_db
 from app.db.models.user import User
 from app.env_vars_manager import EnvVarsManager
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _delete_overlay_runtime(skey: str) -> None:
+    """Remove non-database state after the overlay row is durably deleted."""
+    from app.api.session_manager import SessionManager
+    from app.overlay import overlay_state_store
+
+    SessionManager.remove(skey)
+    overlay_state_store.delete_overlay(skey)
+    # Reports key on the user (FK), not the overlay, so remove this overlay's
+    # archived matches explicitly.
+    match_archive.delete_for_oid(skey)
 
 
 def _overlay_out(request: Request, overlay, *, username: str | None = None) -> OverlayOut:
@@ -53,7 +66,7 @@ def list_my_overlays(
     request: Request,
     response: Response,
     user: User = Depends(require_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     page: Page = PageDep,
 ):
     """Return the overlays owned by the caller."""
@@ -71,19 +84,15 @@ def create_my_overlay(
     body: CreateOverlayRequest,
     request: Request,
     user: User = Depends(require_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     """Register a new overlay for the caller (mints a public output token)."""
-    try:
-        overlay = overlays_service.create_overlay(
-            db,
-            user.id,
-            body.oid,
-            description=body.description,
-        )
-    except overlays_service.OverlayError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    db.commit()
+    overlay = overlays_service.create_overlay(
+        db,
+        user.id,
+        body.oid,
+        description=body.description,
+    )
     return _overlay_out(request, overlay, username=user.username)
 
 
@@ -93,23 +102,19 @@ def update_my_overlay(
     body: UpdateOverlayRequest,
     request: Request,
     user: User = Depends(require_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     """Edit an overlay's description and no-login control toggle.
 
     Only the fields present in the request body are changed (``exclude_unset``),
     so a partial PATCH never clobbers settings the caller didn't mention.
     """
-    try:
-        overlay = overlays_service.update_overlay(
-            db,
-            user.id,
-            oid,
-            **body.model_dump(exclude_unset=True),
-        )
-    except overlays_service.OverlayError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    db.commit()
+    overlay = overlays_service.update_overlay(
+        db,
+        user.id,
+        oid,
+        **body.model_dump(exclude_unset=True),
+    )
     return _overlay_out(request, overlay, username=user.username)
 
 
@@ -117,26 +122,19 @@ def update_my_overlay(
 def delete_my_overlay(
     oid: str,
     user: User = Depends(require_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     """Delete one of the caller's overlays and its in-process session/state.
 
     Sync handler — the whole body (DB delete, state-store and archive file
     removal) is blocking work and runs in the threadpool.
     """
-    from app.api.session_manager import SessionManager
-    from app.overlay import overlay_state_store
     from app.overlay_key import make_skey
 
     if not overlays_service.delete_overlay(db, user.id, oid):
         raise HTTPException(status_code=404, detail="Overlay not found.")
-    db.commit()
     skey = make_skey(user.id, oid)
-    SessionManager.remove(skey)
-    overlay_state_store.delete_overlay(skey)
-    # Reports key on the user (FK), not the overlay, so remove this overlay's
-    # archived matches explicitly.
-    match_archive.delete_for_oid(skey)
+    after_commit(db, partial(_delete_overlay_runtime, skey))
     return {"ok": True}
 
 
@@ -145,17 +143,13 @@ def regenerate_control_token(
     oid: str,
     request: Request,
     user: User = Depends(require_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     """Mint a fresh control token for one of the caller's overlays.
 
     This revokes any previously-shared control link for that board.
     """
-    try:
-        overlay = overlays_service.regenerate_control_token(db, user.id, oid)
-    except overlays_service.OverlayError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    db.commit()
+    overlay = overlays_service.regenerate_control_token(db, user.id, oid)
     return _overlay_out(request, overlay, username=user.username)
 
 

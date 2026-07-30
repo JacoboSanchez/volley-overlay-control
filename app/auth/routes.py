@@ -1,7 +1,7 @@
 """``/api/v1/auth`` — registration, login/logout, account self-service, and
 the first-admin claim endpoint.
 
-All write endpoints commit explicitly (``get_db`` only closes the session).
+Write endpoints share the transactional ``get_db`` dependency.
 Cookie set/clear happens on the injected ``Response`` so handlers can still
 return a typed Pydantic model.
 """
@@ -24,7 +24,6 @@ from app.auth.schemas import (
     UpdateProfileRequest,
     UserOut,
 )
-from app.auth.service import UserError
 from app.db.engine import get_db
 from app.db.models.user import ROLE_USER, User
 from app.settings_service import registration_open
@@ -49,7 +48,7 @@ def _start_session(db: Session, response: Response, request: Request, user: User
 @auth_router.get("/context", response_model=AuthContext)
 def get_context(
     user: User | None = Depends(current_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> AuthContext:
     """Public boot payload used by the SPA to decide where to route."""
     return AuthContext(
@@ -70,26 +69,22 @@ def register(
     body: RegisterRequest,
     request: Request,
     response: Response,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> LoginResponse:
     if not registration_open(db):
         raise HTTPException(status_code=403, detail="Registration is closed.")
-    try:
-        user = service.create_user(
-            db,
-            username=body.username,
-            password=body.password,
-            role=ROLE_USER,
-            display_name=body.display_name,
-            email=body.email,
-        )
-    except UserError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    user = service.create_user(
+        db,
+        username=body.username,
+        password=body.password,
+        role=ROLE_USER,
+        display_name=body.display_name,
+        email=body.email,
+    )
     # Seed the new account with a private "My teams" group holding the full
     # global catalog (one-time; mirrors the 0007 migration for existing users).
     teams_service.seed_user_default_group(db, user.id)
     _start_session(db, response, request, user)
-    db.commit()
     return LoginResponse(user=UserOut.from_user(user), must_change_password=False)
 
 
@@ -98,13 +93,12 @@ def login(
     body: LoginRequest,
     request: Request,
     response: Response,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> LoginResponse:
     user = service.authenticate(db, body.username, body.password)
     if user is None:
         raise HTTPException(status_code=401, detail="Invalid username or password.")
     _start_session(db, response, request, user)
-    db.commit()
     return LoginResponse(
         user=UserOut.from_user(user),
         must_change_password=user.must_change_password,
@@ -115,7 +109,7 @@ def login(
 def logout(
     response: Response,
     vsession: str | None = Cookie(None),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> dict[str, bool]:
     sessions.revoke_session(db, vsession)
     sessions.clear_session_cookie(response)
@@ -127,18 +121,14 @@ def change_password(
     body: ChangePasswordRequest,
     user: User = Depends(current_user_or_401),
     vsession: str | None = Cookie(None),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> UserOut:
     if not service.verify_password(body.current_password, user.password_hash):
         raise HTTPException(status_code=403, detail="Current password is incorrect.")
-    try:
-        service.set_password(db, user, body.new_password)
-    except UserError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    service.set_password(db, user, body.new_password)
     # Log every other session out; keep this one alive.
     keep = sessions.hash_token(vsession) if vsession else None
     sessions.revoke_all_for_user(db, user.id, except_token_hash=keep)
-    db.commit()
     return UserOut.from_user(user)
 
 
@@ -146,15 +136,11 @@ def change_password(
 def update_me(
     body: UpdateProfileRequest,
     user: User = Depends(require_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> UserOut:
-    try:
-        service.update_profile(
-            db, user, display_name=body.display_name, email=body.email,
-        )
-    except UserError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    db.commit()
+    service.update_profile(
+        db, user, display_name=body.display_name, email=body.email,
+    )
     return UserOut.from_user(user)
 
 
@@ -162,7 +148,7 @@ def update_me(
 def delete_me(
     response: Response,
     user: User = Depends(require_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> dict[str, bool]:
     # Mirror the admin delete guard: a sole administrator self-deleting would
     # lock the instance out of administration entirely.
@@ -172,7 +158,6 @@ def delete_me(
             detail="Cannot delete the last administrator account.",
         )
     service.delete_user(db, user)
-    db.commit()
     sessions.clear_session_cookie(response)
     return {"ok": True}
 
@@ -182,7 +167,7 @@ def claim_admin(
     body: ClaimAdminRequest,
     request: Request,
     response: Response,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ) -> LoginResponse:
     try:
         user = bootstrap.claim_first_admin(
@@ -197,8 +182,5 @@ def claim_admin(
         raise HTTPException(status_code=410, detail=str(exc)) from exc
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail="Invalid bootstrap token.") from exc
-    except UserError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
     _start_session(db, response, request, user)
-    db.commit()
     return LoginResponse(user=UserOut.from_user(user), must_change_password=False)

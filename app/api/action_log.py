@@ -44,14 +44,11 @@ import threading
 import time
 from collections.abc import Set as AbstractSet
 
-from app.api._persistence_paths import data_dir as _shared_data_dir
-from app.api._persistence_paths import hashed_filename
+from app.api._persistence_paths import data_dir as _data_dir
+from app.api._persistence_paths import overlay_hashed_path
 from app.constants import AUDIT_LOG_MAX_BYTES, AUDIT_LOG_MAX_FILES
-from app.id_validation import API_OID_PATTERN
 
 logger = logging.getLogger(__name__)
-
-_OID_PATTERN = API_OID_PATTERN
 
 # Actions whose forward records can be reversed by an undo (either
 # the per-type ``add_X(undo=True)`` flag or the generic
@@ -207,23 +204,8 @@ def _next_ts(oid: str) -> float:
     return now
 
 
-def _data_dir() -> str:
-    # Wrapper kept so tests can monkeypatch this attribute.
-    return _shared_data_dir()
-
-
-def _hashed_basename(oid: str) -> str:
-    return hashed_filename("audit_", oid, ".jsonl")
-
-
 def _path(oid: str) -> str | None:
-    from app.overlay_key import is_valid_skey
-
-    if not isinstance(oid, str) or (
-        _OID_PATTERN.match(oid) is None and not is_valid_skey(oid)
-    ):
-        return None
-    return os.path.join(_data_dir(), _hashed_basename(oid))
+    return overlay_hashed_path(_data_dir(), "audit_", oid, ".jsonl")
 
 
 def _lock_for(oid: str) -> threading.Lock:

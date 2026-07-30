@@ -2,78 +2,29 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends
 from starlette.concurrency import run_in_threadpool
 
 from app import overlays_service
-from app.api.dependencies import control_token, get_session
+from app.api.dependencies import BoardAccess, board_access, get_session
 from app.api.game_service import GameService
 from app.api.routes.lifespan import get_init_lock
 from app.api.schemas import ActionResponse, InitRequest, SetRulesRequest
 from app.api.session_manager import GameSession, SessionManager
-from app.auth.dependencies import PASSWORD_CHANGE_REQUIRED, current_user
 from app.backend import Backend
 from app.conf import Conf
-from app.db.engine import get_db
-from app.db.models.overlay import UserOverlay
-from app.db.models.user import User
 from app.logging_utils import redact_oid
-from app.overlay_key import make_skey
+from app.overlay_key import split_skey
 from app.state import State
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _ensure_user_overlay(db: Session, user: User, oid: str) -> UserOverlay:
-    """Return the caller's overlay row for *oid*, auto-creating it.
-
-    Opening a board for an id the user has not added yet simply registers it
-    (mints a public output token) — the explicit "My overlays" management screen
-    is for renaming/removing, not a precondition for use.
-    """
-    overlay = overlays_service.get_overlay(db, user.id, oid)
-    if overlay is None:
-        overlay = overlays_service.create_overlay(db, user.id, oid)
-        db.commit()
-    return overlay
-
-
-def _resolve_init_overlay(
-    db: Session, *, token: str | None, public_user: str | None,
-    user: User | None, oid: str,
-) -> UserOverlay:
-    """Resolve the overlay to initialise from whichever credential is present.
-
-    Operator (token) and public-bookmark (username+oid) modes resolve an
-    existing overlay; owner (cookie) mode auto-creates the overlay for a
-    not-yet-registered ``oid``.
-    """
-    if token:
-        overlay = overlays_service.get_by_control_token(db, token)
-        if overlay is None:
-            raise HTTPException(status_code=403, detail="Invalid or revoked control link.")
-        return overlay
-    if public_user:
-        overlay = overlays_service.get_public_by_username_and_oid(db, public_user, oid)
-        if overlay is None:
-            raise HTTPException(status_code=403, detail="Invalid or revoked control link.")
-        return overlay
-    if user is None:
-        raise HTTPException(status_code=401, detail="Not authenticated.")
-    if user.must_change_password:
-        raise HTTPException(status_code=409, detail=PASSWORD_CHANGE_REQUIRED)
-    return _ensure_user_overlay(db, user, oid)
-
-
 @router.post("/session/init", response_model=ActionResponse)
 async def init_session(
     req: InitRequest,
-    token: str | None = Depends(control_token),
-    u: str | None = Query(None, description="Username for a public ?u=&oid= board URL"),
-    user: User | None = Depends(current_user),
-    db: Session = Depends(get_db),
+    access: BoardAccess = Depends(board_access),
 ):
     """Initialise (or re-use) a game session for an overlay.
 
@@ -81,15 +32,19 @@ async def init_session(
     control token (``?c=``), or an opted-in public ``?u=&oid=`` bookmark — so a
     board can be bootstrapped after a server restart by whoever opens the link.
     """
-    try:
-        overlay = await run_in_threadpool(
-            _resolve_init_overlay,
-            db, token=token, public_user=u, user=user, oid=req.oid,
-        )
-    except overlays_service.OverlayError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    skey = make_skey(overlay.user_id, overlay.oid)
+    skey = await run_in_threadpool(
+        access.resolve_skey,
+        req.oid,
+        ensure_owner_overlay=True,
+    )
+    owner_id, overlay_oid = split_skey(skey)
+    overlay = await run_in_threadpool(
+        overlays_service.get_overlay,
+        access.db,
+        owner_id,
+        overlay_oid,
+    )
+    assert overlay is not None  # resolve_skey returned an existing/flushed row
 
     conf = Conf()
     conf.oid = overlay.oid

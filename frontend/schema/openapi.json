@@ -5071,7 +5071,7 @@
             }
           },
           {
-            "description": "Alias of `oid`",
+            "description": "Alias of `oid` for backward compatibility",
             "in": "query",
             "name": "control",
             "required": false,
@@ -5084,7 +5084,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Alias of `oid`",
+              "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
             }
           },
@@ -5220,7 +5220,7 @@
             }
           },
           {
-            "description": "Alias of `oid`",
+            "description": "Alias of `oid` for backward compatibility",
             "in": "query",
             "name": "control",
             "required": false,
@@ -5233,7 +5233,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Alias of `oid`",
+              "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
             }
           },
