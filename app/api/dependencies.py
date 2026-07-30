@@ -21,6 +21,7 @@ action pays a second identical token lookup.
 
 import logging
 from dataclasses import dataclass
+from functools import partial
 
 from fastapi import Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -28,7 +29,7 @@ from sqlalchemy.orm import Session
 from app import overlays_service
 from app.api.session_manager import GameSession, SessionManager
 from app.auth.dependencies import PASSWORD_CHANGE_REQUIRED, current_user
-from app.db.engine import get_db
+from app.db.engine import after_rollback, get_db
 from app.db.models.user import User
 from app.overlay_key import make_skey
 
@@ -52,6 +53,16 @@ def _require_onboarded(user: User | None) -> None:
         raise HTTPException(status_code=401, detail="Not authenticated.", headers=_WWW_AUTH)
     if user.must_change_password:
         raise HTTPException(status_code=409, detail=PASSWORD_CHANGE_REQUIRED)
+
+
+def _discard_auto_created_overlay_runtime(skey: str) -> None:
+    """Remove state created before an owner overlay row failed to commit."""
+    from app.api import session_persistence
+    from app.overlay import overlay_state_store
+
+    SessionManager.remove(skey)
+    session_persistence.delete_session_meta(skey)
+    overlay_state_store.delete_overlay(skey)
 
 
 def resolve_board_skey(
@@ -90,6 +101,12 @@ def resolve_board_skey(
         overlay = overlays_service.get_overlay(db, user.id, oid)  # type: ignore[union-attr]
         if overlay is None:
             overlay = overlays_service.create_overlay(db, user.id, oid)  # type: ignore[union-attr]
+            skey = overlays_service.skey_for(overlay)
+            after_rollback(
+                db,
+                partial(_discard_auto_created_overlay_runtime, skey),
+            )
+            return skey
         return overlays_service.skey_for(overlay)
     return make_skey(user.id, oid)  # type: ignore[union-attr]  # _require_onboarded ensures non-None
 
