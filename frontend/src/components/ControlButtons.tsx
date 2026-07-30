@@ -1,4 +1,6 @@
+import type { CSSProperties } from 'react';
 import { useI18n } from '../i18n';
+import { useBoardActions, useBoardState } from '../board/BoardContexts';
 import MatchTimer from './MatchTimer';
 import {
   VISIBLE_ON_COLOR,
@@ -10,102 +12,77 @@ import {
   PREVIEW_OFF_COLOR,
 } from '../theme';
 
-export interface ControlButtonsProps {
-  visible: boolean;
-  simpleMode: boolean;
-  canUndo: boolean;
-  showPreview: boolean;
-  /**
-   * Match start timestamp (Unix seconds), or ``null`` when the match
-   * is unarmed. Drives the live timer in the spacer and one half of
-   * the Start-match / Reset toggle.
-   */
-  matchStartedAt: number | null | undefined;
-  /**
-   * Match end timestamp (Unix seconds), or ``null`` while the match
-   * is still in progress. Forwarded to ``MatchTimer`` so the live
-   * counter freezes at the actual end-of-match value once the
-   * match transitions to finished.
-   */
-  matchFinishedAt?: number | null | undefined;
-  /**
-   * ``true`` once the match transitions to finished. Drives one half
-   * of the Start-match / Reset toggle so the operator's next step is
-   * Reset, not Start. ``matchStartedAt`` stays in place after match
-   * end (so the timer can render the final duration); Reset is the
-   * only path that clears it back to ``null``.
-   */
-  matchFinished: boolean;
-  /**
-   * Set summary overlay — operator toggle that swaps the scoreboard
-   * for a recap panel. The button slot only renders when the
-   * feature is enabled in settings (``setSummaryEnabled``); the live
-   * state of the toggle is in ``setSummaryActive``.
-   */
-  setSummaryEnabled?: boolean;
-  setSummaryActive?: boolean;
-  /**
-   * Live output clients (OBS browser sources + spectators) connected to
-   * this overlay. With ``showOnAir`` on, a >0 count lights an "on-air"
-   * badge so the operator can confirm the scoreboard is reaching OBS.
-   */
-  obsClients?: number;
-  showOnAir?: boolean;
-  /**
-   * ``match_id`` of the just-finished match. With ``showReportLink`` on,
-   * a "Match report" button appears next to Reset at match end.
-   */
-  lastMatchId?: string | null;
-  showReportLink?: boolean;
-  onToggleVisibility: () => void;
-  onToggleSimpleMode: () => void;
-  onUndoLast: () => void;
-  onTogglePreview: () => void;
-  onStartMatch: () => void;
-  onReset: () => void;
-  onToggleSetSummary?: () => void;
-}
+const UNDO_STYLE_ENABLED: CSSProperties = {
+  borderColor: UNDO_COLOR,
+  color: UNDO_COLOR,
+  opacity: 1,
+};
+const UNDO_STYLE_DISABLED: CSSProperties = {
+  borderColor: UNDO_COLOR,
+  color: UNDO_COLOR,
+  opacity: 0.4,
+};
+const SIMPLE_MODE_STYLE: CSSProperties = {
+  borderColor: SIMPLE_SCOREBOARD_COLOR,
+  color: SIMPLE_SCOREBOARD_COLOR,
+};
+const FULL_MODE_STYLE: CSSProperties = {
+  borderColor: FULL_SCOREBOARD_COLOR,
+  color: FULL_SCOREBOARD_COLOR,
+};
+const PREVIEW_ON_STYLE: CSSProperties = {
+  borderColor: PREVIEW_ON_COLOR,
+  color: PREVIEW_ON_COLOR,
+};
+const PREVIEW_OFF_STYLE: CSSProperties = {
+  borderColor: PREVIEW_OFF_COLOR,
+  color: PREVIEW_OFF_COLOR,
+};
+const SET_SUMMARY_ACTIVE_STYLE: CSSProperties = {
+  borderColor: FULL_SCOREBOARD_COLOR,
+  color: FULL_SCOREBOARD_COLOR,
+};
+const SET_SUMMARY_INACTIVE_STYLE: CSSProperties = PREVIEW_OFF_STYLE;
+const VISIBLE_STYLE: CSSProperties = {
+  borderColor: VISIBLE_ON_COLOR,
+  color: VISIBLE_ON_COLOR,
+};
+const HIDDEN_STYLE: CSSProperties = {
+  borderColor: VISIBLE_OFF_COLOR,
+  color: VISIBLE_OFF_COLOR,
+};
 
 /**
- * Bottom HUD control bar. Layout, left → right:
- *   * Start-match / Reset toggle (with text label) — primary
- *     operator action, parked on the dominant side.
- *   * Live match timer (when armed).
- *   * Undo, simple-mode, preview, visibility — secondary toggles
- *     pushed to the right edge so they don't crowd the primary
- *     action. Undo sits closest to the timer because it's the
- *     most reached-for during play.
- *
- * Theme + fullscreen toggles live in the config panel; they're
- * once-per-session decisions and don't earn a permanent slot here.
+ * Bottom HUD control bar. Its live display fields and operator actions are
+ * context slices, so it stays independent of ScoreboardView's composition.
  */
-export default function ControlButtons({
-  visible,
-  simpleMode,
-  canUndo,
-  showPreview,
-  matchStartedAt,
-  matchFinishedAt,
-  matchFinished,
-  setSummaryEnabled,
-  setSummaryActive,
-  obsClients = 0,
-  showOnAir = true,
-  lastMatchId,
-  showReportLink = true,
-  onToggleVisibility,
-  onToggleSimpleMode,
-  onUndoLast,
-  onTogglePreview,
-  onStartMatch,
-  onReset,
-  onToggleSetSummary,
-}: ControlButtonsProps) {
+export default function ControlButtons() {
   const { t } = useI18n();
-  // The Reset face stays up while the match is in progress, and
-  // while a finished match is still being shown — only an explicit
-  // Reset returns the operator to the pre-match idle state where
-  // Start match is armable again.
+  const { state, simpleMode, showPreview, setSummaryEnabled, showOnAir, showReportLink } =
+    useBoardState();
+  const {
+    onToggleVisibility,
+    onToggleSimpleMode,
+    onUndoLast,
+    onTogglePreview,
+    onStartMatch,
+    onReset,
+    onToggleSetSummary,
+  } = useBoardActions();
+  const {
+    visible,
+    can_undo: canUndo,
+    match_started_at: matchStartedAt,
+    match_finished_at: matchFinishedAt,
+    match_finished: matchFinished,
+    set_summary: setSummaryActive,
+    obs_clients: obsClients = 0,
+    last_match_id: lastMatchId,
+  } = state;
+
+  // The Reset face stays up while the match is in progress, and while a
+  // finished match is still being shown — only an explicit Reset returns the
+  // operator to the pre-match idle state where Start match is armable again.
   const showReset = matchStartedAt != null || matchFinished;
 
   return (
@@ -173,11 +150,7 @@ export default function ControlButtons({
 
       <button
         className="control-btn"
-        style={{
-          borderColor: UNDO_COLOR,
-          color: UNDO_COLOR,
-          opacity: canUndo ? 1 : 0.4,
-        }}
+        style={canUndo ? UNDO_STYLE_ENABLED : UNDO_STYLE_DISABLED}
         onClick={onUndoLast}
         disabled={!canUndo}
         title={t('ctrl.undoLast')}
@@ -191,10 +164,7 @@ export default function ControlButtons({
 
       <button
         className="control-btn"
-        style={{
-          borderColor: simpleMode ? SIMPLE_SCOREBOARD_COLOR : FULL_SCOREBOARD_COLOR,
-          color: simpleMode ? SIMPLE_SCOREBOARD_COLOR : FULL_SCOREBOARD_COLOR,
-        }}
+        style={simpleMode ? SIMPLE_MODE_STYLE : FULL_MODE_STYLE}
         onClick={onToggleSimpleMode}
         title={simpleMode ? t('ctrl.fullScoreboard') : t('ctrl.simpleScoreboard')}
         aria-label={t('ctrl.simpleScoreboard')}
@@ -208,10 +178,7 @@ export default function ControlButtons({
 
       <button
         className="control-btn"
-        style={{
-          borderColor: showPreview ? PREVIEW_ON_COLOR : PREVIEW_OFF_COLOR,
-          color: showPreview ? PREVIEW_ON_COLOR : PREVIEW_OFF_COLOR,
-        }}
+        style={showPreview ? PREVIEW_ON_STYLE : PREVIEW_OFF_STYLE}
         onClick={onTogglePreview}
         title={showPreview ? t('ctrl.hidePreview') : t('ctrl.showPreview')}
         aria-label={t('links.preview')}
@@ -223,17 +190,10 @@ export default function ControlButtons({
         </span>
       </button>
 
-      {setSummaryEnabled && onToggleSetSummary && (
+      {setSummaryEnabled && (
         <button
           className="control-btn"
-          style={{
-            // Gated by the feature flag — when enabled and active,
-            // tint the icon orange to match the SIMPLE / FULL scoreboard
-            // family so it visually groups with the other display
-            // toggles.
-            borderColor: setSummaryActive ? FULL_SCOREBOARD_COLOR : PREVIEW_OFF_COLOR,
-            color: setSummaryActive ? FULL_SCOREBOARD_COLOR : PREVIEW_OFF_COLOR,
-          }}
+          style={setSummaryActive ? SET_SUMMARY_ACTIVE_STYLE : SET_SUMMARY_INACTIVE_STYLE}
           onClick={onToggleSetSummary}
           title={t('setSummary.toggle')}
           aria-label={t('setSummary.toggle')}
@@ -248,10 +208,7 @@ export default function ControlButtons({
 
       <button
         className="control-btn"
-        style={{
-          borderColor: visible ? VISIBLE_ON_COLOR : VISIBLE_OFF_COLOR,
-          color: visible ? VISIBLE_ON_COLOR : VISIBLE_OFF_COLOR,
-        }}
+        style={visible ? VISIBLE_STYLE : HIDDEN_STYLE}
         onClick={onToggleVisibility}
         title={visible ? t('ctrl.hideOverlay') : t('ctrl.showOverlay')}
         aria-label={t('ctrl.overlayVisibility')}

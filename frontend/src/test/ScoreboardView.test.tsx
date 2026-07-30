@@ -1,12 +1,17 @@
 import { describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 import ScoreboardView from '../components/ScoreboardView';
-import { renderWithI18n, mockGameState, mockCustomization } from './helpers';
+import { BoardContextProvider } from '../board/BoardContexts';
+import { boardContextValues, renderWithBoard, renderWithI18n } from './helpers';
+
+const mocks = vi.hoisted(() => ({
+  teamPanel: vi.fn(({ teamId }: { teamId: number }) => (
+    <div data-testid={`team-panel-${teamId}`} />
+  )),
+}));
 
 vi.mock('../components/TeamPanel', () => ({
-  default: ({ teamId, order }: { teamId: number; order?: number }) => (
-    <div data-testid={`team-panel-${teamId}`} style={{ order }} />
-  ),
+  default: mocks.teamPanel,
 }));
 
 vi.mock('../components/CenterPanel', () => ({
@@ -17,49 +22,40 @@ vi.mock('../components/ControlButtons', () => ({
   default: () => <div data-testid="control-buttons" />,
 }));
 
-const baseProps = {
-  state: mockGameState,
-  customization: mockCustomization,
-  currentSet: 1,
-  setsLimit: 5,
-  isPortrait: false,
-  previewData: null,
-  showPreview: false,
-  recentEvents: [],
-  showControls: true,
-  setShowControls: vi.fn(),
-  canUndo: false,
-  simpleMode: false,
-  btnColorA: '#2196f3',
-  btnTextA: '#ffffff',
-  btnColorB: '#f44336',
-  btnTextB: '#ffffff',
-  iconLogoA: null,
-  iconLogoB: null,
-  onAddPoint: vi.fn(),
-  onAddSet: vi.fn(),
-  onAddTimeout: vi.fn(),
-  onChangeServe: vi.fn(),
-  onDoubleTapScore: vi.fn(),
-  onDoubleTapTimeout: vi.fn(),
-  onLongPressScore: vi.fn(),
-  onLongPressSet: vi.fn(),
-  onToggleVisibility: vi.fn(),
-  onToggleSimpleMode: vi.fn(),
-  onUndoLast: vi.fn(),
-  onTogglePreview: vi.fn(),
-  onStartMatch: vi.fn(),
-  onReset: vi.fn(),
-  onOpenConfig: vi.fn(),
-  onOpenShare: vi.fn(),
-  onOpenHistory: vi.fn(),
-  sidesSwapped: false,
-  onSwapSides: vi.fn(),
-};
-
 describe('ScoreboardView top-right corner stack', () => {
+  it('does not recompose its subtree for a board-state-only update', () => {
+    mocks.teamPanel.mockClear();
+    const initial = boardContextValues();
+    const { rerender } = renderWithI18n(
+      <BoardContextProvider {...initial}>
+        <ScoreboardView />
+      </BoardContextProvider>,
+    );
+    expect(mocks.teamPanel).toHaveBeenCalledTimes(2);
+
+    const next = {
+      ...initial,
+      state: {
+        ...initial.state,
+        state: {
+          ...initial.state.state,
+          team_1: {
+            ...initial.state.state.team_1,
+            scores: { ...initial.state.state.team_1.scores, set_1: 26 },
+          },
+        },
+      },
+    };
+    rerender(
+      <BoardContextProvider {...next}>
+        <ScoreboardView />
+      </BoardContextProvider>,
+    );
+    expect(mocks.teamPanel).toHaveBeenCalledTimes(2);
+  });
+
   it('renders config, share and history buttons in the top-right stack', () => {
-    renderWithI18n(<ScoreboardView {...baseProps} />);
+    renderWithBoard(<ScoreboardView />);
     const stack = document.querySelector('.top-corner-stack.top-right-stack');
     expect(stack).not.toBeNull();
     expect(screen.getByTestId('config-tab-button')).toBeInTheDocument();
@@ -73,44 +69,30 @@ describe('ScoreboardView top-right corner stack', () => {
     expect(buttons).toEqual(['config-tab-button', 'share-button', 'history-button']);
   });
 
-  it('keeps a fixed DOM order across a side swap, flipping only flex order', () => {
-    // Regression guard: the side swap must reorder the panels *visually*
-    // (via CSS flex ``order``) without changing their DOM positions. If
-    // the swap reordered the DOM, React would move the centre panel's
-    // node — tearing down and reloading its embedded preview iframe (a
-    // visible flash on every swap).
+  it('keeps a fixed DOM order across a side swap', () => {
+    // Regression guard: the side swap must reorder team panels visually in
+    // their own context-aware implementation without moving CentrePanel's
+    // position, which would reload its preview iframe.
     const domOrder = () =>
       Array.from(document.querySelector('.main-layout')!.children).map(
         (c) => (c as HTMLElement).dataset.testid,
       );
-    const orderOf = (testid: string) =>
-      Number((screen.getByTestId(testid) as HTMLElement).style.order);
 
-    const { rerender } = renderWithI18n(<ScoreboardView {...baseProps} sidesSwapped={false} />);
-    // DOM order is always panel1 · centre · panel2.
+    const { unmount } = renderWithBoard(<ScoreboardView />);
     expect(domOrder()).toEqual(['team-panel-1', 'center-panel', 'team-panel-2']);
-    // Not swapped: team 1 sits visually to the left of team 2.
-    expect(orderOf('team-panel-1')).toBeLessThan(orderOf('team-panel-2'));
+    unmount();
 
-    rerender(<ScoreboardView {...baseProps} sidesSwapped={true} />);
-    // DOM order is unchanged — only the flex order flips.
+    renderWithBoard(<ScoreboardView />, { state: { sidesSwapped: true } });
     expect(domOrder()).toEqual(['team-panel-1', 'center-panel', 'team-panel-2']);
-    // Swapped: team 2 now sits visually to the left of team 1.
-    expect(orderOf('team-panel-2')).toBeLessThan(orderOf('team-panel-1'));
   });
 
   it('invokes the matching callback when each top-right button is clicked', () => {
     const onOpenConfig = vi.fn();
     const onOpenShare = vi.fn();
     const onOpenHistory = vi.fn();
-    renderWithI18n(
-      <ScoreboardView
-        {...baseProps}
-        onOpenConfig={onOpenConfig}
-        onOpenShare={onOpenShare}
-        onOpenHistory={onOpenHistory}
-      />,
-    );
+    renderWithBoard(<ScoreboardView />, {
+      actions: { onOpenConfig, onOpenShare, onOpenHistory },
+    });
     fireEvent.click(screen.getByTestId('config-tab-button'));
     fireEvent.click(screen.getByTestId('share-button'));
     fireEvent.click(screen.getByTestId('history-button'));

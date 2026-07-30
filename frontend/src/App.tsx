@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useLayoutEffect } from 'react';
+import { useState, useEffect, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { setControlToken, setPublicUser } from './api/client';
 import { useI18n } from './i18n';
 import { useAppConfig } from './hooks/useAppConfig';
@@ -22,6 +22,13 @@ import { useOverlayLocaleSync } from './hooks/useOverlayLocaleSync';
 import { useScoreActions } from './hooks/useScoreActions';
 import { useSetValueDialog } from './hooks/useSetValueDialog';
 import { useButtonTheme } from './hooks/useButtonTheme';
+import {
+  BoardContextProvider,
+  type BoardActionsValue,
+  type BoardLayoutValue,
+  type BoardStateValue,
+  type BoardThemeValue,
+} from './board/BoardContexts';
 import InitScreen from './components/InitScreen';
 import ScoreboardView from './components/ScoreboardView';
 import ScoreboardSkeleton from './components/ScoreboardSkeleton';
@@ -204,6 +211,12 @@ export default function App({
   const setsLimit = (state?.config?.sets_limit as number | undefined) ?? 5;
   const matchFinished = state?.match_finished ?? false;
   const simpleMode = state?.simple_mode ?? false;
+  const stateRef = useRef(state);
+  const settingsRef = useRef(settings);
+  const pulseRef = useRef(pulse);
+  stateRef.current = state;
+  settingsRef.current = settings;
+  pulseRef.current = pulse;
 
   const computeCurrentSet = useCallback((): number => {
     if (!state) return 1;
@@ -235,27 +248,28 @@ export default function App({
   } = useScoreActions({ actions, settings, simpleMode, matchFinished, pulse });
 
   const handleToggleVisibility = useCallback(() => {
-    if (state) actions.setVisibility(!state.visible);
-  }, [actions, state]);
+    const currentState = stateRef.current;
+    if (currentState) actions.setVisibility(!currentState.visible);
+  }, [actions]);
 
   const handleToggleSimpleMode = useCallback(() => {
-    actions.setSimpleMode(!simpleMode);
-  }, [actions, simpleMode]);
+    const currentState = stateRef.current;
+    if (currentState) actions.setSimpleMode(!currentState.simple_mode);
+  }, [actions]);
 
   const sidesSwapped = state?.sides_swapped ?? false;
   const handleSwapSides = useCallback(() => {
-    actions.setSwapSides(!sidesSwapped);
-  }, [actions, sidesSwapped]);
+    const currentState = stateRef.current;
+    if (currentState) actions.setSwapSides(!currentState.sides_swapped);
+  }, [actions]);
 
-  const setSummaryActive = state?.set_summary ?? false;
-  const setSummarySetNum = state?.set_summary_set_num ?? null;
   const setSummaryStyle = (state?.set_summary_style ??
     'brand_ledger') as import('./api/client').SetSummaryStyle;
 
   const handleToggleSetSummary = useCallback(() => {
-    if (!settings.setSummaryEnabled) return;
-    actions.setSetSummary(!setSummaryActive);
-  }, [actions, setSummaryActive, settings.setSummaryEnabled]);
+    if (!settingsRef.current.setSummaryEnabled) return;
+    actions.setSetSummary(!(stateRef.current?.set_summary ?? false));
+  }, [actions]);
 
   const handleChangeSetSummaryStyle = useCallback(
     (style: import('./api/client').SetSummaryStyle) => {
@@ -270,9 +284,9 @@ export default function App({
   // entry points (this and the per-team double-tap) share
   // the same stack on the server and cannot drift.
   const handleUndoLast = useCallback(() => {
-    pulse('confirm');
+    pulseRef.current('confirm');
     actions.undoLast();
-  }, [actions, pulse]);
+  }, [actions]);
 
   const handleToggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) {
@@ -287,8 +301,8 @@ export default function App({
   }, []);
 
   const handleTogglePreview = useCallback(() => {
-    setSetting('showPreview', !settings.showPreview);
-  }, [setSetting, settings.showPreview]);
+    setSetting('showPreview', !settingsRef.current.showPreview);
+  }, [setSetting]);
 
   const handleReset = useCallback(() => {
     setResetConfirmOpen(true);
@@ -301,6 +315,13 @@ export default function App({
   const handleStartMatch = useCallback(() => {
     actions.startMatch();
   }, [actions]);
+
+  const handleOpenConfig = useCallback(() => setActiveTab('config'), []);
+  const handleOpenHistory = useCallback(() => setHistoryOpen(true), []);
+  const handleToggleControls = useCallback(
+    () => setShowControls((shown) => !shown),
+    [setShowControls],
+  );
 
   const { dialog, handleLongPressScore, handleLongPressSet, handleDialogSubmit, closeDialog } =
     useSetValueDialog({ state, currentSet, setsLimit, actions, t });
@@ -329,6 +350,114 @@ export default function App({
 
   const { btnColorA, btnTextA, btnColorB, btnTextB, iconLogoA, iconLogoB, fontStyle } =
     useButtonTheme({ settings, customization });
+  const boardState = useMemo<BoardStateValue | null>(() => {
+    if (!state) return null;
+    return {
+      state,
+      confirmedState,
+      customization,
+      currentSet,
+      setsLimit,
+      simpleMode,
+      matchFinished,
+      sidesSwapped,
+      previewData,
+      showPreview: settings.showPreview,
+      setSummaryEnabled: settings.setSummaryEnabled,
+      showOnAir: settings.showOnAir,
+      showReportLink: settings.showReportLink,
+      recentEvents,
+    };
+  }, [
+    confirmedState,
+    currentSet,
+    customization,
+    matchFinished,
+    previewData,
+    recentEvents,
+    settings.setSummaryEnabled,
+    settings.showOnAir,
+    settings.showPreview,
+    settings.showReportLink,
+    sidesSwapped,
+    simpleMode,
+    state,
+    setsLimit,
+  ]);
+  const boardActions = useMemo<BoardActionsValue>(
+    () => ({
+      onAddPoint: handleAddPoint,
+      onAddSet: handleAddSet,
+      onAddTimeout: handleAddTimeout,
+      onChangeServe: handleChangeServe,
+      onDoubleTapScore: handleDoubleTapScore,
+      onDoubleTapTimeout: handleDoubleTapTimeout,
+      onLongPressScore: handleLongPressScore,
+      onLongPressSet: handleLongPressSet,
+      onSwapSides: handleSwapSides,
+      onToggleVisibility: handleToggleVisibility,
+      onToggleSimpleMode: handleToggleSimpleMode,
+      onUndoLast: handleUndoLast,
+      onTogglePreview: handleTogglePreview,
+      onToggleSetSummary: handleToggleSetSummary,
+      onChangeSetSummaryStyle: handleChangeSetSummaryStyle,
+      onStartMatch: handleStartMatch,
+      onReset: handleReset,
+      onOpenConfig: handleOpenConfig,
+      onOpenShare: handleOpenShare,
+      onOpenHistory: handleOpenHistory,
+      onToggleControls: handleToggleControls,
+    }),
+    [
+      handleAddPoint,
+      handleAddSet,
+      handleAddTimeout,
+      handleChangeServe,
+      handleChangeSetSummaryStyle,
+      handleDoubleTapScore,
+      handleDoubleTapTimeout,
+      handleLongPressScore,
+      handleLongPressSet,
+      handleOpenConfig,
+      handleOpenHistory,
+      handleOpenShare,
+      handleReset,
+      handleStartMatch,
+      handleSwapSides,
+      handleToggleControls,
+      handleTogglePreview,
+      handleToggleSetSummary,
+      handleToggleSimpleMode,
+      handleToggleVisibility,
+      handleUndoLast,
+    ],
+  );
+  const boardTheme = useMemo<BoardThemeValue>(
+    () => ({
+      btnColorA,
+      btnTextA,
+      btnColorB,
+      btnTextB,
+      iconLogoA,
+      iconLogoB,
+      iconOpacity: settings.iconOpacity,
+      fontStyle,
+    }),
+    [
+      btnColorA,
+      btnColorB,
+      btnTextA,
+      btnTextB,
+      fontStyle,
+      iconLogoA,
+      iconLogoB,
+      settings.iconOpacity,
+    ],
+  );
+  const boardLayout = useMemo<BoardLayoutValue>(
+    () => ({ isPortrait, buttonSize, compactLandscape, showControls }),
+    [buttonSize, compactLandscape, isPortrait, showControls],
+  );
 
   if (!oid || (error && !state)) {
     // A failed capability link (revoked ?c= token, disabled ?u= bookmark)
@@ -367,7 +496,7 @@ export default function App({
   // OID is set, no error, but the first authoritative state hasn't
   // arrived yet — show a structurally-matched skeleton instead of the
   // InitScreen so the next render swap doesn't flash unrelated UI.
-  if (!state) {
+  if (!state || !boardState) {
     return (
       <div className="app-container">
         <ConnectionStatus connected={connected} />
@@ -381,62 +510,14 @@ export default function App({
       <ConnectionStatus connected={connected} />
       {activeTab === 'scoreboard' && (
         <ErrorBoundary>
-          <ScoreboardView
-            state={state}
-            customization={customization}
-            sidesSwapped={sidesSwapped}
-            onSwapSides={handleSwapSides}
-            currentSet={currentSet}
-            setsLimit={setsLimit}
-            isPortrait={isPortrait}
-            buttonSize={buttonSize}
-            previewData={previewData}
-            showPreview={settings.showPreview}
-            recentEvents={recentEvents}
-            // Landscape phones (no room for persistent controls) need the
-            // preview shrunk so the alert pills below it don't get pushed
-            // off the bottom of the viewport.
-            compactLandscape={compactLandscape}
-            showControls={showControls}
-            setShowControls={setShowControls}
-            canUndo={state?.can_undo ?? false}
-            simpleMode={simpleMode}
-            btnColorA={btnColorA}
-            btnTextA={btnTextA}
-            btnColorB={btnColorB}
-            btnTextB={btnTextB}
-            iconLogoA={iconLogoA}
-            iconLogoB={iconLogoB}
-            iconOpacity={settings.iconOpacity}
-            fontStyle={fontStyle}
-            onAddPoint={handleAddPoint}
-            onAddSet={handleAddSet}
-            onAddTimeout={handleAddTimeout}
-            onChangeServe={handleChangeServe}
-            onDoubleTapScore={handleDoubleTapScore}
-            onDoubleTapTimeout={handleDoubleTapTimeout}
-            onLongPressScore={handleLongPressScore}
-            onLongPressSet={handleLongPressSet}
-            onToggleVisibility={handleToggleVisibility}
-            onToggleSimpleMode={handleToggleSimpleMode}
-            onUndoLast={handleUndoLast}
-            onTogglePreview={handleTogglePreview}
-            onStartMatch={handleStartMatch}
-            onReset={handleReset}
-            onOpenConfig={() => setActiveTab('config')}
-            onOpenShare={handleOpenShare}
-            onOpenHistory={() => setHistoryOpen(true)}
-            setSummaryEnabled={settings.setSummaryEnabled}
-            setSummaryActive={setSummaryActive}
-            setSummarySetNum={setSummarySetNum}
-            setSummaryStyle={setSummaryStyle}
-            onToggleSetSummary={handleToggleSetSummary}
-            onChangeSetSummaryStyle={handleChangeSetSummaryStyle}
-            obsClients={state?.obs_clients ?? 0}
-            showOnAir={settings.showOnAir}
-            lastMatchId={state?.last_match_id ?? null}
-            showReportLink={settings.showReportLink}
-          />
+          <BoardContextProvider
+            state={boardState}
+            actions={boardActions}
+            theme={boardTheme}
+            layout={boardLayout}
+          >
+            <ScoreboardView />
+          </BoardContextProvider>
         </ErrorBoundary>
       )}
 

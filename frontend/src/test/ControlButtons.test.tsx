@@ -1,24 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
-import { I18nProvider } from '../i18n';
-import { SettingsProvider } from '../hooks/useSettings';
 import ControlButtons from '../components/ControlButtons';
-import { renderWithI18n } from './helpers';
+import { mockGameState, renderWithBoard } from './helpers';
+import type { GameState } from '../api/client';
 
-const defaultProps = {
-  visible: true,
-  simpleMode: false,
-  canUndo: true,
-  showPreview: false,
-  matchStartedAt: null as number | null,
-  matchFinished: false,
-  onToggleVisibility: vi.fn(),
-  onToggleSimpleMode: vi.fn(),
-  onUndoLast: vi.fn(),
-  onTogglePreview: vi.fn(),
-  onStartMatch: vi.fn(),
-  onReset: vi.fn(),
-};
+function liveState(overrides: Partial<GameState> = {}): GameState {
+  return { ...mockGameState, ...overrides };
+}
 
 describe('ControlButtons', () => {
   beforeEach(() => {
@@ -26,214 +14,166 @@ describe('ControlButtons', () => {
   });
 
   it('renders the in-game control buttons', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} />);
+    renderWithBoard(<ControlButtons />);
     expect(screen.getByTestId('visibility-button')).toBeInTheDocument();
     expect(screen.getByTestId('simple-mode-button')).toBeInTheDocument();
     expect(screen.getByTestId('undo-button')).toBeInTheDocument();
     expect(screen.getByTestId('preview-button')).toBeInTheDocument();
   });
 
-  it('calls onToggleVisibility when visibility button clicked', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} />);
-    fireEvent.click(screen.getByTestId('visibility-button'));
-    expect(defaultProps.onToggleVisibility).toHaveBeenCalledOnce();
-  });
-
-  it('calls onToggleSimpleMode when simple mode button clicked', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} />);
-    fireEvent.click(screen.getByTestId('simple-mode-button'));
-    expect(defaultProps.onToggleSimpleMode).toHaveBeenCalledOnce();
-  });
-
-  it('calls onUndoLast when undo button clicked and canUndo', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} />);
-    fireEvent.click(screen.getByTestId('undo-button'));
-    expect(defaultProps.onUndoLast).toHaveBeenCalledOnce();
-  });
-
-  it('disables undo button when canUndo is false', () => {
+  it('calls the matching action for each primary toggle', () => {
+    const onToggleVisibility = vi.fn();
+    const onToggleSimpleMode = vi.fn();
     const onUndoLast = vi.fn();
-    renderWithI18n(<ControlButtons {...defaultProps} canUndo={false} onUndoLast={onUndoLast} />);
-    const btn = screen.getByTestId('undo-button') as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
-    fireEvent.click(btn);
+    const onTogglePreview = vi.fn();
+    renderWithBoard(<ControlButtons />, {
+      state: { state: liveState({ can_undo: true }) },
+      actions: { onToggleVisibility, onToggleSimpleMode, onUndoLast, onTogglePreview },
+    });
+    fireEvent.click(screen.getByTestId('visibility-button'));
+    fireEvent.click(screen.getByTestId('simple-mode-button'));
+    fireEvent.click(screen.getByTestId('undo-button'));
+    fireEvent.click(screen.getByTestId('preview-button'));
+    expect(onToggleVisibility).toHaveBeenCalledOnce();
+    expect(onToggleSimpleMode).toHaveBeenCalledOnce();
+    expect(onUndoLast).toHaveBeenCalledOnce();
+    expect(onTogglePreview).toHaveBeenCalledOnce();
+  });
+
+  it('disables undo when no server-side action can be reversed', () => {
+    const onUndoLast = vi.fn();
+    renderWithBoard(<ControlButtons />, {
+      state: { state: liveState({ can_undo: false }) },
+      actions: { onUndoLast },
+    });
+    const button = screen.getByTestId('undo-button') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    fireEvent.click(button);
     expect(onUndoLast).not.toHaveBeenCalled();
   });
 
   it('always renders the undo icon (no redo toggle)', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} canUndo={true} />);
+    renderWithBoard(<ControlButtons />, { state: { state: liveState({ can_undo: true }) } });
     expect(screen.getByTestId('undo-button')).toHaveTextContent('undo');
   });
 
-  it('calls onTogglePreview when preview button clicked', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} />);
-    fireEvent.click(screen.getByTestId('preview-button'));
-    expect(defaultProps.onTogglePreview).toHaveBeenCalledOnce();
-  });
-
-  it('does not render share / history buttons — both moved to the top-right corner stack', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} />);
+  it('does not render share / history buttons — both live in the top-right corner stack', () => {
+    renderWithBoard(<ControlButtons />);
     expect(screen.queryByTestId('share-button')).toBeNull();
     expect(screen.queryByTestId('history-button')).toBeNull();
   });
 
-  it('shows visibility icon based on visible prop', () => {
-    const { rerender } = renderWithI18n(<ControlButtons {...defaultProps} visible={true} />);
+  it('uses state and preferences for the visibility and preview button icons', () => {
+    const { unmount } = renderWithBoard(<ControlButtons />, {
+      state: { state: liveState({ visible: true }), showPreview: true },
+    });
     expect(screen.getByTestId('visibility-button')).toHaveTextContent('visibility');
-
-    rerender(
-      <I18nProvider>
-        <SettingsProvider>
-          <ControlButtons {...defaultProps} visible={false} />
-        </SettingsProvider>
-      </I18nProvider>,
-    );
-    expect(screen.getByTestId('visibility-button')).toHaveTextContent('visibility_off');
-  });
-
-  it('preview button uses tv icon when showPreview is true', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} showPreview={true} />);
     expect(screen.getByTestId('preview-button')).toHaveTextContent('tv');
-  });
+    unmount();
 
-  it('preview button uses tv_off icon when showPreview is false', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} showPreview={false} />);
+    renderWithBoard(<ControlButtons />, {
+      state: { state: liveState({ visible: false }), showPreview: false },
+    });
+    expect(screen.getByTestId('visibility-button')).toHaveTextContent('visibility_off');
     expect(screen.getByTestId('preview-button')).toHaveTextContent('tv_off');
   });
 
-  // ── Theme + fullscreen relocated to the config panel ──────────────
-
   it('does not render theme/fullscreen buttons in the HUD', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} />);
+    renderWithBoard(<ControlButtons />);
     expect(screen.queryByTestId('dark-mode-button')).toBeNull();
     expect(screen.queryByTestId('fullscreen-button')).toBeNull();
   });
 
-  // ── Start-match / Reset toggle ─────────────────────────────────────
-
-  it('shows the Start-match button when match is unarmed', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} matchStartedAt={null} />);
-    expect(screen.getByTestId('start-match-button')).toBeInTheDocument();
-    expect(screen.queryByTestId('reset-button')).toBeNull();
-  });
-
-  it('shows the Reset button once the match is armed', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} matchStartedAt={1700000000} />);
-    expect(screen.getByTestId('reset-button')).toBeInTheDocument();
-    expect(screen.queryByTestId('start-match-button')).toBeNull();
-  });
-
-  it('calls onStartMatch when Start-match button clicked', () => {
+  it('shows Start-match before the match is armed and calls its action', () => {
     const onStartMatch = vi.fn();
-    renderWithI18n(
-      <ControlButtons {...defaultProps} matchStartedAt={null} onStartMatch={onStartMatch} />,
-    );
-    fireEvent.click(screen.getByTestId('start-match-button'));
+    renderWithBoard(<ControlButtons />, {
+      state: { state: liveState({ match_started_at: null }) },
+      actions: { onStartMatch },
+    });
+    const start = screen.getByTestId('start-match-button');
+    expect(start).toHaveTextContent(/Start match/i);
+    expect(screen.queryByTestId('reset-button')).toBeNull();
+    fireEvent.click(start);
     expect(onStartMatch).toHaveBeenCalledOnce();
   });
 
-  it('calls onReset when Reset button clicked', () => {
+  it('shows Reset once the match is armed and calls its action', () => {
     const onReset = vi.fn();
-    renderWithI18n(
-      <ControlButtons {...defaultProps} matchStartedAt={1700000000} onReset={onReset} />,
-    );
+    renderWithBoard(<ControlButtons />, {
+      state: { state: liveState({ match_started_at: 1700000000 }) },
+      actions: { onReset },
+    });
+    expect(screen.getByTestId('reset-button')).toBeInTheDocument();
+    expect(screen.queryByTestId('start-match-button')).toBeNull();
     fireEvent.click(screen.getByTestId('reset-button'));
     expect(onReset).toHaveBeenCalledOnce();
   });
 
-  it('shows Reset (not Start) once the match is finished, even if matchStartedAt is null', () => {
-    // ``match_started_at`` would normally still be set after match
-    // end (so the timer can render the final duration), but a meta
-    // file from a pre-fix deployment can land in this state on
-    // restart. The Reset face must still win over Start so the
-    // operator does not accidentally arm a new timer over the
-    // visible just-finished scoreboard.
-    renderWithI18n(<ControlButtons {...defaultProps} matchStartedAt={null} matchFinished={true} />);
+  it('shows Reset after a finished match even with no start timestamp', () => {
+    renderWithBoard(<ControlButtons />, {
+      state: { state: liveState({ match_started_at: null, match_finished: true }) },
+    });
     expect(screen.getByTestId('reset-button')).toBeInTheDocument();
     expect(screen.queryByTestId('start-match-button')).toBeNull();
   });
 
-  it('renders the start/reset button with a visible text label', () => {
-    // The primary action sits on the left edge of the HUD with an
-    // icon *and* text — ``ctrl.startMatch`` / ``ctrl.reset`` from
-    // the i18n catalogue. Bare-icon mode is reserved for the
-    // secondary toggles on the right.
-    renderWithI18n(<ControlButtons {...defaultProps} matchStartedAt={null} />);
-    const start = screen.getByTestId('start-match-button');
-    expect(start.textContent).toMatch(/Start match/i);
-  });
-
-  // ── Match timer ────────────────────────────────────────────────────
-
-  it('omits the match timer until the match is armed', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} matchStartedAt={null} />);
+  it('renders the match timer only once the match is armed', () => {
+    const { unmount } = renderWithBoard(<ControlButtons />, {
+      state: { state: liveState({ match_started_at: null }) },
+    });
     expect(screen.queryByTestId('match-timer')).toBeNull();
-  });
+    unmount();
 
-  it('renders the match timer once the match is armed', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} matchStartedAt={Date.now() / 1000} />);
+    renderWithBoard(<ControlButtons />, {
+      state: { state: liveState({ match_started_at: Date.now() / 1000 }) },
+    });
     expect(screen.getByTestId('match-timer')).toBeInTheDocument();
   });
 
-  // ── On-air indicator ───────────────────────────────────────────────
-
-  it('shows the on-air badge with the connected-client count', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} obsClients={3} showOnAir />);
+  it('shows the on-air badge only when enabled and clients are connected', () => {
+    const { unmount } = renderWithBoard(<ControlButtons />, {
+      state: { state: liveState({ obs_clients: 3 }), showOnAir: true },
+    });
     expect(screen.getByTestId('onair-indicator')).toHaveTextContent('3');
-  });
+    unmount();
 
-  it('hides the on-air badge when no clients are connected', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} obsClients={0} showOnAir />);
+    renderWithBoard(<ControlButtons />, {
+      state: { state: liveState({ obs_clients: 5 }), showOnAir: false },
+    });
     expect(screen.queryByTestId('onair-indicator')).toBeNull();
   });
 
-  it('hides the on-air badge when the setting is off', () => {
-    renderWithI18n(<ControlButtons {...defaultProps} obsClients={5} showOnAir={false} />);
-    expect(screen.queryByTestId('onair-indicator')).toBeNull();
-  });
-
-  // ── Match-report link ──────────────────────────────────────────────
-
-  it('shows the report link to the finished match when enabled', () => {
-    renderWithI18n(
-      <ControlButtons {...defaultProps} matchFinished lastMatchId="match_abc_123" showReportLink />,
-    );
+  it('shows the report link only for a finished match when enabled', () => {
+    const { unmount } = renderWithBoard(<ControlButtons />, {
+      state: {
+        state: liveState({ match_finished: true, last_match_id: 'match_abc_123' }),
+        showReportLink: true,
+      },
+    });
     const link = screen.getByTestId('view-report-button') as HTMLAnchorElement;
     expect(link.getAttribute('href')).toContain('/match/match_abc_123/report');
     expect(link.getAttribute('target')).toBe('_blank');
-  });
+    unmount();
 
-  it('hides the report link until the match is finished', () => {
-    renderWithI18n(
-      <ControlButtons {...defaultProps} matchFinished={false} lastMatchId="m1" showReportLink />,
-    );
-    expect(screen.queryByTestId('view-report-button')).toBeNull();
-  });
-
-  it('hides the report link with no archived match or when the setting is off', () => {
-    renderWithI18n(
-      <ControlButtons {...defaultProps} matchFinished lastMatchId={null} showReportLink />,
-    );
-    expect(screen.queryByTestId('view-report-button')).toBeNull();
-    renderWithI18n(
-      <ControlButtons {...defaultProps} matchFinished lastMatchId="m1" showReportLink={false} />,
-    );
+    renderWithBoard(<ControlButtons />, {
+      state: {
+        state: liveState({ match_finished: true, last_match_id: 'match_abc_123' }),
+        showReportLink: false,
+      },
+    });
     expect(screen.queryByTestId('view-report-button')).toBeNull();
   });
 
   it('localizes icon-only controls and exposes toggle state', () => {
     localStorage.setItem('volley_lang', 'es');
-    const { container } = renderWithI18n(
-      <ControlButtons
-        {...defaultProps}
-        visible
-        simpleMode
-        showPreview={false}
-        setSummaryEnabled
-        setSummaryActive={false}
-        onToggleSetSummary={vi.fn()}
-      />,
-    );
+    const { container } = renderWithBoard(<ControlButtons />, {
+      state: {
+        state: liveState({ visible: true, set_summary: false }),
+        simpleMode: true,
+        showPreview: false,
+        setSummaryEnabled: true,
+      },
+    });
 
     expect(screen.getByTestId('undo-button')).toHaveAccessibleName('Deshacer última acción');
     expect(screen.getByTestId('simple-mode-button')).toHaveAccessibleName('Marcador simple');

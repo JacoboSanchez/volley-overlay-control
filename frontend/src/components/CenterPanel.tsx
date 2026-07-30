@@ -1,20 +1,21 @@
 import { memo } from 'react';
 import { useI18n } from '../i18n';
 import ScoreButton from './ScoreButton';
-import type { ScoreButtonFontStyle } from './ScoreButton';
 import ScoreTable from './ScoreTable';
 import OverlayPreview from './OverlayPreview';
 import PointsHistoryStrip from './PointsHistoryStrip';
 import SetSummaryActiveNotice from './SetSummaryActiveNotice';
-import type { SetSummaryStyle } from '../api/client';
 import SideSwitchIndicator from './SideSwitchIndicator';
 import ServeSwitchIndicator from './ServeSwitchIndicator';
 import MatchAlertIndicator from './MatchAlertIndicator';
-import type { GameState } from '../api/client';
-import type { ConfigModel } from './TeamCard';
-import type { RecentEvent } from '../hooks/useRecentEvents';
 import { useIndoorMidpointAlert } from '../hooks/useIndoorMidpointAlert';
 import { asString } from '../utils/coerce';
+import {
+  useBoardActions,
+  useBoardLayout,
+  useBoardState,
+  useBoardTheme,
+} from '../board/BoardContexts';
 
 export interface PreviewData {
   overlayUrl: string;
@@ -25,94 +26,28 @@ export interface PreviewData {
   layoutId?: string;
 }
 
-export interface CenterPanelProps {
-  state: GameState | null | undefined;
-  /** Display-side swap: true mirrors the centre columns too. */
-  sidesSwapped?: boolean;
-  onSwapSides?: () => void;
-  customization: ConfigModel | null | undefined;
-  currentSet: number;
-  setsLimit: number;
-  isPortrait: boolean;
-  /**
-   * Landscape phones can't fit a 300px-wide preview AND the alert pills
-   * (set/match point, side switch) without spilling off the viewport.
-   * When true the centre column tightens its spacing and the preview
-   * renders at a reduced width so its derived height shrinks too.
-   */
-  compactLandscape?: boolean;
-  previewData: PreviewData | null | undefined;
-  /**
-   * Recent audit events in chronological order (oldest first).
-   * Rendered as a two-row table (one per team) in the slot the
-   * preview would occupy whenever the preview is hidden.
-   */
-  recentEvents: RecentEvent[];
-  /** Score-button colours, reused for the points-history chips so the
-   * strip honours followTeamColors / custom team colour overrides. */
-  btnColorA: string;
-  btnTextA: string;
-  btnColorB: string;
-  btnTextB: string;
-  /**
-   * Team logos, already resolved against the operator's "show logos"
-   * (``showIcon``) setting — ``null`` when logos are turned off. Passing
-   * the resolved value (rather than re-reading the customization here)
-   * keeps the set-score columns and points-history strip in lockstep
-   * with the score buttons, which hide their logos from the same toggle.
-   */
-  team1Logo: string | null;
-  team2Logo: string | null;
-  fontStyle?: ScoreButtonFontStyle;
-  /**
-   * Set summary overlay: when the operator has the recap active, the
-   * centre column swaps the preview / history strip for a notice so
-   * they can't lose track of it being on air. Defaults to off.
-   */
-  setSummaryActive?: boolean;
-  setSummarySetNum?: number | null;
-  setSummaryStyle?: SetSummaryStyle;
-  onDeactivateSetSummary?: () => void;
-  onChangeSetSummaryStyle?: (style: SetSummaryStyle) => void;
-  onAddSet: (teamId: 1 | 2) => void;
-  onLongPressSet: (teamId: 1 | 2) => void;
-}
-
 const PREVIEW_CARD_WIDTH = 300;
 const PREVIEW_CARD_WIDTH_COMPACT = 200;
 
-function CenterPanel({
-  state,
-  sidesSwapped = false,
-  onSwapSides,
-  customization,
-  currentSet,
-  setsLimit,
-  isPortrait,
-  compactLandscape = false,
-  previewData,
-  recentEvents,
-  btnColorA,
-  btnTextA,
-  btnColorB,
-  btnTextB,
-  team1Logo,
-  team2Logo,
-  fontStyle,
-  setSummaryActive,
-  setSummarySetNum,
-  setSummaryStyle,
-  onDeactivateSetSummary,
-  onChangeSetSummaryStyle,
-  onAddSet,
-  onLongPressSet,
-}: CenterPanelProps) {
+/** Centre score, alerts, and preview column. */
+function CenterPanel() {
   const { t } = useI18n();
-  // Hooks must run before any early return — the hook itself handles
-  // a null/undefined state by returning ``false``.
+  const {
+    state,
+    customization,
+    currentSet,
+    setsLimit,
+    sidesSwapped,
+    previewData,
+    showPreview,
+    recentEvents,
+  } = useBoardState();
+  const { isPortrait, compactLandscape } = useBoardLayout();
+  const { btnColorA, btnTextA, btnColorB, btnTextB, iconLogoA, iconLogoB, fontStyle } =
+    useBoardTheme();
+  const { onAddSet, onLongPressSet, onSwapSides, onToggleSetSummary, onChangeSetSummaryStyle } =
+    useBoardActions();
   const indoorMidpointPending = useIndoorMidpointAlert(state, currentSet, setsLimit);
-
-  if (!state) return null;
 
   // Display-side swap: presentation only — the buttons stay bound to
   // their real team ids, the columns just trade places.
@@ -120,7 +55,7 @@ function CenterPanel({
   const rightId: 1 | 2 = sidesSwapped ? 1 : 2;
   const setsById = { 1: state.team_1.sets, 2: state.team_2.sets } as const;
   // Already gated by the "show logos" toggle upstream — null when off.
-  const logosById = { 1: team1Logo, 2: team2Logo } as const;
+  const logosById = { 1: iconLogoA, 2: iconLogoB } as const;
   const teamNamesById = {
     1:
       asString(customization?.['Team 1 Name']) ||
@@ -131,6 +66,10 @@ function CenterPanel({
       asString(customization?.['Team 2 Text Name']) ||
       t('scoreboard.team', { team: 2 }),
   } as const;
+  const setSummaryActive = state.set_summary ?? false;
+  const setSummarySetNum = state.set_summary_set_num ?? null;
+  const setSummaryStyle = (state.set_summary_style ??
+    'brand_ledger') as import('../api/client').SetSummaryStyle;
 
   return (
     <div className={`center-panel${compactLandscape ? ' center-panel-compact' : ''}`}>
@@ -209,21 +148,19 @@ function CenterPanel({
       </div>
 
       <div className="match-alerts-row" data-testid="match-alerts-row">
-        {onSwapSides && (
-          <button
-            type="button"
-            className="swap-sides-button"
-            onClick={onSwapSides}
-            title={t('scoreboard.swapSides')}
-            aria-label={t('scoreboard.swapSides')}
-            aria-pressed={sidesSwapped}
-            data-testid="swap-sides-button"
-          >
-            <span className="material-icons" aria-hidden="true">
-              swap_horiz
-            </span>
-          </button>
-        )}
+        <button
+          type="button"
+          className="swap-sides-button"
+          onClick={onSwapSides}
+          title={t('scoreboard.swapSides')}
+          aria-label={t('scoreboard.swapSides')}
+          aria-pressed={sidesSwapped}
+          data-testid="swap-sides-button"
+        >
+          <span className="material-icons" aria-hidden="true">
+            swap_horiz
+          </span>
+        </button>
         <MatchAlertIndicator state={state} isPortrait={isPortrait} sidesSwapped={sidesSwapped} />
         {!state.match_finished && (
           <SideSwitchIndicator
@@ -234,14 +171,14 @@ function CenterPanel({
         {!state.match_finished && <ServeSwitchIndicator info={state.serve_switch} />}
       </div>
 
-      {setSummaryActive && onDeactivateSetSummary && onChangeSetSummaryStyle ? (
+      {setSummaryActive ? (
         <SetSummaryActiveNotice
-          setNum={setSummarySetNum ?? null}
-          style={setSummaryStyle ?? 'brand_ledger'}
-          onDeactivate={onDeactivateSetSummary}
+          setNum={setSummarySetNum}
+          style={setSummaryStyle}
+          onDeactivate={onToggleSetSummary}
           onChangeStyle={onChangeSetSummaryStyle}
         />
-      ) : previewData ? (
+      ) : showPreview && previewData ? (
         <OverlayPreview
           overlayUrl={previewData.overlayUrl}
           x={previewData.x}
