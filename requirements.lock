@@ -39,7 +39,7 @@ markupsafe==3.0.3
     #   mako
 pillow==12.3.0
     # via -r requirements.txt
-prometheus-client==0.25.0
+prometheus-client==0.26.0
     # via -r requirements.txt
 psycopg==3.3.4
     # via -r requirements.txt
