@@ -1,5 +1,7 @@
 """In-process overlay backend — no external server required."""
 
+from __future__ import annotations
+
 import copy
 import logging
 from collections.abc import Callable
