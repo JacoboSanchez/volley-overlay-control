@@ -1,5 +1,5 @@
 fastapi>=0.141.1
-uvicorn[standard]>=0.51.0
+uvicorn[standard]>=0.52.0
 requests==2.34.2
 # Browser-compatible UTS #46 normalization for CSP frame origins.
 idna>=3.18
