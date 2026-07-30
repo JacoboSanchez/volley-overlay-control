@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import * as api from '../api/client';
 import type { GameActions } from './useGameState';
 import type { Settings } from './useSettings';
@@ -17,6 +17,14 @@ export interface UseScoreActionsResult {
   handleDoubleTapTimeout: (team: Team) => void;
   pointPickerTeam: Team | null;
   setPointPickerTeam: (team: Team | null) => void;
+}
+
+interface ScoreActionInputs {
+  actions: GameActions;
+  settings: Settings;
+  simpleMode: boolean;
+  matchFinished: boolean;
+  pulse: Pulse;
 }
 
 /**
@@ -42,80 +50,91 @@ export function useScoreActions({
   // awaiting a point-type choice, or ``null`` when closed. Only used
   // when ``settings.trackPointTypes`` is on.
   const [pointPickerTeam, setPointPickerTeam] = useState<Team | null>(null);
+  // Keep gesture callbacks stable across live state pushes. The scoreboard
+  // exposes them through BoardActionsContext, whose memoized value must not
+  // change simply because a WebSocket message updated a score.
+  const inputsRef = useRef<ScoreActionInputs>({
+    actions,
+    settings,
+    simpleMode,
+    matchFinished,
+    pulse,
+  });
+  inputsRef.current = { actions, settings, simpleMode, matchFinished, pulse };
 
   // Score a point (optionally tagged). Shared by the direct tap path
   // and the point-type picker so the auto-simple side-effect stays in
   // one place.
   const commitPoint = useCallback(
     (team: Team, pointType?: api.PointType, errorType?: api.ErrorType) => {
-      actions.addPoint(team, false, pointType, errorType);
-      if (settings.autoSimple && !simpleMode) {
-        actions.setSimpleMode(true);
+      const {
+        actions: currentActions,
+        settings: currentSettings,
+        simpleMode: currentSimpleMode,
+      } = inputsRef.current;
+      currentActions.addPoint(team, false, pointType, errorType);
+      if (currentSettings.autoSimple && !currentSimpleMode) {
+        currentActions.setSimpleMode(true);
       }
     },
-    [actions, settings.autoSimple, simpleMode],
+    [],
   );
 
   const handleAddPoint = useCallback(
     (team: Team) => {
-      if (matchFinished) return;
+      const { matchFinished: currentMatchFinished, settings: currentSettings } = inputsRef.current;
+      if (currentMatchFinished) return;
       // Opt-in classification: defer scoring to the picker so the
       // operator can tag how the point was won. Off by default — the
       // tap scores immediately, unchanged.
-      if (settings.trackPointTypes) {
+      if (currentSettings.trackPointTypes) {
         setPointPickerTeam(team);
         return;
       }
       commitPoint(team);
     },
-    [matchFinished, settings.trackPointTypes, commitPoint],
+    [commitPoint],
   );
 
-  const handleAddSet = useCallback(
-    (team: Team) => {
-      if (matchFinished) return;
-      actions.addSet(team, false);
-    },
-    [actions, matchFinished],
-  );
+  const handleAddSet = useCallback((team: Team) => {
+    const { actions: currentActions, matchFinished: currentMatchFinished } = inputsRef.current;
+    if (currentMatchFinished) return;
+    currentActions.addSet(team, false);
+  }, []);
 
-  const handleAddTimeout = useCallback(
-    (team: Team) => {
-      if (matchFinished) return;
-      actions.addTimeout(team, false);
-      if (settings.autoSimple && settings.autoSimpleOnTimeout && simpleMode) {
-        actions.setSimpleMode(false);
-      }
-    },
-    [actions, matchFinished, settings.autoSimple, settings.autoSimpleOnTimeout, simpleMode],
-  );
+  const handleAddTimeout = useCallback((team: Team) => {
+    const {
+      actions: currentActions,
+      settings: currentSettings,
+      simpleMode: currentSimpleMode,
+      matchFinished: currentMatchFinished,
+    } = inputsRef.current;
+    if (currentMatchFinished) return;
+    currentActions.addTimeout(team, false);
+    if (currentSettings.autoSimple && currentSettings.autoSimpleOnTimeout && currentSimpleMode) {
+      currentActions.setSimpleMode(false);
+    }
+  }, []);
 
-  const handleChangeServe = useCallback(
-    (team: Team) => {
-      actions.changeServe(team);
-    },
-    [actions],
-  );
+  const handleChangeServe = useCallback((team: Team) => {
+    inputsRef.current.actions.changeServe(team);
+  }, []);
 
   // Per-team double-tap undoes the most recent forward of the
   // same (action, team). The server-side per-type undo path
   // pops the matching forward from the audit log on its own, so
   // no client-side bookkeeping is required.
-  const handleDoubleTapScore = useCallback(
-    (team: Team) => {
-      pulse('confirm');
-      actions.addPoint(team, true);
-    },
-    [actions, pulse],
-  );
+  const handleDoubleTapScore = useCallback((team: Team) => {
+    const { actions: currentActions, pulse: currentPulse } = inputsRef.current;
+    currentPulse('confirm');
+    currentActions.addPoint(team, true);
+  }, []);
 
-  const handleDoubleTapTimeout = useCallback(
-    (team: Team) => {
-      pulse('confirm');
-      actions.addTimeout(team, true);
-    },
-    [actions, pulse],
-  );
+  const handleDoubleTapTimeout = useCallback((team: Team) => {
+    const { actions: currentActions, pulse: currentPulse } = inputsRef.current;
+    currentPulse('confirm');
+    currentActions.addTimeout(team, true);
+  }, []);
 
   return {
     commitPoint,

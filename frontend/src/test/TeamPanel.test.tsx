@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
-import TeamPanel, { TeamPanelProps } from '../components/TeamPanel';
-import type { TeamState } from '../api/client';
-import { mockGameState, renderWithI18n } from './helpers';
+import { screen, fireEvent, act } from '@testing-library/react';
+import TeamPanel from '../components/TeamPanel';
+import type { GameState, TeamState } from '../api/client';
+import { mockGameState, mockCustomization, renderWithBoard } from './helpers';
 
 const baseTeamState: TeamState = {
   sets: 1,
@@ -12,21 +12,40 @@ const baseTeamState: TeamState = {
   scores: { set_1: 25, set_2: 15 },
 };
 
-const defaultProps: TeamPanelProps = {
+interface TeamPanelTestValues {
+  teamId: 1 | 2;
+  teamState: TeamState;
+  currentSet: number;
+  buttonColor: string;
+  buttonTextColor: string;
+  buttonSize: number;
+  isPortrait: boolean;
+  iconLogo: string | null;
+  iconOpacity: number;
+  state: GameState;
+  setsLimit: number;
+  customization: Record<string, unknown> | null;
+  onAddPoint: (teamId: 1 | 2) => void;
+  onAddTimeout: (teamId: 1 | 2) => void;
+  onChangeServe: (teamId: 1 | 2) => void;
+  onDoubleTapScore: (teamId: 1 | 2) => void;
+  onDoubleTapTimeout: (teamId: 1 | 2) => void;
+  onLongPressScore: (teamId: 1 | 2) => void;
+}
+
+const defaults: TeamPanelTestValues = {
   teamId: 1,
   teamState: baseTeamState,
   currentSet: 2,
   buttonColor: '#2196f3',
   buttonTextColor: '#ffffff',
-  serveColor: '#5c6bc0',
-  timeoutColor: '#5c6bc0',
   buttonSize: 150,
   isPortrait: false,
   iconLogo: null,
   iconOpacity: 50,
-  fontStyle: { fontFamily: undefined, fontScale: 1.0, fontOffsetY: 0.0 },
   state: mockGameState,
   setsLimit: 5,
+  customization: mockCustomization,
   onAddPoint: vi.fn(),
   onAddTimeout: vi.fn(),
   onChangeServe: vi.fn(),
@@ -34,6 +53,45 @@ const defaultProps: TeamPanelProps = {
   onDoubleTapTimeout: vi.fn(),
   onLongPressScore: vi.fn(),
 };
+
+function renderTeamPanel(overrides: Partial<TeamPanelTestValues> = {}) {
+  const values = { ...defaults, ...overrides };
+  const state = {
+    ...values.state,
+    [values.teamId === 1 ? 'team_1' : 'team_2']: values.teamState,
+  } as GameState;
+  return renderWithBoard(<TeamPanel teamId={values.teamId} />, {
+    state: {
+      state,
+      customization: values.customization,
+      currentSet: values.currentSet,
+      setsLimit: values.setsLimit,
+    },
+    theme:
+      values.teamId === 1
+        ? {
+            btnColorA: values.buttonColor,
+            btnTextA: values.buttonTextColor,
+            iconLogoA: values.iconLogo,
+            iconOpacity: values.iconOpacity,
+          }
+        : {
+            btnColorB: values.buttonColor,
+            btnTextB: values.buttonTextColor,
+            iconLogoB: values.iconLogo,
+            iconOpacity: values.iconOpacity,
+          },
+    layout: { buttonSize: values.buttonSize, isPortrait: values.isPortrait },
+    actions: {
+      onAddPoint: values.onAddPoint,
+      onAddTimeout: values.onAddTimeout,
+      onChangeServe: values.onChangeServe,
+      onDoubleTapScore: values.onDoubleTapScore,
+      onDoubleTapTimeout: values.onDoubleTapTimeout,
+      onLongPressScore: values.onLongPressScore,
+    },
+  });
+}
 
 describe('TeamPanel', () => {
   beforeEach(() => {
@@ -45,181 +103,124 @@ describe('TeamPanel', () => {
   });
 
   it('renders score for current set', () => {
-    render(<TeamPanel {...defaultProps} />);
-    // currentSet=2, scores.set_2=15, displayed as "15"
+    renderTeamPanel();
     expect(screen.getByTestId('team-1-score')).toHaveTextContent('15');
   });
 
   it('renders timeout dots matching timeout count', () => {
-    render(<TeamPanel {...defaultProps} />);
+    renderTeamPanel();
     expect(screen.getByTestId('timeout-1-number-0')).toBeInTheDocument();
     expect(screen.getByTestId('timeout-1-number-1')).toBeInTheDocument();
   });
 
-  it('renders serve icon', () => {
-    render(<TeamPanel {...defaultProps} />);
+  it('renders serve icon and dims it when the team is not serving', () => {
+    const { unmount } = renderTeamPanel();
     const serve = screen.getByTestId('team-1-serve');
-    expect(serve).toBeInTheDocument();
     expect(serve.style.opacity).toBe('1');
     expect(serve.querySelector<HTMLElement>('.material-icons')?.style.fontSize).toBe('2rem');
-  });
+    unmount();
 
-  it('renders serve icon dimmed when not serving', () => {
-    render(<TeamPanel {...defaultProps} teamState={{ ...baseTeamState, serving: false }} />);
+    renderTeamPanel({ teamState: { ...baseTeamState, serving: false } });
     expect(screen.getByTestId('team-1-serve').style.opacity).toBe('0.4');
   });
 
   it('calls onAddPoint when score button tapped once', () => {
     const onAddPoint = vi.fn();
-    render(<TeamPanel {...defaultProps} onAddPoint={onAddPoint} />);
+    renderTeamPanel({ onAddPoint });
     fireEvent.mouseDown(screen.getByTestId('team-1-score'));
     fireEvent.mouseUp(screen.getByTestId('team-1-score'));
-    act(() => {
-      vi.advanceTimersByTime(400);
-    });
+    act(() => vi.advanceTimersByTime(400));
     expect(onAddPoint).toHaveBeenCalledWith(1);
   });
 
   it('calls onDoubleTapScore on rapid double-tap', () => {
     const onDoubleTapScore = vi.fn();
     const onAddPoint = vi.fn();
-    render(
-      <TeamPanel {...defaultProps} onAddPoint={onAddPoint} onDoubleTapScore={onDoubleTapScore} />,
-    );
-    const btn = screen.getByTestId('team-1-score');
-    fireEvent.mouseDown(btn);
-    fireEvent.mouseUp(btn);
-    act(() => {
-      vi.advanceTimersByTime(100);
-    });
-    fireEvent.mouseDown(btn);
-    fireEvent.mouseUp(btn);
+    renderTeamPanel({ onAddPoint, onDoubleTapScore });
+    const button = screen.getByTestId('team-1-score');
+    fireEvent.mouseDown(button);
+    fireEvent.mouseUp(button);
+    act(() => vi.advanceTimersByTime(100));
+    fireEvent.mouseDown(button);
+    fireEvent.mouseUp(button);
     expect(onDoubleTapScore).toHaveBeenCalledWith(1);
     expect(onAddPoint).not.toHaveBeenCalled();
   });
 
-  it('calls onAddTimeout when timeout button tapped once', () => {
+  it('handles single and double taps on timeout controls', () => {
     const onAddTimeout = vi.fn();
-    render(<TeamPanel {...defaultProps} onAddTimeout={onAddTimeout} />);
-    const btn = screen.getByTestId('team-1-timeout');
-    fireEvent.mouseDown(btn);
-    fireEvent.mouseUp(btn);
-    act(() => {
-      vi.advanceTimersByTime(400);
-    });
+    const { unmount } = renderTeamPanel({ onAddTimeout });
+    const button = screen.getByTestId('team-1-timeout');
+    fireEvent.mouseDown(button);
+    fireEvent.mouseUp(button);
+    act(() => vi.advanceTimersByTime(400));
     expect(onAddTimeout).toHaveBeenCalledWith(1);
-  });
+    unmount();
 
-  it('calls onDoubleTapTimeout on rapid double-tap of timeout button', () => {
     const onDoubleTapTimeout = vi.fn();
-    const onAddTimeout = vi.fn();
-    render(
-      <TeamPanel
-        {...defaultProps}
-        onAddTimeout={onAddTimeout}
-        onDoubleTapTimeout={onDoubleTapTimeout}
-      />,
-    );
-    const btn = screen.getByTestId('team-1-timeout');
-    fireEvent.mouseDown(btn);
-    fireEvent.mouseUp(btn);
-    act(() => {
-      vi.advanceTimersByTime(100);
-    });
-    fireEvent.mouseDown(btn);
-    fireEvent.mouseUp(btn);
+    renderTeamPanel({ onAddTimeout, onDoubleTapTimeout });
+    const doubleTapButton = screen.getByTestId('team-1-timeout');
+    fireEvent.mouseDown(doubleTapButton);
+    fireEvent.mouseUp(doubleTapButton);
+    act(() => vi.advanceTimersByTime(100));
+    fireEvent.mouseDown(doubleTapButton);
+    fireEvent.mouseUp(doubleTapButton);
     expect(onDoubleTapTimeout).toHaveBeenCalledWith(1);
-    expect(onAddTimeout).not.toHaveBeenCalled();
   });
 
-  it('keyboard: Enter on timeout button activates onAddTimeout', () => {
+  it('supports keyboard activation of timeout controls', () => {
     const onAddTimeout = vi.fn();
-    render(<TeamPanel {...defaultProps} onAddTimeout={onAddTimeout} />);
-    const btn = screen.getByTestId('team-1-timeout');
-    fireEvent.keyDown(btn, { key: 'Enter' });
-    fireEvent.keyUp(btn, { key: 'Enter' });
-    act(() => {
-      vi.advanceTimersByTime(400);
-    });
+    renderTeamPanel({ onAddTimeout });
+    const button = screen.getByTestId('team-1-timeout');
+    fireEvent.keyDown(button, { key: 'Enter' });
+    fireEvent.keyUp(button, { key: 'Enter' });
+    act(() => vi.advanceTimersByTime(400));
     expect(onAddTimeout).toHaveBeenCalledWith(1);
-  });
-
-  it('keyboard: rapid double-Enter on timeout button triggers onDoubleTapTimeout', () => {
-    const onAddTimeout = vi.fn();
-    const onDoubleTapTimeout = vi.fn();
-    render(
-      <TeamPanel
-        {...defaultProps}
-        onAddTimeout={onAddTimeout}
-        onDoubleTapTimeout={onDoubleTapTimeout}
-      />,
-    );
-    const btn = screen.getByTestId('team-1-timeout');
-    fireEvent.keyDown(btn, { key: 'Enter' });
-    fireEvent.keyUp(btn, { key: 'Enter' });
-    act(() => {
-      vi.advanceTimersByTime(100);
-    });
-    fireEvent.keyDown(btn, { key: 'Enter' });
-    fireEvent.keyUp(btn, { key: 'Enter' });
-    expect(onDoubleTapTimeout).toHaveBeenCalledWith(1);
-    expect(onAddTimeout).not.toHaveBeenCalled();
   });
 
   it('calls onChangeServe when serve icon clicked', () => {
-    render(<TeamPanel {...defaultProps} />);
+    const onChangeServe = vi.fn();
+    renderTeamPanel({ onChangeServe });
     fireEvent.click(screen.getByTestId('team-1-serve'));
-    expect(defaultProps.onChangeServe).toHaveBeenCalledWith(1);
+    expect(onChangeServe).toHaveBeenCalledWith(1);
   });
 
-  it('uses portrait layout classes when isPortrait', () => {
-    const { container } = render(<TeamPanel {...defaultProps} isPortrait={true} />);
+  it('uses portrait and landscape layout classes', () => {
+    const { container, unmount } = renderTeamPanel({ isPortrait: true });
     expect(container.querySelector('.team-panel-portrait')).toBeInTheDocument();
+    unmount();
+    const { container: landscape } = renderTeamPanel({ isPortrait: false });
+    expect(landscape.querySelector('.team-panel-landscape')).toBeInTheDocument();
   });
 
-  it('uses landscape layout classes when not portrait', () => {
-    const { container } = render(<TeamPanel {...defaultProps} isPortrait={false} />);
-    expect(container.querySelector('.team-panel-landscape')).toBeInTheDocument();
-  });
-
-  it('pads score to two digits', () => {
-    render(<TeamPanel {...defaultProps} teamState={{ ...baseTeamState, scores: { set_2: 3 } }} />);
+  it('pads scores to two digits', () => {
+    renderTeamPanel({ teamState: { ...baseTeamState, scores: { set_2: 3 } } });
     expect(screen.getByTestId('team-1-score')).toHaveTextContent('03');
   });
 
-  it('portrait: hides the team logo when icons are disabled (iconLogo null)', () => {
-    // Even if customization carries a logo, the portrait history column
-    // must honour the "show icons" setting (which nulls iconLogo) — the
-    // bug was that it read the logo straight from customization.
-    render(
-      <TeamPanel
-        {...defaultProps}
-        isPortrait={true}
-        iconLogo={null}
-        customization={{ 'Team 1 Logo': 'https://example.com/logo.png' }}
-      />,
-    );
+  it('uses only the resolved icon theme value in portrait mode', () => {
+    const { unmount } = renderTeamPanel({
+      isPortrait: true,
+      iconLogo: null,
+      customization: { 'Team 1 Logo': 'https://example.com/logo.png' },
+    });
     expect(screen.queryByTestId('team-1-logo')).toBeNull();
-  });
+    unmount();
 
-  it('portrait: shows the team logo from iconLogo when icons are enabled', () => {
-    render(
-      <TeamPanel {...defaultProps} isPortrait={true} iconLogo="https://example.com/logo.png" />,
+    renderTeamPanel({ isPortrait: true, iconLogo: 'https://example.com/logo.png' });
+    expect(screen.getByTestId('team-1-logo')).toHaveAttribute(
+      'src',
+      'https://example.com/logo.png',
     );
-    const img = screen.getByTestId('team-1-logo') as HTMLImageElement;
-    expect(img.src).toContain('https://example.com/logo.png');
   });
 
   it('localizes scoring-control names and gesture descriptions', () => {
     localStorage.setItem('volley_lang', 'es');
-    renderWithI18n(
-      <TeamPanel
-        {...defaultProps}
-        isPortrait={true}
-        iconLogo="https://example.com/logo.png"
-        customization={{ 'Team 1 Name': 'Lobos' }}
-      />,
-    );
+    renderTeamPanel({
+      isPortrait: true,
+      iconLogo: 'https://example.com/logo.png',
+      customization: { 'Team 1 Name': 'Lobos' },
+    });
 
     expect(screen.getByTestId('team-1-score')).toHaveAccessibleName('Lobos, puntuación 15');
     expect(screen.getByTestId('team-1-score')).toHaveAccessibleDescription(

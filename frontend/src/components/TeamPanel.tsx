@@ -1,44 +1,30 @@
-import { CSSProperties, ReactElement, memo, useCallback } from 'react';
-import ScoreButton, { ScoreButtonFontStyle } from './ScoreButton';
+import { CSSProperties, ReactElement, memo, useCallback, useMemo } from 'react';
+import ScoreButton from './ScoreButton';
 import ScoreTable from './ScoreTable';
-import type { GameState, TeamState } from '../api/client';
-import type { ConfigModel } from './TeamCard';
 import { toNumber, asString } from '../utils/coerce';
 import { getReadableOnSurface } from '../utils/contrast';
 import { useDoubleTap } from '../hooks/useDoubleTap';
 import { useSurfaceColor } from '../hooks/useSurfaceColor';
 import { useI18n } from '../i18n';
+import {
+  useBoardActions,
+  useBoardLayout,
+  useBoardState,
+  useBoardTheme,
+} from '../board/BoardContexts';
+import { TEAM_A_LIGHT, TEAM_A_SERVE_ACTIVE, TEAM_B_LIGHT, TEAM_B_SERVE_ACTIVE } from '../theme';
 
 export interface TeamPanelProps {
   teamId: 1 | 2;
-  teamState: TeamState | null | undefined;
-  currentSet: number;
-  /**
-   * Flex ``order`` for the display-side swap. The two team panels keep a
-   * fixed DOM position (so sibling reordering never moves the centre
-   * panel's preview iframe — which would reload it) and trade visual
-   * places purely via this CSS order.
-   */
-  order?: number;
-  buttonColor: string;
-  buttonTextColor?: string;
-  serveColor: string;
-  timeoutColor: string;
-  buttonSize?: number;
-  isPortrait: boolean;
-  iconLogo?: string | null;
-  iconOpacity?: number;
-  fontStyle?: ScoreButtonFontStyle;
-  state: GameState | null | undefined;
-  setsLimit: number;
-  customization?: ConfigModel | null;
-  onAddPoint: (teamId: 1 | 2) => void;
-  onAddTimeout: (teamId: 1 | 2) => void;
-  onChangeServe: (teamId: 1 | 2) => void;
-  onDoubleTapScore: (teamId: 1 | 2) => void;
-  onDoubleTapTimeout: (teamId: 1 | 2) => void;
-  onLongPressScore: (teamId: 1 | 2) => void;
 }
+
+const SERVE_ICON_BASE_STYLE: CSSProperties = {
+  cursor: 'pointer',
+  border: 'none',
+  background: 'transparent',
+  padding: 0,
+};
+const SERVE_ICON_SIZE_STYLE: CSSProperties = { fontSize: '2rem' };
 
 function isSafeUrl(url: string | null | undefined): url is string {
   if (!url) return false;
@@ -52,32 +38,31 @@ function isSafeUrl(url: string | null | undefined): url is string {
 
 /**
  * Team panel with score button, timeout button + indicators, and serve icon.
+ * Its board data and handlers are intentionally read from narrow contexts so
+ * ScoreboardView does not need to relay them through another component level.
  */
-function TeamPanel({
-  teamId,
-  order,
-  teamState,
-  currentSet,
-  buttonColor,
-  buttonTextColor = '#fff',
-  serveColor,
-  timeoutColor,
-  buttonSize,
-  isPortrait,
-  iconLogo,
-  iconOpacity = 50,
-  fontStyle,
-  state,
-  setsLimit,
-  customization,
-  onAddPoint,
-  onAddTimeout,
-  onChangeServe,
-  onDoubleTapScore,
-  onDoubleTapTimeout,
-  onLongPressScore,
-}: TeamPanelProps) {
+function TeamPanel({ teamId }: TeamPanelProps) {
   const { t } = useI18n();
+  const { state, customization, currentSet, setsLimit, sidesSwapped } = useBoardState();
+  const { btnColorA, btnTextA, btnColorB, btnTextB, iconLogoA, iconLogoB, iconOpacity, fontStyle } =
+    useBoardTheme();
+  const { buttonSize, isPortrait } = useBoardLayout();
+  const {
+    onAddPoint,
+    onAddTimeout,
+    onChangeServe,
+    onDoubleTapScore,
+    onDoubleTapTimeout,
+    onLongPressScore,
+  } = useBoardActions();
+
+  const teamState = teamId === 1 ? state.team_1 : state.team_2;
+  const buttonColor = teamId === 1 ? btnColorA : btnColorB;
+  const buttonTextColor = teamId === 1 ? btnTextA : btnTextB;
+  const iconLogo = teamId === 1 ? iconLogoA : iconLogoB;
+  const serveColor = teamId === 1 ? TEAM_A_SERVE_ACTIVE : TEAM_B_SERVE_ACTIVE;
+  const timeoutColor = teamId === 1 ? TEAM_A_LIGHT : TEAM_B_LIGHT;
+  const order = teamId === 1 ? (sidesSwapped ? 1 : -1) : sidesSwapped ? -1 : 1;
   const score = toNumber(teamState?.scores?.[`set_${currentSet}`]);
   const timeouts = teamState?.timeouts ?? 0;
   const isServing = teamState?.serving ?? false;
@@ -97,6 +82,7 @@ function TeamPanel({
     [onDoubleTapTimeout, teamId],
   );
   const handleLongPress = useCallback(() => onLongPressScore(teamId), [onLongPressScore, teamId]);
+  const handleChangeServe = useCallback(() => onChangeServe(teamId), [onChangeServe, teamId]);
 
   const timeoutHandlers = useDoubleTap({
     onClick: handleAddTimeout,
@@ -115,6 +101,10 @@ function TeamPanel({
     t('scoreboard.team', { team: teamId });
   const scoreAriaLabel = t('scoreboard.score', { team: teamNameLabel, score });
   const scoreDescId = `team-${teamId}-score-help`;
+  const timeoutDotStyle = useMemo<CSSProperties>(
+    () => ({ color: readableTimeoutColor, fontSize: '12px' }),
+    [readableTimeoutColor],
+  );
 
   const timeoutDots: ReactElement[] = [];
   for (let i = 0; i < timeouts; i++) {
@@ -122,7 +112,7 @@ function TeamPanel({
       <span
         key={i}
         className="material-icons timeout-dot"
-        style={{ color: readableTimeoutColor, fontSize: '12px' }}
+        style={timeoutDotStyle}
         data-testid={`timeout-${teamId}-number-${i}`}
       >
         radio_button_unchecked
@@ -130,32 +120,43 @@ function TeamPanel({
     );
   }
 
-  const iconStyle: CSSProperties = {};
   const safeIconLogo = isSafeUrl(iconLogo) ? iconLogo : null;
-  if (safeIconLogo) {
-    const alpha = 1.0 - iconOpacity / 100;
-    let r = 0,
-      g = 0,
-      b = 0;
+  const iconStyle = useMemo<CSSProperties>(() => {
+    if (!safeIconLogo) return {};
+    const alpha = 1.0 - (iconOpacity ?? 50) / 100;
+    let r = 0;
+    let g = 0;
+    let b = 0;
     const hex = buttonColor.replace('#', '');
     if (hex.length === 6) {
       r = parseInt(hex.substring(0, 2), 16);
       g = parseInt(hex.substring(2, 4), 16);
       b = parseInt(hex.substring(4, 6), 16);
     }
-    iconStyle.backgroundImage = `linear-gradient(rgba(${r},${g},${b},${alpha}), rgba(${r},${g},${b},${alpha})), url(${safeIconLogo})`;
-    iconStyle.backgroundSize = 'contain';
-    iconStyle.backgroundRepeat = 'no-repeat';
-    iconStyle.backgroundPosition = 'center';
-  }
+    return {
+      backgroundImage: `linear-gradient(rgba(${r},${g},${b},${alpha}), rgba(${r},${g},${b},${alpha})), url(${safeIconLogo})`,
+      backgroundSize: 'contain',
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: 'center',
+    };
+  }, [buttonColor, iconOpacity, safeIconLogo]);
+  const panelStyle = useMemo<CSSProperties>(() => ({ order }), [order]);
+  const timeoutButtonStyle = useMemo<CSSProperties>(
+    () => ({ borderColor: readableTimeoutColor, color: readableTimeoutColor }),
+    [readableTimeoutColor],
+  );
+  const serveIconStyle = useMemo<CSSProperties>(
+    () => ({ ...SERVE_ICON_BASE_STYLE, color: readableServeColor, opacity: isServing ? 1 : 0.4 }),
+    [isServing, readableServeColor],
+  );
 
   return (
     <div
       className={`team-panel ${isPortrait ? 'team-panel-portrait' : 'team-panel-landscape'}`}
-      style={{ order }}
+      style={panelStyle}
     >
       <div className={isPortrait ? 'team-panel-row' : 'team-panel-col'}>
-        {isPortrait && state && (
+        {isPortrait && (
           <div className="team-history-col">
             {safeIconLogo && (
               <img
@@ -194,7 +195,7 @@ function TeamPanel({
           <div className={isPortrait ? 'team-side-group-col' : 'team-side-group-row'}>
             <button
               className="timeout-button"
-              style={{ borderColor: readableTimeoutColor, color: readableTimeoutColor }}
+              style={timeoutButtonStyle}
               {...timeoutHandlers}
               aria-label={t('scoreboard.timeout', { team: teamNameLabel })}
               aria-describedby={`team-${teamId}-timeout-help`}
@@ -220,18 +221,11 @@ function TeamPanel({
             className="serve-icon"
             aria-label={t('scoreboard.serve', { team: teamNameLabel })}
             aria-pressed={isServing}
-            style={{
-              color: readableServeColor,
-              opacity: isServing ? 1 : 0.4,
-              cursor: 'pointer',
-              border: 'none',
-              background: 'transparent',
-              padding: 0,
-            }}
-            onClick={() => onChangeServe(teamId)}
+            style={serveIconStyle}
+            onClick={handleChangeServe}
             data-testid={`team-${teamId}-serve`}
           >
-            <span className="material-icons" aria-hidden="true" style={{ fontSize: '2rem' }}>
+            <span className="material-icons" aria-hidden="true" style={SERVE_ICON_SIZE_STYLE}>
               sports_volleyball
             </span>
           </button>

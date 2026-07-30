@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { GameState } from '../api/client';
 import type { Translate } from '../i18n';
 import type { GameActions } from './useGameState';
@@ -41,52 +41,55 @@ export function useSetValueDialog({
     isSet: false,
   });
 
-  const handleLongPressScore = useCallback(
-    (team: Team) => {
-      if (!state) return;
-      const teamState = team === 1 ? state.team_1 : state.team_2;
-      const rawScore = teamState.scores?.[`set_${currentSet}`];
-      const currentScore = typeof rawScore === 'number' ? rawScore : 0;
-      setDialog({
-        open: true,
-        title: t('dialog.setScore', { team }),
-        initialValue: currentScore,
-        maxValue: 99,
-        team,
-        isSet: false,
-      });
-    },
-    [state, currentSet, t],
-  );
+  // Scoreboard handlers live in the stable BoardActionsContext. Read the
+  // latest live score / set values from refs instead of recreating the
+  // long-press callbacks after every WebSocket state update.
+  const inputsRef = useRef({ state, currentSet, setsLimit, actions, t });
+  const dialogRef = useRef(dialog);
+  inputsRef.current = { state, currentSet, setsLimit, actions, t };
+  dialogRef.current = dialog;
 
-  const handleLongPressSet = useCallback(
-    (team: Team) => {
-      if (!state) return;
-      const teamState = team === 1 ? state.team_1 : state.team_2;
-      setDialog({
-        open: true,
-        title: t('dialog.setSets', { team }),
-        initialValue: teamState.sets,
-        maxValue: Math.ceil(setsLimit / 2),
-        team,
-        isSet: true,
-      });
-    },
-    [state, setsLimit, t],
-  );
+  const handleLongPressScore = useCallback((team: Team) => {
+    const current = inputsRef.current;
+    if (!current.state) return;
+    const teamState = team === 1 ? current.state.team_1 : current.state.team_2;
+    const rawScore = teamState.scores?.[`set_${current.currentSet}`];
+    const currentScore = typeof rawScore === 'number' ? rawScore : 0;
+    setDialog({
+      open: true,
+      title: current.t('dialog.setScore', { team }),
+      initialValue: currentScore,
+      maxValue: 99,
+      team,
+      isSet: false,
+    });
+  }, []);
 
-  const handleDialogSubmit = useCallback(
-    (value: number) => {
-      if (dialog.team === null) return;
-      if (dialog.isSet) {
-        actions.setSets(dialog.team, value);
-      } else {
-        actions.setScore(dialog.team, currentSet, value);
-      }
-      setDialog((d) => ({ ...d, open: false }));
-    },
-    [dialog, actions, currentSet],
-  );
+  const handleLongPressSet = useCallback((team: Team) => {
+    const current = inputsRef.current;
+    if (!current.state) return;
+    const teamState = team === 1 ? current.state.team_1 : current.state.team_2;
+    setDialog({
+      open: true,
+      title: current.t('dialog.setSets', { team }),
+      initialValue: teamState.sets,
+      maxValue: Math.ceil(current.setsLimit / 2),
+      team,
+      isSet: true,
+    });
+  }, []);
+
+  const handleDialogSubmit = useCallback((value: number) => {
+    const currentDialog = dialogRef.current;
+    const current = inputsRef.current;
+    if (currentDialog.team === null) return;
+    if (currentDialog.isSet) {
+      current.actions.setSets(currentDialog.team, value);
+    } else {
+      current.actions.setScore(currentDialog.team, current.currentSet, value);
+    }
+    setDialog((d) => ({ ...d, open: false }));
+  }, []);
 
   const closeDialog = useCallback(() => {
     setDialog((d) => ({ ...d, open: false }));

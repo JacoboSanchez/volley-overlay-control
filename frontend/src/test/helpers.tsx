@@ -3,6 +3,13 @@ import { render, RenderOptions } from '@testing-library/react';
 import { I18nProvider } from '../i18n';
 import { SettingsProvider } from '../hooks/useSettings';
 import type { GameState } from '../api/client';
+import {
+  BoardContextProvider,
+  type BoardActionsValue,
+  type BoardLayoutValue,
+  type BoardStateValue,
+  type BoardThemeValue,
+} from '../board/BoardContexts';
 
 // Use the ``wrapper`` option (rather than wrapping ``ui`` inline) so the
 // providers are re-applied by ``rerender`` too — otherwise a rerender drops
@@ -67,3 +74,85 @@ export const mockCustomization = {
   'Left-Right': -33,
   'Up-Down': -41.1,
 };
+
+const noop = () => {};
+
+export interface BoardContextOverrides {
+  state?: Omit<Partial<BoardStateValue>, 'state'> & { state?: GameState };
+  actions?: Partial<BoardActionsValue>;
+  theme?: Partial<BoardThemeValue>;
+  layout?: Partial<BoardLayoutValue>;
+}
+
+/** Default board contexts for focused component tests. */
+export function boardContextValues(overrides: BoardContextOverrides = {}) {
+  const state: BoardStateValue = {
+    state: mockGameState,
+    confirmedState: mockGameState,
+    customization: mockCustomization,
+    currentSet: 1,
+    setsLimit: 5,
+    simpleMode: false,
+    matchFinished: false,
+    sidesSwapped: false,
+    previewData: null,
+    showPreview: false,
+    setSummaryEnabled: false,
+    showOnAir: true,
+    showReportLink: true,
+    recentEvents: [],
+    ...overrides.state,
+  };
+  const actions: BoardActionsValue = {
+    onAddPoint: noop,
+    onAddSet: noop,
+    onAddTimeout: noop,
+    onChangeServe: noop,
+    onDoubleTapScore: noop,
+    onDoubleTapTimeout: noop,
+    onLongPressScore: noop,
+    onLongPressSet: noop,
+    onSwapSides: noop,
+    onToggleVisibility: noop,
+    onToggleSimpleMode: noop,
+    onUndoLast: noop,
+    onTogglePreview: noop,
+    onToggleSetSummary: noop,
+    onChangeSetSummaryStyle: noop,
+    onStartMatch: noop,
+    onReset: noop,
+    onOpenConfig: noop,
+    onOpenShare: noop,
+    onOpenHistory: noop,
+    onToggleControls: noop,
+    ...overrides.actions,
+  };
+  const theme: BoardThemeValue = {
+    btnColorA: '#2196f3',
+    btnTextA: '#ffffff',
+    btnColorB: '#f44336',
+    btnTextB: '#ffffff',
+    iconLogoA: null,
+    iconLogoB: null,
+    iconOpacity: 50,
+    fontStyle: { fontFamily: undefined, fontScale: 1, fontOffsetY: 0, fontOffsetX: 0 },
+    ...overrides.theme,
+  };
+  const layout: BoardLayoutValue = {
+    isPortrait: false,
+    buttonSize: 150,
+    compactLandscape: false,
+    showControls: true,
+    ...overrides.layout,
+  };
+  return { state, actions, theme, layout };
+}
+
+export function renderWithBoard(
+  ui: ReactElement,
+  overrides: BoardContextOverrides = {},
+  options: Omit<RenderOptions, 'wrapper'> = {},
+) {
+  const values = boardContextValues(overrides);
+  return renderWithI18n(<BoardContextProvider {...values}>{ui}</BoardContextProvider>, options);
+}
