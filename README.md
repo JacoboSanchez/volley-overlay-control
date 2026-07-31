@@ -317,7 +317,7 @@ Configure the application using the following environment variables:
 | `LOG_FILE_MAX_BYTES` | Rotation threshold for `LOG_FILE` in bytes. | `10485760` (10 MiB) |
 | `LOG_FILE_BACKUPS` | Number of rotated log files to retain. | `5` |
 | `LOG_REDACT` | If `true`, PII fields (OIDs, URLs) are redacted in log output and error reports from the SPA. | `true` |
-| `SENTRY_DSN` | *(Optional)* Enables Sentry exception aggregation. Request bodies, cookies, credentials, query strings, and capability-bearing URL segments are removed before events leave the app. | *(unset → disabled)* |
+| `SENTRY_DSN` | *(Optional)* Enables Sentry exception aggregation. Request bodies, cookies, credentials, query strings, and capability-bearing URL segments are removed from errors and sampled performance transactions before events leave the app. | *(unset → disabled)* |
 | `SENTRY_ENVIRONMENT` | *(Optional)* Environment label attached to Sentry events (for example `production`). | |
 | `SENTRY_RELEASE` | *(Optional)* Release identifier attached to Sentry events. | |
 | `SENTRY_TRACES_SAMPLE_RATE` | Fraction of requests recorded as Sentry performance traces (`0.0`–`1.0`). Error capture does not require tracing. | `0` |

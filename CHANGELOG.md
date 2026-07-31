@@ -74,7 +74,9 @@ archive by hand.
 - **Opt-in privacy-scrubbed Sentry reporting and live operational gauges.**
   Setting `SENTRY_DSN` enables FastAPI error reporting and optional
   transaction sampling without sending request bodies, cookies, query strings,
-  or capability-bearing URL paths. `voc_rate_limit_blocked_buckets{surface}`
+  or capability-bearing URL paths. Errors and sampled transactions — including
+  their spans, breadcrumbs, and transaction names — go through the same
+  scrubber. `voc_rate_limit_blocked_buckets{surface}`
   reports buckets blocked right now, and the existing dead-letter gauge is
   refreshed from persistent storage at scrape time so restart does not reset
   the observed queue depth.

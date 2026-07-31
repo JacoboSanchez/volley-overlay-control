@@ -25,6 +25,26 @@ _SAFE_REQUEST_HEADERS = frozenset(
 )
 _SAFE_REQUEST_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,63}\Z")
 _MAX_SAFE_HEADER_LENGTH = 256
+# Path prefixes whose first segment is an unguessable capability token.
+_CAPABILITY_PREFIXES = ("/overlay/", "/follow/", "/ws/", "/matches/", "/match/")
+# Span/breadcrumb payload keys that carry a full URL and must be redacted.
+_URL_DATA_KEYS = frozenset(
+    {
+        "http.url",
+        "url",
+        "url.full",
+        "url.path",
+    }
+)
+# Span/breadcrumb payload keys that carry raw query or fragment data.
+_DROPPED_DATA_KEYS = frozenset(
+    {
+        "http.fragment",
+        "http.query",
+        "url.fragment",
+        "url.query",
+    }
+)
 
 
 def _safe_header_value(name: str, value: object) -> str | None:
@@ -61,23 +81,58 @@ def _redacted_event_url(value: object) -> object:
         parts = urlsplit(value)
     except ValueError:
         return "<redacted-url>"
-    path = parts.path
-    for prefix in ("/overlay/", "/follow/", "/ws/", "/match/"):
-        if path.startswith(prefix):
-            path = f"{prefix}***"
-            break
+    path = _redacted_path(parts.path)
     netloc = parts.netloc.rpartition("@")[-1]
     return urlunsplit((parts.scheme, netloc, path, "", ""))
 
 
-def _before_send(
-    event: dict[str, Any],
-    _hint: dict[str, Any],
-) -> dict[str, Any]:
-    """Drop credentials, request bodies, and capability-bearing URL data."""
+def _redacted_path(path: str) -> str:
+    for prefix in _CAPABILITY_PREFIXES:
+        if path.startswith(prefix):
+            return f"{prefix}***"
+    return path
+
+
+def _looks_like_url(value: str) -> bool:
+    return value.startswith("/") or "://" in value
+
+
+def _redacted_description(value: object) -> object:
+    """Redact URLs in ``"<METHOD> <url>"`` span/transaction descriptions."""
+    if not isinstance(value, str):
+        return value
+    method, separator, target = value.partition(" ")
+    if separator and _looks_like_url(target):
+        return f"{method} {_redacted_event_url(target)}"
+    if _looks_like_url(value):
+        return _redacted_event_url(value)
+    return value
+
+
+def _scrub_data(data: object) -> None:
+    """Redact URL keys and drop query/fragment keys from a payload mapping."""
+    if not isinstance(data, dict):
+        return
+    for key in list(data):
+        normalized = str(key).lower()
+        if normalized in _DROPPED_DATA_KEYS:
+            data.pop(key)
+        elif normalized in _URL_DATA_KEYS:
+            data[key] = _redacted_event_url(data[key])
+
+
+def _scrub_span(span: object) -> None:
+    if not isinstance(span, dict):
+        return
+    if "description" in span:
+        span["description"] = _redacted_description(span["description"])
+    _scrub_data(span.get("data"))
+
+
+def _scrub_request(event: dict[str, Any]) -> None:
     request = event.get("request")
     if not isinstance(request, dict):
-        return event
+        return
     request["url"] = _redacted_event_url(request.get("url"))
     request.pop("data", None)
     request.pop("cookies", None)
@@ -93,6 +148,47 @@ def _before_send(
         request["headers"] = safe_headers
     else:
         request.pop("headers", None)
+
+
+def _scrub_event(event: dict[str, Any]) -> dict[str, Any]:
+    """Drop credentials, bodies, and capability-bearing URL data in place."""
+    _scrub_request(event)
+    breadcrumbs = event.get("breadcrumbs")
+    if isinstance(breadcrumbs, dict):
+        breadcrumbs = breadcrumbs.get("values")
+    if isinstance(breadcrumbs, list):
+        for breadcrumb in breadcrumbs:
+            if isinstance(breadcrumb, dict):
+                _scrub_data(breadcrumb.get("data"))
+    return event
+
+
+def _before_send(
+    event: dict[str, Any],
+    _hint: dict[str, Any],
+) -> dict[str, Any]:
+    """Scrub error events before they leave the process."""
+    return _scrub_event(event)
+
+
+def _before_send_transaction(
+    event: dict[str, Any],
+    _hint: dict[str, Any],
+) -> dict[str, Any]:
+    """Scrub sampled performance transactions the same way as errors.
+
+    Transactions never pass through ``before_send``, so without this hook a
+    nonzero ``SENTRY_TRACES_SAMPLE_RATE`` would ship full query strings and
+    capability-bearing paths for every sampled request.
+    """
+    _scrub_event(event)
+    if "transaction" in event:
+        event["transaction"] = _redacted_description(event["transaction"])
+    for span in event.get("spans") or ():
+        _scrub_span(span)
+    contexts = event.get("contexts")
+    if isinstance(contexts, dict):
+        _scrub_span(contexts.get("trace"))
     return event
 
 
@@ -122,6 +218,7 @@ def configure_error_tracking() -> bool:
             max_request_body_size="never",
             include_local_variables=False,
             before_send=_before_send,
+            before_send_transaction=_before_send_transaction,
         )
     except Exception:
         logger.exception("Sentry initialization failed; continuing without it")
