@@ -165,6 +165,32 @@ class TestDispatch:
             assert body["foo"] == 1
             assert "ts" in body
 
+    def test_dispatch_propagates_current_w3c_trace_context(self, monkeypatch):
+        from app.trace_context import traceparent_var, tracestate_var
+
+        monkeypatch.setenv("WEBHOOKS_URL", "https://hooks.example.com/x")
+        monkeypatch.setenv("WEBHOOKS_ALLOW_PRIVATE_IPS", "true")
+        traceparent = (
+            "00-4bf92f3577b34da6a3ce929d0e0e4736-"
+            "00f067aa0ba902b7-01"
+        )
+        parent_token = traceparent_var.set(traceparent)
+        state_token = tracestate_var.set("vendor=value")
+        try:
+            dispatcher = WebhookDispatcher()
+            with patch("app.api.webhooks.requests.post") as post:
+                post.return_value.status_code = 200
+                dispatcher.dispatch("set_end", "match-1", {})
+                if dispatcher._executor is not None:
+                    dispatcher._executor.shutdown(wait=True)
+                    dispatcher._executor = None
+        finally:
+            traceparent_var.reset(parent_token)
+            tracestate_var.reset(state_token)
+        headers = post.call_args.kwargs["headers"]
+        assert headers["traceparent"] == traceparent
+        assert headers["tracestate"] == "vendor=value"
+
     def test_dispatch_skips_unsubscribed(self, monkeypatch):
         monkeypatch.setenv("WEBHOOKS_JSON", json.dumps([
             {"url": "https://only-set.example.com", "events": ["set_end"]},

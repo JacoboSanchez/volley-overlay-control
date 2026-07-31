@@ -7,6 +7,8 @@ python-dotenv==1.2.2
 websocket-client>=1.9.0
 jinja2>=3.1.6
 prometheus-client>=0.26.0
+# The integration remains inert until SENTRY_DSN is configured.
+sentry-sdk[fastapi]>=2.66.0,<3
 # Database layer (multi-user refactor): SQLAlchemy ORM + Alembic migrations.
 # DATABASE_URL selects the backend: SQLite (the default) or Postgres via
 # ``postgresql+psycopg://...``. The psycopg 3 driver below ships in the image

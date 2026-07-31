@@ -9197,7 +9197,7 @@
     },
     "/api/v1/matches/{match_id}/sign-url": {
       "post": {
-        "description": "Return a short-lived capability URL for the caller's own match report.\n\nThe URL embeds an HMAC signature (key: SESSION_SECRET), so it can be\nshared without the recipient signing in \u2014 and without leaking any\ncredential. Only the report's owner may mint one.",
+        "description": "Return a short-lived capability URL for the caller's own match report.\n\nThe URL embeds an HMAC signature (key: MATCH_REPORT_SIGNING_SECRET),\nso it can be shared without the recipient signing in. Only the report's\nowner may mint one.",
         "operationId": "sign_match_url_api_v1_matches__match_id__sign_url_post",
         "parameters": [
           {

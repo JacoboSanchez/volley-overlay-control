@@ -56,6 +56,35 @@ def test_fetch_returns_body_on_200():
     assert get.call_args.kwargs["stream"] is True
 
 
+def test_fetch_propagates_current_w3c_trace_context():
+    from app.trace_context import traceparent_var, tracestate_var
+
+    traceparent = (
+        "00-4bf92f3577b34da6a3ce929d0e0e4736-"
+        "00f067aa0ba902b7-01"
+    )
+    parent_token = traceparent_var.set(traceparent)
+    state_token = tracestate_var.set("vendor=value")
+    try:
+        with patch.object(
+            net_guard.requests,
+            "get",
+            return_value=FakeResponse(),
+        ) as get:
+            fetch_guarded(
+                "http://93.184.216.34/x.png",
+                max_bytes=1024,
+                timeout=1,
+            )
+    finally:
+        traceparent_var.reset(parent_token)
+        tracestate_var.reset(state_token)
+    assert get.call_args.kwargs["headers"] == {
+        "traceparent": traceparent,
+        "tracestate": "vendor=value",
+    }
+
+
 def test_fetch_revalidates_every_redirect_hop():
     """A public host 302-ing to a private IP must be refused mid-flight."""
     hops = [

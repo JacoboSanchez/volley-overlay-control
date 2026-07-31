@@ -11,13 +11,17 @@ anyio==4.13.0
     #   starlette
     #   watchfiles
 certifi==2026.2.25
-    # via requests
+    # via
+    #   requests
+    #   sentry-sdk
 charset-normalizer==3.4.7
     # via requests
 click==8.3.3
     # via uvicorn
 fastapi==0.141.1
-    # via -r requirements.txt
+    # via
+    #   -r requirements.txt
+    #   sentry-sdk
 greenlet==3.5.2
     # via sqlalchemy
 h11==0.16.0
@@ -59,6 +63,8 @@ pyyaml==6.0.3
     # via uvicorn
 requests==2.34.2
     # via -r requirements.txt
+sentry-sdk==2.66.1
+    # via -r requirements.txt
 sqlalchemy==2.0.51
     # via
     #   -r requirements.txt
@@ -83,6 +89,7 @@ urllib3==2.7.0
     # via
     #   -r requirements.txt
     #   requests
+    #   sentry-sdk
 uvicorn==0.52.0
     # via -r requirements.txt
 uvloop==0.22.1

@@ -31,6 +31,8 @@ from urllib.parse import urljoin, urlparse, urlunparse
 import requests
 from requests.adapters import HTTPAdapter
 
+from app.trace_context import outbound_trace_headers
+
 
 class GuardedFetchError(ValueError):
     """A guarded download failed for a caller-reportable reason."""
@@ -242,6 +244,7 @@ def fetch_guarded(
     current = url
     for _ in range(max_redirects + 1):
         request_url, headers, tls_hostname = _plan_hop(current)
+        headers = {**outbound_trace_headers(), **headers}
         # The try must span the WHOLE exchange: ``stream=True`` defers the
         # body to ``iter_content``, so a timeout / connection reset mid-body
         # raises RequestException during iteration, not at ``get()``.

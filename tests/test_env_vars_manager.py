@@ -151,7 +151,7 @@ def test_stale_cache_is_served_while_revalidating(monkeypatch):
         def json(self):
             return {"KEY": "fresh-value"}
 
-    def slow_get(url, timeout):
+    def slow_get(url, timeout, headers=None):
         fetched.set()
         release.wait(5)
         return SlowResponse()

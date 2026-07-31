@@ -8,6 +8,7 @@ from typing import Any
 import requests
 
 from app.logging_utils import redact_url
+from app.trace_context import outbound_trace_headers
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ class EnvVarsManager:
 
     @classmethod
     def _load_remote_config_if_needed(cls) -> None:
-        remote_config_url = os.environ.get('REMOTE_CONFIG_URL', None)
+        remote_config_url = os.environ.get("REMOTE_CONFIG_URL", None)
         if remote_config_url is None:
             cls._remote_config_cache = {}
             return
@@ -67,9 +68,7 @@ class EnvVarsManager:
         # under the lock would stall the event loop and serialize every
         # other caller behind it. A single daemon thread revalidates.
         with cls._lock:
-            if cls._refresh_in_flight or (
-                time.time() - cls._cache_timestamp <= cls._CACHE_EXPIRATION_SECONDS
-            ):
+            if cls._refresh_in_flight or (time.time() - cls._cache_timestamp <= cls._CACHE_EXPIRATION_SECONDS):
                 return
             cls._refresh_in_flight = True
         threading.Thread(
@@ -93,7 +92,11 @@ class EnvVarsManager:
         cls._cache_timestamp = time.time()
         try:
             logger.info("Fetching remote config from %s", redact_url(remote_config_url))
-            response = requests.get(remote_config_url, timeout=5)
+            response = requests.get(
+                remote_config_url,
+                timeout=5,
+                headers=outbound_trace_headers() or None,
+            )
             logger.debug("Remote config response status: %s", response.status_code)
             response.raise_for_status()
             cls._remote_config_cache = cls._unwrap_remote_config(response.json())

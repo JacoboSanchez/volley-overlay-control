@@ -1229,9 +1229,9 @@ export interface paths {
          * Mint a shareable signed report URL
          * @description Return a short-lived capability URL for the caller's own match report.
          *
-         *     The URL embeds an HMAC signature (key: SESSION_SECRET), so it can be
-         *     shared without the recipient signing in — and without leaking any
-         *     credential. Only the report's owner may mint one.
+         *     The URL embeds an HMAC signature (key: MATCH_REPORT_SIGNING_SECRET),
+         *     so it can be shared without the recipient signing in. Only the report's
+         *     owner may mint one.
          */
         post: operations["sign_match_url_api_v1_matches__match_id__sign_url_post"];
         delete?: never;

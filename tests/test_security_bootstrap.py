@@ -20,11 +20,13 @@ import pytest
 from app import security_bootstrap
 
 _FILE = ".session_secret"
+_REPORT_FILE = ".match_report_signing_secret"
 
 
 @pytest.fixture(autouse=True)
 def _reset_env(monkeypatch):
     monkeypatch.delenv("SESSION_SECRET", raising=False)
+    monkeypatch.delenv("MATCH_REPORT_SIGNING_SECRET", raising=False)
 
 
 @pytest.fixture
@@ -106,7 +108,9 @@ def test_subsequent_calls_are_idempotent(isolated_data_dir):
 
 
 def test_generation_failure_to_persist_still_returns_secret(
-    isolated_data_dir, monkeypatch, caplog,
+    isolated_data_dir,
+    monkeypatch,
+    caplog,
 ):
     def fail_write(path: Path, token: str) -> bool:
         return False
@@ -119,11 +123,61 @@ def test_generation_failure_to_persist_still_returns_secret(
     assert any("could not persist" in rec.message.lower() for rec in caplog.records)
 
 
+# -- Match-report signing key -----------------------------------------------
+
+
+def test_existing_report_signing_env_is_passthrough(
+    isolated_data_dir,
+    monkeypatch,
+):
+    monkeypatch.setenv("MATCH_REPORT_SIGNING_SECRET", "report-only")
+    result = security_bootstrap.ensure_match_report_signing_secret("session")
+    assert result == "report-only"
+    assert not (isolated_data_dir / _REPORT_FILE).exists()
+
+
+def test_persisted_report_signing_secret_is_loaded(isolated_data_dir):
+    (isolated_data_dir / _REPORT_FILE).write_text(
+        "persisted-report-key\n",
+        encoding="utf-8",
+    )
+    result = security_bootstrap.ensure_match_report_signing_secret("session")
+    assert result == "persisted-report-key"
+    assert os.environ["MATCH_REPORT_SIGNING_SECRET"] == "persisted-report-key"
+
+
+def test_first_report_key_is_seeded_from_session_and_persisted(
+    isolated_data_dir,
+    monkeypatch,
+):
+    monkeypatch.setenv("SESSION_SECRET", "existing-session-key")
+    result = security_bootstrap.ensure_match_report_signing_secret()
+    assert result == "existing-session-key"
+    persisted = isolated_data_dir / _REPORT_FILE
+    assert persisted.read_text(encoding="utf-8") == "existing-session-key"
+    mode = persisted.stat().st_mode
+    assert not (mode & stat.S_IRGRP)
+    assert not (mode & stat.S_IROTH)
+
+
+def test_persisted_report_key_survives_session_rotation(
+    isolated_data_dir,
+    monkeypatch,
+):
+    monkeypatch.setenv("SESSION_SECRET", "session-one")
+    first = security_bootstrap.ensure_match_report_signing_secret()
+    monkeypatch.delenv("MATCH_REPORT_SIGNING_SECRET")
+    monkeypatch.setenv("SESSION_SECRET", "session-two")
+    second = security_bootstrap.ensure_match_report_signing_secret()
+    assert first == second == "session-one"
+
+
 # -- Top-level entry point --------------------------------------------------
 
 
 def test_run_security_bootstrap_swallows_exceptions(monkeypatch, caplog):
     """A failure in a bootstrap step must not block startup."""
+
     def boom() -> None:
         raise RuntimeError("simulated")
 

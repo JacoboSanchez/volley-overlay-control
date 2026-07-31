@@ -49,6 +49,7 @@ from app.constants import (
 from app.env_vars_manager import EnvVarsManager
 from app.metrics import record_webhook_outcome
 from app.net_guard import is_target_safe
+from app.trace_context import outbound_trace_headers
 
 logger = logging.getLogger(__name__)
 
@@ -211,6 +212,7 @@ class WebhookDispatcher:
             **payload,
         }
         body_bytes = json.dumps(body, separators=(",", ":")).encode("utf-8")
+        trace_headers = outbound_trace_headers()
 
         executor = self._executor
         queued = 0
@@ -221,11 +223,17 @@ class WebhookDispatcher:
             if executor is None:
                 # Synchronous fallback (used by tests when the executor
                 # is mocked away). Keeps semantics identical.
-                self._deliver(target, body_bytes, event=event, oid=oid)
+                self._deliver(
+                    target,
+                    body_bytes,
+                    event=event,
+                    oid=oid,
+                    trace_headers=trace_headers,
+                )
             else:
                 executor.submit(
                     self._deliver, target, body_bytes,
-                    event=event, oid=oid,
+                    event=event, oid=oid, trace_headers=trace_headers,
                 )
         return queued
 
@@ -258,7 +266,11 @@ class WebhookDispatcher:
         return True
 
     def _attempt_with_retries(
-        self, target: WebhookTarget, body: bytes,
+        self,
+        target: WebhookTarget,
+        body: bytes,
+        *,
+        trace_headers: dict[str, str] | None = None,
     ) -> tuple[bool, str, str]:
         """Try delivery with up to ``WEBHOOK_RETRY_ATTEMPTS`` retries.
 
@@ -280,7 +292,10 @@ class WebhookDispatcher:
             # SSRF block is permanent: do not retry, do not DL, do not
             # leak the URL in the error string returned to the caller.
             return False, "", "ssrf_blocked"
-        headers = {"Content-Type": "application/json"}
+        headers = {
+            "Content-Type": "application/json",
+            **(trace_headers or {}),
+        }
         if target.secret:
             headers["X-Webhook-Signature"] = self._sign(target.secret, body)
         last_err = ""
@@ -336,6 +351,7 @@ class WebhookDispatcher:
         body: bytes,
         event: str = "",
         oid: str = "",
+        trace_headers: dict[str, str] | None = None,
     ) -> None:
         """Deliver *body* with retries; dead-letter on terminal failure.
 
@@ -345,7 +361,11 @@ class WebhookDispatcher:
         that exhaust ``WEBHOOK_RETRY_ATTEMPTS`` end up in the
         dead-letter file for operator-initiated replay.
         """
-        ok, last_err, status_kind = self._attempt_with_retries(target, body)
+        ok, last_err, status_kind = self._attempt_with_retries(
+            target,
+            body,
+            trace_headers=trace_headers,
+        )
         record_webhook_outcome(event, status_kind)
         if ok or not last_err:
             return
@@ -392,6 +412,7 @@ class WebhookDispatcher:
         succeeded = 0
         still_failing: list[dict] = []
         skipped = 0
+        trace_headers = outbound_trace_headers()
         for r in records:
             url = r.get("url")
             target = targets_by_url.get(url) if isinstance(url, str) else None
@@ -401,7 +422,11 @@ class WebhookDispatcher:
                 continue
             body_str = r.get("body") or ""
             body = body_str.encode("utf-8")
-            ok, last_err, status_kind = self._attempt_with_retries(target, body)
+            ok, last_err, status_kind = self._attempt_with_retries(
+                target,
+                body,
+                trace_headers=trace_headers,
+            )
             record_webhook_outcome(r.get("event", ""), status_kind)
             if ok:
                 succeeded += 1

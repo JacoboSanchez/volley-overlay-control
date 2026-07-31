@@ -17,7 +17,8 @@ services:
       - APP_TITLE=${APP_TITLE:-Volley Scoreboard} #Optional
       # ---- Accounts & database (multi-user) ----
       - DATABASE_URL=${DATABASE_URL:-} #Optional: SQLAlchemy URL; default SQLite under the data volume. Postgres: postgresql+psycopg://user:pass@db:5432/volley
-      - SESSION_SECRET=${SESSION_SECRET:-} #Optional: cookie/report-signing key; auto-generated + persisted to data/.session_secret if unset
+      - SESSION_SECRET=${SESSION_SECRET:-} #Optional: cookie key; auto-generated + persisted to data/.session_secret if unset
+      - MATCH_REPORT_SIGNING_SECRET=${MATCH_REPORT_SIGNING_SECRET:-} #Optional: report-link HMAC key; separately persisted when unset
       - REGISTRATION_OPEN=${REGISTRATION_OPEN:-} #Optional: pin public registration open/closed. Unset: open until the first admin is claimed, then auto-closed (an admin can toggle it later; DB wins)
       - ADMIN_BOOTSTRAP_TOKEN=${ADMIN_BOOTSTRAP_TOKEN:-} #Optional: first-admin claim token; auto-generated + printed to the startup log if unset
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-} #Optional: force the Secure cookie flag (default: auto by scheme)
@@ -32,6 +33,10 @@ services:
       - LOG_FILE_MAX_BYTES=${LOG_FILE_MAX_BYTES:-10485760}
       - LOG_FILE_BACKUPS=${LOG_FILE_BACKUPS:-5}
       - LOG_REDACT=${LOG_REDACT:-1} #Optional: 0/false to disable PII redaction in dev
+      - SENTRY_DSN=${SENTRY_DSN:-} #Optional: enables privacy-scrubbed Sentry exception aggregation
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-}
+      - SENTRY_RELEASE=${SENTRY_RELEASE:-}
+      - SENTRY_TRACES_SAMPLE_RATE=${SENTRY_TRACES_SAMPLE_RATE:-0}
       - APP_TEAMS=${APP_TEAMS:-}
       - MATCH_GAME_POINTS=${MATCH_GAME_POINTS:-25}
       - MATCH_GAME_POINTS_LAST_SET=${MATCH_GAME_POINTS_LAST_SET:-15}
@@ -40,6 +45,8 @@ services:
       - TRUSTED_HOSTS=${TRUSTED_HOSTS:-} #Optional: comma-separated allow-list of Host header values (wildcards OK)
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-} #Optional: comma-separated allow-list of cross-origin SPA hosts (no wildcards)
       - MATCH_REPORT_PUBLIC=${MATCH_REPORT_PUBLIC:-false} #Optional: open match-report routes to anonymous reads
+      - METRICS_ENABLED=${METRICS_ENABLED:-true} #Optional: false returns 404 from /metrics
+      - METRICS_TOKEN=${METRICS_TOKEN:-} #Optional: bearer token required by /metrics
       - REST_USER_AGENT=${REST_USER_AGENT:-}
       - APP_THEMES=${APP_THEMES:-}
       - WEBHOOKS_URL=${WEBHOOKS_URL:-} #Optional: single outbound webhook endpoint

@@ -66,6 +66,10 @@ def test_trusted_hosts_rejects_unlisted_host(monkeypatch):
     # Starlette returns 400 with body "Invalid host header".
     assert res.status_code == 400
     assert "host" in res.text.lower()
+    # Request context is the outermost middleware, so even an early host
+    # rejection remains correlatable.
+    assert len(res.headers["x-request-id"]) == 32
+    assert res.headers["traceparent"].startswith("00-")
 
 
 def test_trusted_hosts_accepts_listed_host(monkeypatch):
@@ -178,7 +182,9 @@ def test_cors_preflight_passes_through(monkeypatch):
         headers={
             "Origin": "https://control.example.com",
             "Access-Control-Request-Method": "GET",
-            "Access-Control-Request-Headers": "Authorization",
+            "Access-Control-Request-Headers": (
+                "Authorization, traceparent, tracestate"
+            ),
         },
     )
     # 200 from the CORS middleware — the route's auth dependency is
@@ -188,6 +194,8 @@ def test_cors_preflight_passes_through(monkeypatch):
     assert "authorization" in res.headers.get(
         "access-control-allow-headers", "",
     ).lower()
+    assert "traceparent" in res.headers["access-control-allow-headers"].lower()
+    assert "tracestate" in res.headers["access-control-allow-headers"].lower()
 
 
 @pytest.fixture(autouse=True)

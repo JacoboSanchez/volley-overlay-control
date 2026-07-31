@@ -87,7 +87,9 @@ volley-overlay-control/
 │   ├── customization.py       # Team names, colors, logos, layout geometry
 │   ├── conf.py                # Configuration object — wraps env vars
 │   ├── password_hash.py       # scrypt-based credential hashing (CLI: `python -m app.password_hash`)
-│   ├── security_bootstrap.py  # Startup machine-credential resolution (auto-mints SESSION_SECRET)
+│   ├── security_bootstrap.py  # Startup cookie/report-signing key persistence
+│   ├── error_tracking.py      # Opt-in Sentry setup with privacy scrubbing
+│   ├── trace_context.py       # W3C trace-context parse/generate/propagation
 │   ├── match_report/          # Report/history routes, access, signing, stats, renderers, export, template
 │   ├── overlay_key.py         # Storage-key helpers — make_skey/split_skey ("<user_id>:<oid>")
 │   ├── overlays_service.py    # Per-user overlay CRUD + public_token / skey resolution
@@ -259,8 +261,9 @@ Config is loaded by `app/conf.py` -> `Conf` class from environment variables (`.
 Key variables:
 
 - **Persistence:** `DATABASE_URL` — SQLAlchemy URL; defaults to a SQLite file at `data/app.db`. Point it at Postgres with `postgresql+psycopg://...`. The schema migrates to head on startup; no manual `alembic` step needed.
-- **Auth / accounts:** `SESSION_SECRET` (auto-minted and persisted to `data/.session_secret` if unset; also signs match-report capability URLs — pin it explicitly to keep sessions/links valid across deployments). `REGISTRATION_OPEN` (seeds the DB toggle for self-registration; admins flip it at runtime). First-admin claim uses a one-time token logged at startup (see Auth, below) — there is no admin password env var.
-- **Metrics:** `/metrics` is unauthenticated (aggregates only — no payloads, no per-OID labels).
+- **Auth / accounts:** `SESSION_SECRET` (auto-minted and persisted to `data/.session_secret` if unset) signs login cookies; `MATCH_REPORT_SIGNING_SECRET` separately signs report capability URLs and persists to `data/.match_report_signing_secret`. Pin both across replicas. `REGISTRATION_OPEN` seeds the DB toggle for self-registration; admins flip it at runtime. First-admin claim uses a one-time token logged at startup (see Auth, below) — there is no admin password env var.
+- **Metrics:** `/metrics` contains aggregates only (no payloads or per-OID labels), is open by default, can require `METRICS_TOKEN`, and can be hidden with `METRICS_ENABLED=false`.
+- **Error tracking:** Sentry is inert unless `SENTRY_DSN` is configured. `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`, and `SENTRY_TRACES_SAMPLE_RATE` tune it; the setup scrubs bodies, cookies, query strings, and capability-bearing URL paths (`/overlay/`, `/follow/`, `/ws/`, `/matches/`, `/match/`) from error events and sampled transactions alike.
 - **Match behaviour:** `MATCH_GAME_POINTS`, `MATCH_GAME_POINTS_LAST_SET`, `MATCH_SETS`, `STALE_SET_THRESHOLD_MINUTES` (minutes a single set may run before the control-UI abandoned-match prompt fires; `0` disables).
 - **Overlay / serving:** `OVERLAY_PUBLIC_URL` (public base URL for OBS output links behind a proxy), `APP_PORT`, `ENABLE_MULTITHREAD`, `LOGGING_LEVEL`.
 - **Reports:** `MATCH_REPORT_PUBLIC=true` opens `/match/{id}/report` to anyone with the link (otherwise owner-cookie or signed URL).
@@ -285,7 +288,7 @@ inventory; this table is a "what exists" index only.
 | `/api/v1/overlays` | Per-user overlay CRUD (`GET`/`POST`/`PATCH`/`DELETE`); each row mints an unguessable `public_token` (OBS output) and `control_token` (shareable board link) |
 | `/api/v1/overlays/{oid}/regenerate-control-token` | `POST` — mint a fresh control token, revoking the previously-shared `/board?c=` link |
 | `/api/v1/admin/users`, `/api/v1/admin/registration` | Admin user management + registration toggle (`require_admin`) |
-| `/api/v1/matches/{match_id}/sign-url` | `POST` — owner mints an HMAC-signed (`SESSION_SECRET`) capability URL for `/match/{id}/report` |
+| `/api/v1/matches/{match_id}/sign-url` | `POST` — owner mints an HMAC-signed (`MATCH_REPORT_SIGNING_SECRET`) capability URL for `/match/{id}/report` |
 | `/api/v1/session/rules?oid=X` | `POST` — update match rules (mode, points, sets) for the session |
 | `/api/v1/audit?oid=X[&limit=N]` | Most-recent records from the per-overlay action audit log |
 | `/api/v1/matches[?oid=X]` | List archived match snapshots (newest first) |
@@ -297,7 +300,7 @@ inventory; this table is a "what exists" index only.
 | `/follow/{public_token}` | Lightweight spectator view over the same feed |
 | `/ws/{public_token}` | WebSocket for OBS browser sources (overlay state broadcast) |
 | `/api/themes` | List preset overlay theme names (public) |
-| `/metrics` | Prometheus exposition (unauthenticated; aggregates only) |
+| `/metrics` | Prometheus exposition (open by default; optional bearer token or disable flag) |
 | `/health` | Health check — returns `200 OK` with timestamp |
 | `/sw.js` | PWA service worker (from frontend build) |
 | `/manifest.webmanifest` | PWA manifest — served dynamically from the frontend build: `APP_TITLE` name, optional per-board `?oid=`/`?u=` variants, and (for a signed-in owner, via the `vsession` cookie) their overlays as long-press app `shortcuts` |
@@ -370,7 +373,7 @@ Use `app/oid_utils.py` for `extract_oid()` and `compose_output()` — do not imp
 - **Do not block the event loop** — long-running I/O must use the `ThreadPoolExecutor` in `Backend`.
 - **Do not skip `GameManager.save()`** — after any mutation, save must be called.
 - **Overlay detection:** `Backend.is_custom_overlay()` calls `resolve_overlay_kind()` (in `app/overlay_backends/utils.py`), which returns `OverlayKind.CUSTOM` only if the local overlay store has a file for that id. The legacy `C-` prefix is still accepted (and stripped) but never auto-creates a missing overlay.
-- **Do not bypass `run_security_bootstrap`.** `bootstrap.create_app` calls it before any router is registered so `SESSION_SECRET` is auto-generated / loaded and `os.environ` is populated before the auth dependencies read it. Tests that build a real app via `create_app()` rely on the autouse `isolate_security_bootstrap` fixture in `tests/conftest.py` to redirect the secret-persistence path to a per-test temp dir; do not call `ensure_session_secret` directly without that isolation.
+- **Do not bypass `run_security_bootstrap`.** `bootstrap.create_app` calls it before any router is registered so `SESSION_SECRET` and `MATCH_REPORT_SIGNING_SECRET` are generated / loaded before auth and report signing read them. Tests that build a real app via `create_app()` rely on the autouse `isolate_security_bootstrap` fixture in `tests/conftest.py` to redirect secret persistence to a per-test temp dir; do not call either bootstrap helper directly without that isolation.
 - **Credentials never compare with `==`.** User passwords (`app/auth/service.py` via `app/auth/passwords.verify_password`) go through `app.password_hash.verify_password`, which accepts a scrypt hash record (constant-time compare). Per-user passwords are stored as scrypt hashes (`users.password_hash`).
 - **Undo is a per-call flag, not a stack** — `add_game`, `add_set`, and `add_timeout` reverse only the most recent action of that type. `add_game(undo=True)` additionally falls back to `current_set - 1` when the current set has no score for the requested team, so a set-winning point can be undone after the session has advanced. The bundled React UI tracks its own short history of forward actions in `App.tsx` to drive the bottom-bar undo button — that stack is client-side only and does not survive page reloads or other clients.
 

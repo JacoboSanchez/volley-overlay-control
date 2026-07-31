@@ -6,7 +6,7 @@ A report can be read three ways:
    non-guessable ``match_id`` can view it).
 2. a valid HMAC capability URL (``?exp=…&sig=…``), minted by the report's
    owner via ``POST /api/v1/matches/{id}/sign-url`` and signed with
-   ``SESSION_SECRET`` — no credential on the wire.
+   ``MATCH_REPORT_SIGNING_SECRET``.
 3. the report's **owner**, authenticated by their session cookie.
 """
 

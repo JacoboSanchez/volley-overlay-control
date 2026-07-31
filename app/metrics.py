@@ -23,6 +23,8 @@ Cardinality budget:
 * ``ws_clients_total`` and ``ws_oids_active`` — unlabelled gauges so
   a tournament with thousands of OIDs cannot blow up the metric set.
 * ``active_sessions`` — unlabelled gauge.
+* ``rate_limit_blocked_buckets`` — labels one of two bounded limiter surfaces.
+* ``webhook_dead_letter_size`` — unlabelled persistent queue-depth gauge.
 
 The plan called for ``ws_clients_per_oid``; that label would be
 unbounded in OID space and is the textbook anti-pattern. Two
@@ -30,6 +32,7 @@ unlabelled gauges (``ws_clients_total`` plus ``ws_oids_active``) give
 the operator the same dashboard story (total fan-out + breadth)
 without the cardinality risk.
 """
+
 from __future__ import annotations
 
 import logging
@@ -46,11 +49,11 @@ try:
         Histogram,
         generate_latest,
     )
+
     PROMETHEUS_AVAILABLE = True
 except ImportError:  # pragma: no cover — handled at runtime
     logger.warning(
-        "prometheus_client not installed; /metrics will return 503. "
-        "Run 'pip install -r requirements.txt' to enable.",
+        "prometheus_client not installed; /metrics will return 503. Run 'pip install -r requirements.txt' to enable.",
     )
     PROMETHEUS_AVAILABLE = False
     CONTENT_TYPE_LATEST = "text/plain; version=0.0.4; charset=utf-8"
@@ -151,6 +154,12 @@ rate_limit_blocks_total = Counter(
     labelnames=("surface",),
 )
 
+rate_limit_blocked_buckets = Gauge(
+    "voc_rate_limit_blocked_buckets",
+    "Per-process rate-limit buckets that are currently blocked.",
+    labelnames=("surface",),
+)
+
 
 # ---------------------------------------------------------------------------
 # Helpers used from hot paths (kept tiny so the bookkeeping cost stays
@@ -188,3 +197,25 @@ def set_dead_letter_size(count: int) -> None:
 def record_rate_limit_block(surface: str) -> None:
     """Count one 429 emitted by the per-IP failure limiter."""
     rate_limit_blocks_total.labels(surface=surface or "unknown").inc()
+
+
+def refresh_operational_gauges() -> None:
+    """Refresh gauges whose source of truth lives outside this module.
+
+    Called immediately before exposition so persisted dead letters are visible
+    after restart and time-expired limiter buckets fall back to zero even when
+    no further authentication request arrives.
+    """
+    try:
+        from app.api.middleware.auth_rate_limit import blocked_bucket_counts
+
+        for surface, count in blocked_bucket_counts().items():
+            rate_limit_blocked_buckets.labels(surface=surface).set(count)
+    except Exception:  # pragma: no cover - metrics must remain best-effort
+        logger.exception("Failed to refresh rate-limit blocked-bucket gauge")
+    try:
+        from app.api.webhook_dead_letter import count as dead_letter_count
+
+        set_dead_letter_size(dead_letter_count())
+    except Exception:  # pragma: no cover - metrics must remain best-effort
+        logger.exception("Failed to refresh webhook dead-letter gauge")
