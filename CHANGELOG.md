@@ -69,6 +69,34 @@ archive by hand.
   and the reason the existing suite had to `importlib.reload` the module
   to change a limit. They are read per call now.
 
+- **Cleared two of the three open Dependabot advisories on the frontend
+  dev toolchain (build-time only).** `js-yaml` moves to 4.3.0 — the npm
+  `override` floor was still `^4.2.0`, which pinned the tree to the last
+  release affected by [GHSA-52cp-r559-cp3m](https://github.com/advisories/GHSA-52cp-r559-cp3m)
+  (quadratic CPU on YAML merge-key chains). That also clears the
+  `@redocly/openapi-core` alert, which was flagged only for depending on
+  it. `brace-expansion` moves 5.0.6 → 5.0.9 in the modern `minimatch@10`
+  chain, patching [GHSA-mh99-v99m-4gvg](https://github.com/advisories/GHSA-mh99-v99m-4gvg)
+  (unbounded expansion → OOM) and
+  [GHSA-3jxr-9vmj-r5cp](https://github.com/advisories/GHSA-3jxr-9vmj-r5cp).
+  `npm audit` goes from 3 high to 1 high; nothing here ships to users.
+
+  The remaining `brace-expansion` alert has **no upstream fix available**
+  and is deliberately left alone rather than papered over. It is patched
+  only in 5.0.8+, which changed its CommonJS export from the bare
+  function to `{ expand, … }`. `minimatch` 3.x and 5.x do
+  `const expand = require('brace-expansion')` and call it directly, so
+  forcing 5.x on them throws `expand is not a function` and breaks
+  `eslint` outright — and `eslint-plugin-react` (7.37.5) and
+  `eslint-plugin-jsx-a11y` (6.10.2) are both already at their latest
+  release and still depend on `minimatch@^3.1.2`. The 1.x/2.x/3.x/4.x
+  maintenance backports do not clear the advisory either. Pinning those
+  chains to their newest in-line release buys nothing and makes `npm
+  audit` report 15 findings instead of 1, so the override is scoped to
+  `minimatch@10` where 5.x actually loads. The exposure is a DoS on
+  attacker-supplied glob patterns; these run at lint/build time over
+  patterns from this repo's own config, and none of it reaches runtime.
+
 ### Added
 
 - **Opt-in privacy-scrubbed Sentry reporting and live operational gauges.**
