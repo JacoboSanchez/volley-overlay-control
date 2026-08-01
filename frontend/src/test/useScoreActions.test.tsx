@@ -3,7 +3,19 @@ import { renderHook, act } from '@testing-library/react';
 import { useScoreActions } from '../hooks/useScoreActions';
 import type { GameActions } from '../hooks/useGameState';
 import type { Settings } from '../hooks/useSettings';
-import type { HapticPattern } from '../hooks/useHaptics';
+import type { useHaptics } from '../hooks/useHaptics';
+
+// Mirrors the alias inside useScoreActions so a change to the haptics
+// signature surfaces here as a type error instead of drifting silently.
+type Pulse = ReturnType<typeof useHaptics>['pulse'];
+
+interface HookProps {
+  actions: GameActions;
+  settings: Settings;
+  simpleMode: boolean;
+  matchFinished: boolean;
+  pulse: Pulse;
+}
 
 function mockActions(overrides: Partial<GameActions> = {}): GameActions {
   return {
@@ -26,6 +38,8 @@ function mockActions(overrides: Partial<GameActions> = {}): GameActions {
 }
 
 function mockSettings(overrides: Partial<Settings> = {}): Settings {
+  // The hook reads only these three flags; the cast keeps the fixture from
+  // having to restate every unrelated field of Settings.
   return {
     trackPointTypes: false,
     autoSimple: false,
@@ -34,35 +48,26 @@ function mockSettings(overrides: Partial<Settings> = {}): Settings {
   } as Settings;
 }
 
-function mockPulse(): (pattern: HapticPattern | string) => void {
-  return vi.fn();
+function render(overrides: Partial<HookProps> = {}) {
+  const initialProps: HookProps = {
+    actions: mockActions(),
+    settings: mockSettings(),
+    simpleMode: false,
+    matchFinished: false,
+    pulse: vi.fn(),
+    ...overrides,
+  };
+  const view = renderHook((props: HookProps) => useScoreActions(props), { initialProps });
+  return {
+    ...view,
+    /** Re-render with some inputs changed, as a live state push would. */
+    update: (next: Partial<HookProps>) => view.rerender({ ...initialProps, ...next }),
+  };
 }
 
-function render({
-  actions = mockActions(),
-  settings = mockSettings(),
-  simpleMode = false,
-  matchFinished = false,
-  pulse = mockPulse(),
-}: {
-  actions?: GameActions;
-  settings?: Settings;
-  simpleMode?: boolean;
-  matchFinished?: boolean;
-  pulse?: ReturnType<typeof mockPulse>;
-} = {}) {
-  return renderHook(
-    ({ a, s, sm, mf, p }: {
-      a: GameActions;
-      s: Settings;
-      sm: boolean;
-      mf: boolean;
-      p: (pattern: HapticPattern | string) => void;
-    }) => useScoreActions({ actions: a, settings: s, simpleMode: sm, matchFinished: mf, pulse: p }),
-    {
-      initialProps: { a: actions, s: settings, sm: simpleMode, mf: matchFinished, p: pulse },
-    },
-  );
+/** Narrow a mocked action back to its vi.fn() handle. */
+function asMock(fn: unknown): ReturnType<typeof vi.fn> {
+  return fn as ReturnType<typeof vi.fn>;
 }
 
 describe('useScoreActions', () => {
@@ -303,28 +308,59 @@ describe('useScoreActions', () => {
 
   // ------------------------------------------------------------------
   // Callback stability (inputsRef pattern)
+  //
+  // The handlers go into BoardActionsContext, whose memoized value must not
+  // change just because a WebSocket push updated the score. That requires
+  // two properties at once: the identities stay put across re-renders, and
+  // the bodies still read the *current* inputs through inputsRef. A
+  // regression in either direction is a real bug, so both are asserted.
   // ------------------------------------------------------------------
   describe('callback stability through inputsRef', () => {
+    it('keeps every handler identity stable when the inputs change', () => {
+      const { result: r, update } = render();
+      const before = r.current;
+
+      update({
+        actions: mockActions(),
+        settings: mockSettings({ autoSimple: true, trackPointTypes: true }),
+        simpleMode: true,
+        matchFinished: true,
+        pulse: vi.fn(),
+      });
+
+      // Guard against a vacuous pass: the hook really did re-render.
+      expect(r.current).not.toBe(before);
+      expect(r.current.commitPoint).toBe(before.commitPoint);
+      expect(r.current.handleAddPoint).toBe(before.handleAddPoint);
+      expect(r.current.handleAddSet).toBe(before.handleAddSet);
+      expect(r.current.handleAddTimeout).toBe(before.handleAddTimeout);
+      expect(r.current.handleChangeServe).toBe(before.handleChangeServe);
+      expect(r.current.handleDoubleTapScore).toBe(before.handleDoubleTapScore);
+      expect(r.current.handleDoubleTapTimeout).toBe(before.handleDoubleTapTimeout);
+      expect(r.current.setPointPickerTeam).toBe(before.setPointPickerTeam);
+    });
+
+    it('routes through to the replacement actions object, not the captured one', () => {
+      const first = mockActions();
+      const { result: r, update } = render({ actions: first });
+      const second = mockActions();
+
+      update({ actions: second });
+      act(() => r.current.handleAddPoint(1));
+
+      expect(first.addPoint).not.toHaveBeenCalled();
+      expect(second.addPoint).toHaveBeenCalledWith(1, false, undefined, undefined);
+    });
+
     it('reads up-to-date matchFinished from ref on subsequent renders', () => {
       const actions = mockActions();
-      const pulse = vi.fn();
-      const { result: r, rerender } = renderHook(
-        ({ mf }: { mf: boolean }) =>
-          useScoreActions({
-            actions,
-            settings: mockSettings(),
-            simpleMode: false,
-            matchFinished: mf,
-            pulse,
-          }),
-        { initialProps: { mf: false } },
-      );
+      const { result: r, update } = render({ actions });
 
       act(() => r.current.handleAddPoint(1));
       expect(actions.addPoint).toHaveBeenCalledTimes(1);
 
-      (actions.addPoint as ReturnType<typeof vi.fn>).mockClear();
-      rerender({ mf: true });
+      asMock(actions.addPoint).mockClear();
+      update({ matchFinished: true });
 
       act(() => r.current.handleAddPoint(1));
       expect(actions.addPoint).not.toHaveBeenCalled();
@@ -332,25 +368,12 @@ describe('useScoreActions', () => {
 
     it('reads up-to-date autoSimple from ref on subsequent renders', () => {
       const actions = mockActions();
-      const pulse = vi.fn();
-      const { result: r, rerender } = renderHook(
-        ({ autoSimple }: { autoSimple: boolean }) =>
-          useScoreActions({
-            actions,
-            settings: mockSettings({ autoSimple }),
-            simpleMode: false,
-            matchFinished: false,
-            pulse,
-          }),
-        { initialProps: { autoSimple: false } },
-      );
+      const { result: r, update } = render({ actions });
 
       act(() => r.current.commitPoint(1));
       expect(actions.setSimpleMode).not.toHaveBeenCalled();
 
-      (actions.addPoint as ReturnType<typeof vi.fn>).mockClear();
-      (actions.setSimpleMode as ReturnType<typeof vi.fn>).mockClear();
-      rerender({ autoSimple: true });
+      update({ settings: mockSettings({ autoSimple: true }) });
 
       act(() => r.current.commitPoint(2));
       expect(actions.setSimpleMode).toHaveBeenCalledWith(true);
