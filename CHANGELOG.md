@@ -99,6 +99,20 @@ archive by hand.
 
 ### Added
 
+- **Backfilled tests for the three highest-risk untested surfaces.**
+  `frontend/src/test/useDoubleTap.test.tsx` covers the press-gesture state
+  machine behind every score, timeout and set button — single tap, double
+  tap, long press and their documented priority, the touch/mouse and
+  keyboard-repeat guards, the cancel paths, the browser defaults the hook
+  suppresses, and timer cleanup on unmount.
+  `frontend/src/test/useScoreActions.test.tsx` covers the scoring handlers
+  and the point-type-picker gate, including the referential stability that
+  keeps a WebSocket state push from re-rendering the board's action context.
+  `tests/test_match_report_access.py` covers the authorization gate on
+  `/match/{id}/report` directly: public mode, signed capability URLs, the
+  owner cookie, and every path that denies access.
+  Fixes [#442](https://github.com/JacoboSanchez/volley-overlay-control/issues/442).
+
 - **Opt-in privacy-scrubbed Sentry reporting and live operational gauges.**
   Setting `SENTRY_DSN` enables FastAPI error reporting and optional
   transaction sampling without sending request bodies, cookies, query strings,
