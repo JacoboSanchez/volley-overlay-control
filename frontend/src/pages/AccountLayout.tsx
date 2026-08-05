@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -107,7 +107,12 @@ export default function AccountLayout() {
           </button>
         </nav>
         <main className="acc-main">
-          <Outlet />
+          {/* Boundary for the lazily-loaded account pages (see AppRouter).
+              A null fallback keeps the nav and shell in place — the chunk is
+              same-origin, so a spinner would flash more than it informs. */}
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>
