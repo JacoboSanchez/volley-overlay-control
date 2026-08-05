@@ -574,24 +574,30 @@ def read_all(oid: str) -> list[dict]:
         return []
     try:
         with _lock_for(oid):
-            raw = _read_raw_locked(path, oid)
-            filtered = _apply_tombstones(raw)
-            # ``_apply_tombstones`` returns ``raw`` itself when there is
-            # nothing to filter, and ``raw`` may be the cached list — copy
-            # so a caller cannot mutate the cache out from under us. This
-            # is a pointer copy, far cheaper than re-reading the log.
-            return list(filtered)
+            return _read_visible_locked(path, oid)
     except Exception as exc:
         logger.warning("Failed to read audit log for %r: %s", oid, exc)
         return []
+
+
+def _read_visible_locked(path: str, oid: str) -> list[dict]:
+    """Tombstone-filtered records for *oid*. Caller holds ``_lock_for(oid)``."""
+    raw = _read_raw_locked(path, oid)
+    filtered = _apply_tombstones(raw)
+    # ``_apply_tombstones`` returns ``raw`` itself when there is nothing to
+    # filter, and ``raw`` may be the cached list — copy so a caller cannot
+    # mutate the cache out from under us. This is a pointer copy, far
+    # cheaper than re-reading the log.
+    return list(filtered)
 
 
 def read_page(
     oid: str,
     limit: int,
     before_ts: float | None = None,
-) -> tuple[list[dict], float | None]:
-    """Return up to *limit* records older than *before_ts*, plus a cursor.
+) -> tuple[list[dict], float | None, int]:
+    """Return up to *limit* records older than *before_ts*, a cursor, and
+    the log version the page reflects.
 
     Cursor-based pagination over the per-OID audit log, walking forward
     from the newest entry and serving fixed-size pages so a long-running
@@ -604,26 +610,48 @@ def read_page(
         are considered. Use ``None`` for the first page (newest
         ``limit`` records).
 
-    Returns ``(records, next_cursor)``:
+    Returns ``(records, next_cursor, version)``:
       * ``records`` is in chronological order (oldest first within the
         returned window — same convention as ``read_recent``).
       * ``next_cursor`` is the ``ts`` of the **oldest** returned record
         when more pages remain (caller passes it as ``before_ts`` for
         the next call), or ``None`` when the page is the final one.
+      * ``version`` is :func:`version` **as of the same lock hold** that
+        produced ``records``.
+
+    That last part is the reason this returns a version at all rather
+    than leaving callers to call :func:`version` themselves. Sampling the
+    counter outside this lock is wrong in both directions: read it first
+    and a mutation landing before the page is built yields a page that
+    contains a record the version does not account for — a live client
+    would then treat that record's ``audit_append`` push as contiguous
+    and append it a second time. Read it after and the page can predate a
+    mutation the version already counts, so the client applies the *next*
+    push on top of a log it never saw. Under one lock, neither is
+    possible.
 
     Tombstoned records are invisible to the cursor so paging never
     skips past visible records because of an undo that happened
     between calls.
     """
     if limit <= 0:
-        return [], None
-    records = read_all(oid)
+        return [], None, version(oid)
+    path = _path(oid)
+    if path is None or not _has_any_log_file(path):
+        return [], None, version(oid)
+    try:
+        with _lock_for(oid):
+            records = _read_visible_locked(path, oid)
+            log_version = _version_per_oid.get(oid, 0)
+    except Exception as exc:
+        logger.warning("Failed to read audit page for %r: %s", oid, exc)
+        return [], None, version(oid)
     if before_ts is not None:
         records = [r for r in records if r.get("ts", 0) < before_ts]
     page = records[-limit:]
     has_more = len(records) > len(page)
     next_cursor = page[0].get("ts") if (page and has_more) else None
-    return page, next_cursor
+    return page, next_cursor, log_version
 
 
 def read_recent(oid: str, limit: int = 100) -> list[dict]:

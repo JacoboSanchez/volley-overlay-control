@@ -487,6 +487,12 @@ export interface paths {
          *       at. Pair it with the ``audit_append`` / ``audit_invalidate``
          *       WebSocket messages (see FRONTEND_DEVELOPMENT.md) to follow the
          *       log live instead of re-polling this endpoint.
+         *
+         *     ``read_page`` returns the page and the version under one lock hold —
+         *     sampling the counter separately would let a concurrent mutation land
+         *     between the two and hand the caller a page and a version that
+         *     disagree, which a live client resolves into either a duplicated or a
+         *     silently missing record. See its docstring.
          */
         get: operations["get_audit_log_api_v1_audit_get"];
         put?: never;

@@ -52,16 +52,14 @@ async def get_audit_log(
       at. Pair it with the ``audit_append`` / ``audit_invalidate``
       WebSocket messages (see FRONTEND_DEVELOPMENT.md) to follow the
       log live instead of re-polling this endpoint.
+
+    ``read_page`` returns the page and the version under one lock hold —
+    sampling the counter separately would let a concurrent mutation land
+    between the two and hand the caller a page and a version that
+    disagree, which a live client resolves into either a duplicated or a
+    silently missing record. See its docstring.
     """
-    # Sampled *before* the read, deliberately. A mutation landing between
-    # the two lines then leaves the caller holding a version lower than
-    # its records, so the next pushed append looks like a gap and it
-    # re-reads — wasteful but correct. Sampling after would do the
-    # opposite: the caller would believe a page that predates the
-    # mutation is current and would apply the following append on top of
-    # a log it never saw.
-    version = action_log.version(session.oid)
-    records, next_cursor = action_log.read_page(
+    records, next_cursor, version = action_log.read_page(
         session.oid, limit=limit, before_ts=before_ts,
     )
     return {

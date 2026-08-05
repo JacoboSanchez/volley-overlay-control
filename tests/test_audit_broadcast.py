@@ -175,6 +175,72 @@ class TestObserverContract:
         assert acquired == [True, True, True]
 
 
+class TestPageVersionAtomicity:
+    """``read_page`` must hand back a page and a version that agree.
+
+    This is what makes the client's gap check sound. If the version could
+    be sampled outside the lock that builds the page, a mutation landing
+    in between produces one of two live-client bugs: a page containing a
+    record the version does not count (the matching ``audit_append`` then
+    looks contiguous and the record is applied twice), or a version that
+    counts a record the page is missing (the *next* append looks
+    contiguous and the missing record is never fetched).
+    """
+
+    def test_version_accounts_for_every_record_in_the_page(self, events):
+        for i in range(3):
+            action_log.append("oid-a", "add_point", {"team": 1}, {"n": i})
+
+        records, _, page_version = action_log.read_page("oid-a", limit=50)
+
+        assert len(records) == 3
+        assert page_version == action_log.version("oid-a")
+        # The version each append reported, in order. The page's version
+        # must be the one belonging to its newest record — not older
+        # (record unaccounted for) and not newer (record missing).
+        assert page_version == [v for _, _, v, _ in events][-1]
+
+    def test_page_and_version_move_together_across_a_mutation(self):
+        action_log.append("oid-a", "add_point", {"team": 1}, {})
+        first_records, _, first_version = action_log.read_page("oid-a", limit=50)
+
+        action_log.append("oid-a", "add_point", {"team": 2}, {})
+        second_records, _, second_version = action_log.read_page("oid-a", limit=50)
+
+        assert len(second_records) == len(first_records) + 1
+        assert second_version == first_version + 1
+
+    def test_version_is_stable_while_the_log_is_unchanged(self):
+        action_log.append("oid-a", "add_point", {"team": 1}, {})
+
+        _, _, first = action_log.read_page("oid-a", limit=50)
+        _, _, second = action_log.read_page("oid-a", limit=50)
+
+        # Reading must not itself advance the counter, or every fetch
+        # would look to the client like a missed message.
+        assert first == second
+
+    def test_empty_and_degenerate_reads_still_report_a_version(self):
+        assert action_log.read_page("never-written", limit=10) == ([], None, 0)
+
+        action_log.append("oid-a", "add_point", {"team": 1}, {})
+        _, _, zero_limit_version = action_log.read_page("oid-a", limit=0)
+        assert zero_limit_version == action_log.version("oid-a")
+
+    def test_version_survives_a_tombstone(self):
+        action_log.append("oid-a", "add_point", {"team": 1}, {})
+        action_log.append("oid-a", "add_point", {"team": 2}, {})
+        action_log.pop_last_forward("oid-a")
+
+        records, _, page_version = action_log.read_page("oid-a", limit=50)
+
+        # The popped record is gone from the page and the version has
+        # advanced past it, so a client re-reading after the invalidate
+        # cannot resurrect it.
+        assert len(records) == 1
+        assert page_version == action_log.version("oid-a")
+
+
 class TestWebSocketBridge:
     def test_install_routes_mutations_to_the_hub(self):
         audit_broadcast.install()
