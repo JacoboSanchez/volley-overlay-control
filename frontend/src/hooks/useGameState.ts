@@ -97,7 +97,10 @@ export interface UseGameStateResult {
   errorStatus: number | null;
   initialize: () => Promise<void>;
   actions: GameActions;
-  refreshCustomization: () => Promise<void>;
+  /** Re-reads customization from the server. Resolves ``false`` when the
+   *  fetch failed (or there is no overlay), so callers that need the
+   *  operator to know can surface it. */
+  refreshCustomization: () => Promise<boolean>;
   setCustomization: Dispatch<SetStateAction<Customization | null>>;
 }
 
@@ -308,8 +311,8 @@ export function useGameState(oid: string | null): UseGameStateResult {
     [handleAction],
   );
 
-  const refreshCustomization = useCallback(async () => {
-    if (!oid) return;
+  const refreshCustomization = useCallback(async (): Promise<boolean> => {
+    if (!oid) return false;
     try {
       // Fetch the latest customization from the backend (which already has the
       // just-saved data) and update the local customization state. We deliberately
@@ -319,8 +322,14 @@ export function useGameState(oid: string | null): UseGameStateResult {
       // stale team names/colors and visually revert the overlay.
       const cust = await api.getCustomization(oid);
       setCustomization(cust);
+      return true;
     } catch {
-      // ignore
+      // Reported, not swallowed: the caller decides whether this is worth
+      // telling the operator about. A refresh that failed right after a
+      // save leaves the panel showing values the server does not have,
+      // which is exactly the case that needs to be visible; the background
+      // locale sync is not.
+      return false;
     }
   }, [oid]);
 

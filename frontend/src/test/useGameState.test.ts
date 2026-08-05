@@ -339,6 +339,57 @@ describe('useGameState', () => {
     expect(api.initSession).not.toHaveBeenCalled();
   });
 
+  it('refreshCustomization reports failure instead of swallowing it', async () => {
+    const { result } = renderHook(() => useGameState('oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    const before = result.current.customization;
+    vi.mocked(api.getCustomization).mockRejectedValueOnce(new Error('network down'));
+
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await result.current.refreshCustomization();
+    });
+
+    // The caller learns the read-back failed (App turns this into a toast),
+    // and the last known-good customization is left in place rather than
+    // being cleared out from under the panel.
+    expect(ok).toBe(false);
+    expect(result.current.customization).toEqual(before);
+
+    vi.mocked(api.getCustomization).mockResolvedValue({ 'Team 1 Name': 'Fresh' });
+    await act(async () => {
+      ok = await result.current.refreshCustomization();
+    });
+    expect(ok).toBe(true);
+  });
+
+  it('refreshCustomization reports failure when there is no oid', async () => {
+    const { result } = renderHook(() => useGameState(null));
+
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await result.current.refreshCustomization();
+    });
+
+    expect(ok).toBe(false);
+    expect(api.getCustomization).not.toHaveBeenCalled();
+  });
+
+  it('actions reject without an oid instead of requesting a null board', async () => {
+    const { result } = renderHook(() => useGameState(null));
+
+    let res: Awaited<ReturnType<typeof result.current.actions.addPoint>> | undefined;
+    await act(async () => {
+      res = await result.current.actions.addPoint(1);
+    });
+
+    expect(res?.success).toBe(false);
+    expect(api.addPoint).not.toHaveBeenCalled();
+  });
+
   it('cleanup closes WebSocket on unmount', async () => {
     const { result, unmount } = renderHook(() => useGameState('oid'));
     await act(async () => {

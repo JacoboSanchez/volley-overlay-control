@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { setControlToken, setPublicUser } from './api/client';
 import { useI18n } from './i18n';
+import { useToast } from './components/Toast';
 import { useAppConfig } from './hooks/useAppConfig';
 import { useGameState } from './hooks/useGameState';
 import { useRecentEvents } from './hooks/useRecentEvents';
@@ -54,6 +55,7 @@ export default function App({
   }, [controlToken, publicUser]);
 
   const { t, lang } = useI18n();
+  const { toast } = useToast();
   const appConfig = useAppConfig();
   const { settings, setSetting } = useSettings();
   const { isPortrait, buttonSize, hasRoomForPersistentControls } = useOrientation();
@@ -127,6 +129,16 @@ export default function App({
   }, [oid, initialize, isCapabilityMode]);
 
   useOverlayLocaleSync({ oid, lang, customization, refreshCustomization });
+
+  // The operator just pressed Save in the config panel, so a failed
+  // read-back is worth interrupting for: the panel would otherwise keep
+  // showing values the server never confirmed. The background locale sync
+  // uses the same call and stays quiet on purpose.
+  const handleCustomizationSaved = useCallback(async () => {
+    if (!(await refreshCustomization())) {
+      toast(t('config.refreshFailed'), 'error');
+    }
+  }, [refreshCustomization, toast, t]);
 
   const { pulse } = useHaptics();
   // Set / match / finished transitions vibrate via the shared
@@ -533,7 +545,7 @@ export default function App({
             onLogout={handleLogout}
             operator={isCapabilityMode}
             onSwitchOverlay={isCapabilityMode ? undefined : handleSwitchOverlay}
-            onCustomizationSaved={refreshCustomization}
+            onCustomizationSaved={handleCustomizationSaved}
             darkMode={settings.darkMode}
             isFullscreen={isFullscreen}
             onToggleDarkMode={() => {
