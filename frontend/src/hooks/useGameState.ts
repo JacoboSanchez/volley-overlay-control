@@ -234,9 +234,17 @@ export function useGameState(oid: string | null): UseGameStateResult {
 
   const handleAction = useCallback(
     async (
-      actionFn: () => Promise<ActionResponse>,
+      actionFn: (oid: string) => Promise<ActionResponse>,
       optimisticUpdater?: (prev: GameState) => GameState,
     ): Promise<ActionResponse> => {
+      // Single narrowing point for the whole action surface: every action
+      // needs an overlay id, so checking here lets the callbacks below take
+      // a plain ``string`` instead of asserting a nullable one 14 times.
+      // Without a board there is nothing to act on — report it like any
+      // other rejected action rather than throwing.
+      if (!oid) {
+        return { success: false, message: 'No overlay session' };
+      }
       // Capture the snapshot synchronously from the ref (not from an impure
       // setState updater) so rollback is reliable even if actionFn rejects
       // before React processes the update.
@@ -246,7 +254,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
         applyState(optimisticUpdater(snapshot), false);
       }
       try {
-        const res = await actionFn();
+        const res = await actionFn(oid);
         if (res.success && res.state) {
           applyState(res.state);
         } else if (!res.success && shouldApplyOptimistic) {
@@ -264,32 +272,32 @@ export function useGameState(oid: string | null): UseGameStateResult {
         return { success: false, message };
       }
     },
-    [applyState],
+    [oid, applyState],
   );
 
   const actions = useMemo<GameActions>(
     () => ({
       addPoint: (team, undo = false, pointType, errorType) =>
         handleAction(
-          () => api.addPoint(oid!, team, undo, pointType, errorType),
+          (id) => api.addPoint(id, team, undo, pointType, errorType),
           undo ? undefined : (prev) => optimisticAddPoint(prev, team),
         ),
-      addSet: (team, undo = false) => handleAction(() => api.addSet(oid!, team, undo)),
-      addTimeout: (team, undo = false) => handleAction(() => api.addTimeout(oid!, team, undo)),
-      changeServe: (team) => handleAction(() => api.changeServe(oid!, team)),
+      addSet: (team, undo = false) => handleAction((id) => api.addSet(id, team, undo)),
+      addTimeout: (team, undo = false) => handleAction((id) => api.addTimeout(id, team, undo)),
+      changeServe: (team) => handleAction((id) => api.changeServe(id, team)),
       setScore: (team, setNumber, value) =>
-        handleAction(() => api.setScore(oid!, team, setNumber, value)),
-      setSets: (team, value) => handleAction(() => api.setSets(oid!, team, value)),
-      reset: () => handleAction(() => api.resetGame(oid!)),
-      setVisibility: (visible) => handleAction(() => api.setVisibility(oid!, visible)),
-      setSimpleMode: (enabled) => handleAction(() => api.setSimpleMode(oid!, enabled)),
-      setSetSummary: (enabled) => handleAction(() => api.setSetSummary(oid!, enabled)),
-      setSwapSides: (swapped) => handleAction(() => api.setSwapSides(oid!, swapped)),
-      setSetSummaryStyle: (style) => handleAction(() => api.setSetSummaryStyle(oid!, style)),
-      undoLast: () => handleAction(() => api.undoLast(oid!)),
-      startMatch: () => handleAction(() => api.startMatch(oid!)),
+        handleAction((id) => api.setScore(id, team, setNumber, value)),
+      setSets: (team, value) => handleAction((id) => api.setSets(id, team, value)),
+      reset: () => handleAction((id) => api.resetGame(id)),
+      setVisibility: (visible) => handleAction((id) => api.setVisibility(id, visible)),
+      setSimpleMode: (enabled) => handleAction((id) => api.setSimpleMode(id, enabled)),
+      setSetSummary: (enabled) => handleAction((id) => api.setSetSummary(id, enabled)),
+      setSwapSides: (swapped) => handleAction((id) => api.setSwapSides(id, swapped)),
+      setSetSummaryStyle: (style) => handleAction((id) => api.setSetSummaryStyle(id, style)),
+      undoLast: () => handleAction((id) => api.undoLast(id)),
+      startMatch: () => handleAction((id) => api.startMatch(id)),
     }),
-    [oid, handleAction],
+    [handleAction],
   );
 
   const refreshCustomization = useCallback(async () => {
