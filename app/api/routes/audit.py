@@ -48,11 +48,24 @@ async def get_audit_log(
     * ``count`` — ``len(records)``.
     * ``next_cursor`` — the ``ts`` to pass as ``before_ts`` for the
       next page, or ``null`` when this is the last page.
+    * ``version`` — the log's mutation counter these records were read
+      at. Pair it with the ``audit_append`` / ``audit_invalidate``
+      WebSocket messages (see FRONTEND_DEVELOPMENT.md) to follow the
+      log live instead of re-polling this endpoint.
     """
+    # Sampled *before* the read, deliberately. A mutation landing between
+    # the two lines then leaves the caller holding a version lower than
+    # its records, so the next pushed append looks like a gap and it
+    # re-reads — wasteful but correct. Sampling after would do the
+    # opposite: the caller would believe a page that predates the
+    # mutation is current and would apply the following append on top of
+    # a log it never saw.
+    version = action_log.version(session.oid)
     records, next_cursor = action_log.read_page(
         session.oid, limit=limit, before_ts=before_ts,
     )
     return {
+        "version": version,
         # Present the human-facing oid, never the internal "<user_id>:<oid>"
         # storage key — returning the skey would leak the owner's user_id to
         # any control-link operator (mirrors matches.py ``_present``).

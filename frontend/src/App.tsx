@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { setControlToken, setPublicUser } from './api/client';
+import type { AuditRecord } from './api/client';
 import { useI18n } from './i18n';
 import { useToast } from './components/Toast';
 import { useAppConfig } from './hooks/useAppConfig';
@@ -39,6 +40,10 @@ import AppDialogs from './components/AppDialogs';
 import PointTypePicker from './components/PointTypePicker';
 import ErrorBoundary from './components/ErrorBoundary';
 import { asString } from './utils/coerce';
+
+// Stable identity so the momentum strip's memo doesn't churn while the
+// preview is showing and the strip is not rendered at all.
+const EMPTY_AUDIT_RECORDS: AuditRecord[] = [];
 
 export default function App({
   controlToken,
@@ -97,6 +102,19 @@ export default function App({
   });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(!!document.fullscreenElement);
 
+  // Recent-audit drawer: a non-modal slide-in panel that surfaces the
+  // per-OID action log so the operator can verify what just happened
+  // without leaving the scoreboard. Declared up here because it is one of
+  // the two things that decide whether the board mirrors the audit log at
+  // all (see ``auditEnabled`` below).
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  // Mirror the action log only while something renders it: the momentum
+  // strip (shown in place of a hidden preview) or the history drawer.
+  // Arming the feed costs one fetch; after that it rides the board's
+  // existing WebSocket.
+  const auditEnabled = !settings.showPreview || historyOpen;
+
   const {
     state,
     confirmedState,
@@ -107,7 +125,8 @@ export default function App({
     initialize,
     actions,
     refreshCustomization,
-  } = useGameState(oid);
+    audit,
+  } = useGameState(oid, { auditEnabled });
 
   // Persist the chosen OID and (re)create the backend session. Lives
   // here rather than in useOidSession because ``initialize`` comes
@@ -182,12 +201,6 @@ export default function App({
 
   const { shareOpen, setShareOpen, shareLinks, handleOpenShare } = useShareLinks(oid);
 
-  // Recent-audit drawer: a non-modal slide-in panel that surfaces
-  // the per-OID action log so the operator can verify what just
-  // happened without leaving the scoreboard. Lazy-fetched on open
-  // by ``useAuditLog`` inside the component itself.
-  const [historyOpen, setHistoryOpen] = useState(false);
-
   // Keyboard shortcuts help modal — opened with `?`, listed in the
   // Behavior section as a "Show shortcuts" entry.
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
@@ -201,16 +214,12 @@ export default function App({
   const compactLandscape = !isPortrait && !hasRoomForPersistentControls;
 
   // Filled only while the preview is hidden, so the centre column shows
-  // a momentum strip in place of the empty preview gap.
-  // Uses ``confirmedState`` (not ``state``) so the audit refetch is triggered
-  // only after the server has acknowledged a change. Depending on the
-  // optimistically-updated ``state`` would race the audit GET against the
-  // in-flight POST and silently drop the chip for the action that just
-  // happened — it would only surface together with the next confirmed event.
+  // a momentum strip in place of the empty preview gap. A pure projection
+  // of the live audit feed — the chips follow the log itself now, so there
+  // is no longer a fetch to race against the in-flight POST (which is what
+  // the old ``confirmedState`` trigger existed to avoid).
   const recentEvents = useRecentEvents(
-    oid,
-    !settings.showPreview,
-    confirmedState,
+    settings.showPreview ? EMPTY_AUDIT_RECORDS : audit.records,
     compactLandscape ? 5 : 8,
   );
 
@@ -588,9 +597,8 @@ export default function App({
           isCapabilityMode || !oid ? null : `/reports?oid=${encodeURIComponent(oid)}`
         }
         onShareClose={() => setShareOpen(false)}
-        oid={oid}
         historyOpen={historyOpen}
-        confirmedState={confirmedState}
+        audit={audit}
         onHistoryClose={() => setHistoryOpen(false)}
         coachmarkOpen={coachmarkOpen}
         onCoachmarkDismiss={handleCoachmarkDismiss}

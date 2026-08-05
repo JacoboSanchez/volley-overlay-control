@@ -483,6 +483,10 @@ export interface paths {
          *     * ``count`` — ``len(records)``.
          *     * ``next_cursor`` — the ``ts`` to pass as ``before_ts`` for the
          *       next page, or ``null`` when this is the last page.
+         *     * ``version`` — the log's mutation counter these records were read
+         *       at. Pair it with the ``audit_append`` / ``audit_invalidate``
+         *       WebSocket messages (see FRONTEND_DEVELOPMENT.md) to follow the
+         *       log live instead of re-polling this endpoint.
          */
         get: operations["get_audit_log_api_v1_audit_get"];
         put?: never;

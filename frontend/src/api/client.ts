@@ -963,6 +963,10 @@ export interface AuditResponse {
   oid: string;
   count: number;
   records: AuditRecord[];
+  /** Mutation counter these records were read at. Compare against the
+   *  ``version`` on ``audit_append`` / ``audit_invalidate`` WebSocket
+   *  messages to tell an in-order push from a missed one. */
+  version: number;
 }
 
 export function getAudit(

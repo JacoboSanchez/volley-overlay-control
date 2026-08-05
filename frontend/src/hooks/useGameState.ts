@@ -10,6 +10,7 @@ import {
 import * as api from '../api/client';
 import type { GameState, ActionResponse, Team, TeamState } from '../api/client';
 import { createWebSocket } from '../api/websocket';
+import { useAuditFeed, type AuditFeed } from './useAuditFeed';
 import { WS_RECONNECT_BASE_MS, WS_RECONNECT_FACTOR, WS_RECONNECT_MAX_MS } from '../constants';
 
 type Customization = Record<string, unknown>;
@@ -77,6 +78,17 @@ export interface GameActions {
   startMatch: () => Promise<ActionResponse>;
 }
 
+export interface UseGameStateOptions {
+  /**
+   * Mirror the board's audit log into ``audit``. Off by default: the log
+   * is only needed when something is showing it (the momentum strip or the
+   * history drawer), and leaving it off saves the one fetch that arms the
+   * live feed. Flipping it on mid-session reads the log then; flipping it
+   * off drops the records.
+   */
+  auditEnabled?: boolean | undefined;
+}
+
 export interface UseGameStateResult {
   state: GameState | null;
   /**
@@ -102,13 +114,23 @@ export interface UseGameStateResult {
    *  operator to know can surface it. */
   refreshCustomization: () => Promise<boolean>;
   setCustomization: Dispatch<SetStateAction<Customization | null>>;
+  /**
+   * Live mirror of the board's action log, fed by the same WebSocket.
+   * Empty unless ``auditEnabled`` was passed. Consumers project from
+   * ``audit.records`` rather than fetching for themselves — see
+   * ``useAuditFeed``.
+   */
+  audit: AuditFeed;
 }
 
 /**
  * Central game state hook. Manages session init, WebSocket connection,
  * and exposes all game actions.
  */
-export function useGameState(oid: string | null): UseGameStateResult {
+export function useGameState(
+  oid: string | null,
+  { auditEnabled = false }: UseGameStateOptions = {},
+): UseGameStateResult {
   const [state, setState] = useState<GameState | null>(null);
   const [confirmedState, setConfirmedState] = useState<GameState | null>(null);
   const [customization, setCustomization] = useState<Customization | null>(null);
@@ -123,6 +145,13 @@ export function useGameState(oid: string | null): UseGameStateResult {
   // the current state and apply an optimistic update without relying on an
   // impure setState updater. Updated eagerly on every state write.
   const stateRef = useRef<GameState | null>(null);
+  // True once the socket has opened at least once. A later open is a
+  // *re*-connect, and audit pushes sent while the socket was down are gone
+  // — the feed has to re-read rather than trust its version counter.
+  const hasConnectedRef = useRef(false);
+
+  const audit = useAuditFeed(oid, auditEnabled);
+  const { onAppend: onAuditAppend, onInvalidate: onAuditInvalidate, onResync } = audit;
 
   const applyState = useCallback((next: GameState | null, confirmed: boolean = true) => {
     stateRef.current = next;
@@ -158,11 +187,19 @@ export function useGameState(oid: string | null): UseGameStateResult {
     wsRef.current = createWebSocket(oid, {
       onStateUpdate: (newState) => applyState(newState),
       onCustomizationUpdate: (newCust) => setCustomization(newCust),
+      onAuditAppend,
+      onAuditInvalidate,
       onOpen: () => {
         // Successful handshake: reset the backoff so the next outage
         // starts retrying quickly again.
         reconnectAttempts.current = 0;
         setConnected(true);
+        // Only on a *re*-connect: the feed's own mount fetch covers the
+        // first one, and re-reading there would just duplicate it.
+        if (hasConnectedRef.current) {
+          onResync();
+        }
+        hasConnectedRef.current = true;
       },
       onClose: (event) => {
         setConnected(false);
@@ -186,7 +223,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
       },
       onError: () => setConnected(false),
     });
-  }, [oid, closeWs, applyState]);
+  }, [oid, closeWs, applyState, onAuditAppend, onAuditInvalidate, onResync]);
 
   const initialize = useCallback(async () => {
     if (!oid) {
@@ -344,5 +381,6 @@ export function useGameState(oid: string | null): UseGameStateResult {
     actions,
     refreshCustomization,
     setCustomization,
+    audit,
   };
 }
