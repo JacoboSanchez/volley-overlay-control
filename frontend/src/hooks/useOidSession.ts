@@ -1,4 +1,4 @@
-import { useState, useCallback, FormEvent } from 'react';
+import { useState, useCallback, type FormEvent } from 'react';
 
 function getInitialOid(): string {
   const params = new URLSearchParams(window.location.search);

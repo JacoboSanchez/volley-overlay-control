@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import * as api from '../api/client';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';

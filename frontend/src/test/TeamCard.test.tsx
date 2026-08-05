@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
-import TeamCard, { PredefinedTeams } from '../components/TeamCard';
+import TeamCard, { type PredefinedTeams } from '../components/TeamCard';
 import { renderWithI18n } from './helpers';
 
 const predefinedTeams: PredefinedTeams = {

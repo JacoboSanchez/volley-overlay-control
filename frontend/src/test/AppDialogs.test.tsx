@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import AppDialogs, { AppDialogsProps, DialogState } from '../components/AppDialogs';
+import AppDialogs, { type AppDialogsProps, type DialogState } from '../components/AppDialogs';
 import * as api from '../api/client';
 import { mockGameState, renderWithI18n } from './helpers';
 

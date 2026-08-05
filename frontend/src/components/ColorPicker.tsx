@@ -1,4 +1,11 @@
-import { useState, useRef, useEffect, useCallback, CSSProperties, ChangeEvent } from 'react';
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  type CSSProperties,
+  type ChangeEvent,
+} from 'react';
 import { HexColorPicker } from 'react-colorful';
 import { useI18n } from '../i18n';
 

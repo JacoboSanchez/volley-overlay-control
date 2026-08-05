@@ -1,4 +1,12 @@
-import { useState, useCallback, useRef, useEffect, useMemo, Dispatch, SetStateAction } from 'react';
+import {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  useMemo,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import * as api from '../api/client';
 import type { GameState, ActionResponse, Team, TeamState } from '../api/client';
 import { createWebSocket } from '../api/websocket';

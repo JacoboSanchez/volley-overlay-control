@@ -1,4 +1,4 @@
-import { useMemo, useRef, TouchEvent as ReactTouchEvent } from 'react';
+import { useMemo, useRef, type TouchEvent as ReactTouchEvent } from 'react';
 
 export interface SwipeHandlers {
   onTouchStart: (e: ReactTouchEvent<HTMLElement>) => void;

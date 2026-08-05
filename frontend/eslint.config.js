@@ -62,6 +62,22 @@ export default tseslint.config(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
 
+      // The lint-time half of tsconfig's `verbatimModuleSyntax`: that flag
+      // makes a type imported as a value an error, this rule makes it an
+      // autofix. Inline style so a module supplying both a value and a type
+      // still needs only one import statement.
+      // `disallowTypeAnnotations` stays off: inline `import('…').Type`
+      // annotations are a separate style question this rule is only
+      // incidentally attached to, and the handful in the tree read fine.
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        {
+          prefer: 'type-imports',
+          fixStyle: 'inline-type-imports',
+          disallowTypeAnnotations: false,
+        },
+      ],
+
       // Things we genuinely want to keep red.
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'react-hooks/rules-of-hooks': 'error',

@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useMemo, useCallback, CSSProperties } from 'react';
+import { useRef, useEffect, useState, useMemo, useCallback, type CSSProperties } from 'react';
 import { useI18n } from '../i18n';
 
 // Fallback timeout for the preview iframe. If we haven't received a single
