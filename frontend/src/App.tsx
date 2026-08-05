@@ -43,7 +43,7 @@ import { asString } from './utils/coerce';
 export default function App({
   controlToken,
   publicUser,
-}: { controlToken?: string; publicUser?: string } = {}) {
+}: { controlToken?: string | undefined; publicUser?: string | undefined } = {}) {
   // Register the board capability (operator token or public username) before any
   // request fires. ``useLayoutEffect`` runs before paint and before the passive
   // session-init effect below, so the credential is set in time — without the

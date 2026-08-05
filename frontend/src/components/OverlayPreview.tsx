@@ -30,9 +30,9 @@ export interface OverlayPreviewProps {
   height: number;
   /** Accepted for caller compatibility; the in-process overlay reports its own
    *  render bounds via postMessage, so geometry props are not used to crop. */
-  layoutId?: string;
+  layoutId?: string | undefined;
   cardWidth?: number;
-  styleOverride?: string;
+  styleOverride?: string | undefined;
 }
 
 interface Bounds {

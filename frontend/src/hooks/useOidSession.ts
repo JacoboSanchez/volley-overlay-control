@@ -30,7 +30,10 @@ export interface UseOidSessionResult {
 export function useOidSession({
   onLogout,
   initialOid,
-}: { onLogout?: () => void; initialOid?: string } = {}): UseOidSessionResult {
+}: {
+  onLogout?: (() => void) | undefined;
+  initialOid?: string | undefined;
+} = {}): UseOidSessionResult {
   // Operator (shareable-link) mode seeds the session handle from the control
   // token so the board never shows the owner-only OID picker.
   const [oid, setOid] = useState<string>(() => initialOid || getInitialOid());

@@ -9,9 +9,9 @@ import {
 import { DOUBLE_TAP_MS, LONG_PRESS_MS } from '../constants';
 
 export interface UseDoubleTapOptions {
-  onClick?: () => void;
-  onDoubleTap?: () => void;
-  onLongPress?: () => void;
+  onClick?: (() => void) | undefined;
+  onDoubleTap?: (() => void) | undefined;
+  onLongPress?: (() => void) | undefined;
   longPressMs?: number;
   doubleTapMs?: number;
 }

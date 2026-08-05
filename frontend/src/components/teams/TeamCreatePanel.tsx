@@ -20,8 +20,8 @@ export default function TeamCreatePanel({
   onCreated: () => void;
   addLabel: string;
   successMessage: (name: string) => string;
-  idPrefix?: string;
-  iconPickerScope?: 'personal' | 'global';
+  idPrefix?: string | undefined;
+  iconPickerScope?: 'personal' | 'global' | undefined;
 }) {
   const { t } = useI18n();
   const { toast } = useToast();

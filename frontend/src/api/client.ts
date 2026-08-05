@@ -956,7 +956,7 @@ export interface AuditRecord {
   ts: number;
   action: string;
   params: AuditParams;
-  result?: Record<string, unknown>;
+  result?: Record<string, unknown> | undefined;
 }
 
 export interface AuditResponse {

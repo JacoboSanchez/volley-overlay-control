@@ -55,7 +55,7 @@ export interface ColorPickerProps {
   color?: string;
   onChange: (color: string) => void;
   className?: string;
-  'data-testid'?: string;
+  'data-testid'?: string | undefined;
   /** Accessible name for the swatch trigger. Defaults to a generic "Pick color"
    *  — pass a specific name (e.g. "Background colour") when several pickers sit
    *  together so a screen reader can tell them apart. */

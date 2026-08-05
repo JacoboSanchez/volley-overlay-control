@@ -10,12 +10,12 @@ export interface RecentEvent {
   team: 1 | 2;
   kind: RecentEventKind;
   /** Absolute new score — present only for kind === 'manual'. */
-  value?: number;
+  value?: number | undefined;
   /**
    * Optional per-point classification — present only for
    * kind === 'point_add' when the operator tagged the point.
    */
-  pointType?: PointType;
+  pointType?: PointType | undefined;
 }
 
 const DEFAULT_AUDIT_FETCH_LIMIT = 40;
