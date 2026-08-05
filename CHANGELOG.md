@@ -220,6 +220,28 @@ archive by hand.
   they are the first paint. No behaviour or layout change.
   Refs [#446](https://github.com/JacoboSanchez/volley-overlay-control/issues/446).
 
+- **The control SPA no longer polls the audit log.** The momentum strip and
+  the history drawer each re-fetched `GET /api/v1/audit` after every
+  confirmed point — roughly 150–200 extra round trips over a five-set match,
+  each racing the request that caused it. The backend now streams audit
+  rows over the control WebSocket (`audit_append` / `audit_invalidate`, see
+  [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)), and the board reads
+  the log once and follows it live. `GET /api/v1/audit` is unchanged apart
+  from a new `version` field and remains authoritative — a dropped message
+  costs one extra fetch, never a wrong history. Verified end to end:
+  scoring no longer issues any audit request.
+  Refs [#446](https://github.com/JacoboSanchez/volley-overlay-control/issues/446).
+
+- **Material Icons is subsetted to the icons the app actually draws.** The
+  SPA loaded the full ~2,200-glyph font — 125 kB of WOFF2 on first paint —
+  to render 74 icons. It now ships a 5 kB subset built from the canonical
+  list in `frontend/src/icons.ts` by
+  `scripts/icons/build_font_subset.py`. A test fails the build if an icon is
+  used without being listed, so a missing glyph surfaces in CI rather than
+  as a blank box on an operator's screen. `material-icons` moves to
+  devDependencies, leaving four runtime dependencies.
+  Refs [#446](https://github.com/JacoboSanchez/volley-overlay-control/issues/446).
+
 - **The HUD show/hide-controls handle is a real button.** It was a `div`
   with `role="button"`, `tabIndex` and a hand-written Enter/Space key
   handler — the last such element in the source tree. It now uses a native

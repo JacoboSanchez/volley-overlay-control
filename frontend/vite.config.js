@@ -141,7 +141,10 @@ export default defineConfig(async () => ({
         // genuinely automatic rather than only-in-theory.
         skipWaiting: true,
         clientsClaim: true,
-        globPatterns: ['**/*.{js,css,html,svg,ttf,otf}'],
+        // woff2 covers the Material Icons subset. An icon font has no
+        // readable fallback, so an installed PWA that came up offline
+        // without it would paint blank boxes for every control.
+        globPatterns: ['**/*.{js,css,html,svg,ttf,otf,woff2}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [
           /^\/api/, /^\/fonts/, /^\/pwa/, /^\/health/, /^\/metrics(\/|\?|$)/,

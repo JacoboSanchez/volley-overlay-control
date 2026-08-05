@@ -1,7 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import { installErrorReporter } from './utils/errorReporter';
-import 'material-icons/iconfont/filled.css';
+import './material-icons.css';
 import './App.css';
 
 installErrorReporter();
