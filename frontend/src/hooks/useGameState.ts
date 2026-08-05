@@ -145,11 +145,6 @@ export function useGameState(
   // the current state and apply an optimistic update without relying on an
   // impure setState updater. Updated eagerly on every state write.
   const stateRef = useRef<GameState | null>(null);
-  // True once the socket has opened at least once. A later open is a
-  // *re*-connect, and audit pushes sent while the socket was down are gone
-  // — the feed has to re-read rather than trust its version counter.
-  const hasConnectedRef = useRef(false);
-
   const audit = useAuditFeed(oid, auditEnabled);
   const { onAppend: onAuditAppend, onInvalidate: onAuditInvalidate, onResync } = audit;
 
@@ -194,12 +189,16 @@ export function useGameState(
         // starts retrying quickly again.
         reconnectAttempts.current = 0;
         setConnected(true);
-        // Only on a *re*-connect: the feed's own mount fetch covers the
-        // first one, and re-reading there would just duplicate it.
-        if (hasConnectedRef.current) {
-          onResync();
-        }
-        hasConnectedRef.current = true;
+        // Re-read the audit log on *every* open, including the first.
+        // The feed's mount fetch races the handshake: this socket does
+        // not exist yet while that fetch is in flight, so an action from
+        // another client in that window is broadcast to nobody here, and
+        // the connect handshake replays only the state snapshot, never
+        // missed audit rows. Without this the board would sit on a log
+        // that is one action short until the *next* mutation exposed the
+        // version gap. Costs one extra read per board load, against the
+        // ~150-200 this hook removed from a five-set match.
+        onResync();
       },
       onClose: (event) => {
         setConnected(false);

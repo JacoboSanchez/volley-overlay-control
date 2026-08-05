@@ -29,6 +29,7 @@ vi.mock('../api/client', () => {
     setSimpleMode: vi.fn(),
     undoLast: vi.fn(),
     startMatch: vi.fn(),
+    getAudit: vi.fn(),
   };
 });
 
@@ -62,6 +63,12 @@ describe('useGameState', () => {
     vi.mocked(ws.createWebSocket).mockReturnValue(mockWs as unknown as WebSocket);
     vi.mocked(api.initSession).mockResolvedValue({ success: true, state: mockState });
     vi.mocked(api.getCustomization).mockResolvedValue(mockCustomization);
+    vi.mocked(api.getAudit).mockResolvedValue({
+      oid: 'ws-oid',
+      count: 0,
+      records: [],
+      version: 1,
+    });
   });
 
   it('returns initial null state', () => {
@@ -144,6 +151,49 @@ describe('useGameState', () => {
     });
 
     expect(ws.createWebSocket).toHaveBeenCalledWith('ws-oid', expect.any(Object));
+  });
+
+  it('re-reads the audit log when the socket opens, including the first open', async () => {
+    // The feed's mount fetch races the handshake: this socket does not
+    // exist yet while that read is in flight, so an action from another
+    // client in that window is broadcast to nobody here and the connect
+    // handshake replays only the state snapshot. Without a resync on the
+    // first open the board sits one action short until the next mutation
+    // exposes the version gap.
+    const { result } = renderHook(() => useGameState('ws-oid', { auditEnabled: true }));
+
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    const mountFetches = vi.mocked(api.getAudit).mock.calls.length;
+    expect(mountFetches).toBeGreaterThanOrEqual(1);
+
+    const handlers = vi.mocked(ws.createWebSocket).mock.calls.at(-1)![1];
+    await act(async () => {
+      handlers.onOpen?.();
+    });
+
+    expect(vi.mocked(api.getAudit).mock.calls.length).toBeGreaterThan(mountFetches);
+    expect(result.current.connected).toBe(true);
+  });
+
+  it('does not read the audit log at all while the feed is disabled', async () => {
+    // Default posture: nothing on screen is showing the log, so arming it
+    // would be a request for nobody.
+    const { result } = renderHook(() => useGameState('ws-oid'));
+
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    const handlers = vi.mocked(ws.createWebSocket).mock.calls.at(-1)![1];
+    await act(async () => {
+      handlers.onOpen?.();
+    });
+
+    expect(api.getAudit).not.toHaveBeenCalled();
+    expect(result.current.audit.records).toEqual([]);
   });
 
   it('addPoint action updates state on success', async () => {
