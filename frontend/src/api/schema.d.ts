@@ -488,6 +488,11 @@ export interface paths {
          *       WebSocket messages (see FRONTEND_DEVELOPMENT.md) to follow the
          *       log live instead of re-polling this endpoint.
          *
+         *     Returns **503** when the log cannot be read. That is deliberate
+         *     rather than an empty page: an empty page carrying a live version
+         *     would tell a following client "you are up to date at N" about
+         *     records it never received.
+         *
          *     ``read_page`` returns the page and the version under one lock hold —
          *     sampling the counter separately would let a concurrent mutation land
          *     between the two and hand the caller a page and a version that

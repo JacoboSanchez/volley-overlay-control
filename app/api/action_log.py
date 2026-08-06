@@ -595,7 +595,7 @@ def read_page(
     oid: str,
     limit: int,
     before_ts: float | None = None,
-) -> tuple[list[dict], float | None, int]:
+) -> tuple[list[dict], float | None, int | None]:
     """Return up to *limit* records older than *before_ts*, a cursor, and
     the log version the page reflects.
 
@@ -617,7 +617,10 @@ def read_page(
         when more pages remain (caller passes it as ``before_ts`` for
         the next call), or ``None`` when the page is the final one.
       * ``version`` is :func:`version` **as of the same lock hold** that
-        produced ``records``.
+        produced ``records``, or ``None`` when the read failed and the
+        empty page that comes back with it is not a snapshot of
+        anything. Callers must not present a ``None`` version as a
+        valid state — see the failure note below.
 
     That last part is the reason this returns a version at all rather
     than leaving callers to call :func:`version` themselves. Sampling the
@@ -633,6 +636,15 @@ def read_page(
     Tombstoned records are invisible to the cursor so paging never
     skips past visible records because of an undo that happened
     between calls.
+
+    **On failure this returns ``version=None``, not the current
+    counter.** Reads here stay best-effort like the rest of the module —
+    a broken filesystem must not wedge a live match — but "no records,
+    at version N" is a worse answer than an error: N accounts for every
+    record the reader did *not* get, so a live client would read every
+    subsequent append as contiguous, build on an empty list, and never
+    notice the gap. ``None`` is unrepresentable as a valid version, so
+    the type forces the boundary to decide what to do about it.
     """
     path = _path(oid)
     if path is None:
@@ -656,7 +668,7 @@ def read_page(
             )
     except Exception as exc:
         logger.warning("Failed to read audit page for %r: %s", oid, exc)
-        return [], None, version(oid)
+        return [], None, None
     if limit <= 0:
         return [], None, log_version
     if before_ts is not None:

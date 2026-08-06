@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api import action_log
 from app.api.dependencies import get_session
@@ -53,6 +53,11 @@ async def get_audit_log(
       WebSocket messages (see FRONTEND_DEVELOPMENT.md) to follow the
       log live instead of re-polling this endpoint.
 
+    Returns **503** when the log cannot be read. That is deliberate
+    rather than an empty page: an empty page carrying a live version
+    would tell a following client "you are up to date at N" about
+    records it never received.
+
     ``read_page`` returns the page and the version under one lock hold —
     sampling the counter separately would let a concurrent mutation land
     between the two and hand the caller a page and a version that
@@ -62,6 +67,18 @@ async def get_audit_log(
     records, next_cursor, version = action_log.read_page(
         session.oid, limit=limit, before_ts=before_ts,
     )
+    if version is None:
+        # The read failed. Returning its empty page with the live counter
+        # would be the most damaging answer available: the counter
+        # accounts for every record the caller did not get, so a client
+        # following the log would treat the next append as contiguous,
+        # build on an empty history and never see a gap to recover from.
+        # A retryable error leaves the client's existing failure path to
+        # clear its copy and re-read.
+        raise HTTPException(
+            status_code=503,
+            detail="Audit log is temporarily unreadable.",
+        )
     return {
         "version": version,
         # Present the human-facing oid, never the internal "<user_id>:<oid>"

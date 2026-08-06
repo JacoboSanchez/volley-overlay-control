@@ -301,6 +301,25 @@ class TestPageVersionAtomicity:
 
         assert violations == []
 
+    def test_a_failed_read_reports_no_version_at_all(self):
+        action_log.append("oid-a", "add_point", {"team": 1}, {})
+        action_log.append("oid-a", "add_point", {"team": 2}, {})
+
+        with patch.object(
+            action_log, "_read_visible_locked", side_effect=OSError("disk gone"),
+        ):
+            records, cursor, log_version = action_log.read_page("oid-a", limit=10)
+
+        # Not the live counter. That counter accounts for both records the
+        # caller just failed to get, so handing it back would tell a
+        # following client it is up to date and let it build on nothing.
+        assert records == []
+        assert cursor is None
+        assert log_version is None
+        # The log itself is untouched and still readable once the fault
+        # clears — best-effort reads must not cost durable data.
+        assert len(action_log.read_all("oid-a")) == 2
+
     def test_version_survives_a_tombstone(self):
         action_log.append("oid-a", "add_point", {"team": 1}, {})
         action_log.append("oid-a", "add_point", {"team": 2}, {})
