@@ -39,9 +39,9 @@ than by remembering to write the matching one-off test.
 
 from __future__ import annotations
 
+import itertools
 import random
 import threading
-import time
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -68,6 +68,9 @@ SEEDS = tuple(range(120))
 # Walk length. Long enough for the log to be cleared, re-grown, rotated and
 # switched away from several times within one walk.
 STEPS = 50
+
+# Hands every walk in the session its own pair of board ids. See ``Walk.run``.
+_WALK_IDS = itertools.count()
 
 
 class Defect(str, Enum):
@@ -296,13 +299,26 @@ def _real_read_page(oid: str, limit: int) -> tuple:
     return action_log.read_page(oid, limit=limit)
 
 
-def _yield_to_writer() -> None:
-    """Widen the window a defect leaves open so a racing writer hits it.
+# Set for exactly one read by ``Walk._op_race_read``; fired by a defective
+# reader at the point where its window is open. A thread cannot be used for
+# this: nothing makes the OS schedule it between the two samples, so a
+# writer that happens to finish first produces no inconsistency and the
+# defect goes uncaught on that run. Firing the mutation *at* the seam, on
+# this thread, is exact — the defective reader is not holding the lock
+# there, which is the whole bug, so the append proceeds normally.
+#
+# The real reader has no seam to fire: its version and page come out of one
+# lock hold. ``_op_race_read`` therefore also runs a genuine writer thread,
+# which is what puts concurrency against the shipped implementation.
+_seam_hook: Callable[[], None] | None = None
 
-    Only the defective copies call this. The real read has no window to
-    widen: the version and the page come out of one lock hold.
-    """
-    time.sleep(0.005)
+
+def _fire_seam() -> None:
+    """Land the armed mutation in the window this defect leaves open."""
+    global _seam_hook
+    hook, _seam_hook = _seam_hook, None
+    if hook is not None:
+        hook()
 
 
 def _read_page_version_outside_lock(oid: str, limit: int) -> tuple:
@@ -311,7 +327,7 @@ def _read_page_version_outside_lock(oid: str, limit: int) -> tuple:
     if path is None:
         return [], None, action_log.version(oid)
     log_version = action_log.version(oid)
-    _yield_to_writer()
+    _fire_seam()
     try:
         with action_log._lock_for(oid):
             records = (
@@ -330,7 +346,7 @@ def _read_page_empty_fast_path_outside_lock(oid: str, limit: int) -> tuple:
     if path is None:
         return [], None, action_log.version(oid)
     if not action_log._has_any_log_file(path):
-        _yield_to_writer()
+        _fire_seam()
         return [], None, action_log.version(oid)
     return _real_read_page(oid, limit)
 
@@ -398,11 +414,21 @@ class Walk:
 
     def run(self) -> list[Violation]:
         rng = random.Random(self.seed)
-        # Fresh OIDs per walk: ``action_log``'s per-OID version counter,
-        # timestamp tracker and record cache are module state that outlives
-        # a single walk. Both boards still start at version 0, which is the
-        # overlap that made defect (3) ordinary rather than exotic.
-        self.boards = (f"walk{self.seed}-a", f"walk{self.seed}-b")
+        # Fresh OIDs per walk, unique across the whole session rather than
+        # only across seeds. ``action_log``'s version counter and timestamp
+        # tracker are module state that ``delete`` bumps rather than
+        # removes, so re-running a seed on the same names would start it
+        # part-way up a counter — and the two boards at *different* points,
+        # destroying the from-zero overlap that makes a stale cross-board
+        # frame line up (defect 3) and making a failing seed behave
+        # differently alone than in the suite. The assertion below keeps
+        # that from silently coming back.
+        uid = next(_WALK_IDS)
+        self.boards = (f"walk{self.seed}n{uid}-a", f"walk{self.seed}n{uid}-b")
+        assert all(action_log.version(b) == 0 for b in self.boards), (
+            "a walk must start from an untouched log: the oracle assumes "
+            "both boards begin at version 0"
+        )
         # version -> what a client reading at that version should be showing.
         # Filled by ``_snapshot`` before every check, so every version the
         # client can legitimately hold has an entry.
@@ -558,18 +584,37 @@ class Walk:
     def _op_race_read(self, rng: random.Random) -> None:
         """A writer landing while the client is re-reading.
 
-        The real ``read_page`` samples the version and builds the page
-        under one lock hold, so this append is ordered entirely before or
-        entirely after the pair — never between them.
+        Two mechanisms, because the two implementations need different
+        things put against them. The real ``read_page`` samples the version
+        and builds the page under one lock hold, so the only meaningful
+        test is a genuine thread: whenever it lands, it must land entirely
+        before or entirely after that hold. A defective reader has a window
+        between its samples, and a thread is not a reliable way to hit a
+        window — so there the mutation is fired *at* the seam, on this
+        thread, which is exact and independent of the scheduler.
         """
+        global _seam_hook
         self.client.refresh()
         oid = self._oid()
-        writer = threading.Thread(target=self._append, args=(oid, rng))
-        writer.start()
+        if self.defect is None:
+            writer = threading.Thread(target=self._append, args=(oid, rng))
+            writer.start()
+            try:
+                self._client_settle()
+            finally:
+                writer.join()
+            return
+        # No thread here on purpose. A defect walk decides whether the
+        # property catches the defect, and a thread would let the scheduler
+        # decide that instead — which seed reports first would move between
+        # runs, and a walk could miss the window entirely.
+        _seam_hook = lambda: self._append(oid, rng)  # noqa: E731
         try:
             self._client_settle()
         finally:
-            writer.join()
+            # A defect with no window to fire into still gets its mutation,
+            # so every walk performs the same operations either way.
+            _fire_seam()
 
     # -- settling and checking -------------------------------------------
 
@@ -762,6 +807,37 @@ class TestPropertyCatchesTheReviewedDefects:
             if walk.violations:
                 return walk
         return None
+
+    @pytest.mark.parametrize(
+        ("defect", "seed"),
+        [
+            (Defect.PAGE_VERSION_OUTSIDE_LOCK, 0),
+            (Defect.EMPTY_FAST_PATH_OUTSIDE_LOCK, 1),
+        ],
+    )
+    def test_a_seam_defect_is_caught_by_the_walk_not_by_the_scheduler(
+        self, defect, seed,
+    ):
+        """The two read defects must be caught identically on every run.
+
+        Both are only visible when a mutation lands *between* the two
+        samples the defective read takes. Leaving that to a writer thread
+        would leave it to the OS: a run where the append finished first
+        produces no inconsistency, so the walk could miss the window
+        entirely and the property would look like it had stopped detecting
+        the defect. The mutation is fired at the seam instead, so the same
+        seed reports the same violations every time.
+
+        Running the same seed twice also pins the other half of that: each
+        walk gets its own board ids, so the second one starts from an
+        untouched log rather than part-way up the first one's counters.
+        """
+        first = _run(seed, defect=defect)
+        second = _run(seed, defect=defect)
+        assert first.violations
+        assert [str(v) for v in first.violations] == [
+            str(v) for v in second.violations
+        ]
 
     @pytest.mark.parametrize("defect", list(Defect))
     def test_defect_is_caught(self, defect):
