@@ -62,13 +62,14 @@ visible, but the tradeoff is inherent to keying on IP.
 
 from __future__ import annotations
 
-import os
 import threading
 import time
 from collections import OrderedDict, deque
 from collections.abc import Iterable
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+from app.env_vars_manager import EnvVarsManager
 
 _MAX_CLIENTS = 4096
 
@@ -92,32 +93,27 @@ _SURFACES: tuple[tuple[str, tuple[str, ...], frozenset[int]], ...] = (
 )
 
 
-def _env_int(name: str, default: int) -> int:
-    raw = os.environ.get(name, "").strip()
-    if not raw:
-        return default
-    try:
-        return max(1, int(raw))
-    except ValueError:
-        return default
-
-
 # Read per call rather than at import. The tunables are documented as env
 # overrides, but evaluating them at import time meant they only applied if
 # the variable was set before this module was first imported — which made
 # them a footgun in tests and in embedded use, and forced the test suite to
-# ``importlib.reload`` this module to change a limit. os.environ lookups are
-# dict hits, and these are only consulted on a failure or a block.
+# ``importlib.reload`` this module to change a limit. These are only
+# consulted on a failure or a block, and EnvVarsManager serves a cached
+# value, so the per-call read is cheap.
 def _max_failures() -> int:
-    return _env_int("AUTH_RATE_LIMIT_MAX_FAILURES", 10)
+    return EnvVarsManager.get_int_env("AUTH_RATE_LIMIT_MAX_FAILURES", 10, minimum=1)
 
 
 def _window_seconds() -> float:
-    return float(_env_int("AUTH_RATE_LIMIT_WINDOW_SECONDS", 60))
+    return float(
+        EnvVarsManager.get_int_env("AUTH_RATE_LIMIT_WINDOW_SECONDS", 60, minimum=1)
+    )
 
 
 def _block_seconds() -> float:
-    return float(_env_int("AUTH_RATE_LIMIT_BLOCK_SECONDS", 60))
+    return float(
+        EnvVarsManager.get_int_env("AUTH_RATE_LIMIT_BLOCK_SECONDS", 60, minimum=1)
+    )
 
 
 class _Bucket:

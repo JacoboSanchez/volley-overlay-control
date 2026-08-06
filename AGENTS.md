@@ -270,13 +270,16 @@ startup — that pattern (`config_validator.py`) was removed in
 precisely because it could not see remote-config values.
 
 A short list of readers stays on `os.environ` deliberately, because they run
-before or independently of the fetch: `DATABASE_URL` (`app/db/engine.py`,
-read at import), the cookie `SESSION_SECRET` and report signing key
-(`app/security_bootstrap.py`), `ADMIN_BOOTSTRAP_TOKEN`, the `TRUSTED_HOSTS` /
-`CORS_ALLOWED_ORIGINS` middleware lists, `LOG_REDACT`, and the two knobs
-governing the fetch itself (`REMOTE_CONFIG_URL`,
-`REMOTE_CONFIG_ALLOW_PRIVATE_IPS`). Adding to that list needs a reason;
-everything else belongs on the accessors.
+before or independently of the fetch — a value needed to *reach* the remote
+config cannot come from it: `DATABASE_URL` (`app/db/engine.py`, read at
+import), the cookie `SESSION_SECRET` and report signing key
+(`app/security_bootstrap.py`, which runs before any router is registered),
+`ADMIN_BOOTSTRAP_TOKEN`, the `TRUSTED_HOSTS` / `CORS_ALLOWED_ORIGINS`
+middleware lists applied while the app is being built, `LOG_REDACT`, and the
+two knobs governing the fetch itself (`REMOTE_CONFIG_URL`,
+`REMOTE_CONFIG_ALLOW_PRIVATE_IPS`). That list is the whole of it — if you
+are adding to it, say why in a comment; everything else belongs on the
+accessors.
 
 Key variables:
 

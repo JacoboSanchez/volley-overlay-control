@@ -279,6 +279,23 @@ archive by hand.
   without a board reports a failure instead of requesting a `null` one.
   Refs [#446](https://github.com/JacoboSanchez/volley-overlay-control/issues/446).
 
+- **Six more settings now honour `REMOTE_CONFIG_URL`.** The auth rate
+  limiter (`AUTH_RATE_LIMIT_MAX_FAILURES`, `_WINDOW_SECONDS`,
+  `_BLOCK_SECONDS`), the security-header knobs (`SECURITY_CSP`,
+  `SECURITY_HSTS_SECONDS`), the Sentry settings, `OVERLAY_LOCALE` and
+  `DEFAULT_TEAM_LOGO` read through `EnvVarsManager` instead of
+  `os.environ`, so a remote config can set them rather than being silently
+  ignored. That retires three more private parsers — including a fourth
+  `_env_int` clone in the rate-limiter. The readers that stay on
+  `os.environ` are the ones needed *before* the fetch can happen
+  (`DATABASE_URL`, the cookie `SESSION_SECRET`, `ADMIN_BOOTSTRAP_TOKEN`,
+  `TRUSTED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `LOG_REDACT`); a new
+  `tests/test_env_read_path.py` keeps that list exhaustive instead of
+  aspirational. One behaviour change: a rate-limit knob set to `0` or a
+  negative number now falls back to its documented default with a warning
+  rather than being silently clamped to `1`.
+  [#441](https://github.com/JacoboSanchez/volley-overlay-control/issues/441).
+
 - **Environment configuration has one read path again, and it validates
   where the value is read.** Three mutually inconsistent mechanisms had
   grown up around 54 variables: `EnvVarsManager` (the only one honouring

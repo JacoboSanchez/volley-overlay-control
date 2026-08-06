@@ -39,7 +39,6 @@ Headers applied to ``/api/v1/`` responses:
 from __future__ import annotations
 
 import ipaddress
-import os
 from collections.abc import Iterable
 from urllib.parse import urlsplit
 
@@ -50,7 +49,8 @@ from app.env_vars_manager import EnvVarsManager
 
 
 def _env(name: str, default: str) -> str:
-    raw = os.environ.get(name)
+    """Read *name* through the shared path, treating blank as unset."""
+    raw = EnvVarsManager.get_env_var(name, None)
     if raw is None or not str(raw).strip():
         return default
     return str(raw).strip()

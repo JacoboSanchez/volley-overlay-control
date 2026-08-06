@@ -11,13 +11,15 @@ see. Prefer them for anything new, and add a missing shape here rather than
 writing a second parser in a consumer module.
 
 A few readers stay on ``os.environ`` by design, because they run before or
-independently of a remote fetch: ``DATABASE_URL`` (:mod:`app.db.engine`,
-read at import), the cookie ``SESSION_SECRET`` and the report signing key
+independently of a remote fetch — a value needed to *reach* the remote
+config cannot come from it: ``DATABASE_URL`` (:mod:`app.db.engine`, read at
+import), the cookie ``SESSION_SECRET`` and the report signing key
 (:mod:`app.security_bootstrap`), ``ADMIN_BOOTSTRAP_TOKEN``, the
 ``TRUSTED_HOSTS`` / ``CORS_ALLOWED_ORIGINS`` middleware lists, and
 ``LOG_REDACT``. So do the two knobs governing the fetch itself
 (``REMOTE_CONFIG_URL``, ``REMOTE_CONFIG_ALLOW_PRIVATE_IPS``) — what decides
 *how* the remote config is fetched must not come from the remote config.
+That list is exhaustive; ``tests/test_env_read_path.py`` keeps it that way.
 """
 
 import json

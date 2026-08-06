@@ -3,10 +3,9 @@
 Split out of :mod:`app.overlay.routes`.
 """
 
-import os
-
 from fastapi import Request
 
+from app.env_vars_manager import EnvVarsManager
 from app.match_report.i18n import (
     SUPPORTED_LOCALES,
 )
@@ -42,7 +41,8 @@ def _resolve_overlay_locale(
     env var → ``Accept-Language`` (q-weighted via
     :func:`app.match_report_i18n.resolve_locale`) → ``"en"``.
     """
-    for candidate in (query_lang, persisted_locale, os.environ.get("OVERLAY_LOCALE")):
+    env_locale = EnvVarsManager.get_env_var("OVERLAY_LOCALE", None)
+    for candidate in (query_lang, persisted_locale, env_locale):
         normalised = _normalise_locale(candidate)
         if normalised is not None:
             return normalised
