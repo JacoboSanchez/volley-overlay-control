@@ -1,13 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import RecentAuditDrawer from '../components/RecentAuditDrawer';
-import * as api from '../api/client';
+import type { AuditFeed } from '../hooks/useAuditFeed';
 import type { AuditRecord } from '../api/client';
-import { mockGameState, renderWithI18n } from './helpers';
-
-vi.mock('../api/client', () => ({
-  getAudit: vi.fn(),
-}));
+import { renderWithI18n } from './helpers';
 
 function record(
   ts: number,
@@ -23,90 +19,102 @@ function record(
   };
 }
 
+/**
+ * The drawer is a pure projection of the board's audit feed now — it does
+ * no fetching of its own — so these render it against a plain feed object
+ * rather than a mocked API.
+ */
+function feed(records: AuditRecord[] = [], overrides: Partial<AuditFeed> = {}): AuditFeed {
+  return {
+    records,
+    loading: false,
+    error: null,
+    refresh: vi.fn(),
+    onAppend: vi.fn(),
+    onInvalidate: vi.fn(),
+    onResync: vi.fn(),
+    ...overrides,
+  };
+}
+
 describe('RecentAuditDrawer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(api.getAudit).mockResolvedValue({
-      oid: 'x',
-      count: 0,
-      records: [],
-    });
   });
 
   it('renders nothing when closed', () => {
-    renderWithI18n(
-      <RecentAuditDrawer oid="x" open={false} confirmedState={mockGameState} onClose={vi.fn()} />,
-    );
+    renderWithI18n(<RecentAuditDrawer open={false} audit={feed()} onClose={vi.fn()} />);
     expect(screen.queryByTestId('recent-audit-drawer')).toBeNull();
-    expect(api.getAudit).not.toHaveBeenCalled();
   });
 
-  it('renders the empty state when audit is empty', async () => {
-    renderWithI18n(
-      <RecentAuditDrawer oid="x" open={true} confirmedState={mockGameState} onClose={vi.fn()} />,
-    );
-    await waitFor(() => expect(screen.getByText(/no recent actions/i)).toBeInTheDocument());
+  it('renders the empty state when audit is empty', () => {
+    renderWithI18n(<RecentAuditDrawer open={true} audit={feed()} onClose={vi.fn()} />);
+    expect(screen.getByText(/no recent actions/i)).toBeInTheDocument();
   });
 
-  it('lists records newest-first with action labels', async () => {
+  it('lists records newest-first with action labels', () => {
     const now = Date.now() / 1000;
-    vi.mocked(api.getAudit).mockResolvedValue({
-      oid: 'x',
-      count: 3,
-      records: [
-        record(now - 60, 'add_point', { team: 1 }, { team_1: { score: 1 }, team_2: { score: 0 } }),
-        record(now - 30, 'add_timeout', { team: 2 }),
-        record(now - 5, 'add_point', { team: 2 }, { team_1: { score: 1 }, team_2: { score: 1 } }),
-      ],
-    });
-    renderWithI18n(
-      <RecentAuditDrawer oid="x" open={true} confirmedState={mockGameState} onClose={vi.fn()} />,
-    );
-    const list = await screen.findByTestId('recent-audit-list');
+    // Feed order is oldest-first, exactly as GET /audit returns it.
+    const records = [
+      record(now - 60, 'add_point', { team: 1 }, { team_1: { score: 1 }, team_2: { score: 0 } }),
+      record(now - 30, 'add_timeout', { team: 2 }),
+      record(now - 5, 'add_point', { team: 2 }, { team_1: { score: 1 }, team_2: { score: 1 } }),
+    ];
+    renderWithI18n(<RecentAuditDrawer open={true} audit={feed(records)} onClose={vi.fn()} />);
+
+    const list = screen.getByTestId('recent-audit-list');
     const rows = list.querySelectorAll('li');
     expect(rows).toHaveLength(3);
     // Newest-first: the most recent (now-5) lands at the top.
     expect(rows[0]!.className).toContain('recent-audit-row-point-t2');
     expect(rows[1]!.className).toContain('recent-audit-row-timeout');
     expect(rows[2]!.className).toContain('recent-audit-row-point-t1');
-    // Each row has a label.
     expect(rows[0]).toHaveTextContent(/Point — Team 2/);
     expect(rows[1]).toHaveTextContent(/Timeout — Team 2/);
   });
 
-  it('marks undone rows with the strikethrough modifier', async () => {
+  it('shows only the newest ``limit`` records', () => {
     const now = Date.now() / 1000;
-    vi.mocked(api.getAudit).mockResolvedValue({
-      oid: 'x',
-      count: 1,
-      records: [record(now - 1, 'add_point', { team: 1, undo: true })],
-    });
-    renderWithI18n(
-      <RecentAuditDrawer oid="x" open={true} confirmedState={mockGameState} onClose={vi.fn()} />,
+    const records = Array.from({ length: 5 }, (_, i) =>
+      record(now - (5 - i), 'add_point', { team: 1 }),
     );
-    const list = await screen.findByTestId('recent-audit-list');
-    const row = list.querySelector('li')!;
+    renderWithI18n(
+      <RecentAuditDrawer open={true} audit={feed(records)} limit={2} onClose={vi.fn()} />,
+    );
+
+    const rows = screen.getByTestId('recent-audit-list').querySelectorAll('li');
+    expect(rows).toHaveLength(2);
+  });
+
+  it('marks undone rows with the strikethrough modifier', () => {
+    const now = Date.now() / 1000;
+    renderWithI18n(
+      <RecentAuditDrawer
+        open={true}
+        audit={feed([record(now - 1, 'add_point', { team: 1, undo: true })])}
+        onClose={vi.fn()}
+      />,
+    );
+    const row = screen.getByTestId('recent-audit-list').querySelector('li')!;
     expect(row.className).toContain('recent-audit-row-undo');
     expect(row).toHaveTextContent(/\(undone\)/);
   });
 
-  it('closes via the close button and via Escape', async () => {
+  it('closes via the close button and via Escape', () => {
     const onClose = vi.fn();
-    renderWithI18n(
-      <RecentAuditDrawer oid="x" open={true} confirmedState={mockGameState} onClose={onClose} />,
-    );
+    renderWithI18n(<RecentAuditDrawer open={true} audit={feed()} onClose={onClose} />);
     fireEvent.click(screen.getByTestId('recent-audit-close'));
     expect(onClose).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
-  it('refresh button forces a refetch', async () => {
+  it('refresh button asks the feed to re-read', () => {
+    const refresh = vi.fn();
     renderWithI18n(
-      <RecentAuditDrawer oid="x" open={true} confirmedState={mockGameState} onClose={vi.fn()} />,
+      <RecentAuditDrawer open={true} audit={feed([], { refresh })} onClose={vi.fn()} />,
     );
-    await waitFor(() => expect(api.getAudit).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByTestId('recent-audit-refresh'));
-    await waitFor(() => expect(api.getAudit).toHaveBeenCalledTimes(2));
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 });

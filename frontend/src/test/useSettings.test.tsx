@@ -5,7 +5,7 @@ import {
   SettingsProvider,
   useSettings,
   resolveDarkMode,
-  ThemePreference,
+  type ThemePreference,
 } from '../hooks/useSettings';
 
 function setMatchMedia(matches: boolean) {

@@ -238,10 +238,24 @@ class TestWSHubBroadcast:
             )
             assert r.status_code == 200
 
+            # A scored point now puts two frames on the wire: the audit row
+            # (the log is written before ``get_state`` so ``can_undo`` is
+            # current — see GameActions.add_point) and the state update.
+            # Drain both rather than pinning their order: the audit write
+            # genuinely happens first, but that is a consequence of the
+            # action's internal sequencing, not a protocol guarantee a
+            # client should depend on.
             for ws in (ws1, ws2):
-                msg = ws.receive_json()
-                assert msg["type"] == "state_update"
-                assert msg["data"]["team_1"]["scores"]["set_1"] == 1
+                by_type = {}
+                for _ in range(2):
+                    msg = ws.receive_json()
+                    by_type[msg["type"]] = msg["data"]
+
+                assert set(by_type) == {"state_update", "audit_append"}
+                assert by_type["state_update"]["team_1"]["scores"]["set_1"] == 1
+                assert by_type["audit_append"]["record"]["action"] == "add_point"
+                assert by_type["audit_append"]["record"]["params"]["team"] == 1
+                assert by_type["audit_append"]["version"] > 0
 
 
 class TestWSHubResilience:

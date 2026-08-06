@@ -5,7 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  ReactNode,
+  type ReactNode,
 } from 'react';
 import { TEAM_A_COLOR, TEAM_B_COLOR } from '../theme';
 import { defaultKeyboardShortcutsEnabled } from './useKeyboardShortcuts';

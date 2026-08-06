@@ -1,4 +1,4 @@
-import { memo, CSSProperties } from 'react';
+import { memo, type CSSProperties } from 'react';
 import { useDoubleTap } from '../hooks/useDoubleTap';
 
 export interface ScoreButtonFontStyle {
@@ -6,14 +6,14 @@ export interface ScoreButtonFontStyle {
   fontOffsetY?: number;
   /** Horizontal ink compensation in em — see FontScale.offset_x. */
   fontOffsetX?: number;
-  fontFamily?: string;
+  fontFamily?: string | undefined;
 }
 
 export interface ScoreButtonProps {
   text: string;
   color: string;
   textColor?: string;
-  size?: number;
+  size?: number | undefined;
   fontStyle?: ScoreButtonFontStyle;
   onClick?: () => void;
   onDoubleTap?: () => void;

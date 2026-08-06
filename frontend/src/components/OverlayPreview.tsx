@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useMemo, useCallback, CSSProperties } from 'react';
+import { useRef, useEffect, useState, useMemo, useCallback, type CSSProperties } from 'react';
 import { useI18n } from '../i18n';
 
 // Fallback timeout for the preview iframe. If we haven't received a single
@@ -30,9 +30,9 @@ export interface OverlayPreviewProps {
   height: number;
   /** Accepted for caller compatibility; the in-process overlay reports its own
    *  render bounds via postMessage, so geometry props are not used to crop. */
-  layoutId?: string;
+  layoutId?: string | undefined;
   cardWidth?: number;
-  styleOverride?: string;
+  styleOverride?: string | undefined;
 }
 
 interface Bounds {
