@@ -88,7 +88,8 @@ class Defect(str, Enum):
 
     #: (2) No resync on the *first* socket open. The mount read and the
     #: handshake overlap, and a mutation in that window is broadcast to a
-    #: client that is not listening yet.
+    #: client that is not listening yet. Reconnects always re-read, so
+    #: this is only observable through ``_op_board_open_load_race``.
     NO_RESYNC_ON_OPEN = "no_resync_on_open"
 
     #: (3) A closed socket still delivered queued frames, and the audit
@@ -381,7 +382,7 @@ OPS: tuple[str, ...] = (
     "race_read", "race_read",
     "drop_frame", "duplicate_frame", "reorder_frames",
     "disconnect", "reconnect",
-    "switch_board", "switch_board_mid_flight",
+    "switch_board", "switch_board_mid_flight", "board_open_load_race",
     "read_fault",
     "rotate",
     "clear",
@@ -540,9 +541,38 @@ class Walk:
         self.wire.disconnect()
 
     def _op_reconnect(self, _rng: random.Random) -> None:
+        # Always resyncs, defect or not. #482 (2) was specifically the
+        # *first* open: reconnects already re-read. Suppressing this one
+        # too would let the defect be caught here, which would say nothing
+        # about the load-time gap it is actually about — see
+        # ``_op_board_open_load_race``.
         if self.wire.connected:
             self.wire.disconnect()
         self.wire.connect(self._oid())
+        self.client.on_resync()
+
+    def _op_board_open_load_race(self, rng: random.Random) -> None:
+        """Open a board with a mutation landing in the load-time gap.
+
+        The mount read and the socket handshake overlap. This orders them
+        the way that hurts: the read samples the log, *then* another client
+        scores, and only *then* does this socket finish connecting. The
+        frame for that record is broadcast to a client that is not
+        listening yet, and the handshake replays the state snapshot, never
+        missed audit rows — so nothing but the resync on open can close it.
+
+        Without that resync the board sits on a log one record short while
+        believing it is current, until the next mutation exposes the gap.
+        """
+        other = self.boards[1] if self.client.oid == self.boards[0] else self.boards[0]
+        self.client.open_board(other)
+        # The mount read lands before the mutation, which is what makes the
+        # page stale rather than merely early.
+        self._client_settle()
+        self._append(other, rng)
+        # Not connected yet: ``Wire.connect`` drops what was queued, because
+        # nothing buffers frames for a socket that does not exist.
+        self.wire.connect(other)
         if self.defect is not Defect.NO_RESYNC_ON_OPEN:
             self.client.on_resync()
 
@@ -839,12 +869,32 @@ class TestPropertyCatchesTheReviewedDefects:
             str(v) for v in second.violations
         ]
 
+    # The operation that models each defect. Asserted, because "caught" is
+    # not enough on its own: a defect injected in a way that also breaks
+    # some unrelated path gets caught there instead, and then the walk is
+    # not pinning the race it names. #482 (2) is the case in point — while
+    # the injection also suppressed the reconnect resync, it was caught
+    # there, and the load-time gap it is actually about went unmodelled.
+    EXPOSED_BY = {
+        Defect.PAGE_VERSION_OUTSIDE_LOCK: "race_read",
+        Defect.NO_RESYNC_ON_OPEN: "board_open_load_race",
+        Defect.FRAMES_FROM_CLOSED_SOCKET: "switch_board_mid_flight",
+        Defect.EMPTY_FAST_PATH_OUTSIDE_LOCK: "race_read",
+        Defect.FAILED_READ_KEEPS_LIVE_VERSION: "read_fault",
+    }
+
     @pytest.mark.parametrize("defect", list(Defect))
     def test_defect_is_caught(self, defect):
         walk = self._first_violating_seed(defect)
         assert walk is not None, (
             f"the property did not catch {defect.value} in {len(SEEDS)} walks "
             f"— it is no longer an instrument for this class of bug"
+        )
+        assert walk.violations[0].op == self.EXPOSED_BY[defect], (
+            f"{defect.value} was first caught after "
+            f"{walk.violations[0].op!r}, not after "
+            f"{self.EXPOSED_BY[defect]!r} — the walk is catching it "
+            f"somewhere other than the race it is supposed to model"
         )
 
     def test_a_duplicated_or_reordered_frame_is_not_a_defect(self):

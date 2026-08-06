@@ -168,6 +168,15 @@ const DEFECTS: Defect[] = [
   'inconsistent_page_and_version',
 ];
 
+/** The operation that models each defect — see the assertion that uses it. */
+const EXPOSED_BY: Record<Defect, string> = {
+  no_resync_on_open: 'board_open_load_race',
+  frames_from_closed_socket: 'switch_board_mid_flight',
+  // Any read at all: a page and a version that disagree is not tied to a
+  // particular interleaving.
+  inconsistent_page_and_version: 'step',
+};
+
 // ---------------------------------------------------------------------------
 // The walk
 // ---------------------------------------------------------------------------
@@ -200,6 +209,7 @@ const OPS = [
   'reconnect',
   'switch_board',
   'switch_board_mid_flight',
+  'board_open_load_race',
   'read_fault',
   'rotate',
   'clear',
@@ -236,6 +246,10 @@ async function runWalk(seed: number, defect: Defect | null = null): Promise<Walk
   let readFails = false;
   let lastReadOk = false;
   let reads = 0;
+  // Holds the next read's *response* while its page stays sampled at the
+  // moment of the call. See the load-race operation below.
+  let deferNextRead = false;
+  let releaseRead: (() => void) | null = null;
 
   const log = () => logs.get(board)!;
 
@@ -251,7 +265,15 @@ async function runWalk(seed: number, defect: Defect | null = null): Promise<Walk
         throw new Error('Audit log is temporarily unreadable.');
       }
       const source = logs.get(oid)!;
+      // Sampled now, like the server's one lock hold — the response can
+      // land much later, which is what makes a load-time gap possible.
       const { records, version } = source.page(limit);
+      if (deferNextRead) {
+        deferNextRead = false;
+        await new Promise<void>((resolve) => {
+          releaseRead = resolve;
+        });
+      }
       lastReadOk = true;
       pendingLoss = false;
       if (defect === 'inconsistent_page_and_version') {
@@ -303,6 +325,42 @@ async function runWalk(seed: number, defect: Defect | null = null): Promise<Walk
   const openBoard = async (oid: string) => {
     board = oid;
     rerender({ oid });
+    connected = true;
+    pendingLoss = false;
+    if (defect !== 'no_resync_on_open') act(() => result.current.onResync());
+    await settle();
+  };
+
+  /**
+   * Open a board with a mutation landing in the load-time gap.
+   *
+   * The mount read and the socket handshake overlap, so this orders them
+   * the way that hurts: the read samples the log, *then* another client
+   * scores, and only *then* does this socket finish connecting. The frame
+   * for that record is broadcast to a client that is not listening yet,
+   * and the handshake replays the state snapshot, never missed audit rows
+   * — so nothing but the resync on open can close it.
+   *
+   * Without it the board sits on a log one record short while believing it
+   * is current, until the next mutation exposes the gap.
+   */
+  const openBoardWithLoadRace = async (oid: string) => {
+    board = oid;
+    connected = false;
+    deferNextRead = true;
+    rerender({ oid });
+    // The read must be in flight with its page already sampled, or the
+    // mutation below would simply be included and there would be no gap.
+    expect(deferNextRead).toBe(false);
+    logs.get(oid)!.append(1);
+    // Not connected yet: nothing buffers frames for a socket that does not
+    // exist, so this one reaches nobody.
+    queue = [];
+    await act(async () => {
+      releaseRead?.();
+      releaseRead = null;
+    });
+    await settle();
     connected = true;
     pendingLoss = false;
     if (defect !== 'no_resync_on_open') act(() => result.current.onResync());
@@ -366,13 +424,18 @@ async function runWalk(seed: number, defect: Defect | null = null): Promise<Walk
       queue = [];
     },
     reconnect: () => {
+      // Always resyncs, defect or not. #482 (2) was specifically the first
+      // open — reconnects already re-read. Suppressing this one too would
+      // let the defect be caught here, which says nothing about the
+      // load-time gap it is actually about.
       queue = [];
       connected = true;
       pendingLoss = false;
-      if (defect !== 'no_resync_on_open') act(() => result.current.onResync());
+      act(() => result.current.onResync());
     },
     switch_board: () => {},
     switch_board_mid_flight: () => {},
+    board_open_load_race: () => {},
     read_fault: () => {
       readFails = true;
       act(() => result.current.refresh());
@@ -389,6 +452,8 @@ async function runWalk(seed: number, defect: Defect | null = null): Promise<Walk
       const other = board === boards[0] ? boards[1]! : boards[0]!;
       if (op === 'switch_board') {
         await openBoard(other);
+      } else if (op === 'board_open_load_race') {
+        await openBoardWithLoadRace(other);
       } else if (op === 'switch_board_mid_flight') {
         // ``close()`` starts a handshake; it does not drop frames already
         // queued. So the old socket can still fire after the new board's
@@ -476,5 +541,10 @@ describe('useAuditFeed convergence property', () => {
     // Failing here means the property stopped being an instrument for this
     // class of bug — not that the bug is gone.
     expect(caught.length).toBeGreaterThan(0);
+    // …and it has to be caught by the operation that models the race it
+    // names. "Caught" alone is not enough: while the first-open injection
+    // also suppressed the reconnect resync, it was caught there, and the
+    // load-time gap it is actually about went unmodelled.
+    expect(caught[0]).toContain(EXPOSED_BY[defect]);
   });
 });
