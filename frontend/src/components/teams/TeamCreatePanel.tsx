@@ -1,10 +1,10 @@
 import { type FormEvent, useState } from 'react';
 import type * as api from '../../api/teams';
-import { ApiError } from '../../api/http';
 import { useI18n } from '../../i18n';
 import { useToast } from '../Toast';
 import TeamFieldset from './TeamFieldset';
 import { useTeamDraft } from './useTeamDraft';
+import { apiErrorMessage } from '../../hooks/useAsyncAction';
 
 /** Shared "create a team" form body (name / logo / colours + submit). The
  *  caller supplies the create call and the success message so the same panel
@@ -41,7 +41,7 @@ export default function TeamCreatePanel({
       onCreated();
       toast(successMessage(created.name));
     } catch (err) {
-      setError(err instanceof ApiError ? err.detail : t('acc.teams.errorCreate'));
+      setError(apiErrorMessage(err, t('acc.teams.errorCreate')));
     } finally {
       setBusy(false);
     }

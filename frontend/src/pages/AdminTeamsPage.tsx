@@ -1,6 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router';
-import { ApiError } from '../api/http';
 import {
   adminAddGroupMember,
   adminCreateGroup,
@@ -36,6 +35,7 @@ import {
   restoreFocus,
   withPinnedEdit,
 } from '../components/teams/teamUtils';
+import { apiErrorMessage } from '../hooks/useAsyncAction';
 
 /** Admin-only authoring of the global team catalog and the published groups —
  *  split off from the user's own /teams roster so an operator managing 20-30
@@ -133,7 +133,7 @@ function AdminCatalog() {
       await reload();
       toast(t('acc.teams.adminToastDeleted', { name: team.name }));
     } catch (err) {
-      toast(err instanceof ApiError ? err.detail : t('acc.teams.adminErrorDelete'), 'error');
+      toast(apiErrorMessage(err, t('acc.teams.adminErrorDelete')), 'error');
     }
   }
 
@@ -272,7 +272,7 @@ function AdminGroups() {
       await load();
       toast(t('acc.groups.toastCreated', { name: g.name }));
     } catch (err) {
-      toast(err instanceof ApiError ? err.detail : t('acc.groups.errorCreate'), 'error');
+      toast(apiErrorMessage(err, t('acc.groups.errorCreate')), 'error');
     } finally {
       setBusy(false);
     }
@@ -334,7 +334,7 @@ function GroupCard({
       await fn();
       await onChange();
     } catch (err) {
-      toast(err instanceof ApiError ? err.detail : t(errKey), 'error');
+      toast(apiErrorMessage(err, t(errKey)), 'error');
     } finally {
       setBusy(false);
     }

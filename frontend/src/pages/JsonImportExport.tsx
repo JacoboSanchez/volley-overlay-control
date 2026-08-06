@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
-import { ApiError } from '../api/http';
 import { useConfirm } from '../components/ConfirmProvider';
 import { useI18n } from '../i18n';
+import { apiErrorMessage } from '../hooks/useAsyncAction';
 
 type JsonMap = Record<string, Record<string, unknown>>;
 
@@ -37,7 +37,7 @@ export default function JsonImportExport({
       setText(JSON.stringify(data, null, 2));
       setMsg(t('acc.json.exported', { n: Object.keys(data).length }));
     } catch (e) {
-      setErr(e instanceof ApiError ? e.detail : t('acc.json.errorExport'));
+      setErr(apiErrorMessage(e, t('acc.json.errorExport')));
     } finally {
       setBusy(false);
     }
@@ -60,7 +60,7 @@ export default function JsonImportExport({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (e) {
-      setErr(e instanceof ApiError ? e.detail : t('acc.json.errorExport'));
+      setErr(apiErrorMessage(e, t('acc.json.errorExport')));
     } finally {
       setBusy(false);
     }
@@ -103,7 +103,7 @@ export default function JsonImportExport({
       setMsg(t('acc.json.imported', { n: res.imported }));
       onImported();
     } catch (e) {
-      setErr(e instanceof ApiError ? e.detail : t('acc.json.errorImport'));
+      setErr(apiErrorMessage(e, t('acc.json.errorImport')));
     } finally {
       setBusy(false);
     }

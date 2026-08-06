@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiError } from '../api/http';
 import {
   adminDeleteGlobalPreset,
   adminExportPresets,
@@ -15,6 +14,7 @@ import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmProvider';
 import { useI18n } from '../i18n';
 import JsonImportExport from './JsonImportExport';
+import { apiErrorMessage } from '../hooks/useAsyncAction';
 
 export default function PresetsPage() {
   const { ctx } = useAuth();
@@ -55,7 +55,7 @@ export default function PresetsPage() {
       await load();
       toast(t('acc.presets.toastDeleted', { name: p.name }));
     } catch (err) {
-      toast(err instanceof ApiError ? err.detail : t('acc.presets.errorDelete'), 'error');
+      toast(apiErrorMessage(err, t('acc.presets.errorDelete')), 'error');
     }
   }
 
@@ -121,7 +121,7 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
     } catch (err) {
       // Surface the failure — a swallowed rejection here rendered the
       // section as silently empty.
-      toast(err instanceof ApiError ? err.detail : t('acc.presets.errorLoad'), 'error');
+      toast(apiErrorMessage(err, t('acc.presets.errorLoad')), 'error');
     }
   }, [toast, t]);
 
@@ -144,7 +144,7 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
           : t('acc.presets.toastActivated', { name: p.name }),
       );
     } catch (err) {
-      toast(err instanceof ApiError ? err.detail : t('acc.presets.errorUpdate'), 'error');
+      toast(apiErrorMessage(err, t('acc.presets.errorUpdate')), 'error');
     }
   }
   async function del(p: PresetSummary) {
@@ -160,7 +160,7 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
       await refresh();
       toast(t('acc.presets.toastDeleted', { name: p.name }));
     } catch (err) {
-      toast(err instanceof ApiError ? err.detail : t('acc.presets.errorDelete'), 'error');
+      toast(apiErrorMessage(err, t('acc.presets.errorDelete')), 'error');
     }
   }
 

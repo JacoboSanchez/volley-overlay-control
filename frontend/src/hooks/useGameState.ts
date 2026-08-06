@@ -13,6 +13,7 @@ import type { GameState, ActionResponse, Team, TeamState } from '../api/board';
 import { createWebSocket } from '../api/websocket';
 import { useAuditFeed, type AuditFeed } from './useAuditFeed';
 import { WS_RECONNECT_BASE_MS, WS_RECONNECT_FACTOR, WS_RECONNECT_MAX_MS } from '../constants';
+import { apiErrorMessage } from './useAsyncAction';
 
 type Customization = Record<string, unknown>;
 
@@ -273,7 +274,7 @@ export function useGameState(
       if (!controller.signal.aborted) {
         // ApiError.message is the verbose "API POST /… failed (403): {json}"
         // debugging string; surface the human-facing ``detail`` instead.
-        setError(e instanceof ApiError ? e.detail : e instanceof Error ? e.message : String(e));
+        setError(apiErrorMessage(e, e instanceof Error ? e.message : String(e)));
         setErrorStatus(e instanceof ApiError ? e.status : null);
       }
     } finally {
@@ -326,8 +327,7 @@ export function useGameState(
         if (shouldApplyOptimistic) {
           applyState(snapshot, false);
         }
-        const message =
-          e instanceof ApiError ? e.detail : e instanceof Error ? e.message : String(e);
+        const message = apiErrorMessage(e, e instanceof Error ? e.message : String(e));
         setError(message);
         setErrorStatus(e instanceof ApiError ? e.status : null);
         return { success: false, message };

@@ -1,6 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { Navigate } from 'react-router';
-import { ApiError } from '../api/http';
 import {
   adminCreateUser,
   adminDeleteUser,
@@ -15,6 +14,7 @@ import { useAuth } from '../auth/AuthContext';
 import CopyField from '../components/CopyField';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmProvider';
+import { useAsyncRunner } from '../hooks/useAsyncAction';
 import { useI18n } from '../i18n';
 
 export default function AdminPage() {
@@ -27,10 +27,10 @@ export default function AdminPage() {
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<'admin' | 'user'>('user');
   const [tempCred, setTempCred] = useState<{ text: string; password: string } | null>(null);
-  const [error, setError] = useState('');
-  // Serialises the async row/form actions: buttons disable while one is in
-  // flight so a double-click can't fire duplicate creates/resets/deletes.
-  const [busy, setBusy] = useState(false);
+  // One shared runner: `pending` disables every row/form action while one is
+  // in flight (so a double-click can't fire duplicate creates/resets/deletes)
+  // and `error` feeds the single banner below.
+  const { run, pending: busy, error, setError, clearError } = useAsyncRunner();
 
   const load = useCallback(async () => {
     try {
@@ -40,7 +40,7 @@ export default function AdminPage() {
     } catch {
       setError(t('acc.admin.errorLoad'));
     }
-  }, [t]);
+  }, [t, setError]);
 
   // Only fire admin-only calls for an admin: a non-admin who reaches this URL
   // is redirected below, so we must not request /admin/* (avoids 403 noise).
@@ -52,56 +52,48 @@ export default function AdminPage() {
 
   async function createUser(e: FormEvent) {
     e.preventDefault();
-    setError('');
     setTempCred(null);
-    setBusy(true);
-    try {
-      const res = await adminCreateUser(newName.trim(), { role: newRole });
-      setNewName('');
-      setTempCred({
-        text: t('acc.admin.created', { username: res.user.username }),
-        password: res.temp_password,
-      });
-      await load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.detail : t('acc.admin.errorCreate'));
-    } finally {
-      setBusy(false);
-    }
+    await run(
+      async () => {
+        const res = await adminCreateUser(newName.trim(), { role: newRole });
+        setNewName('');
+        setTempCred({
+          text: t('acc.admin.created', { username: res.user.username }),
+          password: res.temp_password,
+        });
+        await load();
+      },
+      { fallback: t('acc.admin.errorCreate') },
+    );
   }
 
   async function resetPw(u: UserOut) {
-    setError('');
-    setBusy(true);
-    try {
-      const res = await adminResetPassword(u.id);
-      setTempCred({
-        text: t('acc.admin.reset', { username: u.username }),
-        password: res.temp_password,
-      });
-      await load(); // the row now shows the "must change password" pill
-    } catch (err) {
-      setError(err instanceof ApiError ? err.detail : t('acc.admin.errorReset'));
-    } finally {
-      setBusy(false);
-    }
+    await run(
+      async () => {
+        const res = await adminResetPassword(u.id);
+        setTempCred({
+          text: t('acc.admin.reset', { username: u.username }),
+          password: res.temp_password,
+        });
+        await load(); // the row now shows the "must change password" pill
+      },
+      { fallback: t('acc.admin.errorReset') },
+    );
   }
 
   async function toggleActive(u: UserOut) {
-    setBusy(true);
-    try {
-      await adminUpdateUser(u.id, { is_active: !u.is_active });
-      await load();
-      toast(
-        u.is_active
-          ? t('acc.admin.toastDeactivated', { username: u.username })
-          : t('acc.admin.toastActivated', { username: u.username }),
-      );
-    } catch (err) {
-      setError(err instanceof ApiError ? err.detail : t('acc.admin.errorUpdate'));
-    } finally {
-      setBusy(false);
-    }
+    await run(
+      async () => {
+        await adminUpdateUser(u.id, { is_active: !u.is_active });
+        await load();
+        toast(
+          u.is_active
+            ? t('acc.admin.toastDeactivated', { username: u.username })
+            : t('acc.admin.toastActivated', { username: u.username }),
+        );
+      },
+      { fallback: t('acc.admin.errorUpdate') },
+    );
   }
 
   async function toggleRole(u: UserOut) {
@@ -118,27 +110,25 @@ export default function AdminPage() {
       });
       if (!ok) return;
     }
-    setBusy(true);
-    try {
-      await adminUpdateUser(u.id, { role: promote ? 'admin' : 'user' });
-      if (isSelf) {
-        // Demoting yourself revokes your own /admin/* access: reloading the
-        // admin list would just 403. Refresh the auth context instead so the
-        // role guard above navigates away from the page.
-        await refresh();
-      } else {
-        await load();
-      }
-      toast(
-        promote
-          ? t('acc.admin.toastPromoted', { username: u.username })
-          : t('acc.admin.toastDemoted', { username: u.username }),
-      );
-    } catch (err) {
-      setError(err instanceof ApiError ? err.detail : t('acc.admin.errorRole'));
-    } finally {
-      setBusy(false);
-    }
+    await run(
+      async () => {
+        await adminUpdateUser(u.id, { role: promote ? 'admin' : 'user' });
+        if (isSelf) {
+          // Demoting yourself revokes your own /admin/* access: reloading the
+          // admin list would just 403. Refresh the auth context instead so the
+          // role guard above navigates away from the page.
+          await refresh();
+        } else {
+          await load();
+        }
+        toast(
+          promote
+            ? t('acc.admin.toastPromoted', { username: u.username })
+            : t('acc.admin.toastDemoted', { username: u.username }),
+        );
+      },
+      { fallback: t('acc.admin.errorRole') },
+    );
   }
 
   async function del(u: UserOut) {
@@ -152,27 +142,25 @@ export default function AdminPage() {
       danger: true,
     });
     if (!ok) return;
-    setBusy(true);
-    try {
-      await adminDeleteUser(u.id);
-      if (isSelf) {
-        // Deleting your own account revoked this session: reloading the admin
-        // list would just 401. Refresh the auth context so RequireAuth
-        // redirects to /login.
-        await refresh();
-      } else {
-        await load();
-        toast(t('acc.admin.toastDeleted', { username: u.username }));
-      }
-    } catch (err) {
-      setError(err instanceof ApiError ? err.detail : t('acc.admin.errorDelete'));
-    } finally {
-      setBusy(false);
-    }
+    await run(
+      async () => {
+        await adminDeleteUser(u.id);
+        if (isSelf) {
+          // Deleting your own account revoked this session: reloading the admin
+          // list would just 401. Refresh the auth context so RequireAuth
+          // redirects to /login.
+          await refresh();
+        } else {
+          await load();
+          toast(t('acc.admin.toastDeleted', { username: u.username }));
+        }
+      },
+      { fallback: t('acc.admin.errorDelete') },
+    );
   }
 
   async function toggleRegistration() {
-    setError('');
+    clearError();
     if (!registrationOpen) {
       // Opening public self-registration is the most security-sensitive
       // switch on this page — never on a bare click.
@@ -184,21 +172,21 @@ export default function AdminPage() {
       });
       if (!ok) return;
     }
-    setBusy(true);
-    try {
-      const r = await adminSetRegistration(!registrationOpen);
-      setRegistrationOpen(r.registration_open);
-      toast(
-        r.registration_open
-          ? t('acc.admin.toastRegistrationOpened')
-          : t('acc.admin.toastRegistrationClosed'),
-      );
-    } catch (err) {
-      setError(err instanceof ApiError ? err.detail : t('acc.admin.errorRegistration'));
-      await load(); // re-sync the label to the authoritative value
-    } finally {
-      setBusy(false);
-    }
+    await run(
+      async () => {
+        const r = await adminSetRegistration(!registrationOpen);
+        setRegistrationOpen(r.registration_open);
+        toast(
+          r.registration_open
+            ? t('acc.admin.toastRegistrationOpened')
+            : t('acc.admin.toastRegistrationClosed'),
+        );
+      },
+      {
+        fallback: t('acc.admin.errorRegistration'),
+        onFailure: load, // re-sync the label to the authoritative value
+      },
+    );
   }
 
   // Guard the destructive controls on the sole remaining admin (the backend

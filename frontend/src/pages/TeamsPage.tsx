@@ -1,6 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import * as api from '../api/teams';
-import { ApiError } from '../api/http';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmProvider';
@@ -13,6 +12,7 @@ import IconLibrarySection from '../components/icons/IconLibrarySection';
 import { SwatchBox } from '../components/teams/TeamSwatch';
 import { useTeamSelection } from '../components/teams/useTeamSelection';
 import { FILTER_THRESHOLD, filterTeams } from '../components/teams/teamUtils';
+import { apiErrorMessage } from '../hooks/useAsyncAction';
 
 /** The user's team groups are the primary unit. "All" (catalog + customs) is
  *  read-only; shared admin groups can be extended with the user's own teams;
@@ -94,7 +94,7 @@ function CreateGroupForm({ onCreated }: { onCreated: () => void }) {
       onCreated();
       toast(t('acc.groups.toastCreated', { name: g.name }));
     } catch (err) {
-      toast(err instanceof ApiError ? err.detail : t('acc.groups.errorCreate'), 'error');
+      toast(apiErrorMessage(err, t('acc.groups.errorCreate')), 'error');
     } finally {
       setBusy(false);
     }
@@ -148,7 +148,7 @@ function GroupCard({
       // against stale data.
       await onChange();
     } catch (err) {
-      toast(err instanceof ApiError ? err.detail : t(errKey), 'error');
+      toast(apiErrorMessage(err, t(errKey)), 'error');
     } finally {
       setBusy(false);
     }
@@ -402,7 +402,7 @@ function CustomTeamsSection({
       onChange();
       toast(t('acc.teams.toastRemoved', { n: 1 }));
     } catch (err) {
-      toast(err instanceof ApiError ? err.detail : t('acc.teams.errorRemove'), 'error');
+      toast(apiErrorMessage(err, t('acc.teams.errorRemove')), 'error');
     }
   }
 

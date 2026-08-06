@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ApiError } from '../../api/http';
 import type { IconImportResult } from '../../api/icons';
 import type { TeamOut } from '../../api/teams';
 import Dialog from '../Dialog';
 import { useI18n } from '../../i18n';
+import { apiErrorMessage } from '../../hooks/useAsyncAction';
 
 /** Convert selected teams' external logo URLs into hosted library icons.
  *
@@ -67,7 +67,7 @@ export default function IconBatchImportDialog({
       setResults(res.results);
       onDone();
     } catch (e) {
-      setError(e instanceof ApiError ? e.detail : t('acc.icons.errorImport'));
+      setError(apiErrorMessage(e, t('acc.icons.errorImport')));
     } finally {
       setBusy(false);
     }

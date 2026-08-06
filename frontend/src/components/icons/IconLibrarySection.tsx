@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiError } from '../../api/http';
 import {
   adminDeleteIcon,
   adminGetIconUsage,
@@ -22,6 +21,7 @@ import { useI18n } from '../../i18n';
 import { useToast } from '../Toast';
 import IconBatchImportDialog from './IconBatchImportDialog';
 import { prefillIconName } from './iconName';
+import { apiErrorMessage } from '../../hooks/useAsyncAction';
 
 /** Management panel for one scope of the hosted icon library.
  *
@@ -72,7 +72,7 @@ export default function IconLibrarySection({
   const refresh = useCallback(() => {
     listIcons()
       .then(setLibrary)
-      .catch((e) => setError(e instanceof ApiError ? e.detail : t('acc.icons.errorLoad')));
+      .catch((e) => setError(apiErrorMessage(e, t('acc.icons.errorLoad'))));
   }, [t]);
 
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function IconLibrarySection({
       })
       .catch((e) => {
         if (!cancelled) {
-          setError(e instanceof ApiError ? e.detail : t('acc.icons.errorLoad'));
+          setError(apiErrorMessage(e, t('acc.icons.errorLoad')));
         }
       });
     return () => {
@@ -106,7 +106,7 @@ export default function IconLibrarySection({
       toast(t('acc.icons.toastUploaded'));
       refresh();
     } catch (e) {
-      setError(e instanceof ApiError ? e.detail : t('acc.icons.errorUpload'));
+      setError(apiErrorMessage(e, t('acc.icons.errorUpload')));
     } finally {
       setBusy(false);
     }
@@ -120,7 +120,7 @@ export default function IconLibrarySection({
       setRenamingId(null);
       refresh();
     } catch (e) {
-      toast(e instanceof ApiError ? e.detail : t('acc.icons.errorRename'), 'error');
+      toast(apiErrorMessage(e, t('acc.icons.errorRename')), 'error');
     } finally {
       setBusy(false);
     }
@@ -148,7 +148,7 @@ export default function IconLibrarySection({
       refresh();
       if (res.teams_cleared > 0) onTeamsChanged();
     } catch (e) {
-      toast(e instanceof ApiError ? e.detail : t('acc.icons.errorDelete'), 'error');
+      toast(apiErrorMessage(e, t('acc.icons.errorDelete')), 'error');
     } finally {
       setBusy(false);
     }

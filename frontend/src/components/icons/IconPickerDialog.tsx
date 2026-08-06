@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { ApiError } from '../../api/http';
 import { adminUploadIcon } from '../../api/admin';
 import { listIcons, uploadMyIcon } from '../../api/icons';
 import type { IconLibrary, IconOut } from '../../api/icons';
@@ -7,6 +6,7 @@ import Dialog from '../Dialog';
 import { FILTER_THRESHOLD } from '../teams/teamUtils';
 import { prefillIconName } from './iconName';
 import { useI18n } from '../../i18n';
+import { apiErrorMessage } from '../../hooks/useAsyncAction';
 
 /** Browse-and-pick dialog over the hosted icon library.
  *
@@ -50,7 +50,7 @@ export default function IconPickerDialog({
       })
       .catch((e) => {
         if (!cancelled) {
-          setError(e instanceof ApiError ? e.detail : t('acc.icons.errorLoad'));
+          setError(apiErrorMessage(e, t('acc.icons.errorLoad')));
         }
       });
     return () => {
@@ -80,7 +80,7 @@ export default function IconPickerDialog({
           : await uploadMyIcon(uploadName.trim(), pendingFile);
       pick(uploaded);
     } catch (e) {
-      setError(e instanceof ApiError ? e.detail : t('acc.icons.errorUpload'));
+      setError(apiErrorMessage(e, t('acc.icons.errorUpload')));
     } finally {
       setBusy(false);
     }
