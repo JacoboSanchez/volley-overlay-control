@@ -22,6 +22,7 @@ read at import), the cookie ``SESSION_SECRET`` and the report signing key
 
 import json
 import logging
+import math
 import os
 import threading
 import time
@@ -103,7 +104,8 @@ class EnvVarsManager:
         ``minimum`` / ``maximum`` are inclusive. A value that is unset,
         blank, unparseable or out of range logs one warning and yields
         *default* — a typo in an operator's ``.env`` must never take a
-        board down with a 500.
+        board down with a 500. A remote-config JSON number is accepted
+        only when it converts losslessly (``5.0`` yes, ``1.9`` no).
         """
         return cls._get_number_env(
             key, default, int, minimum=minimum, maximum=maximum,
@@ -125,6 +127,8 @@ class EnvVarsManager:
         rejects the bound itself. Timeouts and intervals use
         ``exclusive_minimum=0`` (a 0s timeout is never what the operator
         meant), knobs where zero means "disabled" use ``minimum=0``.
+        Non-finite values (``nan``, ``inf``) are rejected regardless of
+        the bounds.
         """
         return cls._get_number_env(
             key,
@@ -179,12 +183,42 @@ class EnvVarsManager:
             raw = raw.strip()
             if not raw:
                 return default
+        if isinstance(raw, bool):
+            # ``bool`` is an ``int`` subclass, so a JSON ``true`` would
+            # otherwise convert to 1 rather than being rejected the way the
+            # local string "true" is.
+            logger.warning(
+                "Invalid %s %r: expected a number — using default %r",
+                key, raw, default,
+            )
+            return default
         try:
             value = parse(raw)
         except (TypeError, ValueError):
             logger.warning(
                 "Invalid %s %r: not a valid %s — using default %r",
                 key, raw, parse.__name__, default,
+            )
+            return default
+        # ``float()`` happily accepts "nan" and "inf", and every bound
+        # comparison against NaN is False — so an unchecked NaN would sail
+        # past the range check and reach an ``asyncio.wait_for`` timeout or
+        # a backoff computation. Neither is ever a meaningful setting.
+        if isinstance(value, float) and not math.isfinite(value):
+            logger.warning(
+                "Invalid %s %r: not a finite number — using default %r",
+                key, raw, default,
+            )
+            return default
+        # A remote-config payload is JSON, so ``raw`` may already be a number
+        # rather than a string: ``int(1.9)`` would truncate to 1 where the
+        # local string "1.9" is rejected. An integral float still converts
+        # cleanly (a configurator that serialises 5 as 5.0), so compare
+        # instead of refusing every float.
+        if isinstance(raw, (int, float)) and value != raw:
+            logger.warning(
+                "Invalid %s %r: not a whole number — using default %r",
+                key, raw, default,
             )
             return default
         violation = _bound_violation(value, minimum, exclusive_minimum, maximum)
@@ -251,7 +285,16 @@ class EnvVarsManager:
         """
         if is_truthy(os.environ.get("REMOTE_CONFIG_ALLOW_PRIVATE_IPS", "")):
             return True
-        safe, reason = is_target_safe(remote_config_url)
+        try:
+            safe, reason = is_target_safe(remote_config_url)
+        except ValueError as exc:
+            # ``urlparse`` rejects some malformed inputs outright (e.g. the
+            # unterminated IPv6 literal ``http://[::1``). This runs outside
+            # the fetch's ``except RequestException`` boundary, and
+            # ``get_env_var`` is called during module import — so letting it
+            # escape would abort startup over a typo instead of falling back
+            # to the local environment.
+            safe, reason = False, f"not a valid URL ({exc})"
         if not safe:
             logger.error(
                 "Refusing to fetch remote config from %s: %s. Set "

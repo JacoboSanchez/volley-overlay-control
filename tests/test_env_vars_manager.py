@@ -189,6 +189,21 @@ class TestRemoteConfigSsrfGuard(unittest.TestCase):
         mock_get.assert_not_called()
         self.assertEqual(value, 'local_value')
 
+    @patch.dict(os.environ, {
+        # ``urlparse`` raises ValueError on an unterminated IPv6 literal.
+        "REMOTE_CONFIG_URL": "http://[::1",
+        "TEST_VAR": "local_value",
+    })
+    @patch('requests.get')
+    def test_malformed_url_falls_back_instead_of_raising(self, mock_get):
+        # The guard runs outside the fetch's ``except RequestException``
+        # boundary, and ``get_env_var`` is called during module import —
+        # a typo here must not abort startup.
+        value = EnvVarsManager.get_env_var('TEST_VAR')
+
+        mock_get.assert_not_called()
+        self.assertEqual(value, 'local_value')
+
 
 def test_stale_cache_is_served_while_revalidating(monkeypatch):
     """Once populated, a stale cache is returned immediately and the refetch

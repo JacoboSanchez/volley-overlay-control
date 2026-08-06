@@ -83,6 +83,17 @@ class TestGetFloatEnv:
         monkeypatch.setenv("VOC_TEST_FLOAT", "fast")
         assert EnvVarsManager.get_float_env("VOC_TEST_FLOAT", 2.0) == 2.0
 
+    @pytest.mark.parametrize("raw", ["nan", "NaN", "inf", "-inf", "infinity"])
+    def test_non_finite_values_are_rejected(self, monkeypatch, raw):
+        """``float()`` accepts these and every bound comparison against NaN
+        is False, so an unchecked NaN would pass the range check and reach
+        an ``asyncio.wait_for`` timeout."""
+        monkeypatch.setenv("VOC_TEST_FLOAT", raw)
+        value = EnvVarsManager.get_float_env(
+            "VOC_TEST_FLOAT", 2.0, exclusive_minimum=0.0,
+        )
+        assert value == 2.0
+
 
 class TestGetEnumEnv:
     _LEVELS = ("debug", "info", "warning", "error", "critical")
@@ -138,3 +149,44 @@ class TestMatchRulesValidation:
         EnvVarsManager._cache_timestamp = float("inf")
 
         assert Conf().points == 15
+
+
+class TestJsonTypedRemoteValues:
+    """Remote config is JSON, so a value arrives already typed.
+
+    ``int()`` accepts what the equivalent local string rejects — it
+    truncates ``1.9`` to ``1`` and turns ``True`` into ``1`` — so a
+    fractional ``MATCH_SETS`` would silently become a one-set match.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _remote_cache(self, monkeypatch):
+        monkeypatch.setenv("REMOTE_CONFIG_URL", "http://config.example/env.json")
+        EnvVarsManager._cache_timestamp = float("inf")  # never refetch
+
+    def _remote(self, value):
+        EnvVarsManager._remote_config_cache = {"VOC_REMOTE": value}
+
+    def test_fractional_number_is_rejected(self):
+        self._remote(1.9)
+        assert EnvVarsManager.get_int_env("VOC_REMOTE", 5, minimum=1) == 5
+
+    def test_integral_float_is_accepted(self):
+        # A configurator that serialises every number as a float must keep
+        # working — 5.0 converts losslessly.
+        self._remote(5.0)
+        assert EnvVarsManager.get_int_env("VOC_REMOTE", 3, minimum=1) == 5
+
+    def test_json_integer_is_accepted(self):
+        self._remote(21)
+        assert EnvVarsManager.get_int_env("VOC_REMOTE", 25, minimum=1) == 21
+
+    @pytest.mark.parametrize("value", [True, False])
+    def test_booleans_are_rejected(self, value):
+        self._remote(value)
+        assert EnvVarsManager.get_int_env("VOC_REMOTE", 5, minimum=1) == 5
+        assert EnvVarsManager.get_float_env("VOC_REMOTE", 2.0) == 2.0
+
+    def test_float_accessor_takes_json_numbers(self):
+        self._remote(0.25)
+        assert EnvVarsManager.get_float_env("VOC_REMOTE", 2.0) == 0.25
