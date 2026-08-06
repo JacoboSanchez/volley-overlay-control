@@ -440,6 +440,35 @@ describe('useGameState', () => {
     expect(api.addPoint).not.toHaveBeenCalled();
   });
 
+  it('detaches every handler when closing, so a queued frame cannot cross boards', async () => {
+    // ``close()`` starts a handshake; it does not drop frames already
+    // queued for delivery. The audit callbacks carry no board identity,
+    // so a late frame from the previous board's socket would otherwise be
+    // applied to the new board's feed — and per-board version counters
+    // all start at 0, so an old N+1 lines up with a fresh N.
+    const socket = {
+      close: vi.fn(),
+      onclose: null,
+      onerror: null,
+      onmessage: (() => {}) as unknown,
+      onopen: (() => {}) as unknown,
+    };
+    vi.mocked(ws.createWebSocket).mockReturnValue(socket as unknown as WebSocket);
+
+    const { result, unmount } = renderHook(() => useGameState('ws-oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    unmount();
+
+    expect(socket.close).toHaveBeenCalled();
+    expect(socket.onmessage).toBeNull();
+    expect(socket.onopen).toBeNull();
+    expect(socket.onclose).toBeNull();
+    expect(socket.onerror).toBeNull();
+  });
+
   it('cleanup closes WebSocket on unmount', async () => {
     const { result, unmount } = renderHook(() => useGameState('oid'));
     await act(async () => {

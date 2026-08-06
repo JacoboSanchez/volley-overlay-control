@@ -169,6 +169,19 @@ export function useGameState(
       reconnectTimer.current = null;
     }
     if (wsRef.current) {
+      // Detach *every* handler, not just the ones whose reconnect
+      // behaviour we are suppressing. ``close()`` starts a handshake, it
+      // does not drop frames already queued for delivery, so a socket
+      // left with ``onmessage`` installed can still fire after this
+      // returns — and by then ``oid`` may have moved on. The audit
+      // callbacks carry no board identity (they are stable across board
+      // changes by design), so such a frame would be applied to the
+      // *new* board's feed: with per-board version counters that all
+      // start at 0, an old board's version N+1 lines up with a fresh
+      // board's N often enough to matter, and the operator sees another
+      // board's action in this one's history.
+      wsRef.current.onmessage = null;
+      wsRef.current.onopen = null;
       wsRef.current.onclose = null;
       wsRef.current.onerror = null;
       wsRef.current.close();

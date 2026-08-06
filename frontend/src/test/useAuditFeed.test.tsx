@@ -202,6 +202,53 @@ describe('useAuditFeed', () => {
     expect(result.current.records).toEqual([]);
   });
 
+  it('drops the previous board rows the moment the board changes', async () => {
+    // Not when the new board's read lands: until then the strip would be
+    // rendering another board's history under this board's name.
+    getAudit.mockResolvedValue(page([rec(1), rec(2)], 5));
+    const { result, rerender } = renderHook(({ id }: { id: string }) => useAuditFeed(id, true), {
+      initialProps: { id: 'oid-a' },
+    });
+    await waitFor(() => expect(result.current.records).toHaveLength(2));
+
+    let resolveSecond: ((v: unknown) => void) | undefined;
+    getAudit.mockReturnValueOnce(
+      new Promise((res) => {
+        resolveSecond = res;
+      }),
+    );
+    rerender({ id: 'oid-b' });
+
+    // Read for oid-b is still in flight.
+    expect(result.current.records).toEqual([]);
+
+    await act(async () => {
+      resolveSecond?.(page([rec(9)], 1));
+    });
+    await waitFor(() => expect(result.current.records.map((r) => r.ts)).toEqual([9]));
+  });
+
+  it('will not apply a stale frame contiguous with the new board version', async () => {
+    // The cross-board case: per-board counters all start at 0, so the old
+    // board's version N+1 can line up with the new board's N. Clearing
+    // the held version on a switch means a frame arriving before the new
+    // read lands can never be mistaken for contiguous.
+    getAudit.mockResolvedValue(page([rec(1)], 5));
+    const { result, rerender } = renderHook(({ id }: { id: string }) => useAuditFeed(id, true), {
+      initialProps: { id: 'oid-a' },
+    });
+    await waitFor(() => expect(result.current.records).toHaveLength(1));
+
+    getAudit.mockResolvedValue(page([], 0));
+    rerender({ id: 'oid-b' });
+    await waitFor(() => expect(result.current.records).toEqual([]));
+
+    // A frame the old board would have made contiguous (5 + 1).
+    act(() => result.current.onAppend(6, rec(999)));
+
+    expect(result.current.records.some((r) => r.ts === 999)).toBe(false);
+  });
+
   it('re-reads when it is armed mid-session', async () => {
     getAudit.mockResolvedValue(page([rec(1)], 5));
     const { result, rerender } = renderHook(({ on }: { on: boolean }) => useAuditFeed('oid', on), {

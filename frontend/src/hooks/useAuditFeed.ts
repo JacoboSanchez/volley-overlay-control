@@ -64,6 +64,15 @@ export function useAuditFeed(oid: string | null, enabled: boolean): AuditFeed {
     setRefreshTick((n) => n + 1);
   }, []);
 
+  // Declared before the read below so it runs first on a board switch:
+  // the previous board's rows must leave the screen when the board does,
+  // not when the new board's read happens to land. Keyed on ``oid`` alone
+  // so an ordinary refresh does not blank the strip mid-match.
+  useEffect(() => {
+    setRecords([]);
+    versionRef.current = null;
+  }, [oid]);
+
   useEffect(() => {
     if (!oid || !enabled) {
       if (abortRef.current) {
