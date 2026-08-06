@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import ConfigPanel from '../components/ConfigPanel';
 import * as boardApi from '../api/board';
 import * as presetsApi from '../api/presets';
+import { ConfirmProvider } from '../components/ConfirmProvider';
 import { renderWithI18n, mockCustomization } from './helpers';
 
 // Mock the API module
@@ -41,7 +42,6 @@ vi.mock('../api/presets', () => ({
 const defaultProps = {
   oid: 'test-oid',
   customization: mockCustomization,
-  actions: {},
   onBack: vi.fn(),
   onLogout: vi.fn(),
   onCustomizationSaved: vi.fn(),
@@ -334,5 +334,168 @@ describe('ConfigPanel', () => {
       expect(screen.getByText('Overlay Style')).toBeInTheDocument();
     });
     expect(screen.queryByText('Gradient')).not.toBeInTheDocument();
+  });
+});
+
+describe('ConfigPanel section navigation semantics', () => {
+  const REAL_WIDTH = window.innerWidth;
+  const REAL_HEIGHT = window.innerHeight;
+
+  function setViewport(width: number, height: number) {
+    Object.defineProperty(window, 'innerWidth', { value: width, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: height, configurable: true });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    setViewport(REAL_WIDTH, REAL_HEIGHT);
+  });
+
+  it('marks the landscape sidebar entry for the section on screen', async () => {
+    setViewport(1024, 768);
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    const presets = screen.getByText('Presets').closest('button')!;
+    const teams = screen.getByText('Teams').closest('button')!;
+
+    // Presets is the section the panel opens on.
+    expect(presets).toHaveAttribute('aria-current', 'page');
+    expect(teams).not.toHaveAttribute('aria-current');
+
+    fireEvent.click(teams);
+    await waitFor(() => expect(teams).toHaveAttribute('aria-current', 'page'));
+    expect(presets).not.toHaveAttribute('aria-current');
+  });
+
+  it('names the panel each portrait accordion header controls', async () => {
+    setViewport(390, 844);
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    const presets = screen.getByText('Presets').closest('button')!;
+    const teams = screen.getByText('Teams').closest('button')!;
+
+    expect(presets).toHaveAttribute('aria-expanded', 'true');
+    expect(teams).toHaveAttribute('aria-expanded', 'false');
+
+    const panelId = presets.getAttribute('aria-controls')!;
+    expect(panelId).toBeTruthy();
+    const panel = document.getElementById(panelId)!;
+    expect(panel).toBeInTheDocument();
+    expect(panel.getAttribute('aria-labelledby')).toBe(presets.id);
+
+    fireEvent.click(teams);
+    await waitFor(() => expect(teams).toHaveAttribute('aria-expanded', 'true'));
+    expect(presets).toHaveAttribute('aria-expanded', 'false');
+    // Collapsing removes the region entirely, so nothing dangles.
+    expect(document.getElementById(panelId)).toBeNull();
+
+    // Portrait sections collapse: clicking the open one closes it.
+    fireEvent.click(teams);
+    await waitFor(() => expect(teams).toHaveAttribute('aria-expanded', 'false'));
+  });
+});
+
+describe('ConfigPanel option loading failures', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  it('shows no banner when every lookup succeeds', async () => {
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    await waitFor(() => expect(boardApi.getStyles).toHaveBeenCalled());
+    expect(screen.queryByTestId('options-error-banner')).not.toBeInTheDocument();
+  });
+
+  it('surfaces a retryable banner when a lookup fails, instead of an empty dropdown', async () => {
+    vi.mocked(boardApi.getStyles).mockRejectedValueOnce(new Error('offline'));
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+
+    const banner = await screen.findByTestId('options-error-banner');
+    expect(banner.getAttribute('role')).toBe('alert');
+    // The other three lookups still landed — one failure does not blank them.
+    expect(boardApi.getLinks).toHaveBeenCalled();
+    expect(boardApi.getBoardGroups).toHaveBeenCalled();
+
+    vi.mocked(boardApi.getStyles).mockResolvedValue(['Classic', 'Modern']);
+    fireEvent.click(screen.getByTestId('options-error-retry'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('options-error-banner')).not.toBeInTheDocument();
+    });
+
+    // The retried styles are the ones the selector now offers.
+    fireEvent.click(screen.getByText('Overlay Style').closest('button')!);
+    const selector = await screen.findByTestId('style-selector');
+    expect(selector.querySelectorAll('option')).toHaveLength(3);
+  });
+
+  it('reports a failure to persist the selected team group', async () => {
+    vi.mocked(boardApi.getBoardGroups).mockResolvedValue({
+      groups: [
+        { id: null, name: 'All teams', kind: 'all', count: 1 },
+        { id: 4, name: 'Liga', kind: 'shared', count: 2 },
+      ],
+      selected_id: null,
+    });
+    vi.mocked(boardApi.setBoardSelectedGroup).mockRejectedValueOnce(new Error('offline'));
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    openTeamsSection();
+
+    const picker = await screen.findByTestId('team-group-picker');
+    fireEvent.change(picker, { target: { value: '4' } });
+    await screen.findByTestId('options-error-banner');
+  });
+});
+
+describe('ConfigPanel unsaved-changes prompt', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function renderWithConfirm() {
+    return renderWithI18n(
+      <ConfirmProvider>
+        <ConfigPanel {...defaultProps} />
+      </ConfirmProvider>,
+    );
+  }
+
+  async function dirtyThePanel() {
+    openTeamsSection();
+    const selector = await screen.findByTestId('team-1-name-selector');
+    fireEvent.change(selector, { target: { value: '' } });
+    await waitFor(() => expect(screen.getByTestId('save-button')).not.toBeDisabled());
+  }
+
+  it('uses the styled dialog rather than window.confirm', async () => {
+    window.confirm = vi.fn();
+    renderWithConfirm();
+    await dirtyThePanel();
+
+    fireEvent.click(screen.getByTestId('scoreboard-tab-button'));
+    expect(
+      await screen.findByText('You have unsaved changes that will be lost. Leave anyway?'),
+    ).toBeInTheDocument();
+    expect(window.confirm).not.toHaveBeenCalled();
+    expect(defaultProps.onBack).not.toHaveBeenCalled();
+  });
+
+  it('stays put when the prompt is dismissed and leaves when it is accepted', async () => {
+    renderWithConfirm();
+    await dirtyThePanel();
+
+    fireEvent.click(screen.getByTestId('scoreboard-tab-button'));
+    fireEvent.click(await screen.findByText('Stay'));
+    await waitFor(() =>
+      expect(
+        screen.queryByText('You have unsaved changes that will be lost. Leave anyway?'),
+      ).not.toBeInTheDocument(),
+    );
+    expect(defaultProps.onBack).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('scoreboard-tab-button'));
+    fireEvent.click(await screen.findByText('Leave'));
+    await waitFor(() => expect(defaultProps.onBack).toHaveBeenCalledOnce());
   });
 });

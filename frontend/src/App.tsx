@@ -547,7 +547,6 @@ export default function App({
           <ConfigPanel
             oid={oid}
             customization={customization}
-            actions={actions}
             gameConfig={state?.config ?? null}
             autoSwapSides={state?.auto_swap_sides ?? null}
             onBack={() => setActiveTab('scoreboard')}

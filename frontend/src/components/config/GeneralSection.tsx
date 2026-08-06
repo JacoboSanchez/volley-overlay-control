@@ -1,4 +1,5 @@
 import { useI18n } from '../../i18n';
+import type { SetSetting } from '../../hooks/useSettings';
 import { ConfigSwitch, InstantHint } from './fields';
 
 export interface GeneralSettings {
@@ -10,7 +11,7 @@ export interface GeneralSettings {
 
 export interface GeneralSectionProps {
   settings: GeneralSettings;
-  setSetting: <K extends keyof GeneralSettings>(key: K, value: GeneralSettings[K]) => void;
+  setSetting: SetSetting;
   onShowShortcuts?: (() => void) | undefined;
 }
 

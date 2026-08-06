@@ -218,10 +218,12 @@ describe('OverlaySwitcher (in ConfigPanel)', () => {
     expect(window.confirm).toHaveBeenCalled();
     expect(onSwitchOverlay).not.toHaveBeenCalled();
 
-    // Accepting the prompt lets the switch through.
+    // Accepting the prompt lets the switch through. The prompt resolves as a
+    // promise now (the styled ConfirmProvider dialog), so the switch lands a
+    // microtask later rather than inside the click handler.
     vi.mocked(window.confirm).mockReturnValue(true);
     await openMenu();
     fireEvent.click(screen.getByText('court-b'));
-    expect(onSwitchOverlay).toHaveBeenCalledExactlyOnceWith('court-b');
+    await waitFor(() => expect(onSwitchOverlay).toHaveBeenCalledExactlyOnceWith('court-b'));
   });
 });

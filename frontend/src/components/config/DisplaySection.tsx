@@ -1,4 +1,5 @@
 import { useI18n } from '../../i18n';
+import type { SetSetting } from '../../hooks/useSettings';
 import { ConfigRange, ConfigSwitch, InstantHint } from './fields';
 
 export interface DisplaySettings {
@@ -10,7 +11,7 @@ export interface DisplaySettings {
 
 export interface DisplaySectionProps {
   settings: DisplaySettings;
-  setSetting: <K extends keyof DisplaySettings>(key: K, value: DisplaySettings[K]) => void;
+  setSetting: SetSetting;
 }
 
 export default function DisplaySection({ settings, setSetting }: DisplaySectionProps) {

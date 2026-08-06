@@ -1,4 +1,5 @@
 import { useI18n } from '../../i18n';
+import type { SetSetting } from '../../hooks/useSettings';
 import FontSelector from '../FontSelector';
 import { ConfigColorField, ConfigRange, ConfigSwitch, InstantHint } from './fields';
 
@@ -15,7 +16,7 @@ export interface ButtonsSettings {
 
 export interface ButtonsSectionProps {
   settings: ButtonsSettings;
-  setSetting: <K extends keyof ButtonsSettings>(key: K, value: ButtonsSettings[K]) => void;
+  setSetting: SetSetting;
 }
 
 export default function ButtonsSection({ settings, setSetting }: ButtonsSectionProps) {
