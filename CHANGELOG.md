@@ -226,10 +226,14 @@ archive by hand.
   each racing the request that caused it. The backend now streams audit
   rows over the control WebSocket (`audit_append` / `audit_invalidate`, see
   [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)), and the board reads
-  the log once and follows it live. `GET /api/v1/audit` is unchanged apart
-  from a new `version` field and remains authoritative — a dropped message
-  costs one extra fetch, never a wrong history. Verified end to end:
-  scoring no longer issues any audit request.
+  the log twice per board — once on mount and once when the socket opens,
+  which closes the gap where an action by another client lands before the
+  handshake — then follows it live. `GET /api/v1/audit` gains a `version`
+  field and remains authoritative; it now answers **503** when the log
+  cannot be read, rather than an empty page whose version would tell a
+  following client it was up to date. A dropped message costs one extra
+  fetch, never a wrong history. Verified end to end: scoring issues no
+  audit request at all.
   Refs [#446](https://github.com/JacoboSanchez/volley-overlay-control/issues/446).
 
 - **Material Icons is subsetted to the icons the app actually draws.** The
