@@ -634,18 +634,31 @@ def read_page(
     skips past visible records because of an undo that happened
     between calls.
     """
-    if limit <= 0:
-        return [], None, version(oid)
     path = _path(oid)
-    if path is None or not _has_any_log_file(path):
+    if path is None:
+        # Invalid OID: no log can exist for it and no append can bump a
+        # counter for it either, so 0 is the whole truth.
         return [], None, version(oid)
     try:
         with _lock_for(oid):
-            records = _read_visible_locked(path, oid)
+            # Existence, contents *and* counter all sampled under the one
+            # lock an append holds while it creates the file and bumps the
+            # version. Testing for the file outside it was the same
+            # mistake in smaller print: the first append could land in
+            # between, and this would answer "empty, at version 1" — a
+            # client that missed that append's push would then read the
+            # next one as contiguous and drop the first record for good.
             log_version = _version_per_oid.get(oid, 0)
+            records = (
+                _read_visible_locked(path, oid)
+                if limit > 0 and _has_any_log_file(path)
+                else []
+            )
     except Exception as exc:
         logger.warning("Failed to read audit page for %r: %s", oid, exc)
         return [], None, version(oid)
+    if limit <= 0:
+        return [], None, log_version
     if before_ts is not None:
         records = [r for r in records if r.get("ts", 0) < before_ts]
     page = records[-limit:]

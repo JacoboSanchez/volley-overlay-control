@@ -227,6 +227,80 @@ class TestPageVersionAtomicity:
         _, _, zero_limit_version = action_log.read_page("oid-a", limit=0)
         assert zero_limit_version == action_log.version("oid-a")
 
+    def test_empty_log_check_happens_under_the_lock(self):
+        # The "no file yet" shortcut has to be inside the same lock as the
+        # populated path. Outside it, the first append can land between
+        # the existence test and the version sample, and the caller is
+        # told "empty, at version 1" — after which it reads the *next*
+        # append as contiguous and loses the first record for good.
+        held_during_check: list[bool] = []
+        real_has_any = action_log._has_any_log_file
+
+        def _spy(path):
+            lock = action_log._lock_for("oid-empty")
+            acquired = lock.acquire(blocking=False)
+            # Failing to acquire means this thread already holds it.
+            held_during_check.append(not acquired)
+            if acquired:
+                lock.release()
+            return real_has_any(path)
+
+        with patch.object(action_log, "_has_any_log_file", _spy):
+            records, _, log_version = action_log.read_page("oid-empty", limit=10)
+
+        assert records == []
+        assert log_version == 0
+        assert held_during_check == [True]
+
+    def test_version_sample_is_under_the_lock_for_a_populated_log(self):
+        action_log.append("oid-a", "add_point", {"team": 1}, {})
+        held_during_read: list[bool] = []
+        real_read = action_log._read_visible_locked
+
+        def _spy(path, oid):
+            lock = action_log._lock_for(oid)
+            acquired = lock.acquire(blocking=False)
+            held_during_read.append(not acquired)
+            if acquired:
+                lock.release()
+            return real_read(path, oid)
+
+        with patch.object(action_log, "_read_visible_locked", _spy):
+            records, _, log_version = action_log.read_page("oid-a", limit=10)
+
+        assert len(records) == 1
+        assert log_version == action_log.version("oid-a")
+        assert held_during_read == [True]
+
+    def test_a_concurrent_append_cannot_split_page_from_version(self):
+        # Hammer the read against a writer. Every observation must satisfy
+        # "this version accounts for exactly these records" — with the
+        # per-record versions being contiguous from 1, the invariant is
+        # simply len(records) == version.
+        import threading
+
+        stop = threading.Event()
+        violations: list[tuple[int, int]] = []
+
+        def _writer():
+            for i in range(60):
+                if stop.is_set():
+                    return
+                action_log.append("oid-race", "add_point", {"team": 1}, {"n": i})
+
+        writer = threading.Thread(target=_writer)
+        writer.start()
+        try:
+            for _ in range(300):
+                records, _, log_version = action_log.read_page("oid-race", limit=1000)
+                if len(records) != log_version:
+                    violations.append((len(records), log_version))
+        finally:
+            stop.set()
+            writer.join()
+
+        assert violations == []
+
     def test_version_survives_a_tombstone(self):
         action_log.append("oid-a", "add_point", {"team": 1}, {})
         action_log.append("oid-a", "add_point", {"team": 2}, {})
