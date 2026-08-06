@@ -97,10 +97,9 @@ volley-overlay-control/
 │   ├── presets_service.py     # DB-backed overlay/theme presets
 │   ├── settings_service.py    # DB-backed app settings (env-seed-then-DB-override, e.g. REGISTRATION_OPEN)
 │   ├── oid_utils.py           # OID parsing utilities (extract_oid, compose_output)
-│   ├── env_vars_manager.py    # Centralized env var access with caching
+│   ├── env_vars_manager.py    # The single env read path: remote config + typed accessors
 │   ├── logging_config.py      # Logging level configuration
 │   ├── constants.py           # SVG favicon, tunable runtime constants
-│   ├── config_validator.py    # Startup configuration validation (env var checks)
 │   │
 │   ├── db/                    # SQLAlchemy 2.0 + Alembic persistence
 │   │   ├── base.py            # Declarative Base
@@ -257,6 +256,30 @@ backend.
 ## Configuration System
 
 Config is loaded by `app/conf.py` -> `Conf` class from environment variables (`.env` or Docker compose). Some settings (e.g. `REGISTRATION_OPEN`) seed a DB-backed value on first start and are then editable at runtime via the admin API — the env var is only the initial seed.
+
+**One read path, validated at the read.** Operator tunables go through
+`EnvVarsManager` (`app/env_vars_manager.py`) — it layers the optional
+`REMOTE_CONFIG_URL` payload over `os.environ`, so anything that reads
+`os.environ` directly is invisible to remote-config deployments. Use the
+typed accessors (`get_bool_env`, `get_int_env`, `get_float_env`,
+`get_enum_env`); they bound-check where the value is read and degrade to the
+caller's default with one warning. Do not add a private `_env_int`-style
+parser to a consumer module, and do not validate by mutating `os.environ` at
+startup — that pattern (`config_validator.py`) was removed in
+[#441](https://github.com/JacoboSanchez/volley-overlay-control/issues/441)
+precisely because it could not see remote-config values.
+
+A short list of readers stays on `os.environ` deliberately, because they run
+before or independently of the fetch — a value needed to *reach* the remote
+config cannot come from it: `DATABASE_URL` (`app/db/engine.py`, read at
+import), the cookie `SESSION_SECRET` and report signing key
+(`app/security_bootstrap.py`, which runs before any router is registered),
+`ADMIN_BOOTSTRAP_TOKEN`, the `TRUSTED_HOSTS` / `CORS_ALLOWED_ORIGINS`
+middleware lists applied while the app is being built, `LOG_REDACT`, and the
+two knobs governing the fetch itself (`REMOTE_CONFIG_URL`,
+`REMOTE_CONFIG_ALLOW_PRIVATE_IPS`). That list is the whole of it — if you
+are adding to it, say why in a comment; everything else belongs on the
+accessors.
 
 Key variables:
 

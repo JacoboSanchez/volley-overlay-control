@@ -30,6 +30,21 @@ archive by hand.
   `SESSION_SECRET` rotation no longer affects report links.
   Fixes [#447](https://github.com/JacoboSanchez/volley-overlay-control/issues/447).
 
+- **The remote-config fetch is now SSRF-guarded and never follows
+  redirects.** `REMOTE_CONFIG_URL` was the only outbound `requests` call in
+  the codebase with neither a `net_guard` check nor `allow_redirects=False`,
+  even though whatever answers gets to set most of the app's configuration:
+  the match-report signing key, `METRICS_TOKEN`, the `MATCH_REPORT_PUBLIC`
+  gate, the webhook destination match state is POSTed to, and the
+  `OVERLAY_PUBLIC_URL` origin that widens the CSP `frame-src`. It now runs the same
+  `is_target_safe` check webhook delivery uses: a config host resolving to a
+  private / loopback / link-local address is refused before the request
+  fires, and a `30x` is reported rather than followed to whatever the
+  redirect names. Deployments whose config source *is* internal (a Compose
+  sidecar, an intranet file server) opt back in with the new
+  `REMOTE_CONFIG_ALLOW_PRIVATE_IPS=true`; a refused fetch logs an error and
+  falls back to the local environment. Part of [#441](https://github.com/JacoboSanchez/volley-overlay-control/issues/441).
+
 - **The default Content Security Policy no longer permits string
   evaluation or arbitrary HTTPS iframes.** `script-src` drops the unused
   `'unsafe-eval'`; `frame-src` now allows only `'self'` and, for split-host
@@ -264,6 +279,50 @@ archive by hand.
   without a board reports a failure instead of requesting a `null` one.
   Refs [#446](https://github.com/JacoboSanchez/volley-overlay-control/issues/446).
 
+- **A slow remote config can no longer stall a request.** The background
+  revalidation held `EnvVarsManager._lock` across its HTTP round-trip, so
+  once a fetch outlived the 10s cache TTL any reader — the per-response CSP
+  header lookup, the metrics token, the report gate — blocked on the socket
+  inside an async handler. The fetch now runs outside the lock, which is
+  taken only to swap the finished payload in, so stale-while-revalidate
+  delivers what its name promises.
+  [#441](https://github.com/JacoboSanchez/volley-overlay-control/issues/441).
+
+- **Six more settings now honour `REMOTE_CONFIG_URL`.** The auth rate
+  limiter (`AUTH_RATE_LIMIT_MAX_FAILURES`, `_WINDOW_SECONDS`,
+  `_BLOCK_SECONDS`), the security-header knobs (`SECURITY_CSP`,
+  `SECURITY_HSTS_SECONDS`), the Sentry settings, `OVERLAY_LOCALE` and
+  `DEFAULT_TEAM_LOGO` read through `EnvVarsManager` instead of
+  `os.environ`, so a remote config can set them rather than being silently
+  ignored. That retires three more private parsers — including a fourth
+  `_env_int` clone in the rate-limiter. The readers that stay on
+  `os.environ` are the ones needed *before* the fetch can happen
+  (`DATABASE_URL`, the cookie `SESSION_SECRET`, `ADMIN_BOOTSTRAP_TOKEN`,
+  `TRUSTED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `LOG_REDACT`); a new
+  `tests/test_env_read_path.py` keeps that list exhaustive instead of
+  aspirational. One behaviour change: a rate-limit knob set to `0` or a
+  negative number now falls back to its documented default with a warning
+  rather than being silently clamped to `1`.
+  [#441](https://github.com/JacoboSanchez/volley-overlay-control/issues/441).
+
+- **Environment configuration has one read path again, and it validates
+  where the value is read.** Three mutually inconsistent mechanisms had
+  grown up around 54 variables: `EnvVarsManager` (the only one honouring
+  `REMOTE_CONFIG_URL`), module-level `_env_int`/`_env_float` helpers in
+  `app/constants.py` reading `os.environ` directly at import time, and a
+  third integer parser in `app/conf.py` — with `app/config_validator.py`
+  as a fourth layer that clamped values by **mutating `os.environ`** at
+  startup. Everything now goes through `EnvVarsManager`, which gained typed
+  accessors — `get_int_env`, `get_float_env` (with inclusive `minimum` /
+  `maximum` and an `exclusive_minimum` for timeouts) and `get_enum_env`
+  alongside the existing `get_bool_env`. A malformed or out-of-range value
+  degrades to the caller's default with one warning naming the variable and
+  the constraint it broke, instead of being clamped in a startup pass that
+  the actual reader could not see. `app/constants.py` still resolves its
+  tunables once at import — several are baked into FastAPI route signatures
+  — but it now reads them through the same path, so remote-config
+  deployments configure them like anything else. [#441](https://github.com/JacoboSanchez/volley-overlay-control/issues/441).
+
 ### Fixed
 
 - **A failed customization refresh no longer passes silently.** After a save
@@ -328,6 +387,19 @@ archive by hand.
   tabulates all three, and notes that the `X-Control-Token` header form is
   unavailable on a browser WebSocket.
 
+- **Match-rule validation no longer silently skips remote-config
+  deployments.** `validate_config()` clamped `MATCH_GAME_POINTS`,
+  `MATCH_GAME_POINTS_LAST_SET` and `MATCH_SETS` in `os.environ` at startup,
+  but `Conf` reads them through `EnvVarsManager`, which prefers the remote
+  config cache over `os.environ` — so a remote `MATCH_GAME_POINTS=-5`
+  reached the match rules unvalidated and produced a set that could never
+  be won. The bound now travels with the read (`minimum=1`), so it applies
+  to every source. `APP_PORT` is likewise validated (1–65535) where it is
+  read, so a typo can no longer yield an overlay output URL of
+  `http://localhost:notaport`, and `WEBHOOKS_TIMEOUT_S` — previously read
+  with no validation at all, and missing from its own module's env-var
+  docstring — must now be greater than zero. Fixes [#441](https://github.com/JacoboSanchez/volley-overlay-control/issues/441).
+
 - **Docker Compose no longer drops unlisted application settings from
   `.env`.** Both the host-port and Traefik deployment files now pass the full
   optional `.env` through to the container, including security headers, auth
@@ -347,6 +419,20 @@ archive by hand.
   in `app/overlay_backends/utils.py` lists every call site to drop then.
 
 ### Removed
+
+- **`app/config_validator.py`, `REST_USER_AGENT`, and the unreachable
+  championship-layout branch.** The startup validator is gone with the
+  read-time validation that replaces it (above), and with it the
+  hand-maintained duplicate of `logging_config`'s default level. `Backend`
+  kept a configured `requests.Session` (`REST_USER_AGENT`, a retrying
+  HTTP adapter) and a `process_response` helper from the era when it
+  called a cloud overlay service; it has made no outbound HTTP request
+  since that backend was removed, so all three are deleted along with the
+  env var, its `.env.example` entry and its Compose pass-through.
+  `Conf.id` was a hardcoded legacy UUID whose only reader compared it
+  against `State.CHAMPIONSHIP_LAYOUT_ID` — a different hardcoded UUID, so
+  the `Sets Display` branch it guarded could never execute; both constants
+  and the branch are gone. Part of [#441](https://github.com/JacoboSanchez/volley-overlay-control/issues/441).
 
 - **The legacy flat team roster and its routes.** Groups replaced the flat
   per-user list as the unit of team selection, but the old model, service

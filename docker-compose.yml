@@ -27,6 +27,7 @@ services:
       - ENABLE_MULTITHREAD=${ENABLE_MULTITHREAD:-true}
       - CUSTOMIZATION_CACHE_TTL_SECONDS=${CUSTOMIZATION_CACHE_TTL_SECONDS:-} #Optional: single TTL override for both customization caches
       - REMOTE_CONFIG_URL=${REMOTE_CONFIG_URL:-} #Optional: remote JSON config fetched on startup
+      - REMOTE_CONFIG_ALLOW_PRIVATE_IPS=${REMOTE_CONFIG_ALLOW_PRIVATE_IPS:-false} #Optional: allow a private/loopback REMOTE_CONFIG_URL (SSRF opt-out)
       - LOGGING_LEVEL=${LOGGING_LEVEL:-warning}
       - LOG_FORMAT=${LOG_FORMAT:-text} #Optional: text|json
       - LOG_FILE=${LOG_FILE:-} #Optional: when set, also write JSON logs to this path
@@ -47,7 +48,6 @@ services:
       - MATCH_REPORT_PUBLIC=${MATCH_REPORT_PUBLIC:-false} #Optional: open match-report routes to anonymous reads
       - METRICS_ENABLED=${METRICS_ENABLED:-true} #Optional: false returns 404 from /metrics
       - METRICS_TOKEN=${METRICS_TOKEN:-} #Optional: bearer token required by /metrics
-      - REST_USER_AGENT=${REST_USER_AGENT:-}
       - APP_THEMES=${APP_THEMES:-}
       - WEBHOOKS_URL=${WEBHOOKS_URL:-} #Optional: single outbound webhook endpoint
       - WEBHOOKS_SECRET=${WEBHOOKS_SECRET:-} #Optional: HMAC-SHA256 secret for the single endpoint

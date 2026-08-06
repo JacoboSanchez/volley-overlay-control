@@ -321,7 +321,6 @@ Configure the application using the following environment variables:
 | `SENTRY_ENVIRONMENT` | *(Optional)* Environment label attached to Sentry events (for example `production`). | |
 | `SENTRY_RELEASE` | *(Optional)* Release identifier attached to Sentry events. | |
 | `SENTRY_TRACES_SAMPLE_RATE` | Fraction of requests recorded as Sentry performance traces (`0.0`–`1.0`). Error capture does not require tracing. | `0` |
-| `REST_USER_AGENT` | User-Agent to avoid Cloudflare bot detection. | `curl/8.15.0` |
 | `DATABASE_URL` | SQLAlchemy 2.0 database URL. SQLite by default; point at PostgreSQL (`postgresql+psycopg://…`) with no code change. Alembic migrates to head automatically on startup. | `sqlite:///data/app.db` |
 | `SESSION_SECRET` | Secret that hardens cookie sessions. **Auto-minted and persisted to `data/.session_secret` on first start when unset.** | *(auto)* |
 | `MATCH_REPORT_SIGNING_SECRET` | HMAC key for signed match-report share URLs. When unset, startup seeds it once from the current `SESSION_SECRET` (preserving existing links) and persists it separately to `data/.match_report_signing_secret`; later session-key rotations do not revoke report links. Pin it explicitly across replicas. | *(auto)* |
@@ -331,7 +330,8 @@ Configure the application using the following environment variables:
 | `ADMIN_BOOTSTRAP_TOKEN` | First-admin bootstrap token. When unset, a one-time token is minted on first start, logged at `WARNING`, and persisted to `data/.admin_bootstrap_token` (mode `0600`). Set it explicitly to pin a known value. See [AUTHENTICATION.md](AUTHENTICATION.md). | *(auto)* |
 | `TRUSTED_HOSTS` | Comma-separated allow-list of hostnames the app accepts in the `Host` header. Wildcard subdomains (`*.example.com`) supported. Requests outside the list are rejected with HTTP 400 before any handler reads `request.base_url`. See [AUTHENTICATION.md](AUTHENTICATION.md) §6.2. | *(unset → no enforcement)* |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated allow-list of origins permitted to call the API cross-origin. `*` is rejected (credentialed API; explicit origins only). Default: same-origin only. See [AUTHENTICATION.md](AUTHENTICATION.md) §6.3. | *(unset → no CORS)* |
-| `REMOTE_CONFIG_URL` | URL to a remote JSON file with non-account configuration fetched on startup. | |
+| `REMOTE_CONFIG_URL` | URL to a remote JSON file with non-account configuration fetched on startup. Values it returns override the local environment (a few bootstrap settings excepted — see *Remote Configuration*), so the fetch is SSRF-guarded and never follows redirects. | |
+| `REMOTE_CONFIG_ALLOW_PRIVATE_IPS` | If `true`, allows a `REMOTE_CONFIG_URL` whose host resolves to a private / loopback / link-local IP. Default `false` — such sources are refused with a logged error, since whatever answers gets to set most of this app's configuration. Set it when the config lives on a trusted internal host, e.g. a Compose sidecar. | `false` |
 | `CUSTOMIZATION_CACHE_TTL_SECONDS` | Single knob overriding the TTL (seconds) of both customization caches. When unset, the GameService cache defaults to `5` and the Backend cache to `60`. | *(per-cache defaults)* |
 | `APP_DEFAULT_LOGO` | URL of the fallback team logo used when a team has none configured. | *(flaticon volleyball icon)* |
 | `DEFAULT_TEAM_LOGO` | Logo path baked into a blank in-process overlay state (used by the built-in overlay server when an overlay is created). | `/static/images/default_volleyball.svg` |
@@ -341,7 +341,7 @@ Configure the application using the following environment variables:
 | `WEBHOOKS_URL` | *(Optional)* Single outbound webhook endpoint. POSTed JSON `{event, oid, ts, state, details}` on `set_end`, `match_end`, `timeout`, `serve_change`. | |
 | `WEBHOOKS_SECRET` | *(Optional)* Shared secret for HMAC-SHA256 signing of single-URL webhook bodies. Sent as `X-Webhook-Signature: sha256=<hex>`. | |
 | `WEBHOOKS_EVENTS` | *(Optional)* CSV subset of events the single-URL webhook should receive. | *(all events)* |
-| `WEBHOOKS_TIMEOUT_S` | *(Optional)* Per-target POST timeout in seconds. | `5` |
+| `WEBHOOKS_TIMEOUT_S` | *(Optional)* POST timeout in seconds for the single-URL webhook (`WEBHOOKS_JSON` targets carry their own `timeout_s`). Must be greater than `0`. | `5` |
 | `WEBHOOKS_JSON` | *(Optional)* JSON list of webhook targets, e.g. `[{"url":"…","secret":"…","events":["set_end"],"timeout_s":5}]`. Takes precedence over `WEBHOOKS_URL`. | |
 | `WEBHOOKS_ALLOW_PRIVATE_IPS` | If `true`, allows webhook targets whose host resolves to private / loopback / link-local IPs. Default: `false` — such targets are rejected with a logged warning to block accidental SSRF (`http://localhost/admin`, cloud metadata at `169.254.169.254`, etc.). Trusted-LAN deployments that need to call internal receivers opt in here. | `false` |
 | `MATCH_REPORT_PUBLIC` | If `true`, `/match/{id}/report` is reachable by anyone, with no cookie or signed URL required. When unset, the report is reachable only by its owner's session cookie or an owner-minted signed share URL. | `false` |
@@ -445,7 +445,11 @@ by an unguessable per-overlay `public_token`, never the raw oid.
 See [AUTHENTICATION.md](AUTHENTICATION.md) for the full route inventory.
 
 ### Remote Configuration
-Import non-account configuration from an external resource via `REMOTE_CONFIG_URL`. The application fetches this JSON file on startup. (Teams and presets are no longer sourced remotely — they live in the database; see *Accounts, Teams and Presets* above.)
+Import non-account configuration from an external resource via `REMOTE_CONFIG_URL`. The application fetches this JSON file on startup and its values override the local environment. (Teams and presets are no longer sourced remotely — they live in the database; see *Accounts, Teams and Presets* above.)
+
+A few settings are read from the local environment only, because they are needed before or independently of the fetch: `DATABASE_URL`, the cookie `SESSION_SECRET`, `ADMIN_BOOTSTRAP_TOKEN`, `TRUSTED_HOSTS`, `CORS_ALLOWED_ORIGINS` and `LOG_REDACT`. Set those in `.env` or Compose.
+
+Because whatever answers gets to set most of this app's configuration — including the match-report signing key, `METRICS_TOKEN`, the `MATCH_REPORT_PUBLIC` gate, the webhook destination match state is POSTed to, and the `OVERLAY_PUBLIC_URL` origin that widens the CSP `frame-src` — the fetch is guarded like an outbound webhook: redirects are never followed (point the variable at the final URL), and a host resolving to a private / loopback / link-local address is refused unless you set `REMOTE_CONFIG_ALLOW_PRIVATE_IPS=true`. Set that flag if your config source is an internal host such as a Compose sidecar; when a fetch is refused the app logs an error and falls back to the local environment.
 
 ### Available Endpoints
 

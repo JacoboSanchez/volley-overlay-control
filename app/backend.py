@@ -6,10 +6,6 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from typing import Any
 
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-
 from app.conf import Conf
 from app.customization_cache import CustomizationCache
 from app.customization_cache_ttl import (
@@ -54,28 +50,6 @@ class Backend:
 
     def __init__(self, config: Conf) -> None:
         self.conf = config
-        self.session = requests.Session()
-        self.session.headers.update(
-            {
-                "User-Agent": self.conf.rest_user_agent,
-                "Content-Type": "application/json",
-                "Accept": "application/json, text/plain, */*",
-            }
-        )
-        # Pool sized for ThreadPoolExecutor plus the foreground request thread.
-        adapter = HTTPAdapter(
-            pool_connections=10,
-            pool_maxsize=20,
-            max_retries=Retry(
-                total=2,
-                backoff_factor=0.3,
-                status_forcelist=(502, 503, 504),
-                allowed_methods=frozenset(["GET", "PUT", "POST"]),
-                raise_on_status=False,
-            ),
-        )
-        self.session.mount("http://", adapter)
-        self.session.mount("https://", adapter)
         self.executor = ThreadPoolExecutor(max_workers=5)
         self._customization_cache = CustomizationCache(
             _CUSTOMIZATION_CACHE_TTL_SECONDS
@@ -204,11 +178,6 @@ class Backend:
         if simple:
             to_save = State.simplify_model(to_save)
 
-        if self.conf.id == State.CHAMPIONSHIP_LAYOUT_ID:
-            to_save["Sets Display"] = str(
-                to_save.get(State.CURRENT_SET_INT, "1")
-            )
-
         def _push() -> None:
             with _timed("save_model.push", Backend.logger):
                 self._overlay.push_model_update(
@@ -330,21 +299,6 @@ class Backend:
 
     def save(self, state: State, simple: bool) -> None:
         self.save_model(state.get_current_model(), simple)
-
-    def process_response(
-        self,
-        response: requests.Response,
-    ) -> requests.Response:
-        if response.status_code >= 400:
-            logging.warning(
-                "response %s: '%s'",
-                response.status_code,
-                response.text,
-            )
-        else:
-            logging.debug("response status: %s", response.status_code)
-            logging.debug("response message: '%s'", response.text)
-        return response
 
     def update_local_overlay(
         self,

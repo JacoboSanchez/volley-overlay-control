@@ -16,6 +16,7 @@ import threading
 from collections.abc import Callable, Iterator
 
 from app.api._persistence_paths import DEFAULT_HASH_LEN, atomic_write_json, hashed_filename
+from app.env_vars_manager import EnvVarsManager
 from app.id_validation import is_valid_overlay_id, validate_overlay_id
 from app.overlay.style_catalog import StyleCatalog
 from app.overlay_key import is_valid_skey
@@ -119,7 +120,7 @@ def normalize_state(state: dict) -> None:
 
 def get_default_state(best_of_sets: int = 5) -> dict:
     """Return a blank overlay state."""
-    default_logo = os.environ.get(
+    default_logo = EnvVarsManager.get_str_env(
         "DEFAULT_TEAM_LOGO", "/static/images/default_volleyball.svg"
     )
     set_history = {f"set_{i}": 0 for i in range(1, best_of_sets + 1)}

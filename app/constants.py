@@ -1,4 +1,19 @@
-import os
+"""Hardcoded strings and the tunable runtime constants.
+
+The tunables read through :class:`app.env_vars_manager.EnvVarsManager` — the
+single read path — so ``REMOTE_CONFIG_URL`` deployments configure them like
+any other variable, and validation lives with the read rather than in a
+separate startup pass.
+
+They are resolved **once, at import time**, deliberately: several are baked
+into route signatures (``Query(LIST_DEFAULT_LIMIT, le=LIST_MAX_LIMIT)``) and
+handler defaults that FastAPI evaluates when the module is imported, so a
+later remote-config refresh could not reach them anyway. Anything that
+should track a refresh must call the accessor at use time instead of
+importing a constant from here.
+"""
+
+from app.env_vars_manager import EnvVarsManager
 
 
 class Constants:
@@ -11,38 +26,19 @@ class Constants:
     CUSTOM_FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="24px" viewBox="0 0 24 24" width="24px" fill="#5f6368"><g><rect fill="none" height="24" width="24"/></g><g><g><path d="M12,2C6.48,2,2,6.48,2,12c0,5.52,4.48,10,10,10s10-4.48,10-10C22,6.48,17.52,2,12,2z M13,4.07 c3.07,0.38,5.57,2.52,6.54,5.36L13,5.65V4.07z M8,5.08c1.18-0.69,3.33-1.06,3-1.02v7.35l-3,1.73V5.08z M4.63,15.1 C4.23,14.14,4,13.1,4,12c0-2.02,0.76-3.86,2-5.27v7.58L4.63,15.1z M5.64,16.83L12,13.15l3,1.73l-6.98,4.03 C7.09,18.38,6.28,17.68,5.64,16.83z M10.42,19.84 M12,20c-0.54,0-1.07-0.06-1.58-0.16l6.58-3.8l1.36,0.78 C16.9,18.75,14.6,20,12,20z M13,11.42V7.96l7,4.05c0,1.1-0.23,2.14-0.63,3.09L13,11.42z"/></g></g></svg>'
 
 
-def _env_float(key: str, default: float) -> float:
-    raw = os.environ.get(key)
-    if raw is None or raw.strip() == "":
-        return default
-    try:
-        value = float(raw)
-    except ValueError:
-        return default
-    return value if value > 0 else default
-
-
 def _env_int(key: str, default: int) -> int:
-    raw = os.environ.get(key)
-    if raw is None or raw.strip() == "":
-        return default
-    try:
-        value = int(raw)
-    except ValueError:
-        return default
-    return value if value > 0 else default
+    """A strictly positive integer knob."""
+    return EnvVarsManager.get_int_env(key, default, minimum=1)
 
 
 def _env_int_nonneg(key: str, default: int) -> int:
     """Like :func:`_env_int` but accepts 0 as a valid "disabled" value."""
-    raw = os.environ.get(key)
-    if raw is None or raw.strip() == "":
-        return default
-    try:
-        value = int(raw)
-    except ValueError:
-        return default
-    return value if value >= 0 else default
+    return EnvVarsManager.get_int_env(key, default, minimum=0)
+
+
+def _env_float(key: str, default: float) -> float:
+    """A strictly positive float knob (timeouts, backoff windows)."""
+    return EnvVarsManager.get_float_env(key, default, exclusive_minimum=0.0)
 
 
 def _env_float_nonneg(key: str, default: float) -> float:
@@ -53,14 +49,7 @@ def _env_float_nonneg(key: str, default: float) -> float:
     ``> 0`` filter on :func:`_env_float` would otherwise silently
     upgrade ``KEY=0`` to the default and confuse the operator.
     """
-    raw = os.environ.get(key)
-    if raw is None or raw.strip() == "":
-        return default
-    try:
-        value = float(raw)
-    except ValueError:
-        return default
-    return value if value >= 0 else default
+    return EnvVarsManager.get_float_env(key, default, minimum=0.0)
 
 
 # Idle game sessions are evicted after this many seconds. Override with

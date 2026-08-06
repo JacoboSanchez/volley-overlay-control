@@ -14,11 +14,9 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
     load_dotenv()
 
 from app.bootstrap import create_app
-from app.config_validator import validate_config
 from app.env_vars_manager import EnvVarsManager
 from app.logging_config import get_uvicorn_log_config, setup_logging
 
-validate_config()
 setup_logging()
 
 app = create_app()
@@ -27,10 +25,8 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(EnvVarsManager.get_env_var("APP_PORT", 8080))
-    reload = EnvVarsManager.get_env_var("APP_RELOAD", "false").lower() in (
-        "yes", "true", "t", "1",
-    )
+    port = EnvVarsManager.get_int_env("APP_PORT", 8080, minimum=1, maximum=65535)
+    reload = EnvVarsManager.get_bool_env("APP_RELOAD")
 
     uvicorn.run(
         "main:app",

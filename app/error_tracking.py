@@ -8,10 +8,11 @@ run an external service.
 from __future__ import annotations
 
 import logging
-import os
 import re
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
+
+from app.env_vars_manager import EnvVarsManager
 
 logger = logging.getLogger(__name__)
 
@@ -63,15 +64,13 @@ def _safe_header_value(name: str, value: object) -> str | None:
 
 
 def _sample_rate() -> float:
-    raw = os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0").strip()
-    try:
-        return min(1.0, max(0.0, float(raw)))
-    except ValueError:
-        logger.warning(
-            "Invalid SENTRY_TRACES_SAMPLE_RATE %r; tracing disabled.",
-            raw,
-        )
-        return 0.0
+    # Parsed by the shared accessor (which warns and falls back to 0.0 —
+    # tracing off — on garbage), then clamped here: an out-of-range rate is
+    # a fraction the operator meant, so 2.0 means "sample everything"
+    # rather than "disable tracing".
+    return min(1.0, max(0.0, EnvVarsManager.get_float_env(
+        "SENTRY_TRACES_SAMPLE_RATE", 0.0,
+    )))
 
 
 def _redacted_event_url(value: object) -> object:
@@ -205,14 +204,14 @@ def configure_error_tracking() -> bool:
     the optional integration is missing or misconfigured; the failure is
     logged locally instead of taking the scoreboard offline.
     """
-    dsn = os.environ.get("SENTRY_DSN", "").strip()
+    dsn = EnvVarsManager.get_str_env("SENTRY_DSN")
     if not dsn:
         return False
     try:
         _init_sentry(
             dsn=dsn,
-            environment=os.environ.get("SENTRY_ENVIRONMENT") or None,
-            release=os.environ.get("SENTRY_RELEASE") or None,
+            environment=EnvVarsManager.get_str_env("SENTRY_ENVIRONMENT") or None,
+            release=EnvVarsManager.get_str_env("SENTRY_RELEASE") or None,
             traces_sample_rate=_sample_rate(),
             send_default_pii=False,
             max_request_body_size="never",

@@ -8,28 +8,45 @@ import requests
 from app.env_vars_manager import EnvVarsManager
 
 
+def _json_response(payload, status_code=200):
+    """A stand-in for the ``requests`` response of a config fetch."""
+    response = Mock()
+    response.status_code = status_code
+    response.json.return_value = payload
+    response.raise_for_status.return_value = None
+    return response
+
+
 class TestEnvVarsManager(unittest.TestCase):
 
     def setUp(self):
         # Clear cache before each test
         EnvVarsManager._remote_config_cache = {}
         EnvVarsManager._cache_timestamp = 0
+        EnvVarsManager._refresh_in_flight = False
+        # The SSRF guard has its own tests below; everywhere else it must not
+        # depend on how the sandbox resolver happens to answer for the
+        # placeholder hostnames these cases use.
+        guard = patch(
+            "app.env_vars_manager.is_target_safe", return_value=(True, ""),
+        )
+        self.addCleanup(guard.stop)
+        guard.start()
 
     @patch.dict(os.environ, {"REMOTE_CONFIG_URL": "http://fake-url.com/config.json"})
     @patch('requests.get')
     def test_get_env_var_with_remote_config(self, mock_get):
         # Mock the remote config
-        remote_config = {'TEST_VAR': 'remote_value'}
-        mock_response = Mock()
-        mock_response.json.return_value = remote_config
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
+        mock_get.return_value = _json_response({'TEST_VAR': 'remote_value'})
 
         # Get the environment variable
         value = EnvVarsManager.get_env_var('TEST_VAR')
 
         # Assert that the value from the remote config is returned
         self.assertEqual(value, 'remote_value')
+        # A 30x would otherwise hand every env var (SESSION_SECRET,
+        # DATABASE_URL) to whoever controls the redirect target.
+        self.assertIs(mock_get.call_args.kwargs["allow_redirects"], False)
 
     @patch.dict(os.environ, {"TEST_VAR": "local_value"})
     def test_get_env_var_without_remote_config(self):
@@ -43,11 +60,7 @@ class TestEnvVarsManager(unittest.TestCase):
     @patch('requests.get')
     def test_remote_config_overrides_local_env(self, mock_get):
         # Mock the remote config
-        remote_config = {'TEST_VAR': 'remote_value'}
-        mock_response = Mock()
-        mock_response.json.return_value = remote_config
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
+        mock_get.return_value = _json_response({'TEST_VAR': 'remote_value'})
 
         # Get the environment variable
         value = EnvVarsManager.get_env_var('TEST_VAR')
@@ -59,11 +72,9 @@ class TestEnvVarsManager(unittest.TestCase):
     @patch('requests.get')
     def test_remote_config_wrapped_in_configuration_envelope(self, mock_get):
         # The companion configurator exports a {"configuration": {...}} envelope.
-        remote_config = {'configuration': {'TEST_VAR': 'remote_value'}}
-        mock_response = Mock()
-        mock_response.json.return_value = remote_config
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
+        mock_get.return_value = _json_response(
+            {'configuration': {'TEST_VAR': 'remote_value'}},
+        )
 
         # The nested env var is resolved as if it were at the top level.
         self.assertEqual(EnvVarsManager.get_env_var('TEST_VAR'), 'remote_value')
@@ -73,11 +84,9 @@ class TestEnvVarsManager(unittest.TestCase):
     def test_remote_config_envelope_with_extra_keys_not_unwrapped(self, mock_get):
         # A "configuration" key alongside other top-level keys is ambiguous,
         # so it is treated as a literal flat config (left unwrapped).
-        remote_config = {'configuration': {'NESTED': 'x'}, 'TEST_VAR': 'flat_value'}
-        mock_response = Mock()
-        mock_response.json.return_value = remote_config
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
+        mock_get.return_value = _json_response(
+            {'configuration': {'NESTED': 'x'}, 'TEST_VAR': 'flat_value'},
+        )
 
         self.assertEqual(EnvVarsManager.get_env_var('TEST_VAR'), 'flat_value')
 
@@ -86,10 +95,19 @@ class TestEnvVarsManager(unittest.TestCase):
     def test_remote_config_non_dict_payload_falls_back_to_local(self, mock_get):
         # A valid-JSON-but-non-dict payload (list/str/bool) must not crash
         # later cache.get() lookups; it is dropped so local env is used.
-        mock_response = Mock()
-        mock_response.json.return_value = ["not", "a", "dict"]
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
+        mock_get.return_value = _json_response(["not", "a", "dict"])
+
+        self.assertEqual(EnvVarsManager.get_env_var('TEST_VAR'), 'local_value')
+
+    @patch.dict(os.environ, {"REMOTE_CONFIG_URL": "http://fake-url.com/config.json", "TEST_VAR": "local_value"})
+    @patch('requests.get')
+    def test_redirected_remote_config_is_not_followed(self, mock_get):
+        # ``allow_redirects=False`` turns a 30x into a response we must
+        # reject explicitly — ``raise_for_status`` does not treat it as an
+        # error, and its body is not the operator's config.
+        mock_get.return_value = _json_response(
+            {'TEST_VAR': 'redirected_value'}, status_code=302,
+        )
 
         self.assertEqual(EnvVarsManager.get_env_var('TEST_VAR'), 'local_value')
 
@@ -109,9 +127,8 @@ class TestEnvVarsManager(unittest.TestCase):
     @patch('requests.get')
     def test_malformed_remote_json(self, mock_get):
         # Mock a malformed JSON response
-        mock_response = Mock()
+        mock_response = _json_response(None)
         mock_response.json.side_effect = json.JSONDecodeError("Expecting value", "", 0)
-        mock_response.raise_for_status.return_value = None
         mock_get.return_value = mock_response
 
         # Get the environment variable
@@ -122,6 +139,70 @@ class TestEnvVarsManager(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestRemoteConfigSsrfGuard(unittest.TestCase):
+    """The config response supplies every env var, so the fetch is guarded."""
+
+    def setUp(self):
+        EnvVarsManager._remote_config_cache = {}
+        EnvVarsManager._cache_timestamp = 0
+        EnvVarsManager._refresh_in_flight = False
+
+    def tearDown(self):
+        EnvVarsManager._remote_config_cache = {}
+        EnvVarsManager._cache_timestamp = 0
+
+    @patch.dict(os.environ, {
+        "REMOTE_CONFIG_URL": "http://169.254.169.254/latest/config.json",
+        "TEST_VAR": "local_value",
+    })
+    @patch('requests.get')
+    def test_private_target_is_refused_before_the_request(self, mock_get):
+        value = EnvVarsManager.get_env_var('TEST_VAR')
+
+        mock_get.assert_not_called()
+        self.assertEqual(value, 'local_value')
+
+    @patch.dict(os.environ, {
+        "REMOTE_CONFIG_URL": "http://127.0.0.1:9000/config.json",
+        "REMOTE_CONFIG_ALLOW_PRIVATE_IPS": "true",
+        "TEST_VAR": "local_value",
+    })
+    @patch('requests.get')
+    def test_opt_in_allows_a_private_config_source(self, mock_get):
+        # Trusted-LAN deployments (a compose sidecar serving the config)
+        # keep working once they opt in.
+        mock_get.return_value = _json_response({'TEST_VAR': 'remote_value'})
+
+        self.assertEqual(EnvVarsManager.get_env_var('TEST_VAR'), 'remote_value')
+        mock_get.assert_called_once()
+
+    @patch.dict(os.environ, {
+        "REMOTE_CONFIG_URL": "ftp://config.example/env.json",
+        "TEST_VAR": "local_value",
+    })
+    @patch('requests.get')
+    def test_non_http_scheme_is_refused(self, mock_get):
+        value = EnvVarsManager.get_env_var('TEST_VAR')
+
+        mock_get.assert_not_called()
+        self.assertEqual(value, 'local_value')
+
+    @patch.dict(os.environ, {
+        # ``urlparse`` raises ValueError on an unterminated IPv6 literal.
+        "REMOTE_CONFIG_URL": "http://[::1",
+        "TEST_VAR": "local_value",
+    })
+    @patch('requests.get')
+    def test_malformed_url_falls_back_instead_of_raising(self, mock_get):
+        # The guard runs outside the fetch's ``except RequestException``
+        # boundary, and ``get_env_var`` is called during module import —
+        # a typo here must not abort startup.
+        value = EnvVarsManager.get_env_var('TEST_VAR')
+
+        mock_get.assert_not_called()
+        self.assertEqual(value, 'local_value')
 
 
 def test_stale_cache_is_served_while_revalidating(monkeypatch):
@@ -151,12 +232,15 @@ def test_stale_cache_is_served_while_revalidating(monkeypatch):
         def json(self):
             return {"KEY": "fresh-value"}
 
-    def slow_get(url, timeout, headers=None):
+    def slow_get(url, timeout, headers=None, allow_redirects=True):
         fetched.set()
         release.wait(5)
         return SlowResponse()
 
-    with patch("app.env_vars_manager.requests.get", side_effect=slow_get):
+    with (
+        patch("app.env_vars_manager.requests.get", side_effect=slow_get),
+        patch("app.env_vars_manager.is_target_safe", return_value=(True, "")),
+    ):
         start = time_mod.time()
         value = EnvVarsManager.get_env_var("KEY")
         elapsed = time_mod.time() - start
@@ -166,6 +250,76 @@ def test_stale_cache_is_served_while_revalidating(monkeypatch):
         assert fetched.wait(2)
         release.set()
         # The background refresh eventually installs the fresh value.
+        deadline = time_mod.time() + 5
+        while time_mod.time() < deadline:
+            if EnvVarsManager._remote_config_cache.get("KEY") == "fresh-value":
+                break
+            time_mod.sleep(0.02)
+        assert EnvVarsManager._remote_config_cache.get("KEY") == "fresh-value"
+
+    EnvVarsManager._remote_config_cache = {}
+    EnvVarsManager._cache_timestamp = 0
+    EnvVarsManager._refresh_in_flight = False
+
+
+def test_reader_does_not_block_on_an_in_flight_refresh(monkeypatch):
+    """A revalidation must never make a reader wait on the network.
+
+    ``get_env_var`` runs inside async handlers (CSP headers, the metrics
+    token, the report gate). If the background refresh held ``_lock``
+    across its HTTP request, any reader arriving after the cache outlived
+    its TTL would block on the socket — the exact stall
+    stale-while-revalidate exists to prevent.
+    """
+    import threading
+    import time as time_mod
+    from unittest.mock import patch
+
+    from app.env_vars_manager import EnvVarsManager
+
+    monkeypatch.setenv("REMOTE_CONFIG_URL", "http://config.example/env.json")
+    EnvVarsManager._remote_config_cache = {"KEY": "stale-value"}
+    EnvVarsManager._cache_timestamp = time_mod.time() - 3600
+    EnvVarsManager._refresh_in_flight = False
+
+    release = threading.Event()
+    fetching = threading.Event()
+
+    class Response:
+        status_code = 200
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"KEY": "fresh-value"}
+
+    def blocked_get(url, timeout, headers=None, allow_redirects=True):
+        fetching.set()
+        # Outlive the cache TTL, so a reader cannot be saved by the fast path.
+        release.wait(10)
+        return Response()
+
+    with (
+        patch("app.env_vars_manager.requests.get", side_effect=blocked_get),
+        patch("app.env_vars_manager.is_target_safe", return_value=(True, "")),
+    ):
+        # Kick off the refresh, then keep reading while it is stuck.
+        EnvVarsManager.get_env_var("KEY")
+        assert fetching.wait(2)
+        monkeypatch.setattr(EnvVarsManager, "_CACHE_EXPIRATION_SECONDS", 0)
+
+        for _ in range(5):
+            start = time_mod.perf_counter()
+            value = EnvVarsManager.get_env_var("KEY")
+            elapsed = time_mod.perf_counter() - start
+            assert elapsed < 1.0, (
+                f"a reader waited {elapsed:.1f}s on the in-flight fetch — the "
+                "refresh is holding _lock across its network I/O"
+            )
+            assert value == "stale-value"
+
+        release.set()
         deadline = time_mod.time() + 5
         while time_mod.time() < deadline:
             if EnvVarsManager._remote_config_cache.get("KEY") == "fresh-value":
