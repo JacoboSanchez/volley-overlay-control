@@ -74,11 +74,25 @@ export function createWebSocket(
   const ws = new WebSocket(url);
   let pingInterval: ReturnType<typeof setInterval> | null = null;
 
+  const stopPing = () => {
+    if (pingInterval) {
+      clearInterval(pingInterval);
+      pingInterval = null;
+    }
+  };
+
   ws.onopen = () => {
     pingInterval = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send('ping');
+        return;
       }
+      // Self-clearing rather than relying solely on ``onclose``: a caller
+      // tearing this socket down detaches the handlers before calling
+      // ``close()`` (see ``closeWs``), so the close path never runs and
+      // the interval would outlive the socket — one leaked timer per
+      // board switch and per reconnect, for the life of the tab.
+      stopPing();
     }, WS_PING_INTERVAL_MS);
     onOpen?.();
   };
@@ -102,7 +116,7 @@ export function createWebSocket(
   };
 
   ws.onclose = (event: CloseEvent) => {
-    if (pingInterval) clearInterval(pingInterval);
+    stopPing();
     onClose?.(event);
   };
 
