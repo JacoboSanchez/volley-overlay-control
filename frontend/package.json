@@ -25,7 +25,6 @@
     "format:check": "prettier --check src ../overlay_static/js ../overlay_static/css"
   },
   "dependencies": {
-    "material-icons": "^1.13.14",
     "react": "^19.2.8",
     "react-colorful": "^5.8.0",
     "react-dom": "^19.2.8",
@@ -47,6 +46,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^17.7.0",
     "jsdom": "^30.0.1",
+    "material-icons": "^1.13.14",
     "openapi-typescript": "^7.13.0",
     "prettier": "^3.9.6",
     "rollup-plugin-visualizer": "^7.0.1",

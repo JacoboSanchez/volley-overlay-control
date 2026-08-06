@@ -63,7 +63,24 @@ async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
         WSHub.capture_event_loop()
     except Exception:
         logger.exception("Failed to capture event loop for the control WS hub")
+    try:
+        # Push audit-log rows to control clients over the socket they
+        # already hold, so the board stops re-GETting /audit after every
+        # point. Installed here (not at import) so a process that only
+        # imports the modules — the test suite — keeps the log un-bridged
+        # unless it opts in.
+        from app.api import audit_broadcast
+
+        audit_broadcast.install()
+    except Exception:
+        logger.exception("Failed to bridge the audit log onto the control WS hub")
     yield
+    try:
+        from app.api import audit_broadcast
+
+        audit_broadcast.uninstall()
+    except Exception:
+        logger.exception("Failed to detach the audit-log WS bridge")
 
 
 def _register_auth(application: FastAPI) -> None:

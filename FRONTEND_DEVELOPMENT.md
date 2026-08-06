@@ -659,6 +659,45 @@ All messages from the server are JSON with a `type` field:
 }
 ```
 
+`customization_update` carries the same shape as
+`GET /api/v1/customization` and is pushed when team names, colours or layout
+change.
+
+#### Audit-log messages
+
+The server also streams the per-board action log, so a client that shows
+recent activity does not have to poll `GET /api/v1/audit` after every point.
+Two message types, both carrying the log's mutation counter in
+`data.version`:
+
+```json
+{ "type": "audit_append",     "data": { "version": 42, "record": { "ts": 1714508400.1, "action": "add_point", "params": {...}, "result": {...} } } }
+{ "type": "audit_invalidate", "data": { "version": 43, "record": null } }
+```
+
+- **`audit_append`** — one new record was written. `record` is exactly what
+  `GET /audit` would return for it.
+- **`audit_invalidate`** — something changed that is not a simple append:
+  an undo tombstone hid an earlier record, a rapid-pair recovery restored
+  one, the log was cleared at match reset, or rotation discarded history.
+  Re-read `GET /audit`.
+
+**How a client is expected to consume this.** Hold the records you last
+read plus the `version` they came from. On `audit_append`, apply the record
+only when `data.version === yourVersion + 1`; on any other value you missed
+a message, so re-read. On `audit_invalidate`, and on every (re)connect,
+re-read.
+
+That version check is the whole safety property: `GET /audit` stays
+authoritative, and a dropped, duplicated or reordered frame costs one extra
+fetch rather than a wrong history. Do not treat the stream as a durable
+event log — it is a cache-coherency hint for clients that already hold the
+socket.
+
+Note that a scored point puts **two** frames on the wire (the audit row and
+the state update). Their relative order follows the server's internal
+sequencing and is not part of the contract; handle each independently.
+
 ### Keepalive
 
 Send `ping` to receive `pong`:

@@ -18,8 +18,8 @@ export interface RecapSectionProps {
    * state) and a handler to broadcast a change. When omitted the
    * picker is skipped (e.g. before the session is ready).
    */
-  setSummaryStyle?: SetSummaryStyle;
-  onChangeSetSummaryStyle?: (style: SetSummaryStyle) => void;
+  setSummaryStyle?: SetSummaryStyle | undefined;
+  onChangeSetSummaryStyle?: ((style: SetSummaryStyle) => void) | undefined;
 }
 
 export default function RecapSection({

@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { lazy, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import RequireAuth, { RouteLoading } from './auth/RequireAuth';
@@ -6,20 +6,28 @@ import { I18nProvider } from './i18n';
 import { ToastProvider } from './components/Toast';
 import { ConfirmProvider } from './components/ConfirmProvider';
 
+// Eager: the unauthenticated front door plus the board. These are the first
+// paint for every visitor, so a lazy chunk here would only add a round-trip.
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ClaimAdminPage from './pages/ClaimAdminPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
 import AccountLayout from './pages/AccountLayout';
-import AccountHome from './pages/AccountHome';
 import BoardPage from './pages/BoardPage';
-import OverlaysPage from './pages/OverlaysPage';
-import AccountSettingsPage from './pages/AccountSettingsPage';
-import TeamsPage from './pages/TeamsPage';
-import AdminTeamsPage from './pages/AdminTeamsPage';
-import PresetsPage from './pages/PresetsPage';
-import ReportsPage from './pages/ReportsPage';
-import AdminPage from './pages/AdminPage';
+
+// Lazy: every signed-in account page. None of them are reachable before the
+// auth probe resolves, so a visitor stuck on /login never downloads them —
+// nor their heavy transitive deps (icon library/picker, match calendar,
+// JSON import/export, react-colorful). AccountLayout renders the Suspense
+// boundary these resolve against.
+const AccountHome = lazy(() => import('./pages/AccountHome'));
+const OverlaysPage = lazy(() => import('./pages/OverlaysPage'));
+const AccountSettingsPage = lazy(() => import('./pages/AccountSettingsPage'));
+const TeamsPage = lazy(() => import('./pages/TeamsPage'));
+const AdminTeamsPage = lazy(() => import('./pages/AdminTeamsPage'));
+const PresetsPage = lazy(() => import('./pages/PresetsPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
 
 function PublicOnly({ children }: { children: ReactNode }) {
   const { loading, ctx } = useAuth();

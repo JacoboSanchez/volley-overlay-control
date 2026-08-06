@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import * as api from '../../api/client';
 import { useI18n } from '../../i18n';
 import { useToast } from '../Toast';
@@ -20,8 +20,8 @@ export default function TeamCreatePanel({
   onCreated: () => void;
   addLabel: string;
   successMessage: (name: string) => string;
-  idPrefix?: string;
-  iconPickerScope?: 'personal' | 'global';
+  idPrefix?: string | undefined;
+  iconPickerScope?: 'personal' | 'global' | undefined;
 }) {
   const { t } = useI18n();
   const { toast } = useToast();

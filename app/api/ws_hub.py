@@ -214,6 +214,47 @@ class WSHub:
         await cls._broadcast_text(oid, message)
 
     @classmethod
+    async def broadcast_audit(
+        cls,
+        oid: str,
+        event: str,
+        version: int,
+        record: dict[str, Any] | None = None,
+    ) -> None:
+        """Push one audit-log mutation to every client for *oid*.
+
+        ``event`` is ``"append"`` (``record`` is the row just written) or
+        ``"invalidate"`` (``record`` is ``None`` and the client must re-read
+        ``GET /audit``). ``version`` is the log's mutation counter after the
+        write: a client holding ``version - 1`` knows an ``append`` extends
+        its copy contiguously, and treats any other value as a missed
+        message and re-reads.
+        """
+        message = json.dumps({
+            "type": f"audit_{event}",
+            "data": {"version": version, "record": record},
+        })
+        await cls._broadcast_text(oid, message)
+
+    @classmethod
+    def broadcast_audit_sync(
+        cls,
+        oid: str,
+        event: str,
+        version: int,
+        record: dict[str, Any] | None = None,
+    ) -> None:
+        """Sync wrapper around :meth:`broadcast_audit`.
+
+        Audit writes happen on the synchronous game-action path, often under
+        ``run_in_threadpool``, so this goes through the same ``_schedule``
+        hand-off the state broadcast uses.
+        """
+        cls._schedule(
+            oid, lambda: cls.broadcast_audit(oid, event, version, record),
+        )
+
+    @classmethod
     def capture_event_loop(cls) -> None:
         """Remember the running loop so worker threads can schedule onto it.
 

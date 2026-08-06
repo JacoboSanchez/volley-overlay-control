@@ -8,7 +8,7 @@ export interface SetSummaryStylePickerProps {
   /** Fired whenever the operator picks a different style. */
   onChange: (style: SetSummaryStyle) => void;
   /** When ``true``, the picker is read-only (used inside disabled flows). */
-  disabled?: boolean;
+  disabled?: boolean | undefined;
 }
 
 /**
