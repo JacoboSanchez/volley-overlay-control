@@ -481,6 +481,41 @@ describe('ConfigPanel unsaved-changes prompt', () => {
     expect(defaultProps.onBack).not.toHaveBeenCalled();
   });
 
+  it('re-arms the history guard before the prompt resolves', async () => {
+    // Regression guard. The prompt used to be `window.confirm`, which blocked
+    // the main thread, so the popped history entry could not be traversed past
+    // while it was open. The styled dialog does not block, so the entry has to
+    // be restored up front — otherwise a second Back press during the prompt
+    // walks off the board and discards the unsaved edits silently.
+    const go = vi.spyOn(window.history, 'go').mockImplementation(() => {});
+    try {
+      renderWithConfirm();
+      await dirtyThePanel();
+
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      // Synchronously, in the same handler that opened the prompt.
+      expect(go).toHaveBeenCalledWith(1);
+      expect(defaultProps.onBack).not.toHaveBeenCalled();
+
+      await screen.findByText('You have unsaved changes that will be lost. Leave anyway?');
+
+      // A second Back while the prompt is open must not stack a competing
+      // dialog, and must not exit.
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      expect(
+        screen.getAllByText('You have unsaved changes that will be lost. Leave anyway?'),
+      ).toHaveLength(1);
+      expect(defaultProps.onBack).not.toHaveBeenCalled();
+
+      // Accepting consumes the restored entry rather than stranding it.
+      fireEvent.click(screen.getByText('Leave'));
+      await waitFor(() => expect(defaultProps.onBack).toHaveBeenCalledOnce());
+      expect(go).toHaveBeenCalledWith(-1);
+    } finally {
+      go.mockRestore();
+    }
+  });
+
   it('stays put when the prompt is dismissed and leaves when it is accepted', async () => {
     renderWithConfirm();
     await dirtyThePanel();

@@ -52,50 +52,73 @@ export function useUnsavedChangesGuard(isDirty: boolean, onExit: () => void) {
     onExitRef.current = onExit;
   }, [onExit]);
 
-  const guard = useCallback((action: () => void) => {
-    // A clean panel leaves synchronously: nothing to ask about, and deferring
-    // it a microtask would make Back feel laggy.
-    if (!isDirtyRef.current) {
-      action();
-      return;
-    }
+  // Traversals this hook performs itself. Counted rather than flagged: a
+  // restore and an exit can both be in flight before either popstate lands,
+  // and a boolean would let the second one be handled as if the operator had
+  // pressed Back.
+  const selfTraversalsRef = useRef(0);
+  const traverse = useCallback((delta: number) => {
+    selfTraversalsRef.current += 1;
+    window.history.go(delta);
+  }, []);
+
+  // Only one prompt at a time: further exit attempts while it is open are
+  // answered by the dialog already on screen.
+  const promptOpenRef = useRef(false);
+  const ask = useCallback((action: () => void) => {
+    if (promptOpenRef.current) return;
+    promptOpenRef.current = true;
     void confirmExitRef.current().then((ok) => {
+      promptOpenRef.current = false;
       if (ok) action();
     });
   }, []);
 
-  const ignoreNextPopRef = useRef(false);
+  const guard = useCallback(
+    (action: () => void) => {
+      // A clean panel leaves synchronously: nothing to ask about, and deferring
+      // it a microtask would make Back feel laggy.
+      if (!isDirtyRef.current) {
+        action();
+        return;
+      }
+      ask(action);
+    },
+    [ask],
+  );
 
   useEffect(() => {
     window.history.pushState({ configOpen: true }, '');
     const handlePopState = () => {
-      if (ignoreNextPopRef.current) {
-        ignoreNextPopRef.current = false;
+      if (selfTraversalsRef.current > 0) {
+        selfTraversalsRef.current -= 1;
         return;
       }
       if (!isDirtyRef.current) {
         onExitRef.current();
         return;
       }
-      // The entry is already popped by the time we hear about it. The panel
-      // stays mounted while the prompt is open (both entries are the same
-      // board URL, so nothing visibly navigates); on cancel we push the
-      // configOpen entry back by going forward rather than pushing a new one,
-      // so repeated cancels don't grow the history stack.
-      void confirmExitRef.current().then((ok) => {
-        if (ok) {
-          onExitRef.current();
-          return;
-        }
-        ignoreNextPopRef.current = true;
-        window.history.go(1);
+      // The entry is already popped by the time we hear about it, and the
+      // prompt below is asynchronous — unlike the `window.confirm` this
+      // replaced, it does not block the main thread. So put the entry back
+      // *first*: until the operator answers, a second Back press has to land
+      // on the guard entry again rather than traversing past the board and
+      // unmounting it with the edits unsaved. Going forward (rather than
+      // pushing a fresh entry) keeps repeated attempts from growing the stack.
+      traverse(1);
+      ask(() => {
+        // Confirmed: consume the entry we just restored, so leaving the panel
+        // doesn't strand a stale configOpen entry the next Back press would
+        // have to walk through.
+        traverse(-1);
+        onExitRef.current();
       });
     };
     window.addEventListener('popstate', handlePopState);
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, []);
+  }, [ask, traverse]);
 
   return guard;
 }
