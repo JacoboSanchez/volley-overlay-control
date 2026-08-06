@@ -669,9 +669,24 @@ archive by hand.
 
 ### Dependencies
 
-- **Frontend:** `vite` `8.1.0` → `8.1.5` (patch-level bug fixes; pulls
-  `rolldown` `1.1.3` → `1.1.5`).
-  [#469](https://github.com/JacoboSanchez/volley-overlay-control/pull/469)
+- **Backend runtime:** `sentry-sdk[fastapi]` `>=2.66.0` → `>=2.66.1`
+  (upstream fix for exceptions raised inside `traces_sampler` and other
+  callbacks) and `uvicorn[standard]` `>=0.52.0` → `>=0.52.1`. Only the
+  `uvicorn` floor moved a pin in `requirements.lock` (`0.52.0` →
+  `0.52.1`); the lock already resolved `sentry-sdk` to `2.66.1`.
+  [#483](https://github.com/JacoboSanchez/volley-overlay-control/pull/483),
+  [#484](https://github.com/JacoboSanchez/volley-overlay-control/pull/484)
+- **Frontend:** `vite` `8.1.0` → `8.2.0` (patch-level bug fixes, then the
+  8.2 minor; pulls `rolldown` `1.1.3` → `1.2.3` and `lightningcss`
+  `1.32.0` → `1.33.0`).
+  [#469](https://github.com/JacoboSanchez/volley-overlay-control/pull/469),
+  [#486](https://github.com/JacoboSanchez/volley-overlay-control/pull/486)
+- **Frontend types:** `@types/react` `19.2.17` → `19.2.18` and
+  `@types/react-dom` `19.2.3` → `19.2.4`.
+  [#485](https://github.com/JacoboSanchez/volley-overlay-control/pull/485)
+- **Frontend (transitive, dev-only):** `brace-expansion` `1.1.14` →
+  `1.1.18` and `2.0.3`/`2.1.0` → `2.1.4`.
+  [#481](https://github.com/JacoboSanchez/volley-overlay-control/pull/481)
 - **CI (GitHub Actions):** `docker/login-action` `4.4.0` → `4.6.0`
   (still pinned by commit SHA).
   [#464](https://github.com/JacoboSanchez/volley-overlay-control/pull/464)
