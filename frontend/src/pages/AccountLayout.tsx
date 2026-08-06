@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { useI18n } from '../i18n';
 import './account.css';
 
@@ -107,7 +108,26 @@ export default function AccountLayout() {
           </button>
         </nav>
         <main className="acc-main">
-          <Outlet />
+          {/* Two boundaries, for the two ways a lazy chunk can go wrong.
+              Suspense covers a *pending* import; a null fallback keeps the
+              nav and shell in place, since the chunk is same-origin and a
+              spinner would flash more than it informs. ErrorBoundary covers
+              a *rejected* one — a tab that outlived its deployment asks for
+              a hashed chunk the new build no longer serves, and without
+              this the rejection would blank the account UI. Inside the
+              layout on purpose: the nav survives, so the operator can still
+              move around.
+
+              Keyed by pathname because an error boundary latches: once it
+              has caught, it renders its fallback until it is remounted, so
+              without this the surviving nav would change the route and
+              still show the error — visible but useless, which is worse
+              than honest. A new key gives each route its own boundary. */}
+          <ErrorBoundary key={location.pathname}>
+            <Suspense fallback={null}>
+              <Outlet />
+            </Suspense>
+          </ErrorBoundary>
         </main>
       </div>
     </div>

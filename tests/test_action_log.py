@@ -418,7 +418,7 @@ class TestReadPage:
 
     def test_first_page_returns_newest_records(self):
         self._seed("page-1", 50)
-        page, cursor = action_log.read_page("page-1", limit=10)
+        page, cursor, _ = action_log.read_page("page-1", limit=10)
         assert len(page) == 10
         # Chronological within window: i=40..49.
         assert [r["params"]["i"] for r in page] == list(range(40, 50))
@@ -430,7 +430,7 @@ class TestReadPage:
         cursor = None
         # Cap iterations defensively so a bug cannot hang the test.
         for _ in range(20):
-            page, cursor = action_log.read_page(
+            page, cursor, _ = action_log.read_page(
                 "page-2", limit=7, before_ts=cursor,
             )
             seen = [r["params"]["i"] for r in page] + seen
@@ -441,17 +441,17 @@ class TestReadPage:
 
     def test_cursor_null_on_final_page(self):
         self._seed("page-3", 5)
-        page, cursor = action_log.read_page("page-3", limit=10)
+        page, cursor, _ = action_log.read_page("page-3", limit=10)
         assert len(page) == 5
         assert cursor is None  # no more records remain
 
     def test_empty_log_returns_empty_with_null_cursor(self):
-        page, cursor = action_log.read_page("never-written", limit=10)
+        page, cursor, _ = action_log.read_page("never-written", limit=10)
         assert page == []
         assert cursor is None
 
     def test_invalid_limit_returns_empty(self):
-        page, cursor = action_log.read_page("page-3", limit=0)
+        page, cursor, _ = action_log.read_page("page-3", limit=0)
         assert page == []
         assert cursor is None
 
@@ -459,7 +459,7 @@ class TestReadPage:
         self._seed("page-4", 5)
         # Pop the most recent forward — i=4 should disappear from the page.
         action_log.pop_last_forward("page-4")
-        page, _ = action_log.read_page("page-4", limit=10)
+        page, _, _ = action_log.read_page("page-4", limit=10)
         ids = [r["params"]["i"] for r in page]
         assert 4 not in ids
         assert ids == [0, 1, 2, 3]

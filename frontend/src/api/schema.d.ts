@@ -483,6 +483,21 @@ export interface paths {
          *     * ``count`` — ``len(records)``.
          *     * ``next_cursor`` — the ``ts`` to pass as ``before_ts`` for the
          *       next page, or ``null`` when this is the last page.
+         *     * ``version`` — the log's mutation counter these records were read
+         *       at. Pair it with the ``audit_append`` / ``audit_invalidate``
+         *       WebSocket messages (see FRONTEND_DEVELOPMENT.md) to follow the
+         *       log live instead of re-polling this endpoint.
+         *
+         *     Returns **503** when the log cannot be read. That is deliberate
+         *     rather than an empty page: an empty page carrying a live version
+         *     would tell a following client "you are up to date at N" about
+         *     records it never received.
+         *
+         *     ``read_page`` returns the page and the version under one lock hold —
+         *     sampling the counter separately would let a concurrent mutation land
+         *     between the two and hand the caller a page and a version that
+         *     disagree, which a live client resolves into either a duplicated or a
+         *     silently missing record. See its docstring.
          */
         get: operations["get_audit_log_api_v1_audit_get"];
         put?: never;

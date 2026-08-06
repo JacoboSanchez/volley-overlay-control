@@ -3,7 +3,7 @@
    dedicated, single-purpose auth page, so focusing it on mount cannot
    steal focus from other content. Scoped to this file, which has
    exactly one such field. */
-import { FormEvent, useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';

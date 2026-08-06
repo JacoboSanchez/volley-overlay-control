@@ -5,7 +5,7 @@
  * silently lose rows from the overlays / teams / groups / icons / presets
  * screens.
  */
-import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { getTeamCatalog, getMyGroups, getOverlays, listIcons, listPresets } from '../api/client';
 
 describe('api/client pagination', () => {

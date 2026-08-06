@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import * as api from '../api/client';
 import CopyField from '../components/CopyField';
 import EmptyState from '../components/EmptyState';

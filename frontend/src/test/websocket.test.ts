@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { createWebSocket } from '../api/websocket';
 
 class MockWebSocket {
@@ -155,6 +155,53 @@ describe('createWebSocket', () => {
     const errorEvent = { type: 'error' };
     currentInstance().onerror!(errorEvent);
     expect(onError).toHaveBeenCalledWith(errorEvent);
+  });
+
+  it('stops pinging a socket torn down without its onclose handler', () => {
+    // ``useGameState.closeWs`` detaches every handler before calling
+    // ``close()``, so the onclose path that used to clear this interval
+    // never runs. Without a self-clearing guard that leaks one live timer
+    // per board switch and per reconnect, for the life of the tab.
+    vi.useFakeTimers();
+    createWebSocket('oid1', {});
+    const ws = currentInstance();
+    ws.onopen!();
+
+    vi.advanceTimersByTime(25000);
+    expect(ws.sent.filter((m) => m === 'ping')).toHaveLength(1);
+
+    // Teardown the way the hook does it: handlers detached, then closed.
+    ws.onclose = null;
+    ws.onmessage = null;
+    ws.readyState = MockWebSocket.CLOSED;
+
+    vi.advanceTimersByTime(25000);
+    ws.sent = [];
+    // One more tick would fire the interval again if it were still armed.
+    vi.advanceTimersByTime(25000);
+    expect(ws.sent).toHaveLength(0);
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
+  });
+
+  it('routes audit frames to their handlers', () => {
+    const onAuditAppend = vi.fn();
+    const onAuditInvalidate = vi.fn();
+    createWebSocket('oid1', { onAuditAppend, onAuditInvalidate });
+    const ws = currentInstance();
+
+    ws.onmessage!({
+      data: JSON.stringify({
+        type: 'audit_append',
+        data: { version: 7, record: { ts: 1, action: 'add_point' } },
+      }),
+    });
+    ws.onmessage!({
+      data: JSON.stringify({ type: 'audit_invalidate', data: { version: 8, record: null } }),
+    });
+
+    expect(onAuditAppend).toHaveBeenCalledWith(7, { ts: 1, action: 'add_point' });
+    expect(onAuditInvalidate).toHaveBeenCalledWith(8);
   });
 
   it('returns the WebSocket instance', () => {

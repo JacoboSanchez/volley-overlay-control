@@ -1,13 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
-import AppDialogs, { AppDialogsProps, DialogState } from '../components/AppDialogs';
-import * as api from '../api/client';
-import { mockGameState, renderWithI18n } from './helpers';
+import { screen, fireEvent } from '@testing-library/react';
+import AppDialogs, { type AppDialogsProps, type DialogState } from '../components/AppDialogs';
+import type { AuditFeed } from '../hooks/useAuditFeed';
+import { renderWithI18n } from './helpers';
 
-// RecentAuditDrawer fetches the audit log on open via useAuditLog.
-vi.mock('../api/client', () => ({
-  getAudit: vi.fn(),
-}));
+// The audit drawer projects from the board's feed and issues no requests
+// of its own, so there is nothing to mock here.
+const emptyAudit: AuditFeed = {
+  records: [],
+  loading: false,
+  error: null,
+  refresh: vi.fn(),
+  onAppend: vi.fn(),
+  onInvalidate: vi.fn(),
+  onResync: vi.fn(),
+};
 
 const closedDialog: DialogState = {
   open: false,
@@ -32,9 +39,8 @@ function makeProps(overrides: Partial<AppDialogsProps> = {}): AppDialogsProps {
     shareOpen: false,
     shareLinks: null,
     onShareClose: vi.fn(),
-    oid: 'test-oid',
     historyOpen: false,
-    confirmedState: mockGameState,
+    audit: emptyAudit,
     onHistoryClose: vi.fn(),
     coachmarkOpen: false,
     onCoachmarkDismiss: vi.fn(),
@@ -47,7 +53,6 @@ function makeProps(overrides: Partial<AppDialogsProps> = {}): AppDialogsProps {
 describe('AppDialogs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(api.getAudit).mockResolvedValue({ oid: 'test-oid', count: 0, records: [] });
   });
 
   it('renders no dialogs when every flag is closed', () => {
@@ -55,7 +60,6 @@ describe('AppDialogs', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.queryByTestId('recent-audit-drawer')).toBeNull();
     expect(screen.queryByTestId('gesture-coachmark')).toBeNull();
-    expect(api.getAudit).not.toHaveBeenCalled();
   });
 
   it('renders the SetValueDialog and wires submit/close', () => {
@@ -118,12 +122,9 @@ describe('AppDialogs', () => {
     expect(screen.getByText('No links available for this session.')).toBeInTheDocument();
   });
 
-  it('opens the audit drawer and fetches the audit log for the oid', async () => {
+  it('opens the audit drawer against the board feed', () => {
     renderWithI18n(<AppDialogs {...makeProps({ historyOpen: true })} />);
     expect(screen.getByTestId('recent-audit-drawer')).toBeInTheDocument();
-    await waitFor(() => {
-      expect(api.getAudit).toHaveBeenCalledWith('test-oid', expect.anything(), expect.anything());
-    });
   });
 
   it('renders the gesture coachmark and wires dismiss', () => {

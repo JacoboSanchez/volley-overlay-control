@@ -1,4 +1,4 @@
-import { useMemo, useCallback, ChangeEvent, FormEvent } from 'react';
+import { useMemo, useCallback, type ChangeEvent, type FormEvent } from 'react';
 import { useI18n } from '../i18n';
 import { useOverlays } from '../hooks/useOverlays';
 

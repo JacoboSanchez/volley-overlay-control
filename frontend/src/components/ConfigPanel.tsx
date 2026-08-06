@@ -124,7 +124,7 @@ export interface ConfigPanelProps {
    * Capability/public-bookmark credentials cannot enumerate overlays, so
    * operator boards keep the plain title.
    */
-  onSwitchOverlay?: (oid: string) => void;
+  onSwitchOverlay?: ((oid: string) => void) | undefined;
   onCustomizationSaved?: () => void | Promise<void>;
   /**
    * Theme + fullscreen toggles live in this panel — they're

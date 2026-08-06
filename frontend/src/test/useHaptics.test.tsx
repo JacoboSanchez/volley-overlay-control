@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { useHaptics, HAPTIC_PATTERNS } from '../hooks/useHaptics';
 import { I18nProvider } from '../i18n';
 import { SettingsProvider } from '../hooks/useSettings';

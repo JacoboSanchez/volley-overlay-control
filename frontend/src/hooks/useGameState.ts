@@ -1,7 +1,16 @@
-import { useState, useCallback, useRef, useEffect, useMemo, Dispatch, SetStateAction } from 'react';
+import {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  useMemo,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import * as api from '../api/client';
 import type { GameState, ActionResponse, Team, TeamState } from '../api/client';
 import { createWebSocket } from '../api/websocket';
+import { useAuditFeed, type AuditFeed } from './useAuditFeed';
 import { WS_RECONNECT_BASE_MS, WS_RECONNECT_FACTOR, WS_RECONNECT_MAX_MS } from '../constants';
 
 type Customization = Record<string, unknown>;
@@ -69,6 +78,17 @@ export interface GameActions {
   startMatch: () => Promise<ActionResponse>;
 }
 
+export interface UseGameStateOptions {
+  /**
+   * Mirror the board's audit log into ``audit``. Off by default: the log
+   * is only needed when something is showing it (the momentum strip or the
+   * history drawer), and leaving it off saves the one fetch that arms the
+   * live feed. Flipping it on mid-session reads the log then; flipping it
+   * off drops the records.
+   */
+  auditEnabled?: boolean | undefined;
+}
+
 export interface UseGameStateResult {
   state: GameState | null;
   /**
@@ -89,15 +109,28 @@ export interface UseGameStateResult {
   errorStatus: number | null;
   initialize: () => Promise<void>;
   actions: GameActions;
-  refreshCustomization: () => Promise<void>;
+  /** Re-reads customization from the server. Resolves ``false`` when the
+   *  fetch failed (or there is no overlay), so callers that need the
+   *  operator to know can surface it. */
+  refreshCustomization: () => Promise<boolean>;
   setCustomization: Dispatch<SetStateAction<Customization | null>>;
+  /**
+   * Live mirror of the board's action log, fed by the same WebSocket.
+   * Empty unless ``auditEnabled`` was passed. Consumers project from
+   * ``audit.records`` rather than fetching for themselves — see
+   * ``useAuditFeed``.
+   */
+  audit: AuditFeed;
 }
 
 /**
  * Central game state hook. Manages session init, WebSocket connection,
  * and exposes all game actions.
  */
-export function useGameState(oid: string | null): UseGameStateResult {
+export function useGameState(
+  oid: string | null,
+  { auditEnabled = false }: UseGameStateOptions = {},
+): UseGameStateResult {
   const [state, setState] = useState<GameState | null>(null);
   const [confirmedState, setConfirmedState] = useState<GameState | null>(null);
   const [customization, setCustomization] = useState<Customization | null>(null);
@@ -112,6 +145,8 @@ export function useGameState(oid: string | null): UseGameStateResult {
   // the current state and apply an optimistic update without relying on an
   // impure setState updater. Updated eagerly on every state write.
   const stateRef = useRef<GameState | null>(null);
+  const audit = useAuditFeed(oid, auditEnabled);
+  const { onAppend: onAuditAppend, onInvalidate: onAuditInvalidate, onResync } = audit;
 
   const applyState = useCallback((next: GameState | null, confirmed: boolean = true) => {
     stateRef.current = next;
@@ -134,6 +169,19 @@ export function useGameState(oid: string | null): UseGameStateResult {
       reconnectTimer.current = null;
     }
     if (wsRef.current) {
+      // Detach *every* handler, not just the ones whose reconnect
+      // behaviour we are suppressing. ``close()`` starts a handshake, it
+      // does not drop frames already queued for delivery, so a socket
+      // left with ``onmessage`` installed can still fire after this
+      // returns — and by then ``oid`` may have moved on. The audit
+      // callbacks carry no board identity (they are stable across board
+      // changes by design), so such a frame would be applied to the
+      // *new* board's feed: with per-board version counters that all
+      // start at 0, an old board's version N+1 lines up with a fresh
+      // board's N often enough to matter, and the operator sees another
+      // board's action in this one's history.
+      wsRef.current.onmessage = null;
+      wsRef.current.onopen = null;
       wsRef.current.onclose = null;
       wsRef.current.onerror = null;
       wsRef.current.close();
@@ -147,11 +195,23 @@ export function useGameState(oid: string | null): UseGameStateResult {
     wsRef.current = createWebSocket(oid, {
       onStateUpdate: (newState) => applyState(newState),
       onCustomizationUpdate: (newCust) => setCustomization(newCust),
+      onAuditAppend,
+      onAuditInvalidate,
       onOpen: () => {
         // Successful handshake: reset the backoff so the next outage
         // starts retrying quickly again.
         reconnectAttempts.current = 0;
         setConnected(true);
+        // Re-read the audit log on *every* open, including the first.
+        // The feed's mount fetch races the handshake: this socket does
+        // not exist yet while that fetch is in flight, so an action from
+        // another client in that window is broadcast to nobody here, and
+        // the connect handshake replays only the state snapshot, never
+        // missed audit rows. Without this the board would sit on a log
+        // that is one action short until the *next* mutation exposed the
+        // version gap. Costs one extra read per board load, against the
+        // ~150-200 this hook removed from a five-set match.
+        onResync();
       },
       onClose: (event) => {
         setConnected(false);
@@ -175,7 +235,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
       },
       onError: () => setConnected(false),
     });
-  }, [oid, closeWs, applyState]);
+  }, [oid, closeWs, applyState, onAuditAppend, onAuditInvalidate, onResync]);
 
   const initialize = useCallback(async () => {
     if (!oid) {
@@ -234,9 +294,17 @@ export function useGameState(oid: string | null): UseGameStateResult {
 
   const handleAction = useCallback(
     async (
-      actionFn: () => Promise<ActionResponse>,
+      actionFn: (oid: string) => Promise<ActionResponse>,
       optimisticUpdater?: (prev: GameState) => GameState,
     ): Promise<ActionResponse> => {
+      // Single narrowing point for the whole action surface: every action
+      // needs an overlay id, so checking here lets the callbacks below take
+      // a plain ``string`` instead of asserting a nullable one 14 times.
+      // Without a board there is nothing to act on — report it like any
+      // other rejected action rather than throwing.
+      if (!oid) {
+        return { success: false, message: 'No overlay session' };
+      }
       // Capture the snapshot synchronously from the ref (not from an impure
       // setState updater) so rollback is reliable even if actionFn rejects
       // before React processes the update.
@@ -246,7 +314,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
         applyState(optimisticUpdater(snapshot), false);
       }
       try {
-        const res = await actionFn();
+        const res = await actionFn(oid);
         if (res.success && res.state) {
           applyState(res.state);
         } else if (!res.success && shouldApplyOptimistic) {
@@ -264,36 +332,36 @@ export function useGameState(oid: string | null): UseGameStateResult {
         return { success: false, message };
       }
     },
-    [applyState],
+    [oid, applyState],
   );
 
   const actions = useMemo<GameActions>(
     () => ({
       addPoint: (team, undo = false, pointType, errorType) =>
         handleAction(
-          () => api.addPoint(oid!, team, undo, pointType, errorType),
+          (id) => api.addPoint(id, team, undo, pointType, errorType),
           undo ? undefined : (prev) => optimisticAddPoint(prev, team),
         ),
-      addSet: (team, undo = false) => handleAction(() => api.addSet(oid!, team, undo)),
-      addTimeout: (team, undo = false) => handleAction(() => api.addTimeout(oid!, team, undo)),
-      changeServe: (team) => handleAction(() => api.changeServe(oid!, team)),
+      addSet: (team, undo = false) => handleAction((id) => api.addSet(id, team, undo)),
+      addTimeout: (team, undo = false) => handleAction((id) => api.addTimeout(id, team, undo)),
+      changeServe: (team) => handleAction((id) => api.changeServe(id, team)),
       setScore: (team, setNumber, value) =>
-        handleAction(() => api.setScore(oid!, team, setNumber, value)),
-      setSets: (team, value) => handleAction(() => api.setSets(oid!, team, value)),
-      reset: () => handleAction(() => api.resetGame(oid!)),
-      setVisibility: (visible) => handleAction(() => api.setVisibility(oid!, visible)),
-      setSimpleMode: (enabled) => handleAction(() => api.setSimpleMode(oid!, enabled)),
-      setSetSummary: (enabled) => handleAction(() => api.setSetSummary(oid!, enabled)),
-      setSwapSides: (swapped) => handleAction(() => api.setSwapSides(oid!, swapped)),
-      setSetSummaryStyle: (style) => handleAction(() => api.setSetSummaryStyle(oid!, style)),
-      undoLast: () => handleAction(() => api.undoLast(oid!)),
-      startMatch: () => handleAction(() => api.startMatch(oid!)),
+        handleAction((id) => api.setScore(id, team, setNumber, value)),
+      setSets: (team, value) => handleAction((id) => api.setSets(id, team, value)),
+      reset: () => handleAction((id) => api.resetGame(id)),
+      setVisibility: (visible) => handleAction((id) => api.setVisibility(id, visible)),
+      setSimpleMode: (enabled) => handleAction((id) => api.setSimpleMode(id, enabled)),
+      setSetSummary: (enabled) => handleAction((id) => api.setSetSummary(id, enabled)),
+      setSwapSides: (swapped) => handleAction((id) => api.setSwapSides(id, swapped)),
+      setSetSummaryStyle: (style) => handleAction((id) => api.setSetSummaryStyle(id, style)),
+      undoLast: () => handleAction((id) => api.undoLast(id)),
+      startMatch: () => handleAction((id) => api.startMatch(id)),
     }),
-    [oid, handleAction],
+    [handleAction],
   );
 
-  const refreshCustomization = useCallback(async () => {
-    if (!oid) return;
+  const refreshCustomization = useCallback(async (): Promise<boolean> => {
+    if (!oid) return false;
     try {
       // Fetch the latest customization from the backend (which already has the
       // just-saved data) and update the local customization state. We deliberately
@@ -303,8 +371,14 @@ export function useGameState(oid: string | null): UseGameStateResult {
       // stale team names/colors and visually revert the overlay.
       const cust = await api.getCustomization(oid);
       setCustomization(cust);
+      return true;
     } catch {
-      // ignore
+      // Reported, not swallowed: the caller decides whether this is worth
+      // telling the operator about. A refresh that failed right after a
+      // save leaves the panel showing values the server does not have,
+      // which is exactly the case that needs to be visible; the background
+      // locale sync is not.
+      return false;
     }
   }, [oid]);
 
@@ -319,5 +393,6 @@ export function useGameState(oid: string | null): UseGameStateResult {
     actions,
     refreshCustomization,
     setCustomization,
+    audit,
   };
 }

@@ -945,6 +945,14 @@ body {
 }
 
 .wakeup-handle {
+  /* Native <button>: reset the UA chrome the old role="button" div never
+     had. The focus ring below is the one UA affordance worth keeping, so
+     it stays explicit rather than riding on the default outline. */
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  font: inherit;
   position: absolute;
   top: -24px;
   left: 50%;

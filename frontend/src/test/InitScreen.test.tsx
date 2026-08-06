@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import InitScreen, { InitScreenProps } from '../components/InitScreen';
+import InitScreen, { type InitScreenProps } from '../components/InitScreen';
 import * as api from '../api/client';
 import type { OverlayPayload } from '../api/client';
 import { renderWithI18n } from './helpers';

@@ -1,17 +1,21 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useI18n, type Translate } from '../i18n';
-import { useAuditLog } from '../hooks/useAuditLog';
-import type { AuditRecord, GameState } from '../api/client';
+import type { AuditFeed } from '../hooks/useAuditFeed';
+import type { AuditRecord } from '../api/client';
 import ActionChip from './ActionChip';
 import { classifyChip } from '../utils/chipCatalogue';
 
 export interface RecentAuditDrawerProps {
-  oid: string | null;
   open: boolean;
-  /** Authoritative state — drives the refetch trigger. */
-  confirmedState: GameState | null | undefined;
+  /**
+   * The board's live audit feed. The drawer projects from it rather than
+   * fetching: the records are already maintained by the board's WebSocket,
+   * so opening the drawer mid-match shows current history with no request
+   * of its own, and it stays live while open.
+   */
+  audit: AuditFeed;
   /** Maximum records shown in the drawer. */
-  limit?: number;
+  limit?: number | undefined;
   onClose: () => void;
 }
 
@@ -93,17 +97,20 @@ function runningScore(record: AuditRecord): string | null {
  * ``frontend/src/utils/chipCatalogue.ts``.
  */
 export default function RecentAuditDrawer({
-  oid,
   open,
-  confirmedState,
+  audit,
   limit = 20,
   onClose,
 }: RecentAuditDrawerProps) {
   const { t } = useI18n();
-  const { records, loading, error, refresh } = useAuditLog(oid, open, {
-    trigger: confirmedState,
-    limit,
-  });
+  const { loading, error, refresh } = audit;
+  // The feed keeps records oldest-first, as the API returns them; the
+  // drawer reads newest-at-the-top. ``reverse`` on a copy is O(n) against
+  // an already-ordered page, where a sort would be O(n log n).
+  const records = useMemo(
+    () => [...audit.records].reverse().slice(0, limit),
+    [audit.records, limit],
+  );
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
 
   // Computed each render — formatRelative runs once per row and the
