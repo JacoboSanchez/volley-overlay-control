@@ -144,9 +144,8 @@ dependency.
 │   │   ├── style_catalog.py # Template discovery and capability scanning.
 │   │   ├── broadcast.py     # OBS WebSocket broadcast hub — debounced 50ms pushes.
 │   │   └── routes.py        # Public OBS surface: /overlay|follow|ws/{public_token}, /api/themes.
-│   ├── env_vars_manager.py  # Dynamic environment variable management.
+│   ├── env_vars_manager.py  # The single env read path: remote config + typed accessors.
 │   ├── logging_config.py    # Logging level configuration.
-│   ├── config_validator.py  # Startup configuration validation (env var checks).
 │   └── pwa/                 # Legacy PWA assets (icons).
 ├── overlay_templates/       # Jinja2 HTML templates for overlay styles (16 templates).
 ├── overlay_static/          # Static assets for overlays (JS, CSS, images).
@@ -167,9 +166,9 @@ dependency.
     ├── test_backend.py      # Backend API communication tests.
     ├── test_customization.py # Customization logic tests.
     ├── test_env_vars_manager.py # Environment variable manager tests.
+    ├── test_env_typed_accessors.py # Typed env accessors (int/float/enum) tests.
     ├── test_game_manager.py     # Game rules and scoring tests.
-    ├── test_state.py            # State model tests.
-    └── test_config_validator.py # Startup configuration validation tests.
+    └── test_state.py            # State model tests.
 ```
 
 ---
@@ -426,9 +425,11 @@ sets up logging, and calls `create_app()`.
 
 - **Responsibility**: Overlay ID parsing utilities — `extract_oid()` normalises a raw overlay ID input.
 
-#### `app/config_validator.py`
+#### `app/env_vars_manager.py`
 
-- **Responsibility**: Validates environment variables at startup. Logs warnings for misconfigurations.
+- **Responsibility**: The single read path for environment configuration. Layers the optional `REMOTE_CONFIG_URL` payload over `os.environ` (stale-while-revalidate cache; the fetch is SSRF-guarded and never follows redirects) and exposes the typed accessors every consumer should use.
+- **Key methods**: `get_env_var()`, `get_bool_env()`, `get_int_env(key, default, minimum=…, maximum=…)`, `get_float_env(key, default, exclusive_minimum=…)`, `get_enum_env(key, default, allowed)`.
+- **Convention**: validation belongs *with the read*, so a malformed value degrades to the caller's default with one warning — and applies to remote-config deployments too. Do not add a parsing helper in a consumer module; add the missing shape here.
 
 ---
 
@@ -461,8 +462,8 @@ cd frontend && npm ci && npm test
 | `test_teams.py` | DB-backed teams (catalog, groups, per-user lists) |
 | `test_match_archive.py` / `test_match_report.py` | Match archiving + print report + access gate |
 | `test_customization.py` | Team/color customization logic |
-| `test_env_vars_manager.py` | Environment variable loading |
-| `test_config_validator.py` | Startup environment variable validation |
+| `test_env_vars_manager.py` | Environment variable loading + remote-config SSRF guard |
+| `test_env_typed_accessors.py` | Typed env accessors (bounds, enums, match-rule clamping) |
 
 #### Test fixtures (`tests/conftest.py`)
 

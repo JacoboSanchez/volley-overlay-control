@@ -30,8 +30,6 @@ class GameState:
 
 class State:
 
-    CHAMPIONSHIP_LAYOUT_ID = '446a382f-25c0-4d1d-ae25-48373334e06b'
-
     OIDStatus = Enum('OIDStatus', [('VALID', 'valid'), ('INVALID', 'invalid'), ('DEPRECATED', 'deprecated'), ('EMPTY', 'empty')])
 
     # Legacy string constants — kept as aliases for backward compatibility.

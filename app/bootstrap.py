@@ -26,7 +26,6 @@ from app.api.middleware.security_headers import SecurityHeadersMiddleware
 from app.api.routes.metrics import router as metrics_router
 from app.auth.bootstrap import ensure_admin_bootstrap
 from app.auth.routes import auth_router
-from app.config_validator import validate_config
 from app.db import migrate as db_migrate
 from app.error_tracking import configure_error_tracking
 from app.match_report import match_report_router
@@ -254,7 +253,6 @@ def _maybe_register_cors(application: FastAPI) -> None:
 
 def create_app() -> FastAPI:
     """Build the application in route/middleware precedence order."""
-    validate_config()
     configure_error_tracking()
     run_security_bootstrap()
     db_migrate.run_migrations()

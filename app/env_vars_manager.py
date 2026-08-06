@@ -1,23 +1,65 @@
+"""The read path for operator-tunable environment configuration.
+
+:class:`EnvVarsManager` layers the (optional) ``REMOTE_CONFIG_URL`` payload
+over ``os.environ``, so anything read directly from ``os.environ`` is
+invisible to remote-config deployments. The typed accessors —
+:meth:`get_bool_env`, :meth:`get_int_env`, :meth:`get_float_env`,
+:meth:`get_enum_env` — validate *where the value is read*, so a malformed or
+out-of-range setting degrades to the caller's default with one warning
+rather than crashing a request or being clamped somewhere the reader cannot
+see. Prefer them for anything new, and add a missing shape here rather than
+writing a second parser in a consumer module.
+
+A few readers stay on ``os.environ`` by design, because they run before or
+independently of a remote fetch: ``DATABASE_URL`` (:mod:`app.db.engine`,
+read at import), the cookie ``SESSION_SECRET`` and the report signing key
+(:mod:`app.security_bootstrap`), ``ADMIN_BOOTSTRAP_TOKEN``, the
+``TRUSTED_HOSTS`` / ``CORS_ALLOWED_ORIGINS`` middleware lists, and
+``LOG_REDACT``. So do the two knobs governing the fetch itself
+(``REMOTE_CONFIG_URL``, ``REMOTE_CONFIG_ALLOW_PRIVATE_IPS``) — what decides
+*how* the remote config is fetched must not come from the remote config.
+"""
+
 import json
 import logging
 import os
 import threading
 import time
-from typing import Any
+from collections.abc import Callable, Sequence
+from typing import Any, TypeVar
 
 import requests
 
 from app.logging_utils import redact_url
+from app.net_guard import is_target_safe
 from app.trace_context import outbound_trace_headers
 
 logger = logging.getLogger(__name__)
 
 _TRUTHY_VALUES = ("1", "true", "t", "yes", "on")
 
+_Number = TypeVar("_Number", int, float)
+
 
 def is_truthy(value: object) -> bool:
     """Return True when *value* parses as a truthy boolean string."""
     return isinstance(value, str) and value.strip().lower() in _TRUTHY_VALUES
+
+
+def _bound_violation(
+    value: float,
+    minimum: float | None,
+    exclusive_minimum: float | None,
+    maximum: float | None,
+) -> str | None:
+    """Return the breached constraint as operator-readable text, else None."""
+    if minimum is not None and value < minimum:
+        return f">= {minimum}"
+    if exclusive_minimum is not None and value <= exclusive_minimum:
+        return f"> {exclusive_minimum}"
+    if maximum is not None and value > maximum:
+        return f"<= {maximum}"
+    return None
 
 
 class EnvVarsManager:
@@ -46,6 +88,113 @@ class EnvVarsManager:
         if raw is None:
             return default
         return is_truthy(raw if isinstance(raw, str) else str(raw))
+
+    @classmethod
+    def get_int_env(
+        cls,
+        key: str,
+        default: int,
+        *,
+        minimum: int | None = None,
+        maximum: int | None = None,
+    ) -> int:
+        """Return *key* as an ``int``, degrading to *default* when unusable.
+
+        ``minimum`` / ``maximum`` are inclusive. A value that is unset,
+        blank, unparseable or out of range logs one warning and yields
+        *default* — a typo in an operator's ``.env`` must never take a
+        board down with a 500.
+        """
+        return cls._get_number_env(
+            key, default, int, minimum=minimum, maximum=maximum,
+        )
+
+    @classmethod
+    def get_float_env(
+        cls,
+        key: str,
+        default: float,
+        *,
+        minimum: float | None = None,
+        exclusive_minimum: float | None = None,
+        maximum: float | None = None,
+    ) -> float:
+        """Return *key* as a ``float``, degrading to *default* when unusable.
+
+        ``minimum`` / ``maximum`` are inclusive; ``exclusive_minimum``
+        rejects the bound itself. Timeouts and intervals use
+        ``exclusive_minimum=0`` (a 0s timeout is never what the operator
+        meant), knobs where zero means "disabled" use ``minimum=0``.
+        """
+        return cls._get_number_env(
+            key,
+            default,
+            float,
+            minimum=minimum,
+            exclusive_minimum=exclusive_minimum,
+            maximum=maximum,
+        )
+
+    @classmethod
+    def get_enum_env(
+        cls,
+        key: str,
+        default: str,
+        allowed: Sequence[str],
+    ) -> str:
+        """Return *key* lower-cased and constrained to *allowed*.
+
+        *allowed* is expected to be lower-case; an unrecognised value logs
+        a warning and yields *default*.
+        """
+        raw = cls.get_env_var(key, None)
+        if raw is None:
+            return default
+        value = str(raw).strip().lower()
+        if not value:
+            return default
+        if value not in allowed:
+            logger.warning(
+                "Invalid %s %r: must be one of %s — using default %r",
+                key, raw, ", ".join(allowed), default,
+            )
+            return default
+        return value
+
+    @classmethod
+    def _get_number_env(
+        cls,
+        key: str,
+        default: _Number,
+        parse: Callable[[Any], _Number],
+        *,
+        minimum: float | None = None,
+        exclusive_minimum: float | None = None,
+        maximum: float | None = None,
+    ) -> _Number:
+        raw = cls.get_env_var(key, None)
+        if raw is None:
+            return default
+        if isinstance(raw, str):
+            raw = raw.strip()
+            if not raw:
+                return default
+        try:
+            value = parse(raw)
+        except (TypeError, ValueError):
+            logger.warning(
+                "Invalid %s %r: not a valid %s — using default %r",
+                key, raw, parse.__name__, default,
+            )
+            return default
+        violation = _bound_violation(value, minimum, exclusive_minimum, maximum)
+        if violation is not None:
+            logger.warning(
+                "Invalid %s %r: must be %s — using default %r",
+                key, raw, violation, default,
+            )
+            return default
+        return value
 
     @classmethod
     def _load_remote_config_if_needed(cls) -> None:
@@ -87,17 +236,60 @@ class EnvVarsManager:
             cls._refresh_in_flight = False
 
     @classmethod
+    def _is_fetch_allowed(cls, remote_config_url: str) -> bool:
+        """Return True when the SSRF guard permits fetching *remote_config_url*.
+
+        Whatever answers gets to set most of this app's configuration,
+        including security-relevant values: the match-report signing key,
+        ``METRICS_TOKEN``, the ``MATCH_REPORT_PUBLIC`` gate, the webhook
+        destination match state is POSTed to, and the ``OVERLAY_PUBLIC_URL``
+        origin that widens the CSP ``frame-src``. So a config source that
+        resolves onto the private network is refused by default, same
+        posture as webhook delivery. Trusted-LAN deployments (a Compose
+        sidecar, an intranet file server) opt back in with
+        ``REMOTE_CONFIG_ALLOW_PRIVATE_IPS=true``.
+        """
+        if is_truthy(os.environ.get("REMOTE_CONFIG_ALLOW_PRIVATE_IPS", "")):
+            return True
+        safe, reason = is_target_safe(remote_config_url)
+        if not safe:
+            logger.error(
+                "Refusing to fetch remote config from %s: %s. Set "
+                "REMOTE_CONFIG_ALLOW_PRIVATE_IPS=true to opt into "
+                "private-network config sources.",
+                redact_url(remote_config_url), reason,
+            )
+            return False
+        return True
+
+    @classmethod
     def _refresh(cls, remote_config_url: str) -> None:
         """Fetch and install the remote config. Callers hold ``_lock``."""
         cls._cache_timestamp = time.time()
+        if not cls._is_fetch_allowed(remote_config_url):
+            cls._remote_config_cache = {}
+            return
         try:
             logger.info("Fetching remote config from %s", redact_url(remote_config_url))
             response = requests.get(
                 remote_config_url,
                 timeout=5,
                 headers=outbound_trace_headers() or None,
+                # Never follow redirects: the guard above only validated the
+                # configured host, so a 30x to loopback / 169.254.169.254
+                # would hand the whole environment to whoever controls the
+                # redirect (cloud-metadata SSRF).
+                allow_redirects=False,
             )
             logger.debug("Remote config response status: %s", response.status_code)
+            if 300 <= response.status_code < 400:
+                logger.error(
+                    "Remote config %s answered %s: refusing to follow the "
+                    "redirect — point REMOTE_CONFIG_URL at the final URL.",
+                    redact_url(remote_config_url), response.status_code,
+                )
+                cls._remote_config_cache = {}
+                return
             response.raise_for_status()
             cls._remote_config_cache = cls._unwrap_remote_config(response.json())
         except (requests.exceptions.RequestException, json.JSONDecodeError):

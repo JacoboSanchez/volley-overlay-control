@@ -172,20 +172,19 @@ class HealthEndpointFilter(logging.Filter):
         return True
 
 
+_LOG_LEVELS = ("debug", "info", "warning", "error", "critical")
+
+
 def _resolve_level() -> str:
     from app.env_vars_manager import EnvVarsManager
 
-    raw = EnvVarsManager.get_env_var("LOGGING_LEVEL", "warning").upper()
-    if raw not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
-        raw = "WARNING"
-    return raw
+    return EnvVarsManager.get_enum_env("LOGGING_LEVEL", "warning", _LOG_LEVELS).upper()
 
 
 def _resolve_format() -> str:
     from app.env_vars_manager import EnvVarsManager
 
-    raw = EnvVarsManager.get_env_var("LOG_FORMAT", "text").strip().lower()
-    return "json" if raw == "json" else "text"
+    return EnvVarsManager.get_enum_env("LOG_FORMAT", "text", ("text", "json"))
 
 
 def _resolve_log_file() -> str | None:
@@ -198,14 +197,9 @@ def _resolve_log_file() -> str | None:
 def _resolve_int_env(name: str, default: int) -> int:
     from app.env_vars_manager import EnvVarsManager
 
-    raw = (EnvVarsManager.get_env_var(name, str(default)) or "").strip()
-    try:
-        value = int(raw)
-    except ValueError:
-        return default
     # ``RotatingFileHandler`` treats ``maxBytes=0`` as "never rotate" and
     # ``backupCount=0`` as "keep no backups" — both are valid, so allow them.
-    return value if value >= 0 else default
+    return EnvVarsManager.get_int_env(name, default, minimum=0)
 
 
 def build_dict_config(

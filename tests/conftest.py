@@ -309,8 +309,6 @@ def mock_conf():
     conf.points_last_set = 15
     conf.sets = 5
     conf.multithread = False
-    conf.rest_user_agent = 'test'
-    conf.id = 'test-layout'
     return conf
 
 

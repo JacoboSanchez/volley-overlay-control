@@ -19,6 +19,11 @@ Configured via environment variables:
   are defined.
 - ``WEBHOOKS_EVENTS`` (CSV)        — restricts the *single-URL* form to a
   comma-separated subset of events. Defaults to all events.
+- ``WEBHOOKS_TIMEOUT_S`` (float)   — POST timeout for the *single-URL* form,
+  in seconds (default 5). The ``WEBHOOKS_JSON`` form carries its own
+  per-target ``timeout_s``.
+- ``WEBHOOKS_ALLOW_PRIVATE_IPS`` (bool) — opt out of the SSRF guard for
+  trusted-LAN receivers. See :func:`_allow_private_targets`.
 
 Recognised events: ``set_end``, ``match_end``, ``timeout``,
 ``serve_change``. The signature header is ``X-Webhook-Signature:
@@ -159,8 +164,11 @@ class WebhookDispatcher:
                 url=url,
                 secret=EnvVarsManager.get_env_var("WEBHOOKS_SECRET", None),
                 events=EnvVarsManager.get_env_var("WEBHOOKS_EVENTS", None),
-                timeout_s=EnvVarsManager.get_env_var(
-                    "WEBHOOKS_TIMEOUT_S", _DEFAULT_TIMEOUT_S),
+                timeout_s=EnvVarsManager.get_float_env(
+                    "WEBHOOKS_TIMEOUT_S",
+                    _DEFAULT_TIMEOUT_S,
+                    exclusive_minimum=0.0,
+                ),
             ))
         return targets
 

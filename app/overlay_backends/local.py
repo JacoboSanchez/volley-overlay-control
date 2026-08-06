@@ -152,7 +152,9 @@ class LocalOverlayBackend(CustomOidMixin, OverlayBackend):
         if public_url:
             base = public_url.rstrip('/')
         else:
-            port = EnvVarsManager.get_env_var('APP_PORT', '8080')
+            port = EnvVarsManager.get_int_env(
+                'APP_PORT', 8080, minimum=1, maximum=65535,
+            )
             base = f"http://localhost:{port}"
         return f"{base}/overlay/{output_key}"
 
