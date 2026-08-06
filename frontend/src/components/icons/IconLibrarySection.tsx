@@ -1,5 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import * as api from '../../api/client';
+import { ApiError } from '../../api/http';
+import {
+  adminDeleteIcon,
+  adminGetIconUsage,
+  adminImportIconsFromTeams,
+  adminRenameIcon,
+  adminUploadIcon,
+} from '../../api/admin';
+import {
+  deleteMyIcon,
+  getMyIconUsage,
+  importIconsFromMyTeams,
+  listIcons,
+  renameMyIcon,
+  uploadMyIcon,
+} from '../../api/icons';
+import type { IconLibrary, IconOut } from '../../api/icons';
+import type { TeamOut } from '../../api/teams';
 import { useConfirm } from '../ConfirmProvider';
 import { useI18n } from '../../i18n';
 import { useToast } from '../Toast';
@@ -19,13 +36,13 @@ export default function IconLibrarySection({
   onTeamsChanged,
 }: {
   scope: 'personal' | 'global';
-  teams: api.TeamOut[];
+  teams: TeamOut[];
   onTeamsChanged: () => void;
 }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
-  const [library, setLibrary] = useState<api.IconLibrary | null>(null);
+  const [library, setLibrary] = useState<IconLibrary | null>(null);
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -38,39 +55,37 @@ export default function IconLibrarySection({
   const isGlobal = scope === 'global';
   const fns = isGlobal
     ? {
-        upload: api.adminUploadIcon,
-        rename: api.adminRenameIcon,
-        usage: api.adminGetIconUsage,
-        remove: api.adminDeleteIcon,
-        importTeams: api.adminImportIconsFromTeams,
+        upload: adminUploadIcon,
+        rename: adminRenameIcon,
+        usage: adminGetIconUsage,
+        remove: adminDeleteIcon,
+        importTeams: adminImportIconsFromTeams,
       }
     : {
-        upload: api.uploadMyIcon,
-        rename: api.renameMyIcon,
-        usage: api.getMyIconUsage,
-        remove: api.deleteMyIcon,
-        importTeams: api.importIconsFromMyTeams,
+        upload: uploadMyIcon,
+        rename: renameMyIcon,
+        usage: getMyIconUsage,
+        remove: deleteMyIcon,
+        importTeams: importIconsFromMyTeams,
       };
 
   const refresh = useCallback(() => {
-    api
-      .listIcons()
+    listIcons()
       .then(setLibrary)
-      .catch((e) => setError(e instanceof api.ApiError ? e.detail : t('acc.icons.errorLoad')));
+      .catch((e) => setError(e instanceof ApiError ? e.detail : t('acc.icons.errorLoad')));
   }, [t]);
 
   useEffect(() => {
     // Mount-load with a cancel guard; post-action refreshes reuse refresh()
     // directly (the section is still mounted there by construction).
     let cancelled = false;
-    api
-      .listIcons()
+    listIcons()
       .then((lib) => {
         if (!cancelled) setLibrary(lib);
       })
       .catch((e) => {
         if (!cancelled) {
-          setError(e instanceof api.ApiError ? e.detail : t('acc.icons.errorLoad'));
+          setError(e instanceof ApiError ? e.detail : t('acc.icons.errorLoad'));
         }
       });
     return () => {
@@ -91,13 +106,13 @@ export default function IconLibrarySection({
       toast(t('acc.icons.toastUploaded'));
       refresh();
     } catch (e) {
-      setError(e instanceof api.ApiError ? e.detail : t('acc.icons.errorUpload'));
+      setError(e instanceof ApiError ? e.detail : t('acc.icons.errorUpload'));
     } finally {
       setBusy(false);
     }
   }
 
-  async function saveRename(icon: api.IconOut) {
+  async function saveRename(icon: IconOut) {
     if (!renameValue.trim()) return;
     setBusy(true);
     try {
@@ -105,13 +120,13 @@ export default function IconLibrarySection({
       setRenamingId(null);
       refresh();
     } catch (e) {
-      toast(e instanceof api.ApiError ? e.detail : t('acc.icons.errorRename'), 'error');
+      toast(e instanceof ApiError ? e.detail : t('acc.icons.errorRename'), 'error');
     } finally {
       setBusy(false);
     }
   }
 
-  async function remove(icon: api.IconOut) {
+  async function remove(icon: IconOut) {
     setError('');
     let teamsUsing = 0;
     try {
@@ -133,7 +148,7 @@ export default function IconLibrarySection({
       refresh();
       if (res.teams_cleared > 0) onTeamsChanged();
     } catch (e) {
-      toast(e instanceof api.ApiError ? e.detail : t('acc.icons.errorDelete'), 'error');
+      toast(e instanceof ApiError ? e.detail : t('acc.icons.errorDelete'), 'error');
     } finally {
       setBusy(false);
     }

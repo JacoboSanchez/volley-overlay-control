@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import type { TeamOut } from '../../api/client';
+import type { TeamOut } from '../../api/teams';
 
 /** Defaults for a brand-new team's colours (matches the scoreboard picker). */
 export const DEFAULT_COLOR = '#1565c0';

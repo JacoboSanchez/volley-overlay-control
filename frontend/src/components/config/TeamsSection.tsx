@@ -1,6 +1,6 @@
 import TeamCard from '../TeamCard';
 import { useI18n } from '../../i18n';
-import type { BoardGroup } from '../../api/client';
+import type { BoardGroup } from '../../api/board';
 
 export type ConfigModel = Record<string, unknown>;
 

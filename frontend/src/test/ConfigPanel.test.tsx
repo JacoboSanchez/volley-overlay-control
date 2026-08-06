@@ -1,20 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import ConfigPanel from '../components/ConfigPanel';
-import * as api from '../api/client';
+import * as boardApi from '../api/board';
+import * as presetsApi from '../api/presets';
 import { renderWithI18n, mockCustomization } from './helpers';
 
 // Mock the API module
-vi.mock('../api/client', () => ({
-  ApiError: class ApiError extends Error {
-    status: number;
-    detail: string;
-    constructor(status: number, message: string, detail?: string) {
-      super(message);
-      this.status = status;
-      this.detail = detail || message;
-    }
-  },
+vi.mock('../api/board', () => ({
   getBoardGroups: vi.fn().mockResolvedValue({
     groups: [{ id: null, name: 'All teams', kind: 'all', count: 1 }],
     selected_id: null,
@@ -28,6 +20,19 @@ vi.mock('../api/client', () => ({
   getLinks: vi.fn().mockResolvedValue({ control: '', overlay: '', preview: '' }),
   getCustomization: vi.fn().mockResolvedValue({}),
   updateCustomization: vi.fn().mockResolvedValue({}),
+}));
+vi.mock('../api/http', () => ({
+  ApiError: class ApiError extends Error {
+    status: number;
+    detail: string;
+    constructor(status: number, message: string, detail?: string) {
+      super(message);
+      this.status = status;
+      this.detail = detail || message;
+    }
+  },
+}));
+vi.mock('../api/presets', () => ({
   listPresets: vi.fn().mockResolvedValue({ items: [] }),
   createPreset: vi.fn().mockResolvedValue({}),
   deletePreset: vi.fn().mockResolvedValue(undefined),
@@ -59,7 +64,7 @@ describe('ConfigPanel', () => {
   it('opens on the Presets section by default', async () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     await waitFor(() => {
-      expect(api.listPresets).toHaveBeenCalled();
+      expect(presetsApi.listPresets).toHaveBeenCalled();
     });
     expect(screen.queryByTestId('team-1-name-selector')).not.toBeInTheDocument();
   });
@@ -139,7 +144,7 @@ describe('ConfigPanel', () => {
   });
 
   it('stays in the panel after a successful save and shows a Saved status', async () => {
-    vi.mocked(api.updateCustomization).mockResolvedValue({ success: true });
+    vi.mocked(boardApi.updateCustomization).mockResolvedValue({ success: true });
     window.confirm = vi.fn();
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     openTeamsSection();
@@ -151,7 +156,7 @@ describe('ConfigPanel', () => {
     });
     fireEvent.click(saveBtn);
     await waitFor(() => {
-      expect(api.updateCustomization).toHaveBeenCalled();
+      expect(boardApi.updateCustomization).toHaveBeenCalled();
       expect(screen.getByTestId('save-status-saved')).toBeInTheDocument();
     });
     // The operator keeps iterating: no auto-exit, Save disarms again.
@@ -171,7 +176,7 @@ describe('ConfigPanel', () => {
     // updated the ref there was a window where the panel looked clean but a
     // Back press still prompted. Dispatching popstate in the same tick the
     // save resolves lands squarely in that window.
-    vi.mocked(api.updateCustomization).mockResolvedValue({ success: true });
+    vi.mocked(boardApi.updateCustomization).mockResolvedValue({ success: true });
     window.confirm = vi.fn();
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     openTeamsSection();
@@ -190,7 +195,7 @@ describe('ConfigPanel', () => {
   });
 
   it('clears the Saved status as soon as the panel goes dirty again', async () => {
-    vi.mocked(api.updateCustomization).mockResolvedValue({ success: true });
+    vi.mocked(boardApi.updateCustomization).mockResolvedValue({ success: true });
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
@@ -251,7 +256,7 @@ describe('ConfigPanel', () => {
   });
 
   it('shows style selector when backend returns multiple styles', async () => {
-    vi.mocked(api.getStyles).mockResolvedValue(['Classic', 'Modern']);
+    vi.mocked(boardApi.getStyles).mockResolvedValue(['Classic', 'Modern']);
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     // Navigate to overlay section
     const overlayButton = screen.getByText('Overlay Style').closest('button')!;
@@ -266,7 +271,7 @@ describe('ConfigPanel', () => {
   });
 
   it('hides style selector when only one style', async () => {
-    vi.mocked(api.getStyles).mockResolvedValue(['OnlyOne']);
+    vi.mocked(boardApi.getStyles).mockResolvedValue(['OnlyOne']);
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     const overlayButton = screen.getByText('Overlay Style').closest('button')!;
     fireEvent.click(overlayButton);
@@ -276,7 +281,7 @@ describe('ConfigPanel', () => {
   });
 
   it('surfaces a retryable error banner when save fails', async () => {
-    vi.mocked(api.updateCustomization).mockRejectedValueOnce(new Error('Server is on fire'));
+    vi.mocked(boardApi.updateCustomization).mockRejectedValueOnce(new Error('Server is on fire'));
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
@@ -292,15 +297,15 @@ describe('ConfigPanel', () => {
     const retryBtn = screen.getByTestId('save-error-retry');
     expect(retryBtn).toHaveTextContent('Retry');
 
-    vi.mocked(api.updateCustomization).mockResolvedValueOnce({ success: true });
+    vi.mocked(boardApi.updateCustomization).mockResolvedValueOnce({ success: true });
     fireEvent.click(retryBtn);
     await waitFor(() => {
-      expect(api.updateCustomization).toHaveBeenCalledTimes(2);
+      expect(boardApi.updateCustomization).toHaveBeenCalledTimes(2);
     });
   });
 
   it('save-error banner can be dismissed without retrying', async () => {
-    vi.mocked(api.updateCustomization).mockRejectedValueOnce(new Error('boom'));
+    vi.mocked(boardApi.updateCustomization).mockRejectedValueOnce(new Error('boom'));
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
@@ -313,11 +318,11 @@ describe('ConfigPanel', () => {
 
     fireEvent.click(screen.getByTestId('save-error-dismiss'));
     expect(screen.queryByTestId('save-error-banner')).not.toBeInTheDocument();
-    expect(api.updateCustomization).toHaveBeenCalledTimes(1);
+    expect(boardApi.updateCustomization).toHaveBeenCalledTimes(1);
   });
 
   it('never shows the (removed) gradient toggle', async () => {
-    vi.mocked(api.getLinks).mockResolvedValue({
+    vi.mocked(boardApi.getLinks).mockResolvedValue({
       control: '',
       overlay: 'http://my-app.example/overlay/tok',
       preview: '',

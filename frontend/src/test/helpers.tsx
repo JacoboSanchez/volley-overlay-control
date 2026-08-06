@@ -2,7 +2,7 @@ import { type ReactElement, type ReactNode } from 'react';
 import { render, type RenderOptions } from '@testing-library/react';
 import { I18nProvider } from '../i18n';
 import { SettingsProvider } from '../hooks/useSettings';
-import type { GameState } from '../api/client';
+import type { GameState } from '../api/board';
 import {
   BoardContextProvider,
   type BoardActionsValue,

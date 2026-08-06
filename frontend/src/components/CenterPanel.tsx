@@ -69,7 +69,7 @@ function CenterPanel() {
   const setSummaryActive = state.set_summary ?? false;
   const setSummarySetNum = state.set_summary_set_num ?? null;
   const setSummaryStyle = (state.set_summary_style ??
-    'brand_ledger') as import('../api/client').SetSummaryStyle;
+    'brand_ledger') as import('../api/board').SetSummaryStyle;
 
   return (
     <div className={`center-panel${compactLandscape ? ' center-panel-compact' : ''}`}>

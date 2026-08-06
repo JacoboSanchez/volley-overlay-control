@@ -63,7 +63,9 @@ volley-overlay-control/
 │   ├── index.html             # SPA entry point
 │   ├── src/                   # React source code (TypeScript)
 │   │   ├── App.tsx            # Main app component
-│   │   ├── api/client.ts      # REST API client (relative paths: /api/v1/)
+│   │   ├── api/http.ts        # REST transport: fetch, ApiError, paging, board credential
+│   │   ├── api/*.ts           # Domain clients over it — board, auth, admin, teams,
+│   │   │                      # icons, presets, overlays, reports, app
 │   │   ├── api/websocket.ts   # WebSocket client (uses window.location.host)
 │   │   ├── api/schema.d.ts    # Generated OpenAPI type definitions
 │   │   ├── components/        # UI components (TeamPanel, ConfigPanel, ScoreButton, etc.)

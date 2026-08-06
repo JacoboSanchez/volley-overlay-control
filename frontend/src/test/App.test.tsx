@@ -1,27 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, fireEvent, waitFor, act } from '@testing-library/react';
 import App from '../App';
-import * as api from '../api/client';
+import * as appApi from '../api/app';
+import * as boardApi from '../api/board';
+import * as httpApi from '../api/http';
+import * as overlaysApi from '../api/overlays';
 import { renderWithI18n, mockGameState, mockCustomization } from './helpers';
 import { HUD_AUTO_HIDE_MS } from '../constants';
 
-vi.mock('../api/client', () => ({
-  ApiError: class ApiError extends Error {
-    status: number;
-    detail: string;
-    constructor(status: number, message: string, detail?: string) {
-      super(message);
-      this.status = status;
-      this.detail = detail || message;
-    }
-  },
-  setControlToken: vi.fn(),
-  setPublicUser: vi.fn(),
+vi.mock('../api/app', () => ({
+  getAppConfig: vi.fn(),
+}));
+vi.mock('../api/board', () => ({
   initSession: vi.fn(),
   getCustomization: vi.fn(),
   getLinks: vi.fn(),
-  getOverlays: vi.fn(),
-  getAppConfig: vi.fn(),
   addPoint: vi.fn(),
   addSet: vi.fn(),
   addTimeout: vi.fn(),
@@ -37,6 +30,22 @@ vi.mock('../api/client', () => ({
   getStyles: vi.fn(),
   getStyleCapabilities: vi.fn(),
   updateCustomization: vi.fn(),
+}));
+vi.mock('../api/http', () => ({
+  ApiError: class ApiError extends Error {
+    status: number;
+    detail: string;
+    constructor(status: number, message: string, detail?: string) {
+      super(message);
+      this.status = status;
+      this.detail = detail || message;
+    }
+  },
+  setControlToken: vi.fn(),
+  setPublicUser: vi.fn(),
+}));
+vi.mock('../api/overlays', () => ({
+  getOverlays: vi.fn(),
 }));
 
 vi.mock('../api/websocket', () => ({
@@ -54,15 +63,15 @@ describe('App', () => {
       value: { protocol: 'https:', host: 'localhost', search: '', href: 'https://localhost' },
       writable: true,
     });
-    vi.mocked(api.getOverlays).mockResolvedValue([]);
-    vi.mocked(api.getAppConfig).mockResolvedValue({
+    vi.mocked(overlaysApi.getOverlays).mockResolvedValue([]);
+    vi.mocked(appApi.getAppConfig).mockResolvedValue({
       title: 'Volley Scoreboard',
       stale_set_threshold_minutes: 60,
     });
-    vi.mocked(api.initSession).mockResolvedValue({ success: true, state: mockGameState });
-    vi.mocked(api.getCustomization).mockResolvedValue(mockCustomization);
-    vi.mocked(api.getLinks).mockResolvedValue({ control: '', overlay: '', preview: '' });
-    vi.mocked(api.updateCustomization).mockResolvedValue({ success: true });
+    vi.mocked(boardApi.initSession).mockResolvedValue({ success: true, state: mockGameState });
+    vi.mocked(boardApi.getCustomization).mockResolvedValue(mockCustomization);
+    vi.mocked(boardApi.getLinks).mockResolvedValue({ control: '', overlay: '', preview: '' });
+    vi.mocked(boardApi.updateCustomization).mockResolvedValue({ success: true });
   });
 
   it('renders OID entry screen initially', () => {
@@ -91,12 +100,12 @@ describe('App', () => {
     fireEvent.submit(input.closest('form')!);
 
     await waitFor(() => {
-      expect(api.initSession).toHaveBeenCalledWith('my-oid');
+      expect(boardApi.initSession).toHaveBeenCalledWith('my-oid');
     });
   });
 
   it('shows error message when session init fails', async () => {
-    vi.mocked(api.initSession).mockResolvedValue({ success: false, message: 'Invalid OID' });
+    vi.mocked(boardApi.initSession).mockResolvedValue({ success: false, message: 'Invalid OID' });
     renderWithI18n(<App />);
     const input = screen.getByPlaceholderText('my-overlay');
     fireEvent.change(input, { target: { value: 'bad' } });
@@ -120,10 +129,10 @@ describe('App', () => {
   });
 
   it('renders predefined overlays dropdown when available', async () => {
-    vi.mocked(api.getOverlays).mockResolvedValue([
+    vi.mocked(overlaysApi.getOverlays).mockResolvedValue([
       { oid: 'overlay-1', name: 'My Overlay' },
       { oid: 'overlay-2', name: 'Other Overlay' },
-    ] as unknown as api.OverlayPayload[]);
+    ] as unknown as overlaysApi.OverlayPayload[]);
     renderWithI18n(<App />);
 
     await waitFor(() => {
@@ -143,10 +152,10 @@ describe('App', () => {
     });
 
     // Mock additional API calls that ConfigPanel makes
-    vi.mocked(api.getBoardGroups).mockResolvedValue({ groups: [], selected_id: null });
-    vi.mocked(api.getBoardGroupTeams).mockResolvedValue({});
-    vi.mocked(api.getStyles).mockResolvedValue([]);
-    vi.mocked(api.getStyleCapabilities).mockResolvedValue({});
+    vi.mocked(boardApi.getBoardGroups).mockResolvedValue({ groups: [], selected_id: null });
+    vi.mocked(boardApi.getBoardGroupTeams).mockResolvedValue({});
+    vi.mocked(boardApi.getStyles).mockResolvedValue([]);
+    vi.mocked(boardApi.getStyleCapabilities).mockResolvedValue({});
 
     fireEvent.click(screen.getByTestId('config-tab-button'));
 
@@ -158,7 +167,7 @@ describe('App', () => {
   });
 
   it('switches boards in place from the config panel switcher', async () => {
-    vi.mocked(api.getOverlays).mockResolvedValue([
+    vi.mocked(overlaysApi.getOverlays).mockResolvedValue([
       {
         oid: 'court-a',
         name: 'court-a',
@@ -169,7 +178,7 @@ describe('App', () => {
         name: 'court-b',
         description: 'Side court',
       },
-    ] as unknown as api.OverlayPayload[]);
+    ] as unknown as overlaysApi.OverlayPayload[]);
     const replaceState = vi.spyOn(window.history, 'replaceState').mockImplementation(() => {});
 
     renderWithI18n(<App />);
@@ -177,7 +186,7 @@ describe('App', () => {
     fireEvent.change(input, { target: { value: 'court-a' } });
     fireEvent.submit(input.closest('form')!);
     await waitFor(() => {
-      expect(api.initSession).toHaveBeenCalledWith('court-a');
+      expect(boardApi.initSession).toHaveBeenCalledWith('court-a');
     });
 
     fireEvent.click(screen.getByTestId('config-tab-button'));
@@ -189,7 +198,7 @@ describe('App', () => {
     // The session re-inits on the new oid, the URL is kept honest for
     // reloads, and the panel drops back to the scoreboard.
     await waitFor(() => {
-      expect(api.initSession).toHaveBeenCalledWith('court-b');
+      expect(boardApi.initSession).toHaveBeenCalledWith('court-b');
     });
     expect(replaceState).toHaveBeenCalled();
     const newUrl = String(replaceState.mock.calls.at(-1)![2]);
@@ -203,10 +212,10 @@ describe('App', () => {
     // An owner opening their own ?u= bookmark gets upgraded to owner mode by
     // the /board route; the stale ``u`` must not survive a board switch —
     // the switched-to board may not have the public bookmark opted in.
-    vi.mocked(api.getOverlays).mockResolvedValue([
+    vi.mocked(overlaysApi.getOverlays).mockResolvedValue([
       { oid: 'court-a', name: 'court-a', description: null },
       { oid: 'court-b', name: 'court-b', description: null },
-    ] as unknown as api.OverlayPayload[]);
+    ] as unknown as overlaysApi.OverlayPayload[]);
     Object.defineProperty(window, 'location', {
       value: {
         protocol: 'https:',
@@ -220,7 +229,7 @@ describe('App', () => {
 
     renderWithI18n(<App />);
     await waitFor(() => {
-      expect(api.initSession).toHaveBeenCalledWith('court-a');
+      expect(boardApi.initSession).toHaveBeenCalledWith('court-a');
     });
 
     fireEvent.click(screen.getByTestId('config-tab-button'));
@@ -230,7 +239,7 @@ describe('App', () => {
     fireEvent.click(await screen.findByText('court-b'));
 
     await waitFor(() => {
-      expect(api.initSession).toHaveBeenCalledWith('court-b');
+      expect(boardApi.initSession).toHaveBeenCalledWith('court-b');
     });
     const newUrl = String(replaceState.mock.calls.at(-1)![2]);
     expect(newUrl).toContain('oid=court-b');
@@ -257,7 +266,9 @@ describe('App', () => {
     fireEvent.change(input, { target: { value: 'locale-sync-oid' } });
     fireEvent.submit(input.closest('form')!);
     await waitFor(() => {
-      expect(api.updateCustomization).toHaveBeenCalledWith('locale-sync-oid', { locale: 'en' });
+      expect(boardApi.updateCustomization).toHaveBeenCalledWith('locale-sync-oid', {
+        locale: 'en',
+      });
     });
   });
 
@@ -278,7 +289,7 @@ describe('App', () => {
     // checking it reached initSession + localStorage, not by
     // digging for an InitScreen input that no longer renders.
     await waitFor(() => {
-      expect(api.initSession).toHaveBeenCalledWith('alias-oid');
+      expect(boardApi.initSession).toHaveBeenCalledWith('alias-oid');
     });
     await waitFor(() => {
       expect(localStorage.setItem).toHaveBeenCalledWith('volley_oid', 'alias-oid');
@@ -286,8 +297,8 @@ describe('App', () => {
   });
 
   it('shows the invalid-link panel (not the owner InitScreen) when a capability link fails', async () => {
-    vi.mocked(api.initSession).mockRejectedValue(
-      new api.ApiError(
+    vi.mocked(boardApi.initSession).mockRejectedValue(
+      new httpApi.ApiError(
         403,
         'API POST /session/init failed (403): {"detail":"Invalid or revoked control link."}',
         'Invalid or revoked control link.',
@@ -300,11 +311,11 @@ describe('App', () => {
     // The clean detail is surfaced, and the owner-only OID entry is absent.
     expect(screen.getByText('Invalid or revoked control link.')).toBeInTheDocument();
     expect(screen.queryByPlaceholderText('my-overlay')).not.toBeInTheDocument();
-    expect(api.getOverlays).not.toHaveBeenCalled();
+    expect(overlaysApi.getOverlays).not.toHaveBeenCalled();
   });
 
   it('shows a transient-outage panel (not "link revoked") when a capability init fails with a network/5xx error', async () => {
-    vi.mocked(api.initSession).mockRejectedValue(new Error('Failed to fetch'));
+    vi.mocked(boardApi.initSession).mockRejectedValue(new Error('Failed to fetch'));
     renderWithI18n(<App controlToken="live-token" />);
     await waitFor(() => {
       expect(screen.getByText('Could not load the scoreboard')).toBeInTheDocument();
@@ -338,7 +349,7 @@ describe('App', () => {
     }
 
     it('keeps the HUD visible while the match is pending (no match_started_at)', async () => {
-      vi.mocked(api.initSession).mockResolvedValue({
+      vi.mocked(boardApi.initSession).mockResolvedValue({
         success: true,
         state: { ...mockGameState, match_started_at: null },
       });
@@ -352,7 +363,7 @@ describe('App', () => {
     });
 
     it('auto-hides the HUD after inactivity once the match has started', async () => {
-      vi.mocked(api.initSession).mockResolvedValue({
+      vi.mocked(boardApi.initSession).mockResolvedValue({
         success: true,
         state: { ...mockGameState, match_started_at: 1700000000 },
       });

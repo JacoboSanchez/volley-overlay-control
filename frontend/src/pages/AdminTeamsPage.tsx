@@ -1,6 +1,21 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router';
-import * as api from '../api/client';
+import { ApiError } from '../api/http';
+import {
+  adminAddGroupMember,
+  adminCreateGroup,
+  adminCreateTeam,
+  adminDeleteGroup,
+  adminDeleteTeam,
+  adminExportTeams,
+  adminImportTeams,
+  adminListGroups,
+  adminRemoveGroupMember,
+  adminSetGroupActive,
+  adminUpdateTeam,
+} from '../api/admin';
+import { getTeamCatalog } from '../api/teams';
+import type { TeamGroupOut, TeamOut } from '../api/teams';
 import { useAuth } from '../auth/AuthContext';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
@@ -46,7 +61,7 @@ function AdminCatalog() {
   const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
-  const [catalog, setCatalog] = useState<api.TeamOut[]>([]);
+  const [catalog, setCatalog] = useState<TeamOut[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<number | null>(null);
@@ -56,7 +71,7 @@ function AdminCatalog() {
 
   const load = useCallback(async () => {
     try {
-      setCatalog(await api.getTeamCatalog());
+      setCatalog(await getTeamCatalog());
     } catch {
       toast(t('acc.adminTeams.errorLoad'), 'error');
     } finally {
@@ -93,7 +108,7 @@ function AdminCatalog() {
     // allSettled + reload-in-finally: a partial failure (e.g. a concurrent
     // delete 404) still refreshes the list to reflect what actually went, and
     // reports the real success/failure split instead of claiming total failure.
-    const results = await Promise.allSettled(ids.map((id) => api.adminDeleteTeam(id)));
+    const results = await Promise.allSettled(ids.map((id) => adminDeleteTeam(id)));
     await reload();
     restoreFocus(selAllRef);
     const failed = results.filter((r) => r.status === 'rejected').length;
@@ -105,7 +120,7 @@ function AdminCatalog() {
     }
   }
 
-  async function deleteOne(team: api.TeamOut) {
+  async function deleteOne(team: TeamOut) {
     const ok = await confirm({
       title: t('acc.teams.adminConfirmDeleteTitle'),
       message: t('acc.teams.adminConfirmDeleteMsg', { name: team.name }),
@@ -114,11 +129,11 @@ function AdminCatalog() {
     });
     if (!ok) return;
     try {
-      await api.adminDeleteTeam(team.id);
+      await adminDeleteTeam(team.id);
       await reload();
       toast(t('acc.teams.adminToastDeleted', { name: team.name }));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t('acc.teams.adminErrorDelete'), 'error');
+      toast(err instanceof ApiError ? err.detail : t('acc.teams.adminErrorDelete'), 'error');
     }
   }
 
@@ -139,7 +154,7 @@ function AdminCatalog() {
       {showCreate && (
         <div className="acc-overlay-panel">
           <TeamCreatePanel
-            onCreate={(fields) => api.adminCreateTeam(fields)}
+            onCreate={(fields) => adminCreateTeam(fields)}
             onCreated={() => {
               void reload();
               setShowCreate(false);
@@ -185,7 +200,7 @@ function AdminCatalog() {
                 >
                   <TeamInlineEditor
                     team={team}
-                    onSave={(fields) => api.adminUpdateTeam(team.id, fields)}
+                    onSave={(fields) => adminUpdateTeam(team.id, fields)}
                     onSaved={() => void load()}
                     danger={{ label: t('acc.common.delete'), onClick: () => void deleteOne(team) }}
                     iconPickerScope="global"
@@ -210,8 +225,8 @@ function AdminCatalog() {
 
       <JsonImportExport
         label={t('acc.teams.jsonLabel')}
-        exportFn={api.adminExportTeams}
-        importFn={api.adminImportTeams}
+        exportFn={adminExportTeams}
+        importFn={adminImportTeams}
         onImported={() => void load()}
       />
 
@@ -225,15 +240,15 @@ function AdminCatalog() {
 function AdminGroups() {
   const { t } = useI18n();
   const { toast } = useToast();
-  const [groups, setGroups] = useState<api.TeamGroupOut[]>([]);
-  const [catalog, setCatalog] = useState<api.TeamOut[]>([]);
+  const [groups, setGroups] = useState<TeamGroupOut[]>([]);
+  const [catalog, setCatalog] = useState<TeamOut[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [g, c] = await Promise.all([api.adminListGroups(), api.getTeamCatalog()]);
+      const [g, c] = await Promise.all([adminListGroups(), getTeamCatalog()]);
       setGroups(g);
       setCatalog(c);
     } catch {
@@ -252,12 +267,12 @@ function AdminGroups() {
     if (!name.trim() || busy) return;
     setBusy(true);
     try {
-      const g = await api.adminCreateGroup(name.trim());
+      const g = await adminCreateGroup(name.trim());
       setName('');
       await load();
       toast(t('acc.groups.toastCreated', { name: g.name }));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t('acc.groups.errorCreate'), 'error');
+      toast(err instanceof ApiError ? err.detail : t('acc.groups.errorCreate'), 'error');
     } finally {
       setBusy(false);
     }
@@ -299,8 +314,8 @@ function GroupCard({
   catalog,
   onChange,
 }: {
-  group: api.TeamGroupOut;
-  catalog: api.TeamOut[];
+  group: TeamGroupOut;
+  catalog: TeamOut[];
   onChange: () => Promise<void> | void;
 }) {
   const { t } = useI18n();
@@ -319,7 +334,7 @@ function GroupCard({
       await fn();
       await onChange();
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t(errKey), 'error');
+      toast(err instanceof ApiError ? err.detail : t(errKey), 'error');
     } finally {
       setBusy(false);
     }
@@ -327,7 +342,7 @@ function GroupCard({
 
   async function togglePublished() {
     await run(async () => {
-      await api.adminSetGroupActive(group.id, !group.is_active);
+      await adminSetGroupActive(group.id, !group.is_active);
       toast(group.is_active ? t('acc.groups.toastUnpublished') : t('acc.groups.toastPublished'));
     });
   }
@@ -336,13 +351,13 @@ function GroupCard({
     const id = Number(addId);
     if (!id) return;
     await run(async () => {
-      await api.adminAddGroupMember(group.id, id);
+      await adminAddGroupMember(group.id, id);
       setAddId('');
     });
   }
 
-  async function removeMember(team: api.TeamOut) {
-    await run(() => api.adminRemoveGroupMember(group.id, team.id));
+  async function removeMember(team: TeamOut) {
+    await run(() => adminRemoveGroupMember(group.id, team.id));
   }
 
   async function del() {
@@ -354,7 +369,7 @@ function GroupCard({
     });
     if (!ok) return;
     await run(async () => {
-      await api.adminDeleteGroup(group.id);
+      await adminDeleteGroup(group.id);
       toast(t('acc.groups.toastDeleted', { name: group.name }));
     });
   }

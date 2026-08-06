@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { GameState } from '../api/client';
+import type { GameState } from '../api/board';
 import { pickAlert, type AlertSpec } from '../components/MatchAlertIndicator';
 import { useHaptics, type HapticPatternKey } from './useHaptics';
 

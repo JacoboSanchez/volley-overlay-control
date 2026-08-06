@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import * as api from '../api/client';
-import type { AppConfig } from '../api/client';
+import * as api from '../api/app';
+import type { AppConfig } from '../api/app';
 
 const DEFAULT_TITLE = 'Volley Scoreboard';
 const DEFAULT_STALE_SET_THRESHOLD_MINUTES = 60;

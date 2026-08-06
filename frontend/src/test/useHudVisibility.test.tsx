@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useHudVisibility } from '../hooks/useHudVisibility';
 import { HUD_AUTO_HIDE_MS } from '../constants';
-import type { GameState } from '../api/client';
+import type { GameState } from '../api/board';
 import { mockGameState } from './helpers';
 
 function makeState(

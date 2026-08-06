@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { useI18n } from '../i18n';
 import SetSummaryStylePicker from './SetSummaryStylePicker';
-import type { SetSummaryStyle } from '../api/client';
+import type { SetSummaryStyle } from '../api/board';
 
 export interface SetSummaryActiveNoticeProps {
   /** Resolved set the overlay is currently showing (server-side). */

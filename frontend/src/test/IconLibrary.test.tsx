@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor, render } from '@testing-library/react';
-import * as api from '../api/client';
+import * as adminApi from '../api/admin';
+import * as iconsApi from '../api/icons';
+import type * as teamsApi from '../api/teams';
 import IconPickerDialog from '../components/icons/IconPickerDialog';
 import IconBatchImportDialog from '../components/icons/IconBatchImportDialog';
 import IconLibrarySection from '../components/icons/IconLibrarySection';
@@ -9,7 +11,14 @@ import { SwatchBox } from '../components/teams/TeamSwatch';
 import { useTeamDraft } from '../components/teams/useTeamDraft';
 import { renderWithI18n } from './helpers';
 
-vi.mock('../api/client', () => ({
+vi.mock('../api/admin', () => ({
+  adminUploadIcon: vi.fn(),
+  adminRenameIcon: vi.fn(),
+  adminGetIconUsage: vi.fn(),
+  adminDeleteIcon: vi.fn(),
+  adminImportIconsFromTeams: vi.fn(),
+}));
+vi.mock('../api/http', () => ({
   ApiError: class ApiError extends Error {
     status: number;
     detail: string;
@@ -19,22 +28,21 @@ vi.mock('../api/client', () => ({
       this.detail = detail || message;
     }
   },
+}));
+vi.mock('../api/icons', () => ({
   listIcons: vi.fn(),
   uploadMyIcon: vi.fn(),
-  adminUploadIcon: vi.fn(),
   renameMyIcon: vi.fn(),
-  adminRenameIcon: vi.fn(),
   getMyIconUsage: vi.fn(),
-  adminGetIconUsage: vi.fn(),
   deleteMyIcon: vi.fn(),
-  adminDeleteIcon: vi.fn(),
   importIconsFromMyTeams: vi.fn(),
-  adminImportIconsFromTeams: vi.fn(),
 }));
 
-const mocked = vi.mocked(api);
+// The section drives both halves of the library; merge the two mocked
+// modules so assertions read the same as when they shared one client.
+const mocked = { ...vi.mocked(iconsApi), ...vi.mocked(adminApi) };
 
-function icon(id: number, name: string, isGlobal = false): api.IconOut {
+function icon(id: number, name: string, isGlobal = false): iconsApi.IconOut {
   return {
     id,
     name,
@@ -46,7 +54,7 @@ function icon(id: number, name: string, isGlobal = false): api.IconOut {
   };
 }
 
-function team(id: number, name: string, iconUrl: string | null): api.TeamOut {
+function team(id: number, name: string, iconUrl: string | null): teamsApi.TeamOut {
   return { id, name, icon: iconUrl, color: null, text_color: null, is_global: false };
 }
 

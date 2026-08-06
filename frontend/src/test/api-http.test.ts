@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
+import { getAuthContext } from '../api/auth';
 import {
-  ApiError,
   initSession,
   getState,
   addPoint,
-  getTeamCatalog,
-  getAuthContext,
   setVisibility,
   resetGame,
   updateCustomization,
-} from '../api/client';
+} from '../api/board';
+import { ApiError } from '../api/http';
+import { getTeamCatalog } from '../api/teams';
 
-describe('api/client', () => {
+describe('api transport', () => {
   let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {

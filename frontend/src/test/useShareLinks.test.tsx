@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useShareLinks } from '../hooks/useShareLinks';
-import * as api from '../api/client';
+import * as api from '../api/board';
 
-vi.mock('../api/client', () => ({
+vi.mock('../api/board', () => ({
   getLinks: vi.fn(),
 }));
 

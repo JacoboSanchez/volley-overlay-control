@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import * as api from '../api/client';
+import { ApiError } from '../api/http';
+import {
+  adminDeleteGlobalPreset,
+  adminExportPresets,
+  adminImportPresets,
+  adminListGlobalPresets,
+  adminSetPresetActive,
+} from '../api/admin';
+import { deletePreset, listPresets } from '../api/presets';
+import type { PresetSummary } from '../api/presets';
 import { useAuth } from '../auth/AuthContext';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
@@ -13,13 +22,13 @@ export default function PresetsPage() {
   const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
-  const [items, setItems] = useState<api.PresetSummary[]>([]);
+  const [items, setItems] = useState<PresetSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     try {
-      const res = await api.listPresets();
+      const res = await listPresets();
       setItems(res.items);
     } catch {
       setError(t('acc.presets.errorLoad'));
@@ -32,7 +41,7 @@ export default function PresetsPage() {
     void load();
   }, [load]);
 
-  async function onDelete(p: api.PresetSummary) {
+  async function onDelete(p: PresetSummary) {
     if (p.source !== 'user') return;
     const ok = await confirm({
       title: t('acc.presets.confirmDeleteTitle'),
@@ -42,11 +51,11 @@ export default function PresetsPage() {
     });
     if (!ok) return;
     try {
-      await api.deletePreset(p.slug);
+      await deletePreset(p.slug);
       await load();
       toast(t('acc.presets.toastDeleted', { name: p.name }));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t('acc.presets.errorDelete'), 'error');
+      toast(err instanceof ApiError ? err.detail : t('acc.presets.errorDelete'), 'error');
     }
   }
 
@@ -103,16 +112,16 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
-  const [globals, setGlobals] = useState<api.PresetSummary[]>([]);
+  const [globals, setGlobals] = useState<PresetSummary[]>([]);
 
   const load = useCallback(async () => {
     try {
-      const res = await api.adminListGlobalPresets();
+      const res = await adminListGlobalPresets();
       setGlobals(res.items);
     } catch (err) {
       // Surface the failure — a swallowed rejection here rendered the
       // section as silently empty.
-      toast(err instanceof api.ApiError ? err.detail : t('acc.presets.errorLoad'), 'error');
+      toast(err instanceof ApiError ? err.detail : t('acc.presets.errorLoad'), 'error');
     }
   }, [toast, t]);
 
@@ -125,9 +134,9 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
     onChange();
   }, [load, onChange]);
 
-  async function toggle(p: api.PresetSummary) {
+  async function toggle(p: PresetSummary) {
     try {
-      await api.adminSetPresetActive(p.slug, !p.is_active);
+      await adminSetPresetActive(p.slug, !p.is_active);
       await refresh();
       toast(
         p.is_active
@@ -135,10 +144,10 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
           : t('acc.presets.toastActivated', { name: p.name }),
       );
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t('acc.presets.errorUpdate'), 'error');
+      toast(err instanceof ApiError ? err.detail : t('acc.presets.errorUpdate'), 'error');
     }
   }
-  async function del(p: api.PresetSummary) {
+  async function del(p: PresetSummary) {
     const ok = await confirm({
       title: t('acc.presets.adminConfirmDeleteTitle'),
       message: t('acc.presets.adminConfirmDeleteMsg', { name: p.name }),
@@ -147,11 +156,11 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
     });
     if (!ok) return;
     try {
-      await api.adminDeleteGlobalPreset(p.slug);
+      await adminDeleteGlobalPreset(p.slug);
       await refresh();
       toast(t('acc.presets.toastDeleted', { name: p.name }));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t('acc.presets.errorDelete'), 'error');
+      toast(err instanceof ApiError ? err.detail : t('acc.presets.errorDelete'), 'error');
     }
   }
 
@@ -199,8 +208,8 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
 
       <JsonImportExport
         label={t('acc.presets.jsonLabel')}
-        exportFn={api.adminExportPresets}
-        importFn={api.adminImportPresets}
+        exportFn={adminExportPresets}
+        importFn={adminImportPresets}
         onImported={refresh}
       />
     </div>

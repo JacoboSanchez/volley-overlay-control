@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { GameState } from '../api/client';
+import type { GameState } from '../api/board';
 
 /**
  * Indoor mode side-switch alert for the deciding-set midpoint

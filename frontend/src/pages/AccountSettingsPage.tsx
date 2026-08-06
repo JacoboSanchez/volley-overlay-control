@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import * as api from '../api/client';
+import * as api from '../api/auth';
+import { ApiError } from '../api/http';
 import { useAuth } from '../auth/AuthContext';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmProvider';
@@ -45,7 +46,7 @@ export default function AccountSettingsPage() {
       toast(t('acc.account.profileSaved'));
     } catch (err) {
       setProfileErr(
-        err instanceof api.ApiError && err.detail ? err.detail : t('acc.account.errorProfile'),
+        err instanceof ApiError && err.detail ? err.detail : t('acc.account.errorProfile'),
       );
     } finally {
       setProfileBusy(false);
@@ -67,9 +68,9 @@ export default function AccountSettingsPage() {
       setConfirmPw('');
       toast(t('acc.account.toastPasswordChanged'));
     } catch (err) {
-      if (err instanceof api.ApiError && err.status === 403) {
+      if (err instanceof ApiError && err.status === 403) {
         setPwErr(t('acc.account.errorWrongPassword'));
-      } else if (err instanceof api.ApiError && err.detail) {
+      } else if (err instanceof ApiError && err.detail) {
         setPwErr(err.detail);
       } else {
         setPwErr(t('acc.account.errorShortPassword'));
@@ -93,7 +94,7 @@ export default function AccountSettingsPage() {
       await refresh();
       navigate('/login');
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t('acc.account.errorDelete'), 'error');
+      toast(err instanceof ApiError ? err.detail : t('acc.account.errorDelete'), 'error');
     } finally {
       setDeleting(false);
     }

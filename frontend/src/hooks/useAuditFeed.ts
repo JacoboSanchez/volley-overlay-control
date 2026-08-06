@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import * as api from '../api/client';
-import type { AuditRecord } from '../api/client';
+import * as api from '../api/board';
+import type { AuditRecord } from '../api/board';
 
 /**
  * Window size for the live audit feed.

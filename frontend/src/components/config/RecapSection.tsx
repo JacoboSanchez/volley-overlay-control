@@ -1,7 +1,7 @@
 import { useI18n } from '../../i18n';
 import { ConfigRange, ConfigSwitch, InstantHint } from './fields';
 import SetSummaryStylePicker from '../SetSummaryStylePicker';
-import type { SetSummaryStyle } from '../../api/client';
+import type { SetSummaryStyle } from '../../api/board';
 
 export interface RecapSettings {
   setSummaryEnabled: boolean;

@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import type { TeamOut } from '../../api/client';
+import type { TeamOut } from '../../api/teams';
 import { useI18n } from '../../i18n';
 import { SwatchBox } from './TeamSwatch';
 

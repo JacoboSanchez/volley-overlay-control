@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../i18n';
-import * as api from '../api/client';
-import type { PresetSummary } from '../api/client';
+import * as api from '../api/presets';
+import type { PresetSummary } from '../api/presets';
 import type { ConfigModel } from './TeamCard';
 
 const CATEGORY_ORDER = [

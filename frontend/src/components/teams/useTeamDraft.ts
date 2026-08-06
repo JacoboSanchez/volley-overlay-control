@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { TeamFields, TeamOut } from '../../api/client';
+import type { TeamFields, TeamOut } from '../../api/teams';
 import { DEFAULT_COLOR, DEFAULT_TEXT_COLOR, hex } from './teamUtils';
 
 /** Editable draft of a team's authoring fields (name / logo / colours), shared

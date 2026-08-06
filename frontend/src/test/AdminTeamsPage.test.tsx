@@ -8,11 +8,7 @@ vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({ ctx: { user: { role: auth.role } } }),
 }));
 
-vi.mock('../api/client', () => ({
-  ApiError: class ApiError extends Error {
-    detail = '';
-  },
-  getTeamCatalog: vi.fn(),
+vi.mock('../api/admin', () => ({
   adminCreateTeam: vi.fn(),
   adminUpdateTeam: vi.fn(),
   adminDeleteTeam: vi.fn(),
@@ -24,22 +20,33 @@ vi.mock('../api/client', () => ({
   adminRemoveGroupMember: vi.fn(),
   adminSetGroupActive: vi.fn(),
   adminDeleteGroup: vi.fn(),
-  // Icon library (rendered by IconLibrarySection / the fieldset picker).
-  listIcons: vi.fn().mockResolvedValue({
-    globals: [],
-    mine: [],
-    quota: { used: 0, limit: 50 },
-  }),
   adminUploadIcon: vi.fn(),
   adminRenameIcon: vi.fn(),
   adminGetIconUsage: vi.fn(),
   adminDeleteIcon: vi.fn(),
   adminImportIconsFromTeams: vi.fn(),
 }));
+vi.mock('../api/http', () => ({
+  ApiError: class ApiError extends Error {
+    detail = '';
+  },
+}));
+vi.mock('../api/icons', () => ({
+  // Icon library (rendered by IconLibrarySection / the fieldset picker).
+  listIcons: vi.fn().mockResolvedValue({
+    globals: [],
+    mine: [],
+    quota: { used: 0, limit: 50 },
+  }),
+}));
+vi.mock('../api/teams', () => ({
+  getTeamCatalog: vi.fn(),
+}));
 
-import * as api from '../api/client';
+import * as adminApi from '../api/admin';
+import * as teamsApi from '../api/teams';
 
-const team = (id: number, name: string): api.TeamOut => ({
+const team = (id: number, name: string): teamsApi.TeamOut => ({
   id,
   name,
   icon: null,
@@ -60,20 +67,23 @@ describe('AdminTeamsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     auth.role = 'admin';
-    vi.mocked(api.getTeamCatalog).mockResolvedValue([team(1, 'Breogán'), team(2, 'Estudiantes')]);
-    vi.mocked(api.adminListGroups).mockResolvedValue([]);
-    vi.mocked(api.adminCreateTeam).mockResolvedValue(team(9, 'Lugo'));
-    vi.mocked(api.adminDeleteTeam).mockResolvedValue({ ok: true });
-    vi.mocked(api.adminCreateGroup).mockResolvedValue({
+    vi.mocked(teamsApi.getTeamCatalog).mockResolvedValue([
+      team(1, 'Breogán'),
+      team(2, 'Estudiantes'),
+    ]);
+    vi.mocked(adminApi.adminListGroups).mockResolvedValue([]);
+    vi.mocked(adminApi.adminCreateTeam).mockResolvedValue(team(9, 'Lugo'));
+    vi.mocked(adminApi.adminDeleteTeam).mockResolvedValue({ ok: true });
+    vi.mocked(adminApi.adminCreateGroup).mockResolvedValue({
       id: 5,
       name: 'Liga',
       is_active: false,
       teams: [],
     });
-    vi.mocked(api.adminAddGroupMember).mockResolvedValue({ ok: true });
-    vi.mocked(api.adminRemoveGroupMember).mockResolvedValue({ ok: true, removed: true });
-    vi.mocked(api.adminSetGroupActive).mockResolvedValue({ id: 5, is_active: true });
-    vi.mocked(api.adminDeleteGroup).mockResolvedValue({ ok: true });
+    vi.mocked(adminApi.adminAddGroupMember).mockResolvedValue({ ok: true });
+    vi.mocked(adminApi.adminRemoveGroupMember).mockResolvedValue({ ok: true, removed: true });
+    vi.mocked(adminApi.adminSetGroupActive).mockResolvedValue({ id: 5, is_active: true });
+    vi.mocked(adminApi.adminDeleteGroup).mockResolvedValue({ ok: true });
   });
 
   it('redirects a non-admin away from the page', () => {
@@ -97,7 +107,7 @@ describe('AdminTeamsPage', () => {
     expect(screen.queryByRole('button', { name: /Delete selected/ })).toBeNull();
     fireEvent.click(screen.getByLabelText('Select Breogán'));
     fireEvent.click(screen.getByRole('button', { name: /Delete selected \(1\)/ }));
-    await waitFor(() => expect(api.adminDeleteTeam).toHaveBeenCalledWith(1));
+    await waitFor(() => expect(adminApi.adminDeleteTeam).toHaveBeenCalledWith(1));
     confirmSpy.mockRestore();
   });
 
@@ -112,7 +122,7 @@ describe('AdminTeamsPage', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Add team' }));
     await waitFor(() =>
-      expect(api.adminCreateTeam).toHaveBeenCalledWith(
+      expect(adminApi.adminCreateTeam).toHaveBeenCalledWith(
         expect.objectContaining({ name: 'Lugo CV' }),
       ),
     );
@@ -123,12 +133,12 @@ describe('AdminTeamsPage', () => {
     await waitFor(() => expect(screen.getByText('Team groups')).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText('Group name'), { target: { value: 'Liga Gallega' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create group' }));
-    await waitFor(() => expect(api.adminCreateGroup).toHaveBeenCalledWith('Liga Gallega'));
+    await waitFor(() => expect(adminApi.adminCreateGroup).toHaveBeenCalledWith('Liga Gallega'));
   });
 
   describe('group management', () => {
     beforeEach(() => {
-      vi.mocked(api.adminListGroups).mockResolvedValue([
+      vi.mocked(adminApi.adminListGroups).mockResolvedValue([
         { id: 5, name: 'Liga', is_active: false, teams: [team(1, 'Breogán')] },
       ]);
     });
@@ -144,22 +154,22 @@ describe('AdminTeamsPage', () => {
 
       // Publish (it starts as a draft).
       fireEvent.click(within(card).getByRole('button', { name: 'Publish' }));
-      await waitFor(() => expect(api.adminSetGroupActive).toHaveBeenCalledWith(5, true));
+      await waitFor(() => expect(adminApi.adminSetGroupActive).toHaveBeenCalledWith(5, true));
 
       // Remove the existing member (Breogán).
       fireEvent.click(within(card).getByRole('button', { name: 'Remove Breogán' }));
-      await waitFor(() => expect(api.adminRemoveGroupMember).toHaveBeenCalledWith(5, 1));
+      await waitFor(() => expect(adminApi.adminRemoveGroupMember).toHaveBeenCalledWith(5, 1));
 
       // Add a catalog team not yet in the group (Estudiantes, id 2).
       fireEvent.change(within(card).getByLabelText('Choose a team to add'), {
         target: { value: '2' },
       });
       fireEvent.click(within(card).getByRole('button', { name: 'Add team' }));
-      await waitFor(() => expect(api.adminAddGroupMember).toHaveBeenCalledWith(5, 2));
+      await waitFor(() => expect(adminApi.adminAddGroupMember).toHaveBeenCalledWith(5, 2));
 
       // Delete the group.
       fireEvent.click(within(card).getByRole('button', { name: 'Delete group' }));
-      await waitFor(() => expect(api.adminDeleteGroup).toHaveBeenCalledWith(5));
+      await waitFor(() => expect(adminApi.adminDeleteGroup).toHaveBeenCalledWith(5));
       confirmSpy.mockRestore();
     });
   });

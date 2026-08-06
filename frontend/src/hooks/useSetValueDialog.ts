@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import type { GameState } from '../api/client';
+import type { GameState } from '../api/board';
 import type { Translate } from '../i18n';
 import type { GameActions } from './useGameState';
 import type { DialogState } from '../components/AppDialogs';

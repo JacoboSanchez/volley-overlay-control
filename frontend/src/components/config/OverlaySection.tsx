@@ -1,6 +1,6 @@
 import { useI18n } from '../../i18n';
 import type { ConfigModel } from './TeamsSection';
-import type { StyleCapabilities } from '../../api/client';
+import type { StyleCapabilities } from '../../api/board';
 import { asBool, asString } from '../../utils/coerce';
 import { ConfigColorField } from './fields';
 

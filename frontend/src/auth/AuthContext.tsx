@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import * as api from '../api/client';
+import * as api from '../api/auth';
 
 interface AuthState {
   loading: boolean;

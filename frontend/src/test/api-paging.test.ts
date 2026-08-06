@@ -6,9 +6,12 @@
  * screens.
  */
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
-import { getTeamCatalog, getMyGroups, getOverlays, listIcons, listPresets } from '../api/client';
+import { listIcons } from '../api/icons';
+import { getOverlays } from '../api/overlays';
+import { listPresets } from '../api/presets';
+import { getTeamCatalog, getMyGroups } from '../api/teams';
 
-describe('api/client pagination', () => {
+describe('api pagination', () => {
   let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {

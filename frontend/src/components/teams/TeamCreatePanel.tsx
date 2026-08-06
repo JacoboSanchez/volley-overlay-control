@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react';
-import * as api from '../../api/client';
+import type * as api from '../../api/teams';
+import { ApiError } from '../../api/http';
 import { useI18n } from '../../i18n';
 import { useToast } from '../Toast';
 import TeamFieldset from './TeamFieldset';
@@ -40,7 +41,7 @@ export default function TeamCreatePanel({
       onCreated();
       toast(successMessage(created.name));
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.detail : t('acc.teams.errorCreate'));
+      setError(err instanceof ApiError ? err.detail : t('acc.teams.errorCreate'));
     } finally {
       setBusy(false);
     }

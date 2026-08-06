@@ -11,14 +11,16 @@ vi.mock('../auth/AuthContext', () => ({
   }),
 }));
 
-vi.mock('../api/client', () => ({
+vi.mock('../api/auth', () => ({
+  updateMe: vi.fn(),
+  changePassword: vi.fn(),
+  deleteMe: vi.fn(),
+}));
+vi.mock('../api/http', () => ({
   ApiError: class ApiError extends Error {
     detail = '';
     status = 0;
   },
-  updateMe: vi.fn(),
-  changePassword: vi.fn(),
-  deleteMe: vi.fn(),
 }));
 
 function renderPage() {

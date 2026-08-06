@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import RecentAuditDrawer from '../components/RecentAuditDrawer';
 import type { AuditFeed } from '../hooks/useAuditFeed';
-import type { AuditRecord } from '../api/client';
+import type { AuditRecord } from '../api/board';
 import { renderWithI18n } from './helpers';
 
 function record(

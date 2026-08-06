@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { TeamOut } from '../../api/client';
+import type { TeamOut } from '../../api/teams';
 
 /** The coloured square that previews a team's logo (or its initial) on its
  *  background + text colours. Shared by the cards and the inline editors.

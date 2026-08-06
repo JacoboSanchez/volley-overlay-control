@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderWithI18n, mockGameState } from './helpers';
 import MatchAlertIndicator from '../components/MatchAlertIndicator';
-import type { GameState } from '../api/client';
+import type { GameState } from '../api/board';
 
 const baseInfo = {
   team_1_set_point: false,

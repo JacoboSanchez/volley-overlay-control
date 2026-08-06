@@ -5,7 +5,8 @@
    exactly one such field. */
 import { type FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router';
-import * as api from '../api/client';
+import * as api from '../api/auth';
+import { ApiError } from '../api/http';
 import { useAuth } from '../auth/AuthContext';
 import { useI18n } from '../i18n';
 import './account.css';
@@ -37,7 +38,7 @@ export default function ChangePasswordPage() {
       navigate('/');
     } catch (err) {
       setError(
-        err instanceof api.ApiError && err.status === 403
+        err instanceof ApiError && err.status === 403
           ? t('acc.account.errorWrongPassword')
           : t('acc.auth.changePw.errorFailed'),
       );

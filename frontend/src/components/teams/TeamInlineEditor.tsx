@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import * as api from '../../api/client';
+import type * as api from '../../api/teams';
+import { ApiError } from '../../api/http';
 import { useI18n } from '../../i18n';
 import { useToast } from '../Toast';
 import TeamFieldset from './TeamFieldset';
@@ -49,7 +50,7 @@ export default function TeamInlineEditor({
       onSaved();
       toast(t('acc.teams.toastSaved'));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t('acc.teams.errorSave'), 'error');
+      toast(err instanceof ApiError ? err.detail : t('acc.teams.errorSave'), 'error');
     } finally {
       setBusy(false);
     }

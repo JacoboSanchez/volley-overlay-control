@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor, within } from '@testing-library/react';
 import OverlaysPage from '../pages/OverlaysPage';
-import * as api from '../api/client';
+import * as api from '../api/overlays';
+import { ApiError } from '../api/http';
 import { renderWithI18n } from './helpers';
 
-vi.mock('../api/client', () => {
+vi.mock('../api/http', () => ({
   // Mirror the real ApiError(status, message, detail?) signature so tsc is
   // happy when tests construct it; keep detail resolution the same.
-  class ApiError extends Error {
+  ApiError: class ApiError extends Error {
     status: number;
     detail: string;
     constructor(status: number, message: string, detail?: string) {
@@ -15,16 +16,16 @@ vi.mock('../api/client', () => {
       this.status = status;
       this.detail = detail || message;
     }
-  }
-  return {
-    ApiError,
-    getOverlays: vi.fn(),
-    createOverlay: vi.fn(),
-    deleteOverlay: vi.fn(),
-    updateOverlay: vi.fn(),
-    regenerateControlToken: vi.fn(),
-  };
-});
+  },
+}));
+
+vi.mock('../api/overlays', () => ({
+  getOverlays: vi.fn(),
+  createOverlay: vi.fn(),
+  deleteOverlay: vi.fn(),
+  updateOverlay: vi.fn(),
+  regenerateControlToken: vi.fn(),
+}));
 
 const OVERLAY: api.OverlayPayload = {
   name: 'liga',
@@ -135,7 +136,7 @@ describe('OverlaysPage flows', () => {
 
   it('shows the server detail when create fails but keeps the list', async () => {
     vi.mocked(api.createOverlay).mockRejectedValue(
-      new api.ApiError(400, 'dup', 'You already have an overlay with that id.'),
+      new ApiError(400, 'dup', 'You already have an overlay with that id.'),
     );
     renderWithI18n(<OverlaysPage />);
     await waitFor(() => expect(screen.getByText('liga')).toBeInTheDocument());

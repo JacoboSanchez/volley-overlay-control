@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import AccountLayout from '../pages/AccountLayout';
 import { I18nProvider } from '../i18n';
 
-vi.mock('../api/client', () => ({ logout: vi.fn() }));
+vi.mock('../api/auth', () => ({ logout: vi.fn() }));
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({
     ctx: { authenticated: true, user: { username: 'op', role: 'user' } },

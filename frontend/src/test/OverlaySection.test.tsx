@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import OverlaySection from '../components/config/OverlaySection';
 import { renderWithI18n } from './helpers';
-import type { StyleCapabilities } from '../api/client';
+import type { StyleCapabilities } from '../api/board';
 
 const STYLES = ['default', 'pylons', 'neon'];
 

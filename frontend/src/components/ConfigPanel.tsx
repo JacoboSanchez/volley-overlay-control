@@ -3,7 +3,17 @@ import { useI18n } from '../i18n';
 import { useSettings, type ThemePreference } from '../hooks/useSettings';
 import { useOrientation } from '../hooks/useOrientation';
 import { useAsyncAction } from '../hooks/useAsyncAction';
-import * as api from '../api/client';
+import { ApiError } from '../api/http';
+import {
+  getBoardGroupTeams,
+  getBoardGroups,
+  getLinks,
+  getStyleCapabilities,
+  getStyles,
+  setBoardSelectedGroup,
+  updateCustomization,
+} from '../api/board';
+import type { BoardGroup, MatchMode, StyleCapabilities } from '../api/board';
 import { asString } from '../utils/coerce';
 import ConfigSkeleton from './ConfigSkeleton';
 import ConfirmDialog from './ConfirmDialog';
@@ -146,8 +156,8 @@ export interface ConfigPanelProps {
    * operator can pick the default style right next to the enable
    * toggle without having to activate the recap first).
    */
-  setSummaryStyle?: import('../api/client').SetSummaryStyle;
-  onChangeSetSummaryStyle?: (style: import('../api/client').SetSummaryStyle) => void;
+  setSummaryStyle?: import('../api/board').SetSummaryStyle;
+  onChangeSetSummaryStyle?: (style: import('../api/board').SetSummaryStyle) => void;
 }
 
 export default function ConfigPanel({
@@ -204,13 +214,13 @@ export default function ConfigPanel({
   }, [isDirty]);
 
   const [predefinedTeams, setPredefinedTeams] = useState<PredefinedTeams>({});
-  const [teamGroups, setTeamGroups] = useState<api.BoardGroup[]>([]);
+  const [teamGroups, setTeamGroups] = useState<BoardGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   // Gates the team-options fetch until the remembered selection is known, so a
   // board with a non-null group remembered doesn't first fetch "All" teams.
   const [groupsLoaded, setGroupsLoaded] = useState(false);
   const [styles, setStyles] = useState<string[]>([]);
-  const [styleCaps, setStyleCaps] = useState<Record<string, api.StyleCapabilities>>({});
+  const [styleCaps, setStyleCaps] = useState<Record<string, StyleCapabilities>>({});
   const [links, setLinks] = useState<LinksData>(null);
   // ``presets`` matches the deliberate SECTIONS ordering above — the saved-
   // configuration entry point is what the operator should see first.
@@ -222,8 +232,7 @@ export default function ConfigPanel({
     setGroupsLoaded(false);
     // The team picker is group-scoped: load the owner's groups (+ remembered
     // selection); a second effect fetches the chosen group's teams.
-    api
-      .getBoardGroups(oid)
+    getBoardGroups(oid)
       .then((d) => {
         if (cancelled) return;
         setTeamGroups(d.groups);
@@ -231,20 +240,17 @@ export default function ConfigPanel({
         setGroupsLoaded(true);
       })
       .catch(console.warn);
-    api
-      .getLinks(oid)
+    getLinks(oid)
       .then((d) => {
         if (!cancelled) setLinks(d as LinksData);
       })
       .catch(console.warn);
-    api
-      .getStyles(oid)
+    getStyles(oid)
       .then((d) => {
         if (!cancelled) setStyles(d);
       })
       .catch(console.warn);
-    api
-      .getStyleCapabilities(oid)
+    getStyleCapabilities(oid)
       .then((d) => {
         if (!cancelled) setStyleCaps(d);
       })
@@ -259,8 +265,7 @@ export default function ConfigPanel({
   useEffect(() => {
     if (!groupsLoaded) return undefined;
     let cancelled = false;
-    api
-      .getBoardGroupTeams(oid, selectedGroupId)
+    getBoardGroupTeams(oid, selectedGroupId)
       .then((d) => {
         if (!cancelled) setPredefinedTeams(d as PredefinedTeams);
       })
@@ -273,7 +278,7 @@ export default function ConfigPanel({
   const handleSelectGroup = useCallback(
     (id: number | null) => {
       setSelectedGroupId(id);
-      api.setBoardSelectedGroup(oid, id).catch(console.warn);
+      setBoardSelectedGroup(oid, id).catch(console.warn);
     },
     [oid],
   );
@@ -353,7 +358,7 @@ export default function ConfigPanel({
     clearError: clearSaveError,
   } = useAsyncAction(
     async () => {
-      await api.updateCustomization(oid, model);
+      await updateCustomization(oid, model);
       setIsDirty(false);
       if (onCustomizationSaved) await onCustomizationSaved();
       // Stay in the panel so the operator can keep iterating; the "Saved ✓"
@@ -362,7 +367,7 @@ export default function ConfigPanel({
     },
     {
       formatError: (e) =>
-        e instanceof api.ApiError
+        e instanceof ApiError
           ? e.detail
           : e instanceof Error
             ? e.message
@@ -479,7 +484,7 @@ export default function ConfigPanel({
           <MatchRulesSection
             oid={oid}
             autoSwapSides={autoSwapSides}
-            mode={(gameConfig?.mode as api.MatchMode | undefined) ?? null}
+            mode={(gameConfig?.mode as MatchMode | undefined) ?? null}
             pointsLimit={(gameConfig?.points_limit as number | undefined) ?? null}
             pointsLimitLastSet={(gameConfig?.points_limit_last_set as number | undefined) ?? null}
             setsLimit={(gameConfig?.sets_limit as number | undefined) ?? null}

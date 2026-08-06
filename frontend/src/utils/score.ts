@@ -1,4 +1,4 @@
-import type { TeamState } from '../api/client';
+import type { TeamState } from '../api/board';
 
 /** Sum a team's per-set scores into a single number (0 for a missing team or
  *  empty scores). Used as a cheap "did scoring change" signal for cache keys. */

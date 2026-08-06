@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import * as api from '../api/client';
+import { getOverlays } from '../api/overlays';
+import type { OverlayPayload } from '../api/overlays';
+import { deleteMatch, listReports } from '../api/reports';
+import type { MatchSummary } from '../api/reports';
 import EmptyState from '../components/EmptyState';
 import MatchCalendar, { dayKey } from '../components/MatchCalendar';
 import { useToast } from '../components/Toast';
@@ -16,9 +19,9 @@ export default function ReportsPage() {
   const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
-  const [overlays, setOverlays] = useState<api.OverlayPayload[]>([]);
+  const [overlays, setOverlays] = useState<OverlayPayload[]>([]);
   const [oid, setOid] = useState('');
-  const [matches, setMatches] = useState<api.MatchSummary[]>([]);
+  const [matches, setMatches] = useState<MatchSummary[]>([]);
   const [day, setDay] = useState<string | null>(null);
   const [modeFilter, setModeFilter] = useState<string>('');
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -34,7 +37,7 @@ export default function ReportsPage() {
   useEffect(() => {
     void (async () => {
       try {
-        const ovs = await api.getOverlays();
+        const ovs = await getOverlays();
         setOverlays(ovs);
         if (ovs[0]) {
           // Honour a ``?oid=`` deep link (e.g. the board's "All reports"
@@ -61,7 +64,7 @@ export default function ReportsPage() {
       setLoading(true);
       setError('');
       try {
-        const res = await api.listReports(id);
+        const res = await listReports(id);
         setMatches(res.matches);
       } catch {
         setError(t('acc.reports.errorReports'));
@@ -97,7 +100,7 @@ export default function ReportsPage() {
 
   const shown = useMemo(() => {
     const sign = sortDir === 'asc' ? 1 : -1;
-    const val = (m: api.MatchSummary) => (sortKey === 'ended' ? m.ended_at : m.duration_s) ?? 0;
+    const val = (m: MatchSummary) => (sortKey === 'ended' ? m.ended_at : m.duration_s) ?? 0;
     return [...filtered].sort((a, b) => sign * (val(a) - val(b)));
   }, [filtered, sortKey, sortDir]);
 
@@ -159,7 +162,7 @@ export default function ReportsPage() {
     // partial failures so one stale row can't block the rest.
     setDeleting(true);
     try {
-      const results = await Promise.allSettled(ids.map((id) => api.deleteMatch(id)));
+      const results = await Promise.allSettled(ids.map((id) => deleteMatch(id)));
       const ok = results.filter((r) => r.status === 'fulfilled').length;
       const failed = results.length - ok;
       await load(oid);
@@ -171,7 +174,7 @@ export default function ReportsPage() {
     }
   }
 
-  async function onDeleteOne(m: api.MatchSummary) {
+  async function onDeleteOne(m: MatchSummary) {
     if (deleting) return;
     const ok = await confirm({
       title: t('acc.reports.confirmDeleteTitle'),
@@ -401,7 +404,7 @@ export default function ReportsPage() {
 
 /** "Team 1  3–1  Team 2", with the winner's name highlighted. Falls back to
  *  "Team 1" / "Team 2" when a match was archived without custom names. */
-function MatchTeams({ m }: { m: api.MatchSummary }) {
+function MatchTeams({ m }: { m: MatchSummary }) {
   const { t } = useI18n();
   const n1 = m.team_1_name || t('acc.reports.team', { n: 1 });
   const n2 = m.team_2_name || t('acc.reports.team', { n: 2 });

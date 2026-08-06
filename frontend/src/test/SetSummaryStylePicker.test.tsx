@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 import SetSummaryStylePicker from '../components/SetSummaryStylePicker';
-import { SET_SUMMARY_STYLES } from '../api/client';
+import { SET_SUMMARY_STYLES } from '../api/board';
 import { renderWithI18n } from './helpers';
 
 describe('SetSummaryStylePicker', () => {

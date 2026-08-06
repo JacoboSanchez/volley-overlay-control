@@ -7,8 +7,9 @@ import {
   type Dispatch,
   type SetStateAction,
 } from 'react';
-import * as api from '../api/client';
-import type { GameState, ActionResponse, Team, TeamState } from '../api/client';
+import * as api from '../api/board';
+import { ApiError } from '../api/http';
+import type { GameState, ActionResponse, Team, TeamState } from '../api/board';
 import { createWebSocket } from '../api/websocket';
 import { useAuditFeed, type AuditFeed } from './useAuditFeed';
 import { WS_RECONNECT_BASE_MS, WS_RECONNECT_FACTOR, WS_RECONNECT_MAX_MS } from '../constants';
@@ -272,8 +273,8 @@ export function useGameState(
       if (!controller.signal.aborted) {
         // ApiError.message is the verbose "API POST /… failed (403): {json}"
         // debugging string; surface the human-facing ``detail`` instead.
-        setError(e instanceof api.ApiError ? e.detail : e instanceof Error ? e.message : String(e));
-        setErrorStatus(e instanceof api.ApiError ? e.status : null);
+        setError(e instanceof ApiError ? e.detail : e instanceof Error ? e.message : String(e));
+        setErrorStatus(e instanceof ApiError ? e.status : null);
       }
     } finally {
       if (abortRef.current === controller) {
@@ -326,9 +327,9 @@ export function useGameState(
           applyState(snapshot, false);
         }
         const message =
-          e instanceof api.ApiError ? e.detail : e instanceof Error ? e.message : String(e);
+          e instanceof ApiError ? e.detail : e instanceof Error ? e.message : String(e);
         setError(message);
-        setErrorStatus(e instanceof api.ApiError ? e.status : null);
+        setErrorStatus(e instanceof ApiError ? e.status : null);
         return { success: false, message };
       }
     },

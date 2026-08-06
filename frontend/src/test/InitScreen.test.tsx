@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import InitScreen, { type InitScreenProps } from '../components/InitScreen';
-import * as api from '../api/client';
-import type { OverlayPayload } from '../api/client';
+import * as api from '../api/overlays';
+import type { OverlayPayload } from '../api/overlays';
 import { renderWithI18n } from './helpers';
 
-vi.mock('../api/client', () => ({
+vi.mock('../api/overlays', () => ({
   getOverlays: vi.fn(),
 }));
 

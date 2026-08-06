@@ -2,21 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import OverlaySwitcher from '../components/config/OverlaySwitcher';
 import ConfigPanel from '../components/ConfigPanel';
-import * as api from '../api/client';
+import * as api from '../api/overlays';
 import { renderWithI18n, mockCustomization } from './helpers';
 
 // Mock the API module — everything ConfigPanel fetches on mount, plus the
 // overlay list the switcher's useOverlays() loads.
-vi.mock('../api/client', () => ({
-  ApiError: class ApiError extends Error {
-    status: number;
-    detail: string;
-    constructor(status: number, message: string, detail?: string) {
-      super(message);
-      this.status = status;
-      this.detail = detail || message;
-    }
-  },
+vi.mock('../api/board', () => ({
   getBoardGroups: vi.fn().mockResolvedValue({
     groups: [{ id: null, name: 'All teams', kind: 'all', count: 1 }],
     selected_id: null,
@@ -30,10 +21,25 @@ vi.mock('../api/client', () => ({
   getLinks: vi.fn().mockResolvedValue({ control: '', overlay: '', preview: '' }),
   getCustomization: vi.fn().mockResolvedValue({}),
   updateCustomization: vi.fn().mockResolvedValue({}),
+}));
+vi.mock('../api/http', () => ({
+  ApiError: class ApiError extends Error {
+    status: number;
+    detail: string;
+    constructor(status: number, message: string, detail?: string) {
+      super(message);
+      this.status = status;
+      this.detail = detail || message;
+    }
+  },
+}));
+vi.mock('../api/overlays', () => ({
+  getOverlays: vi.fn(),
+}));
+vi.mock('../api/presets', () => ({
   listPresets: vi.fn().mockResolvedValue({ items: [] }),
   createPreset: vi.fn().mockResolvedValue({}),
   deletePreset: vi.fn().mockResolvedValue(undefined),
-  getOverlays: vi.fn(),
 }));
 
 const overlayFixture = (oid: string, description: string | null = null) => ({

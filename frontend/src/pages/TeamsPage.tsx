@@ -1,5 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
-import * as api from '../api/client';
+import * as api from '../api/teams';
+import { ApiError } from '../api/http';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmProvider';
@@ -93,7 +94,7 @@ function CreateGroupForm({ onCreated }: { onCreated: () => void }) {
       onCreated();
       toast(t('acc.groups.toastCreated', { name: g.name }));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t('acc.groups.errorCreate'), 'error');
+      toast(err instanceof ApiError ? err.detail : t('acc.groups.errorCreate'), 'error');
     } finally {
       setBusy(false);
     }
@@ -147,7 +148,7 @@ function GroupCard({
       // against stale data.
       await onChange();
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t(errKey), 'error');
+      toast(err instanceof ApiError ? err.detail : t(errKey), 'error');
     } finally {
       setBusy(false);
     }
@@ -401,7 +402,7 @@ function CustomTeamsSection({
       onChange();
       toast(t('acc.teams.toastRemoved', { n: 1 }));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t('acc.teams.errorRemove'), 'error');
+      toast(err instanceof ApiError ? err.detail : t('acc.teams.errorRemove'), 'error');
     }
   }
 

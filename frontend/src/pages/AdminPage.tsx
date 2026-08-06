@@ -1,6 +1,16 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { Navigate } from 'react-router';
-import * as api from '../api/client';
+import { ApiError } from '../api/http';
+import {
+  adminCreateUser,
+  adminDeleteUser,
+  adminGetRegistration,
+  adminListUsers,
+  adminResetPassword,
+  adminSetRegistration,
+  adminUpdateUser,
+} from '../api/admin';
+import type { UserOut } from '../api/auth';
 import { useAuth } from '../auth/AuthContext';
 import CopyField from '../components/CopyField';
 import { useToast } from '../components/Toast';
@@ -12,7 +22,7 @@ export default function AdminPage() {
   const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
-  const [users, setUsers] = useState<api.UserOut[]>([]);
+  const [users, setUsers] = useState<UserOut[]>([]);
   const [registrationOpen, setRegistrationOpen] = useState(true);
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<'admin' | 'user'>('user');
@@ -24,7 +34,7 @@ export default function AdminPage() {
 
   const load = useCallback(async () => {
     try {
-      const [u, r] = await Promise.all([api.adminListUsers(), api.adminGetRegistration()]);
+      const [u, r] = await Promise.all([adminListUsers(), adminGetRegistration()]);
       setUsers(u);
       setRegistrationOpen(r.registration_open);
     } catch {
@@ -46,7 +56,7 @@ export default function AdminPage() {
     setTempCred(null);
     setBusy(true);
     try {
-      const res = await api.adminCreateUser(newName.trim(), { role: newRole });
+      const res = await adminCreateUser(newName.trim(), { role: newRole });
       setNewName('');
       setTempCred({
         text: t('acc.admin.created', { username: res.user.username }),
@@ -54,33 +64,33 @@ export default function AdminPage() {
       });
       await load();
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorCreate'));
+      setError(err instanceof ApiError ? err.detail : t('acc.admin.errorCreate'));
     } finally {
       setBusy(false);
     }
   }
 
-  async function resetPw(u: api.UserOut) {
+  async function resetPw(u: UserOut) {
     setError('');
     setBusy(true);
     try {
-      const res = await api.adminResetPassword(u.id);
+      const res = await adminResetPassword(u.id);
       setTempCred({
         text: t('acc.admin.reset', { username: u.username }),
         password: res.temp_password,
       });
       await load(); // the row now shows the "must change password" pill
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorReset'));
+      setError(err instanceof ApiError ? err.detail : t('acc.admin.errorReset'));
     } finally {
       setBusy(false);
     }
   }
 
-  async function toggleActive(u: api.UserOut) {
+  async function toggleActive(u: UserOut) {
     setBusy(true);
     try {
-      await api.adminUpdateUser(u.id, { is_active: !u.is_active });
+      await adminUpdateUser(u.id, { is_active: !u.is_active });
       await load();
       toast(
         u.is_active
@@ -88,13 +98,13 @@ export default function AdminPage() {
           : t('acc.admin.toastActivated', { username: u.username }),
       );
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorUpdate'));
+      setError(err instanceof ApiError ? err.detail : t('acc.admin.errorUpdate'));
     } finally {
       setBusy(false);
     }
   }
 
-  async function toggleRole(u: api.UserOut) {
+  async function toggleRole(u: UserOut) {
     const promote = u.role !== 'admin';
     const isSelf = ctx?.user?.id === u.id;
     if (!promote && isSelf) {
@@ -110,7 +120,7 @@ export default function AdminPage() {
     }
     setBusy(true);
     try {
-      await api.adminUpdateUser(u.id, { role: promote ? 'admin' : 'user' });
+      await adminUpdateUser(u.id, { role: promote ? 'admin' : 'user' });
       if (isSelf) {
         // Demoting yourself revokes your own /admin/* access: reloading the
         // admin list would just 403. Refresh the auth context instead so the
@@ -125,13 +135,13 @@ export default function AdminPage() {
           : t('acc.admin.toastDemoted', { username: u.username }),
       );
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorRole'));
+      setError(err instanceof ApiError ? err.detail : t('acc.admin.errorRole'));
     } finally {
       setBusy(false);
     }
   }
 
-  async function del(u: api.UserOut) {
+  async function del(u: UserOut) {
     const isSelf = ctx?.user?.id === u.id;
     const ok = await confirm({
       title: t('acc.admin.confirmDeleteTitle'),
@@ -144,7 +154,7 @@ export default function AdminPage() {
     if (!ok) return;
     setBusy(true);
     try {
-      await api.adminDeleteUser(u.id);
+      await adminDeleteUser(u.id);
       if (isSelf) {
         // Deleting your own account revoked this session: reloading the admin
         // list would just 401. Refresh the auth context so RequireAuth
@@ -155,7 +165,7 @@ export default function AdminPage() {
         toast(t('acc.admin.toastDeleted', { username: u.username }));
       }
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorDelete'));
+      setError(err instanceof ApiError ? err.detail : t('acc.admin.errorDelete'));
     } finally {
       setBusy(false);
     }
@@ -176,7 +186,7 @@ export default function AdminPage() {
     }
     setBusy(true);
     try {
-      const r = await api.adminSetRegistration(!registrationOpen);
+      const r = await adminSetRegistration(!registrationOpen);
       setRegistrationOpen(r.registration_open);
       toast(
         r.registration_open
@@ -184,7 +194,7 @@ export default function AdminPage() {
           : t('acc.admin.toastRegistrationClosed'),
       );
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorRegistration'));
+      setError(err instanceof ApiError ? err.detail : t('acc.admin.errorRegistration'));
       await load(); // re-sync the label to the authoritative value
     } finally {
       setBusy(false);

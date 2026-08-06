@@ -5,7 +5,8 @@
    exactly one such field. */
 import { type FormEvent, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import * as api from '../api/client';
+import * as api from '../api/auth';
+import { ApiError } from '../api/http';
 import { useAuth } from '../auth/AuthContext';
 import { useI18n } from '../i18n';
 import './account.css';
@@ -37,9 +38,9 @@ export default function LoginPage() {
       // Only a 401 means bad credentials. Anything else (403 deactivated
       // account, 429 rate-limit lockout, 5xx/network) has its own cause —
       // masking it as "invalid password" misleads a locked-out user.
-      if (err instanceof api.ApiError && err.status !== 401) {
+      if (err instanceof ApiError && err.status !== 401) {
         setError(err.detail || t('acc.auth.login.errorFailed'));
-      } else if (err instanceof api.ApiError) {
+      } else if (err instanceof ApiError) {
         setError(t('acc.auth.login.errorInvalid'));
       } else {
         setError(t('acc.auth.login.errorNetwork'));

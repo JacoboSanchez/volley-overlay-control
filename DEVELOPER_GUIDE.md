@@ -72,7 +72,9 @@ dependency.
 │   ├── index.html           # SPA entry point.
 │   ├── src/                 # React source code.
 │   │   ├── App.tsx          # Main application component.
-│   │   ├── api/client.ts    # REST API client (relative paths: /api/v1/).
+│   │   ├── api/http.ts      # REST transport (relative paths: /api/v1/).
+│   │   ├── api/*.ts         # Domain clients: board, auth, admin, teams, icons,
+│   │   │                    # presets, overlays, reports, app.
 │   │   ├── api/websocket.ts # WebSocket client (relative URLs).
 │   │   ├── api/schema.d.ts  # Generated OpenAPI type definitions.
 │   │   ├── components/      # UI components (TeamPanel, ConfigPanel, etc.).

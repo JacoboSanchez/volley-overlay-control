@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useStaleSetPrompt } from '../hooks/useStaleSetPrompt';
-import type { GameState } from '../api/client';
+import type { GameState } from '../api/board';
 import { mockGameState } from './helpers';
 
 const NOW_SEC = 1_750_000_000;
