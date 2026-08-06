@@ -8,6 +8,14 @@ on:
     branches: [ "main", "dev" ]
   pull_request:
     branches: [ "main", "dev" ]
+  # Manual re-run. A push-triggered run is the only CI signal main gets, and
+  # that signal can be lost without a single line of code changing: an Actions
+  # capacity incident leaves the jobs queued until they are cancelled, and a
+  # push that lands during one may never spawn a run at all. GitHub cannot
+  # re-run a run that does not exist, so recovering the green build on a
+  # protected branch otherwise means pushing an empty commit. Every other
+  # workflow here already carries this trigger.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

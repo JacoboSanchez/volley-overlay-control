@@ -222,6 +222,14 @@ archive by hand.
 
 ### Changed
 
+- **The CI pipeline can be re-run by hand.** `ci.yml` listened only to
+  `push` and `pull_request`, so when an Actions capacity incident left the
+  jobs queued until they were cancelled — or swallowed the push event for a
+  merge outright — `main` was left with no green build and no way to ask for
+  one, because GitHub cannot re-run a run that was never created. The
+  workflow now also accepts `workflow_dispatch`, matching every other
+  workflow in the repository.
+
 - **The config panel's structure now matches its concerns.** The 675-line
   `ConfigPanel.tsx` mixed six of them: the form model, four independent
   remote lookups, history/back interception, save orchestration, the section
