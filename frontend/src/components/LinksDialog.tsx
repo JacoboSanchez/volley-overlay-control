@@ -14,7 +14,7 @@ export interface LinksDialogProps {
    * present it gives the owner one-tap access to manage every report;
    * unauthenticated viewers only get the read-only public links above.
    */
-  reportsUrl?: string | null;
+  reportsUrl?: string | null | undefined;
   onClose: () => void;
 }
 

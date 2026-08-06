@@ -42,6 +42,7 @@ import logging
 import os
 import threading
 import time
+from collections.abc import Callable
 from collections.abc import Set as AbstractSet
 
 from app.api._persistence_paths import data_dir as _data_dir
@@ -118,6 +119,63 @@ _version_per_oid: dict[str, int] = {}
 # Records are cached as the parsed dicts themselves, shared with callers, so
 # consumers must treat both the list and its records as read-only.
 _raw_cache: dict[str, tuple[int, list[dict]]] = {}
+
+
+# Optional sink for mutation notifications, installed by
+# :func:`app.api.audit_broadcast.install` so live control clients can follow
+# the log over the WebSocket they already hold instead of re-GETting
+# ``/audit`` after every point. ``None`` (the default) keeps this module
+# exactly as it was — nothing in here depends on a listener existing, and
+# the test suite runs without one unless it installs its own.
+#
+# The contract deliberately carries the *version* the mutation produced.
+# A listener that receives version N+1 while holding N knows its copy is
+# contiguous and can apply the record; any other jump means it missed a
+# notification and must re-read. That check is what makes a dropped or
+# reordered notification self-healing rather than silently corrupting a
+# reader's view.
+AuditObserver = Callable[[str, str, int, "dict | None"], None]
+
+_observer: AuditObserver | None = None
+
+# The two events an observer can see. ``append`` carries the record that was
+# just written and means "add this to the end". ``invalidate`` carries no
+# record and means "re-read from scratch" — used for every mutation that
+# changes the meaning of records already written (tombstones, restores,
+# clear, delete) or that drops history (rotation).
+EVENT_APPEND = "append"
+EVENT_INVALIDATE = "invalidate"
+
+
+def set_observer(observer: AuditObserver | None) -> None:
+    """Install (or with ``None``, remove) the mutation observer.
+
+    Process-wide and last-writer-wins: there is exactly one audit log per
+    process and exactly one thing that needs to watch it. Tests that install
+    an observer are expected to reset it to ``None`` afterwards.
+    """
+    global _observer
+    _observer = observer
+
+
+def _notify(oid: str, event: str, version: int, record: dict | None = None) -> None:
+    """Hand a mutation to the observer, if one is installed.
+
+    Never raises and never blocks the caller on observer failure: an audit
+    log that cannot notify is still a correct audit log, and the read path
+    (``GET /audit``) remains the source of truth for any client whose live
+    feed falls behind. Callers MUST invoke this *outside* ``_lock_for(oid)``
+    — the observer performs I/O (a WebSocket fan-out), and holding the
+    per-OID write lock across it would let one slow client stall the next
+    scored point.
+    """
+    observer = _observer
+    if observer is None:
+        return
+    try:
+        observer(oid, event, version, record)
+    except Exception as exc:
+        logger.warning("Audit observer failed for %r: %s", oid, exc)
 
 
 def _bump_version(oid: str) -> None:
@@ -327,7 +385,7 @@ def _rotate_if_needed_locked(path: str) -> bool:
 
 
 def _append_log_line(
-    oid: str, body: dict, error_msg: str,
+    oid: str, body: dict, error_msg: str, event: str = EVENT_INVALIDATE,
 ) -> dict | None:
     """Resolve the OID's log path, take the per-OID lock, rotate
     if needed, stamp ``body`` with a fresh monotonic ``ts`` and
@@ -345,6 +403,12 @@ def _append_log_line(
     out of monotonic order. *error_msg* is a ``logger.warning``
     format string accepting two ``%`` parameters: the OID and the
     captured exception.
+
+    *event* is what a live observer is told this write means. It
+    defaults to ``EVENT_INVALIDATE`` because two of the three callers
+    write tombstones, which change how records already on disk are
+    read; only :func:`append` — which genuinely just adds a record to
+    the end — passes ``EVENT_APPEND``.
     """
     path = _path(oid)
     if path is None:
@@ -352,7 +416,8 @@ def _append_log_line(
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with _lock_for(oid):
-            if _rotate_if_needed_locked(path):
+            rotated = _rotate_if_needed_locked(path)
+            if rotated:
                 # Rotation may have discarded the oldest slot, so the
                 # cached records no longer match what is on disk.
                 _cache_drop_locked(oid)
@@ -363,10 +428,22 @@ def _append_log_line(
             with open(path, "a", encoding="utf-8") as f:
                 f.write(line)
             _commit_append_locked(oid, record)
-        return record
+            new_version = _version_per_oid[oid]
     except Exception as exc:
         logger.warning(error_msg, oid, exc)
         return None
+    # Outside the lock: the observer fans out to WebSocket clients, and a
+    # slow one must not hold up the next append. Rotation downgrades an
+    # append to an invalidate — it can discard the oldest slot, so a reader
+    # holding a window that reaches into the dropped file has to re-read
+    # rather than extend.
+    _notify(
+        oid,
+        EVENT_INVALIDATE if rotated else event,
+        new_version,
+        record if event == EVENT_APPEND and not rotated else None,
+    )
+    return record
 
 
 def append(oid: str, action: str, params: dict, result: dict) -> dict | None:
@@ -382,6 +459,7 @@ def append(oid: str, action: str, params: dict, result: dict) -> dict | None:
         oid,
         {"action": action, "params": params, "result": result},
         "Failed to append audit log for %r: %s",
+        event=EVENT_APPEND,
     )
 
 
@@ -496,24 +574,30 @@ def read_all(oid: str) -> list[dict]:
         return []
     try:
         with _lock_for(oid):
-            raw = _read_raw_locked(path, oid)
-            filtered = _apply_tombstones(raw)
-            # ``_apply_tombstones`` returns ``raw`` itself when there is
-            # nothing to filter, and ``raw`` may be the cached list — copy
-            # so a caller cannot mutate the cache out from under us. This
-            # is a pointer copy, far cheaper than re-reading the log.
-            return list(filtered)
+            return _read_visible_locked(path, oid)
     except Exception as exc:
         logger.warning("Failed to read audit log for %r: %s", oid, exc)
         return []
+
+
+def _read_visible_locked(path: str, oid: str) -> list[dict]:
+    """Tombstone-filtered records for *oid*. Caller holds ``_lock_for(oid)``."""
+    raw = _read_raw_locked(path, oid)
+    filtered = _apply_tombstones(raw)
+    # ``_apply_tombstones`` returns ``raw`` itself when there is nothing to
+    # filter, and ``raw`` may be the cached list — copy so a caller cannot
+    # mutate the cache out from under us. This is a pointer copy, far
+    # cheaper than re-reading the log.
+    return list(filtered)
 
 
 def read_page(
     oid: str,
     limit: int,
     before_ts: float | None = None,
-) -> tuple[list[dict], float | None]:
-    """Return up to *limit* records older than *before_ts*, plus a cursor.
+) -> tuple[list[dict], float | None, int | None]:
+    """Return up to *limit* records older than *before_ts*, a cursor, and
+    the log version the page reflects.
 
     Cursor-based pagination over the per-OID audit log, walking forward
     from the newest entry and serving fixed-size pages so a long-running
@@ -526,26 +610,73 @@ def read_page(
         are considered. Use ``None`` for the first page (newest
         ``limit`` records).
 
-    Returns ``(records, next_cursor)``:
+    Returns ``(records, next_cursor, version)``:
       * ``records`` is in chronological order (oldest first within the
         returned window — same convention as ``read_recent``).
       * ``next_cursor`` is the ``ts`` of the **oldest** returned record
         when more pages remain (caller passes it as ``before_ts`` for
         the next call), or ``None`` when the page is the final one.
+      * ``version`` is :func:`version` **as of the same lock hold** that
+        produced ``records``, or ``None`` when the read failed and the
+        empty page that comes back with it is not a snapshot of
+        anything. Callers must not present a ``None`` version as a
+        valid state — see the failure note below.
+
+    That last part is the reason this returns a version at all rather
+    than leaving callers to call :func:`version` themselves. Sampling the
+    counter outside this lock is wrong in both directions: read it first
+    and a mutation landing before the page is built yields a page that
+    contains a record the version does not account for — a live client
+    would then treat that record's ``audit_append`` push as contiguous
+    and append it a second time. Read it after and the page can predate a
+    mutation the version already counts, so the client applies the *next*
+    push on top of a log it never saw. Under one lock, neither is
+    possible.
 
     Tombstoned records are invisible to the cursor so paging never
     skips past visible records because of an undo that happened
     between calls.
+
+    **On failure this returns ``version=None``, not the current
+    counter.** Reads here stay best-effort like the rest of the module —
+    a broken filesystem must not wedge a live match — but "no records,
+    at version N" is a worse answer than an error: N accounts for every
+    record the reader did *not* get, so a live client would read every
+    subsequent append as contiguous, build on an empty list, and never
+    notice the gap. ``None`` is unrepresentable as a valid version, so
+    the type forces the boundary to decide what to do about it.
     """
+    path = _path(oid)
+    if path is None:
+        # Invalid OID: no log can exist for it and no append can bump a
+        # counter for it either, so 0 is the whole truth.
+        return [], None, version(oid)
+    try:
+        with _lock_for(oid):
+            # Existence, contents *and* counter all sampled under the one
+            # lock an append holds while it creates the file and bumps the
+            # version. Testing for the file outside it was the same
+            # mistake in smaller print: the first append could land in
+            # between, and this would answer "empty, at version 1" — a
+            # client that missed that append's push would then read the
+            # next one as contiguous and drop the first record for good.
+            log_version = _version_per_oid.get(oid, 0)
+            records = (
+                _read_visible_locked(path, oid)
+                if limit > 0 and _has_any_log_file(path)
+                else []
+            )
+    except Exception as exc:
+        logger.warning("Failed to read audit page for %r: %s", oid, exc)
+        return [], None, None
     if limit <= 0:
-        return [], None
-    records = read_all(oid)
+        return [], None, log_version
     if before_ts is not None:
         records = [r for r in records if r.get("ts", 0) < before_ts]
     page = records[-limit:]
     has_more = len(records) > len(page)
     next_cursor = page[0].get("ts") if (page and has_more) else None
-    return page, next_cursor
+    return page, next_cursor, log_version
 
 
 def read_recent(oid: str, limit: int = 100) -> list[dict]:
@@ -596,8 +727,12 @@ def clear(oid: str) -> None:
             _last_ts_per_oid.pop(oid, None)
             _cache_drop_locked(oid)
             _bump_version(oid)
+            new_version = _version_per_oid[oid]
     except Exception as exc:
         logger.warning("Failed to clear audit log for %r: %s", oid, exc)
+        return
+    # The log is now empty; a reader holding records must drop them.
+    _notify(oid, EVENT_INVALIDATE, new_version)
 
 
 def delete(oid: str) -> bool:
@@ -614,10 +749,12 @@ def delete(oid: str) -> bool:
             _last_ts_per_oid.pop(oid, None)
             _cache_drop_locked(oid)
             _bump_version(oid)
-        return removed
+            new_version = _version_per_oid[oid]
     except OSError as exc:
         logger.warning("Failed to delete audit log for %r: %s", oid, exc)
         return False
+    _notify(oid, EVENT_INVALIDATE, new_version)
+    return removed
 
 
 def _find_last_forward(
@@ -698,10 +835,15 @@ def pop_last_forward(
             with open(path, "a", encoding="utf-8") as f:
                 f.write(line)
             _commit_append_locked(oid, tombstone)
-            return target
+            new_version = _version_per_oid[oid]
     except Exception as exc:
         logger.warning("Failed to pop last forward record for %r: %s", oid, exc)
         return None
+    # A pop hides a record a reader may already be showing, so this is
+    # never an append — the reader has to re-read to see the target
+    # disappear. Notified outside the lock like every other mutation.
+    _notify(oid, EVENT_INVALIDATE, new_version)
+    return target
 
 
 def tombstone_ts(oid: str, ref_ts: float) -> bool:

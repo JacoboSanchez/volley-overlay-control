@@ -1,7 +1,5 @@
-import { useEffect, useState } from 'react';
-import * as api from '../api/client';
-import type { GameState, AuditRecord, PointType } from '../api/client';
-import { teamScoreSum } from '../utils/score';
+import { useMemo } from 'react';
+import type { AuditRecord, PointType } from '../api/client';
 
 export type RecentEventKind = 'point_add' | 'set_won' | 'match_won' | 'timeout' | 'manual';
 
@@ -10,36 +8,21 @@ export interface RecentEvent {
   team: 1 | 2;
   kind: RecentEventKind;
   /** Absolute new score — present only for kind === 'manual'. */
-  value?: number;
+  value?: number | undefined;
   /**
    * Optional per-point classification — present only for
    * kind === 'point_add' when the operator tagged the point.
    */
-  pointType?: PointType;
+  pointType?: PointType | undefined;
 }
 
-const DEFAULT_AUDIT_FETCH_LIMIT = 40;
-
-function scoringKey(state: GameState | null): string {
-  if (!state) return '';
-  // ``match_started_at`` is part of the key so a match reset that
-  // lands on already-zero scores (e.g. after the operator just
-  // undid everything back to 0:0) still refires the effect — the
-  // empty audit log then surfaces an empty strip. Timeouts are in
-  // the key for the same reason: a timeout-only state push must
-  // refetch so the clock chip appears immediately.
-  return [
-    teamScoreSum(state.team_1),
-    teamScoreSum(state.team_2),
-    state.team_1?.sets ?? 0,
-    state.team_2?.sets ?? 0,
-    state.team_1?.timeouts ?? 0,
-    state.team_2?.timeouts ?? 0,
-    typeof state.match_started_at === 'number' ? state.match_started_at : 0,
-  ].join(':');
-}
-
-function classifyRecords(records: AuditRecord[]): RecentEvent[] {
+/**
+ * Project a window of audit records onto the chips the momentum strip
+ * renders. Exported for direct testing: it is the whole substance of this
+ * module, and every rule below is about how the log reads rather than how
+ * it is fetched.
+ */
+export function classifyRecords(records: AuditRecord[]): RecentEvent[] {
   const events: RecentEvent[] = [];
   // Last seen post-state score per (set, team), used to spot no-op
   // ``set_score`` corrections (typed value === current).
@@ -138,51 +121,24 @@ function classifyRecords(records: AuditRecord[]): RecentEvent[] {
   return events;
 }
 
-export function useRecentEvents(
-  oid: string | null,
-  enabled: boolean,
-  state: GameState | null,
-  max: number = 8,
-): RecentEvent[] {
-  const [events, setEvents] = useState<RecentEvent[]>([]);
-  const key = scoringKey(state);
-
-  useEffect(() => {
-    if (!enabled || !oid) {
-      setEvents([]);
-      return;
-    }
-    const controller = new AbortController();
-    let cancelled = false;
-    // 3× headroom over ``max`` covers interleaved ``add_set`` /
-    // ``set_score`` records that don't always surface as chips.
-    const fetchLimit = Math.max(DEFAULT_AUDIT_FETCH_LIMIT, max * 3);
-    api
-      .getAudit(oid, fetchLimit, controller.signal)
-      .then((res) => {
-        if (cancelled) return;
-        // The strip is a pure projection of the tombstone-filtered
-        // audit log. Every fetch fully replaces the chip list, so
-        // rapid-pair tombstones, generic undoes, and reset all
-        // converge to a deterministic "current state activity" view.
-        // Undo records contribute nothing to the strip (see the
-        // ``if (undo) continue`` in ``classifyRecords``) — they live
-        // only in the history drawer and the printable report.
-        const fresh = classifyRecords(res.records);
-        setEvents(fresh.slice(-max));
-      })
-      .catch((err) => {
-        if (controller.signal.aborted) return;
-        // Drop any previous events so the strip doesn't keep showing
-        // stale data after a score change whose refetch failed.
-        console.warn('Failed to fetch recent events:', err);
-        setEvents([]);
-      });
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [oid, enabled, key, max]);
-
-  return events;
+/**
+ * The momentum strip's chips, derived from the board's live audit feed.
+ *
+ * A pure projection — the records arrive already maintained by
+ * ``useAuditFeed`` (one fetch per board, then WebSocket pushes). It used to
+ * own a fetch of its own keyed on a digest of the score, which is what made
+ * every point cost an extra ``GET /audit`` and forced the strip to trigger
+ * off ``confirmedState`` so the refetch wouldn't race the in-flight POST.
+ * Neither concern exists once the records are pushed: there is no fetch to
+ * race, and the chips update when the log does rather than when the score
+ * happens to change.
+ *
+ * The strip is a full projection of the tombstone-filtered log, so
+ * rapid-pair tombstones, generic undos and reset all converge on the same
+ * "current activity" view. Undo records emit no chip of their own (see
+ * ``classifyRecords``) — they live in the history drawer and the printable
+ * report.
+ */
+export function useRecentEvents(records: AuditRecord[], max: number = 8): RecentEvent[] {
+  return useMemo(() => classifyRecords(records).slice(-max), [records, max]);
 }

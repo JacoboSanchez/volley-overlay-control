@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { Navigate } from 'react-router';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';

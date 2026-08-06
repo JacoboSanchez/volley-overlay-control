@@ -68,22 +68,18 @@ function ScoreboardView() {
         </div>
 
         <div className="control-buttons-wrapper">
-          <div
+          <button
+            type="button"
             className="wakeup-handle"
-            role="button"
-            tabIndex={0}
+            aria-expanded={showControls}
             aria-label={showControls ? t('ctrl.hideControls') : t('ctrl.showControls')}
             onClick={onToggleControls}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onToggleControls();
-              }
-            }}
             title={showControls ? t('ctrl.hideControls') : t('ctrl.showControls')}
           >
-            <span className="material-icons">{showControls ? 'expand_more' : 'expand_less'}</span>
-          </div>
+            <span className="material-icons" aria-hidden="true">
+              {showControls ? 'expand_more' : 'expand_less'}
+            </span>
+          </button>
           <ControlButtons />
         </div>
       </div>

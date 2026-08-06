@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, fireEvent, screen } from '@testing-library/react';
-import OverlayPreview, { OverlayPreviewProps } from '../components/OverlayPreview';
+import OverlayPreview, { type OverlayPreviewProps } from '../components/OverlayPreview';
 import { renderWithI18n } from './helpers';
 
 describe('OverlayPreview', () => {

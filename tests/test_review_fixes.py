@@ -67,6 +67,40 @@ def test_audit_response_uses_raw_oid_not_skey(db_session):
     assert r.json()["oid"] == "liga"  # not "<user_id>:liga"
 
 
+def test_audit_endpoint_errors_rather_than_faking_an_empty_snapshot(db_session):
+    """A failed log read must not come back as 200 with an empty page.
+
+    The response carries a ``version`` clients use to decide whether a
+    pushed record extends what they hold. An empty page carrying the live
+    counter says "you are up to date at N" about records the caller never
+    received, so every later append looks contiguous and the history is
+    silently lost. 503 is retryable and routes clients into the failure
+    path they already have.
+    """
+    from unittest.mock import patch
+
+    from app.api import action_log
+
+    user = _client(db_session, "bob", role="user")
+    assert user.post("/api/v1/session/init", json={"oid": "liga"}).status_code == 200
+    # Give the log a record, so the read actually reaches the file (an
+    # empty log short-circuits before the failing call).
+    assert user.post(
+        "/api/v1/game/add-point?oid=liga", json={"team": 1},
+    ).status_code == 200
+
+    with patch.object(
+        action_log, "_read_visible_locked", side_effect=OSError("disk gone"),
+    ):
+        r = user.get("/api/v1/audit?oid=liga")
+
+    assert r.status_code == 503
+    assert "version" not in r.json()
+
+    # Recovers on its own once the fault clears — no restart, no reset.
+    assert user.get("/api/v1/audit?oid=liga").status_code == 200
+
+
 # --- table-tennis serve-switch must not flash at 0-0 with points_limit=1 ----
 
 def test_serve_switch_not_pending_at_zero_zero_when_points_limit_one():

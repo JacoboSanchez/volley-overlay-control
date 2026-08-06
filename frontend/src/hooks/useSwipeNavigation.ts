@@ -1,4 +1,4 @@
-import { useMemo, useRef, TouchEvent as ReactTouchEvent } from 'react';
+import { useMemo, useRef, type TouchEvent as ReactTouchEvent } from 'react';
 
 export interface SwipeHandlers {
   onTouchStart: (e: ReactTouchEvent<HTMLElement>) => void;
@@ -8,21 +8,21 @@ export interface SwipeHandlers {
 }
 
 export interface UseSwipeNavigationOptions {
-  onSwipeLeft?: () => void;
-  onSwipeRight?: () => void;
+  onSwipeLeft?: (() => void) | undefined;
+  onSwipeRight?: (() => void) | undefined;
   /** Minimum horizontal distance in pixels to register a swipe. */
-  threshold?: number;
+  threshold?: number | undefined;
   /**
    * Maximum allowed |dy|/|dx| ratio. Above this, the gesture is treated as a
    * vertical scroll and ignored.
    */
-  maxVerticalRatio?: number;
+  maxVerticalRatio?: number | undefined;
   /**
    * CSS selector matched against the touchstart target (and its ancestors).
    * If it matches, the gesture is skipped so interactive elements such as
    * buttons, inputs, and sliders keep their default behavior.
    */
-  ignoreSelector?: string;
+  ignoreSelector?: string | undefined;
 }
 
 export const DEFAULT_IGNORE_SELECTORS = [
@@ -50,8 +50,8 @@ interface SwipeStart {
 }
 
 interface ResolvedOptions {
-  onSwipeLeft?: () => void;
-  onSwipeRight?: () => void;
+  onSwipeLeft?: (() => void) | undefined;
+  onSwipeRight?: (() => void) | undefined;
   threshold: number;
   maxVerticalRatio: number;
   ignoreSelector: string;

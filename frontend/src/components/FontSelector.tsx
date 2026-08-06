@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, CSSProperties } from 'react';
+import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { FONT_OPTIONS } from '../theme';
 
 function fontPreviewStyle(name: string): CSSProperties | undefined {

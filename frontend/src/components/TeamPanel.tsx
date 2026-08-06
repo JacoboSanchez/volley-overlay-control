@@ -1,4 +1,4 @@
-import { CSSProperties, ReactElement, memo, useCallback, useMemo } from 'react';
+import { type CSSProperties, type ReactElement, memo, useCallback, useMemo } from 'react';
 import ScoreButton from './ScoreButton';
 import ScoreTable from './ScoreTable';
 import { toNumber, asString } from '../utils/coerce';

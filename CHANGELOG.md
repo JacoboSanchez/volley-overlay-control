@@ -205,7 +205,75 @@ archive by hand.
   `/metrics`: both were just a `status="429"` label on the latency
   histogram, so an operator could not alert on either.
 
+### Changed
+
+- **The control SPA now loads account pages on demand instead of all at
+  once.** `AppRouter` statically imported all thirteen pages, so anyone
+  sitting on the login screen downloaded the admin, teams, reports,
+  overlays and presets pages — and their transitive dependencies (icon
+  library and picker, match calendar, JSON import/export, the colour
+  picker) — before the login form could render. The eight signed-in
+  account pages are now lazily loaded behind a Suspense boundary in
+  `AccountLayout`, and the build splits React/Router and `react-colorful`
+  into their own vendor chunks. The router chunk drops from 128 kB to
+  16.8 kB; the unauthenticated front door and the board stay eager, since
+  they are the first paint. No behaviour or layout change.
+  Refs [#446](https://github.com/JacoboSanchez/volley-overlay-control/issues/446).
+
+- **The control SPA no longer polls the audit log.** The momentum strip and
+  the history drawer each re-fetched `GET /api/v1/audit` after every
+  confirmed point — roughly 150–200 extra round trips over a five-set match,
+  each racing the request that caused it. The backend now streams audit
+  rows over the control WebSocket (`audit_append` / `audit_invalidate`, see
+  [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)), and the board reads
+  the log twice per board — once on mount and once when the socket opens,
+  which closes the gap where an action by another client lands before the
+  handshake — then follows it live. `GET /api/v1/audit` gains a `version`
+  field and remains authoritative; it now answers **503** when the log
+  cannot be read, rather than an empty page whose version would tell a
+  following client it was up to date. A dropped message costs one extra
+  fetch, never a wrong history. Verified end to end: scoring issues no
+  audit request at all.
+  Refs [#446](https://github.com/JacoboSanchez/volley-overlay-control/issues/446).
+
+- **Material Icons is subsetted to the icons the app actually draws.** The
+  SPA loaded the full ~2,200-glyph font — 125 kB of WOFF2 on first paint —
+  to render 74 icons. It now ships a 5 kB subset built from the canonical
+  list in `frontend/src/icons.ts` by
+  `scripts/icons/build_font_subset.py`. A test fails the build if an icon is
+  used without being listed, so a missing glyph surfaces in CI rather than
+  as a blank box on an operator's screen. `material-icons` moves to
+  devDependencies, leaving four runtime dependencies.
+  Refs [#446](https://github.com/JacoboSanchez/volley-overlay-control/issues/446).
+
+- **The HUD show/hide-controls handle is a real button.** It was a `div`
+  with `role="button"`, `tabIndex` and a hand-written Enter/Space key
+  handler — the last such element in the source tree. It now uses a native
+  `<button>`, which brings correct keyboard and disabled semantics from the
+  platform, and gains the `aria-expanded` state it never exposed. Appearance
+  is unchanged.
+  Refs [#446](https://github.com/JacoboSanchez/volley-overlay-control/issues/446).
+
+- **Frontend type checking is stricter.** `tsconfig` adds
+  `exactOptionalPropertyTypes`, `verbatimModuleSyntax` and
+  `noFallthroughCasesInSwitch`, and ESLint now enforces the matching
+  `consistent-type-imports` rule. This is a contributor-facing change with
+  no runtime effect: the resulting fixes were type annotations and import
+  statements only. `useGameState` also narrows the overlay id once rather
+  than asserting it non-null at fourteen call sites, so an action fired
+  without a board reports a failure instead of requesting a `null` one.
+  Refs [#446](https://github.com/JacoboSanchez/volley-overlay-control/issues/446).
+
 ### Fixed
+
+- **A failed customization refresh no longer passes silently.** After a save
+  from the config panel, the SPA re-reads customization from the server; that
+  read discarded every error into an empty `catch`, so a network failure left
+  the panel showing values the server had never confirmed with nothing on
+  screen to say so. The failure now raises an error toast, and the last
+  known-good customization is kept rather than cleared. The background
+  overlay-locale sync uses the same call and stays quiet, as before.
+  Refs [#446](https://github.com/JacoboSanchez/volley-overlay-control/issues/446).
 
 - **Group listings no longer issue a query per group.** Every board load
   ran `GET /board/team-groups`, which spent `1 + 3N` queries — and

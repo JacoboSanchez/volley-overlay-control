@@ -3,14 +3,14 @@ import { useEffect, useRef } from 'react';
 type Team = 1 | 2;
 
 export interface KeyboardShortcutHandlers {
-  onAddPoint?: (team: Team) => void;
-  onUndoLast?: () => void;
-  onChangeServe?: (team: Team) => void;
-  onAddTimeout?: (team: Team) => void;
-  onStartMatch?: () => void;
-  onToggleVisibility?: () => void;
-  onToggleSimpleMode?: () => void;
-  onOpenHelp?: () => void;
+  onAddPoint?: ((team: Team) => void) | undefined;
+  onUndoLast?: (() => void) | undefined;
+  onChangeServe?: ((team: Team) => void) | undefined;
+  onAddTimeout?: ((team: Team) => void) | undefined;
+  onStartMatch?: (() => void) | undefined;
+  onToggleVisibility?: (() => void) | undefined;
+  onToggleSimpleMode?: (() => void) | undefined;
+  onOpenHelp?: (() => void) | undefined;
 }
 
 export interface UseKeyboardShortcutsOptions extends KeyboardShortcutHandlers {

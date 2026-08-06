@@ -40,6 +40,52 @@ describe('ErrorBoundary', () => {
     expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument();
   });
 
+  it.each([
+    'Failed to fetch dynamically imported module: https://x/assets/TeamsPage-abc.js',
+    'error loading dynamically imported module',
+    'Importing a module script failed.',
+  ])('explains a stale-deployment chunk failure rather than dumping it: %s', (message) => {
+    function ChunkBoom(): never {
+      throw new Error(message);
+    }
+    render(
+      <ErrorBoundary>
+        <ChunkBoom />
+      </ErrorBoundary>,
+    );
+
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText(/needs reloading/i)).toBeInTheDocument();
+    expect(screen.getByText(/app was updated/i)).toBeInTheDocument();
+    // The raw fetch failure is not what an operator mid-match needs to read.
+    expect(screen.queryByText(message)).toBeNull();
+    expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument();
+  });
+
+  it('recognises a ChunkLoadError by name', () => {
+    function NamedChunkBoom(): never {
+      const err = new Error('Loading chunk 42 failed.');
+      err.name = 'ChunkLoadError';
+      throw err;
+    }
+    render(
+      <ErrorBoundary>
+        <NamedChunkBoom />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByText(/needs reloading/i)).toBeInTheDocument();
+  });
+
+  it('still shows the raw message for an ordinary crash', () => {
+    render(
+      <ErrorBoundary>
+        <Boom when={true} />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByText('kaboom')).toBeInTheDocument();
+    expect(screen.queryByText(/needs reloading/i)).toBeNull();
+  });
+
   it('reload button calls window.location.reload', () => {
     const reload = vi.fn();
     const origLocation = window.location;

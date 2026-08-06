@@ -14,10 +14,10 @@ export default function TeamFieldset({
   iconPickerScope = 'personal',
 }: {
   draft: TeamDraft;
-  idPrefix?: string;
+  idPrefix?: string | undefined;
   /** Where the picker's inline upload lands: personal library everywhere,
    *  the global library on the admin catalog pages. */
-  iconPickerScope?: 'personal' | 'global';
+  iconPickerScope?: 'personal' | 'global' | undefined;
 }) {
   const { t } = useI18n();
   const [pickerOpen, setPickerOpen] = useState(false);
