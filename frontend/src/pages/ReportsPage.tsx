@@ -7,6 +7,7 @@ import EmptyState from '../components/EmptyState';
 import MatchCalendar, { dayKey } from '../components/MatchCalendar';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmProvider';
+import { useSelection } from '../hooks/useSelection';
 import { useI18n } from '../i18n';
 
 type SortKey = 'ended' | 'duration';
@@ -24,7 +25,9 @@ export default function ReportsPage() {
   const [matches, setMatches] = useState<MatchSummary[]>([]);
   const [day, setDay] = useState<string | null>(null);
   const [modeFilter, setModeFilter] = useState<string>('');
-  const [sel, setSel] = useState<Set<string>>(new Set());
+  const sel = useSelection<string>();
+  // Stable across selection changes, unlike `sel` itself — safe as an effect dep.
+  const { clear: clearSelection } = sel;
   const [sortKey, setSortKey] = useState<SortKey>('ended');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(0);
@@ -80,9 +83,9 @@ export default function ReportsPage() {
     // filters rarely map onto another overlay's matches. Selection resets too.
     setDay(null);
     setModeFilter('');
-    setSel(new Set());
+    clearSelection();
     void load(oid);
-  }, [oid, load]);
+  }, [oid, load, clearSelection]);
 
   // Match-type filter first (feeds the calendar so it only dots days with
   // matches of the chosen type), then the day filter on top.
@@ -129,33 +132,15 @@ export default function ReportsPage() {
     return sortDir === 'asc' ? ' ▲' : ' ▼';
   }
 
-  function toggleOne(id: string) {
-    setSel((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
   const shownIds = shown.map((m) => m.match_id);
-  const someSelected = shownIds.some((id) => sel.has(id));
+  const someSelected = sel.someSelected(shownIds);
 
   // The header checkbox selects/clears just the rows on the *current page*,
   // adding to (or removing from) any selection made on other pages — so a
   // multi-page delete still works by paging and selecting each page in turn.
   const pageIds = paged.map((m) => m.match_id);
-  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => sel.has(id));
-  const somePageSelected = pageIds.some((id) => sel.has(id));
-
-  function toggleAllPage() {
-    setSel((prev) => {
-      const next = new Set(prev);
-      if (allPageSelected) pageIds.forEach((id) => next.delete(id));
-      else pageIds.forEach((id) => next.add(id));
-      return next;
-    });
-  }
+  const allPageSelected = sel.allSelected(pageIds);
+  const somePageSelected = sel.someSelected(pageIds);
 
   async function deleteIds(ids: string[]) {
     // The backend exposes a single-match delete; fan out and tolerate
@@ -166,7 +151,7 @@ export default function ReportsPage() {
       const ok = results.filter((r) => r.status === 'fulfilled').length;
       const failed = results.length - ok;
       await load(oid);
-      setSel(new Set());
+      sel.clear();
       if (ok > 0) toast(t('acc.reports.toastDeleted', { n: ok }));
       if (failed > 0) toast(t('acc.reports.errorDelete'), 'error');
     } finally {
@@ -188,7 +173,7 @@ export default function ReportsPage() {
 
   async function onDeleteSelected() {
     if (deleting) return;
-    const ids = shownIds.filter((id) => sel.has(id));
+    const ids = sel.selectedAmong(shownIds);
     if (ids.length === 0) return;
     const ok = await confirm({
       title: t('acc.reports.confirmDeleteSelectedTitle'),
@@ -265,7 +250,7 @@ export default function ReportsPage() {
                     onClick={onDeleteSelected}
                   >
                     {t('acc.reports.deleteSelected', {
-                      n: shownIds.filter((id) => sel.has(id)).length,
+                      n: sel.selectedAmong(shownIds).length,
                     })}
                   </button>
                 )}
@@ -295,7 +280,7 @@ export default function ReportsPage() {
                           ref={(el) => {
                             if (el) el.indeterminate = somePageSelected && !allPageSelected;
                           }}
-                          onChange={toggleAllPage}
+                          onChange={() => sel.toggleAll(pageIds)}
                         />
                       </th>
                       <th scope="col">
@@ -330,7 +315,7 @@ export default function ReportsPage() {
                             type="checkbox"
                             aria-label={t('acc.reports.selectMatch')}
                             checked={sel.has(m.match_id)}
-                            onChange={() => toggleOne(m.match_id)}
+                            onChange={() => sel.toggle(m.match_id)}
                           />
                         </td>
                         <td data-label={t('acc.reports.colEnded')}>

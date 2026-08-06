@@ -10,7 +10,7 @@ import TeamCreatePanel from '../components/teams/TeamCreatePanel';
 import TeamInlineEditor from '../components/teams/TeamInlineEditor';
 import IconLibrarySection from '../components/icons/IconLibrarySection';
 import { SwatchBox } from '../components/teams/TeamSwatch';
-import { useTeamSelection } from '../components/teams/useTeamSelection';
+import { useSelection } from '../hooks/useSelection';
 import { FILTER_THRESHOLD, filterTeams } from '../components/teams/teamUtils';
 import { apiErrorMessage } from '../hooks/useAsyncAction';
 
@@ -309,10 +309,11 @@ function AddTeamsPanel({
   onCancel: () => void;
 }) {
   const { t } = useI18n();
-  const sel = useTeamSelection();
+  const sel = useSelection<number>();
   const [query, setQuery] = useState('');
   const shown = filterTeams(addable, query);
-  const selShownIds = shown.filter((x) => sel.has(x.id)).map((x) => x.id);
+  const shownIds = shown.map((x) => x.id);
+  const selShownIds = sel.selectedAmong(shownIds);
 
   if (addable.length === 0) {
     return (
@@ -330,10 +331,8 @@ function AddTeamsPanel({
       <TeamListToolbar
         shownCount={shown.length}
         selectedShownCount={selShownIds.length}
-        onSelectAll={() => sel.replace([...new Set([...sel.ids, ...shown.map((x) => x.id)])])}
-        onClearSelection={() =>
-          sel.replace(sel.ids.filter((id) => !shown.some((x) => x.id === id)))
-        }
+        onSelectAll={() => sel.add(shownIds)}
+        onClearSelection={() => sel.remove(shownIds)}
         query={query}
         onQuery={setQuery}
         total={addable.length}

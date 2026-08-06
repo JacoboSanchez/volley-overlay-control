@@ -28,7 +28,7 @@ import TeamCreatePanel from '../components/teams/TeamCreatePanel';
 import TeamInlineEditor from '../components/teams/TeamInlineEditor';
 import IconLibrarySection from '../components/icons/IconLibrarySection';
 import { SwatchBox } from '../components/teams/TeamSwatch';
-import { useTeamSelection } from '../components/teams/useTeamSelection';
+import { useSelection } from '../hooks/useSelection';
 import {
   FILTER_THRESHOLD,
   filterTeams,
@@ -66,7 +66,7 @@ function AdminCatalog() {
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const sel = useTeamSelection();
+  const sel = useSelection<number>();
   const selAllRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -93,7 +93,8 @@ function AdminCatalog() {
   const shown = withPinnedEdit(filterTeams(catalog, query), catalog, editing);
   // Only act on the currently-visible selected rows (count matches), so a
   // selection hidden by the filter is never deleted behind the operator's back.
-  const selShownIds = shown.filter((x) => sel.has(x.id)).map((x) => x.id);
+  const shownIds = shown.map((x) => x.id);
+  const selShownIds = sel.selectedAmong(shownIds);
 
   async function deleteSelected() {
     const ids = selShownIds;
@@ -175,10 +176,8 @@ function AdminCatalog() {
             inputRef={selAllRef}
             shownCount={shown.length}
             selectedShownCount={selShownIds.length}
-            onSelectAll={() => sel.replace([...new Set([...sel.ids, ...shown.map((x) => x.id)])])}
-            onClearSelection={() =>
-              sel.replace(sel.ids.filter((id) => !shown.some((x) => x.id === id)))
-            }
+            onSelectAll={() => sel.add(shownIds)}
+            onClearSelection={() => sel.remove(shownIds)}
             query={query}
             onQuery={setQuery}
             total={catalog.length}
