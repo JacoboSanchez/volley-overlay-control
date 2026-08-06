@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import { installErrorReporter } from './utils/errorReporter';
+import ErrorBoundary from './components/ErrorBoundary';
 import './material-icons.css';
 import './App.css';
 
@@ -19,6 +20,13 @@ const isPreviewRoute = window.location.pathname.replace(/\/+$/, '').endsWith('/p
 
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
-    <Suspense fallback={null}>{isPreviewRoute ? <PreviewApp /> : <AppRouter />}</Suspense>
+    {/* Outermost net for a rejected chunk. The router, the preview app
+        and the board are all lazily imported, so any of them can fail to
+        load in a tab that outlived its deployment — and a rejection that
+        reaches the root unmounts everything, leaving a blank page with no
+        way back. */}
+    <ErrorBoundary>
+      <Suspense fallback={null}>{isPreviewRoute ? <PreviewApp /> : <AppRouter />}</Suspense>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

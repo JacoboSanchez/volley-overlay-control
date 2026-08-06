@@ -2,6 +2,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { useI18n } from '../i18n';
 import './account.css';
 
@@ -107,12 +108,20 @@ export default function AccountLayout() {
           </button>
         </nav>
         <main className="acc-main">
-          {/* Boundary for the lazily-loaded account pages (see AppRouter).
-              A null fallback keeps the nav and shell in place — the chunk is
-              same-origin, so a spinner would flash more than it informs. */}
-          <Suspense fallback={null}>
-            <Outlet />
-          </Suspense>
+          {/* Two boundaries, for the two ways a lazy chunk can go wrong.
+              Suspense covers a *pending* import; a null fallback keeps the
+              nav and shell in place, since the chunk is same-origin and a
+              spinner would flash more than it informs. ErrorBoundary covers
+              a *rejected* one — a tab that outlived its deployment asks for
+              a hashed chunk the new build no longer serves, and without
+              this the rejection would blank the account UI. Inside the
+              layout on purpose: the nav survives, so the operator can still
+              move around. */}
+          <ErrorBoundary>
+            <Suspense fallback={null}>
+              <Outlet />
+            </Suspense>
+          </ErrorBoundary>
         </main>
       </div>
     </div>
