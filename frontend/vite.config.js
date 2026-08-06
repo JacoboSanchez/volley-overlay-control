@@ -141,7 +141,10 @@ export default defineConfig(async () => ({
         // genuinely automatic rather than only-in-theory.
         skipWaiting: true,
         clientsClaim: true,
-        globPatterns: ['**/*.{js,css,html,svg,ttf,otf}'],
+        // woff2 covers the Material Icons subset. An icon font has no
+        // readable fallback, so an installed PWA that came up offline
+        // without it would paint blank boxes for every control.
+        globPatterns: ['**/*.{js,css,html,svg,ttf,otf,woff2}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [
           /^\/api/, /^\/fonts/, /^\/pwa/, /^\/health/, /^\/metrics(\/|\?|$)/,
@@ -181,6 +184,30 @@ export default defineConfig(async () => ({
     }),
     serveManifestFromNetwork(),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // Split the two dependency groups that change on completely
+        // different cadences from one another and from app code. React and
+        // the router are on every route, so they belong in a long-lived
+        // chunk a release of ours never invalidates; react-colorful is only
+        // reachable from the customization surfaces, so keeping it separate
+        // means the login and board entry paths never download it.
+        //
+        // Must be the function form: Vite 8 bundles with rolldown, which
+        // rejects the Rollup object form ("manualChunks is not a function").
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          // Checked first — the react-* alternation below must not claim it.
+          if (id.includes('node_modules/react-colorful')) return 'vendor-color';
+          if (/node_modules\/(react|react-dom|react-router|scheduler)\//.test(id)) {
+            return 'vendor-react';
+          }
+          return undefined;
+        },
+      },
+    },
+  },
   server: {
     port: 3000,
     // Let the dev server / vitest read one level above the frontend

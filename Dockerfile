@@ -27,7 +27,24 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 COPY --from=ghcr.io/astral-sh/uv:0.8.17 /uv /usr/local/bin/uv
 
 COPY requirements.lock ./
-RUN uv pip install --system --no-cache -r requirements.lock
+# Drop pip once the dependencies are in. Nothing here installs packages at
+# runtime — ``uv`` did the install and stays available for an operator who
+# needs one — and pip is not free to carry: its ``_vendor`` tree bundles
+# pinned copies of msgpack, setuptools and friends, which the Trivy gate
+# reports as image vulnerabilities we cannot patch without waiting for a
+# pip release. Removing the installer from a production image is the fix
+# at the root rather than a scanner suppression, and it shrinks the layer.
+# Keep this in the same RUN as the install so the deleted files never land
+# in a layer of their own.
+RUN uv pip install --system --no-cache -r requirements.lock \
+    && rm -rf /usr/local/lib/python3*/site-packages/pip \
+              /usr/local/lib/python3*/site-packages/pip-*.dist-info \
+              /usr/local/lib/python3*/site-packages/pkg_resources \
+              /usr/local/lib/python3*/site-packages/setuptools \
+              /usr/local/lib/python3*/site-packages/setuptools-*.dist-info \
+              /usr/local/lib/python3*/site-packages/wheel \
+              /usr/local/lib/python3*/site-packages/wheel-*.dist-info \
+    && python -c "import alembic.config, fastapi, jinja2, PIL, psycopg, requests, sqlalchemy, uvicorn"
 
 # Explicit copies keep the runtime image lean: new top-level files do not
 # silently end up inside the container unless added here.

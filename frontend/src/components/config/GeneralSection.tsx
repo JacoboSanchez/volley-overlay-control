@@ -11,7 +11,7 @@ export interface GeneralSettings {
 export interface GeneralSectionProps {
   settings: GeneralSettings;
   setSetting: <K extends keyof GeneralSettings>(key: K, value: GeneralSettings[K]) => void;
-  onShowShortcuts?: () => void;
+  onShowShortcuts?: (() => void) | undefined;
 }
 
 export default function GeneralSection({

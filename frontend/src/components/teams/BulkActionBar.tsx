@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { useI18n } from '../../i18n';
 
 /** Sticky bar that floats at the bottom of the viewport while a team list has a

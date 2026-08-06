@@ -1,4 +1,11 @@
-import { useState, useEffect, useCallback, useRef, Dispatch, SetStateAction } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import type { GameState } from '../api/client';
 import { HUD_AUTO_HIDE_MS } from '../constants';
 

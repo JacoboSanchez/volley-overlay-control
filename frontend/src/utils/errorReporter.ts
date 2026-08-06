@@ -20,8 +20,8 @@ type ReportLevel = 'error' | 'warn';
 interface RawReport {
   level: ReportLevel;
   message: string;
-  stack?: string;
-  oid?: string;
+  stack?: string | undefined;
+  oid?: string | undefined;
 }
 
 const recentSignatures = new Map<string, number>();

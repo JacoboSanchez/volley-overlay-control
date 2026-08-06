@@ -29,6 +29,7 @@ vi.mock('../api/client', () => {
     setSimpleMode: vi.fn(),
     undoLast: vi.fn(),
     startMatch: vi.fn(),
+    getAudit: vi.fn(),
   };
 });
 
@@ -62,6 +63,12 @@ describe('useGameState', () => {
     vi.mocked(ws.createWebSocket).mockReturnValue(mockWs as unknown as WebSocket);
     vi.mocked(api.initSession).mockResolvedValue({ success: true, state: mockState });
     vi.mocked(api.getCustomization).mockResolvedValue(mockCustomization);
+    vi.mocked(api.getAudit).mockResolvedValue({
+      oid: 'ws-oid',
+      count: 0,
+      records: [],
+      version: 1,
+    });
   });
 
   it('returns initial null state', () => {
@@ -144,6 +151,49 @@ describe('useGameState', () => {
     });
 
     expect(ws.createWebSocket).toHaveBeenCalledWith('ws-oid', expect.any(Object));
+  });
+
+  it('re-reads the audit log when the socket opens, including the first open', async () => {
+    // The feed's mount fetch races the handshake: this socket does not
+    // exist yet while that read is in flight, so an action from another
+    // client in that window is broadcast to nobody here and the connect
+    // handshake replays only the state snapshot. Without a resync on the
+    // first open the board sits one action short until the next mutation
+    // exposes the version gap.
+    const { result } = renderHook(() => useGameState('ws-oid', { auditEnabled: true }));
+
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    const mountFetches = vi.mocked(api.getAudit).mock.calls.length;
+    expect(mountFetches).toBeGreaterThanOrEqual(1);
+
+    const handlers = vi.mocked(ws.createWebSocket).mock.calls.at(-1)![1];
+    await act(async () => {
+      handlers.onOpen?.();
+    });
+
+    expect(vi.mocked(api.getAudit).mock.calls.length).toBeGreaterThan(mountFetches);
+    expect(result.current.connected).toBe(true);
+  });
+
+  it('does not read the audit log at all while the feed is disabled', async () => {
+    // Default posture: nothing on screen is showing the log, so arming it
+    // would be a request for nobody.
+    const { result } = renderHook(() => useGameState('ws-oid'));
+
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    const handlers = vi.mocked(ws.createWebSocket).mock.calls.at(-1)![1];
+    await act(async () => {
+      handlers.onOpen?.();
+    });
+
+    expect(api.getAudit).not.toHaveBeenCalled();
+    expect(result.current.audit.records).toEqual([]);
   });
 
   it('addPoint action updates state on success', async () => {
@@ -337,6 +387,86 @@ describe('useGameState', () => {
     // with potentially stale overlay data and revert the overlay on the next
     // game action (addPoint, etc.).
     expect(api.initSession).not.toHaveBeenCalled();
+  });
+
+  it('refreshCustomization reports failure instead of swallowing it', async () => {
+    const { result } = renderHook(() => useGameState('oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    const before = result.current.customization;
+    vi.mocked(api.getCustomization).mockRejectedValueOnce(new Error('network down'));
+
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await result.current.refreshCustomization();
+    });
+
+    // The caller learns the read-back failed (App turns this into a toast),
+    // and the last known-good customization is left in place rather than
+    // being cleared out from under the panel.
+    expect(ok).toBe(false);
+    expect(result.current.customization).toEqual(before);
+
+    vi.mocked(api.getCustomization).mockResolvedValue({ 'Team 1 Name': 'Fresh' });
+    await act(async () => {
+      ok = await result.current.refreshCustomization();
+    });
+    expect(ok).toBe(true);
+  });
+
+  it('refreshCustomization reports failure when there is no oid', async () => {
+    const { result } = renderHook(() => useGameState(null));
+
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await result.current.refreshCustomization();
+    });
+
+    expect(ok).toBe(false);
+    expect(api.getCustomization).not.toHaveBeenCalled();
+  });
+
+  it('actions reject without an oid instead of requesting a null board', async () => {
+    const { result } = renderHook(() => useGameState(null));
+
+    let res: Awaited<ReturnType<typeof result.current.actions.addPoint>> | undefined;
+    await act(async () => {
+      res = await result.current.actions.addPoint(1);
+    });
+
+    expect(res?.success).toBe(false);
+    expect(api.addPoint).not.toHaveBeenCalled();
+  });
+
+  it('detaches every handler when closing, so a queued frame cannot cross boards', async () => {
+    // ``close()`` starts a handshake; it does not drop frames already
+    // queued for delivery. The audit callbacks carry no board identity,
+    // so a late frame from the previous board's socket would otherwise be
+    // applied to the new board's feed — and per-board version counters
+    // all start at 0, so an old N+1 lines up with a fresh N.
+    const socket = {
+      close: vi.fn(),
+      onclose: null,
+      onerror: null,
+      onmessage: (() => {}) as unknown,
+      onopen: (() => {}) as unknown,
+    };
+    vi.mocked(ws.createWebSocket).mockReturnValue(socket as unknown as WebSocket);
+
+    const { result, unmount } = renderHook(() => useGameState('ws-oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    unmount();
+
+    expect(socket.close).toHaveBeenCalled();
+    expect(socket.onmessage).toBeNull();
+    expect(socket.onopen).toBeNull();
+    expect(socket.onclose).toBeNull();
+    expect(socket.onerror).toBeNull();
   });
 
   it('cleanup closes WebSocket on unmount', async () => {

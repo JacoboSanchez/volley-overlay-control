@@ -1,4 +1,4 @@
-import { ReactElement } from 'react';
+import { type ReactElement } from 'react';
 import type { GameState } from '../api/client';
 import { toNumber } from '../utils/coerce';
 
