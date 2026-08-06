@@ -41,7 +41,7 @@ def _resolve_overlay_locale(
     env var → ``Accept-Language`` (q-weighted via
     :func:`app.match_report_i18n.resolve_locale`) → ``"en"``.
     """
-    env_locale = EnvVarsManager.get_env_var("OVERLAY_LOCALE", None)
+    env_locale = EnvVarsManager.get_str_env("OVERLAY_LOCALE") or None
     for candidate in (query_lang, persisted_locale, env_locale):
         normalised = _normalise_locale(candidate)
         if normalised is not None:

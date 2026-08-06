@@ -260,3 +260,73 @@ def test_stale_cache_is_served_while_revalidating(monkeypatch):
     EnvVarsManager._remote_config_cache = {}
     EnvVarsManager._cache_timestamp = 0
     EnvVarsManager._refresh_in_flight = False
+
+
+def test_reader_does_not_block_on_an_in_flight_refresh(monkeypatch):
+    """A revalidation must never make a reader wait on the network.
+
+    ``get_env_var`` runs inside async handlers (CSP headers, the metrics
+    token, the report gate). If the background refresh held ``_lock``
+    across its HTTP request, any reader arriving after the cache outlived
+    its TTL would block on the socket — the exact stall
+    stale-while-revalidate exists to prevent.
+    """
+    import threading
+    import time as time_mod
+    from unittest.mock import patch
+
+    from app.env_vars_manager import EnvVarsManager
+
+    monkeypatch.setenv("REMOTE_CONFIG_URL", "http://config.example/env.json")
+    EnvVarsManager._remote_config_cache = {"KEY": "stale-value"}
+    EnvVarsManager._cache_timestamp = time_mod.time() - 3600
+    EnvVarsManager._refresh_in_flight = False
+
+    release = threading.Event()
+    fetching = threading.Event()
+
+    class Response:
+        status_code = 200
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"KEY": "fresh-value"}
+
+    def blocked_get(url, timeout, headers=None, allow_redirects=True):
+        fetching.set()
+        # Outlive the cache TTL, so a reader cannot be saved by the fast path.
+        release.wait(10)
+        return Response()
+
+    with (
+        patch("app.env_vars_manager.requests.get", side_effect=blocked_get),
+        patch("app.env_vars_manager.is_target_safe", return_value=(True, "")),
+    ):
+        # Kick off the refresh, then keep reading while it is stuck.
+        EnvVarsManager.get_env_var("KEY")
+        assert fetching.wait(2)
+        monkeypatch.setattr(EnvVarsManager, "_CACHE_EXPIRATION_SECONDS", 0)
+
+        for _ in range(5):
+            start = time_mod.perf_counter()
+            value = EnvVarsManager.get_env_var("KEY")
+            elapsed = time_mod.perf_counter() - start
+            assert elapsed < 1.0, (
+                f"a reader waited {elapsed:.1f}s on the in-flight fetch — the "
+                "refresh is holding _lock across its network I/O"
+            )
+            assert value == "stale-value"
+
+        release.set()
+        deadline = time_mod.time() + 5
+        while time_mod.time() < deadline:
+            if EnvVarsManager._remote_config_cache.get("KEY") == "fresh-value":
+                break
+            time_mod.sleep(0.02)
+        assert EnvVarsManager._remote_config_cache.get("KEY") == "fresh-value"
+
+    EnvVarsManager._remote_config_cache = {}
+    EnvVarsManager._cache_timestamp = 0
+    EnvVarsManager._refresh_in_flight = False

@@ -204,14 +204,14 @@ def configure_error_tracking() -> bool:
     the optional integration is missing or misconfigured; the failure is
     logged locally instead of taking the scoreboard offline.
     """
-    dsn = (EnvVarsManager.get_env_var("SENTRY_DSN", "") or "").strip()
+    dsn = EnvVarsManager.get_str_env("SENTRY_DSN")
     if not dsn:
         return False
     try:
         _init_sentry(
             dsn=dsn,
-            environment=EnvVarsManager.get_env_var("SENTRY_ENVIRONMENT", None) or None,
-            release=EnvVarsManager.get_env_var("SENTRY_RELEASE", None) or None,
+            environment=EnvVarsManager.get_str_env("SENTRY_ENVIRONMENT") or None,
+            release=EnvVarsManager.get_str_env("SENTRY_RELEASE") or None,
             traces_sample_rate=_sample_rate(),
             send_default_pii=False,
             max_request_body_size="never",

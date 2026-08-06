@@ -279,6 +279,15 @@ archive by hand.
   without a board reports a failure instead of requesting a `null` one.
   Refs [#446](https://github.com/JacoboSanchez/volley-overlay-control/issues/446).
 
+- **A slow remote config can no longer stall a request.** The background
+  revalidation held `EnvVarsManager._lock` across its HTTP round-trip, so
+  once a fetch outlived the 10s cache TTL any reader — the per-response CSP
+  header lookup, the metrics token, the report gate — blocked on the socket
+  inside an async handler. The fetch now runs outside the lock, which is
+  taken only to swap the finished payload in, so stale-while-revalidate
+  delivers what its name promises.
+  [#441](https://github.com/JacoboSanchez/volley-overlay-control/issues/441).
+
 - **Six more settings now honour `REMOTE_CONFIG_URL`.** The auth rate
   limiter (`AUTH_RATE_LIMIT_MAX_FAILURES`, `_WINDOW_SECONDS`,
   `_BLOCK_SECONDS`), the security-header knobs (`SECURITY_CSP`,

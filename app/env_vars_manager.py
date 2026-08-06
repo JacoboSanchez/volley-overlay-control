@@ -3,8 +3,9 @@
 :class:`EnvVarsManager` layers the (optional) ``REMOTE_CONFIG_URL`` payload
 over ``os.environ``, so anything read directly from ``os.environ`` is
 invisible to remote-config deployments. The typed accessors —
-:meth:`get_bool_env`, :meth:`get_int_env`, :meth:`get_float_env`,
-:meth:`get_enum_env` — validate *where the value is read*, so a malformed or
+:meth:`get_str_env`, :meth:`get_bool_env`, :meth:`get_int_env`,
+:meth:`get_float_env`, :meth:`get_enum_env` — validate *where the value is
+read*, so a malformed or
 out-of-range setting degrades to the caller's default with one warning
 rather than crashing a request or being clamped somewhere the reader cannot
 see. Prefer them for anything new, and add a missing shape here rather than
@@ -91,6 +92,21 @@ class EnvVarsManager:
         if raw is None:
             return default
         return is_truthy(raw if isinstance(raw, str) else str(raw))
+
+    @classmethod
+    def get_str_env(cls, key: str, default: str = "") -> str:
+        """Return *key* as a stripped ``str``, treating blank as unset.
+
+        Prefer this over raw :meth:`get_env_var` wherever the caller goes on
+        to use string methods. A remote payload is JSON, so a value can
+        arrive as a number or bool; ``get_env_var`` hands that back as-is
+        and the caller's ``.strip()`` would raise ``AttributeError``.
+        """
+        raw = cls.get_env_var(key, None)
+        if raw is None:
+            return default
+        text = str(raw).strip()
+        return text or default
 
     @classmethod
     def get_int_env(
@@ -196,7 +212,10 @@ class EnvVarsManager:
             return default
         try:
             value = parse(raw)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
+            # OverflowError: a JSON literal too large for a float decodes to
+            # ``inf`` (``1e400``), and ``int(inf)`` raises it rather than
+            # ValueError — which would escape an import-time constant.
             logger.warning(
                 "Invalid %s %r: not a valid %s — using default %r",
                 key, raw, parse.__name__, default,
@@ -265,9 +284,20 @@ class EnvVarsManager:
 
     @classmethod
     def _background_refresh(cls, remote_config_url: str) -> None:
+        """Revalidate off the request path.
+
+        The fetch runs **without** ``_lock`` held, and the lock is taken
+        only to swap the finished payload in. Holding it across the network
+        round-trip would mean any caller that reaches the stale-while-
+        revalidate branch — which happens once the fetch outlives the cache
+        TTL — blocks on the socket inside an async handler. That is the
+        exact stall this whole code path exists to avoid.
+        """
         try:
+            payload = cls._fetch(remote_config_url)
             with cls._lock:
-                cls._refresh(remote_config_url)
+                cls._remote_config_cache = payload
+                cls._cache_timestamp = time.time()
         finally:
             cls._refresh_in_flight = False
 
@@ -309,11 +339,27 @@ class EnvVarsManager:
 
     @classmethod
     def _refresh(cls, remote_config_url: str) -> None:
-        """Fetch and install the remote config. Callers hold ``_lock``."""
+        """Fetch and install the remote config. Callers hold ``_lock``.
+
+        Only the very first (synchronous) load takes this path, where
+        holding the lock across the fetch is the point: concurrent callers
+        must wait for the real values rather than racing ahead on defaults.
+        Revalidation goes through :meth:`_background_refresh` instead.
+        """
         cls._cache_timestamp = time.time()
+        cls._remote_config_cache = cls._fetch(remote_config_url)
+
+    @classmethod
+    def _fetch(cls, remote_config_url: str) -> dict[str, Any]:
+        """Return the remote payload, or ``{}`` if it cannot be used.
+
+        Performs network I/O, so it must never be called while holding
+        ``_lock`` on the revalidation path — see :meth:`_background_refresh`.
+        Every failure mode (refused target, redirect, HTTP error, malformed
+        body) degrades to ``{}`` so the caller falls back to ``os.environ``.
+        """
         if not cls._is_fetch_allowed(remote_config_url):
-            cls._remote_config_cache = {}
-            return
+            return {}
         try:
             logger.info("Fetching remote config from %s", redact_url(remote_config_url))
             response = requests.get(
@@ -333,13 +379,12 @@ class EnvVarsManager:
                     "redirect — point REMOTE_CONFIG_URL at the final URL.",
                     redact_url(remote_config_url), response.status_code,
                 )
-                cls._remote_config_cache = {}
-                return
+                return {}
             response.raise_for_status()
-            cls._remote_config_cache = cls._unwrap_remote_config(response.json())
+            return cls._unwrap_remote_config(response.json())
         except (requests.exceptions.RequestException, json.JSONDecodeError):
             logger.exception("Error loading remote configuration")
-            cls._remote_config_cache = {}
+            return {}
 
     @staticmethod
     def _unwrap_remote_config(payload: Any) -> dict[str, Any]:

@@ -190,3 +190,56 @@ class TestJsonTypedRemoteValues:
     def test_float_accessor_takes_json_numbers(self):
         self._remote(0.25)
         assert EnvVarsManager.get_float_env("VOC_REMOTE", 2.0) == 0.25
+
+    def test_overflowing_integer_literal_falls_back(self):
+        """``json`` decodes ``1e400`` to ``inf``, and ``int(inf)`` raises
+        ``OverflowError`` — not ``ValueError`` — which would escape an
+        import-time constant and abort startup."""
+        self._remote(float("inf"))
+        assert EnvVarsManager.get_int_env("VOC_REMOTE", 42, minimum=1) == 42
+
+    def test_json_string_values_still_parse(self):
+        self._remote("30")
+        assert EnvVarsManager.get_int_env("VOC_REMOTE", 5, minimum=1) == 30
+
+
+class TestGetStrEnv:
+    """Callers that go on to use string methods need a guaranteed ``str``."""
+
+    def test_unset_returns_default(self, monkeypatch):
+        monkeypatch.delenv("VOC_TEST_STR", raising=False)
+        assert EnvVarsManager.get_str_env("VOC_TEST_STR", "fallback") == "fallback"
+
+    def test_value_is_stripped(self, monkeypatch):
+        monkeypatch.setenv("VOC_TEST_STR", "  https://example.invalid/1  ")
+        assert EnvVarsManager.get_str_env("VOC_TEST_STR") == "https://example.invalid/1"
+
+    def test_blank_counts_as_unset(self, monkeypatch):
+        monkeypatch.setenv("VOC_TEST_STR", "   ")
+        assert EnvVarsManager.get_str_env("VOC_TEST_STR", "fallback") == "fallback"
+
+    def test_non_string_remote_value_is_coerced(self, monkeypatch):
+        """A JSON number for a string setting must not reach a caller's
+        ``.strip()`` as an int — that raises AttributeError outside any
+        exception boundary."""
+        monkeypatch.setenv("REMOTE_CONFIG_URL", "http://config.example/env.json")
+        EnvVarsManager._remote_config_cache = {"VOC_TEST_STR": 123}
+        EnvVarsManager._cache_timestamp = float("inf")
+
+        assert EnvVarsManager.get_str_env("VOC_TEST_STR") == "123"
+
+
+class TestSentryDsnFromRemoteConfig:
+    def test_non_string_dsn_does_not_abort_startup(self, monkeypatch):
+        from app import error_tracking
+
+        monkeypatch.setenv("REMOTE_CONFIG_URL", "http://config.example/env.json")
+        EnvVarsManager._remote_config_cache = {"SENTRY_DSN": 123}
+        EnvVarsManager._cache_timestamp = float("inf")
+        monkeypatch.setattr(
+            error_tracking, "_init_sentry", lambda **_options: None,
+        )
+
+        # Reached at the top of create_app: a malformed remote value must
+        # degrade, not raise.
+        assert error_tracking.configure_error_tracking() is True

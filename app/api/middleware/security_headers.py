@@ -50,10 +50,7 @@ from app.env_vars_manager import EnvVarsManager
 
 def _env(name: str, default: str) -> str:
     """Read *name* through the shared path, treating blank as unset."""
-    raw = EnvVarsManager.get_env_var(name, None)
-    if raw is None or not str(raw).strip():
-        return default
-    return str(raw).strip()
+    return EnvVarsManager.get_str_env(name, default)
 
 
 _DEFAULT_CSP = (

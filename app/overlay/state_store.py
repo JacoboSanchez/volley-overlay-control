@@ -120,7 +120,7 @@ def normalize_state(state: dict) -> None:
 
 def get_default_state(best_of_sets: int = 5) -> dict:
     """Return a blank overlay state."""
-    default_logo = EnvVarsManager.get_env_var(
+    default_logo = EnvVarsManager.get_str_env(
         "DEFAULT_TEAM_LOGO", "/static/images/default_volleyball.svg"
     )
     set_history = {f"set_{i}": 0 for i in range(1, best_of_sets + 1)}
