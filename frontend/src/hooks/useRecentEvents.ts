@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { AuditRecord, PointType } from '../api/client';
+import type { AuditRecord, PointType } from '../api/board';
 
 export type RecentEventKind = 'point_add' | 'set_won' | 'match_won' | 'timeout' | 'manual';
 

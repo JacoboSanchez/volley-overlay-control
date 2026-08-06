@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import * as api from '../api/client';
+import * as api from '../api/board';
 import { asString } from '../utils/coerce';
 
 type Customization = Record<string, unknown>;

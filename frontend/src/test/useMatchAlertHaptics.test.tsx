@@ -5,7 +5,7 @@ import { useMatchAlertHaptics } from '../hooks/useMatchAlertHaptics';
 import { HAPTIC_PATTERNS } from '../hooks/useHaptics';
 import { I18nProvider } from '../i18n';
 import { SettingsProvider } from '../hooks/useSettings';
-import type { GameState } from '../api/client';
+import type { GameState } from '../api/board';
 import { mockGameState } from './helpers';
 
 function wrapper({ children }: { children: ReactNode }) {

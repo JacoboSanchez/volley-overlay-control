@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { GameState } from '../api/client';
+import type { GameState } from '../api/board';
 import type { SetSetting } from './useSettings';
 
 export interface UseCoachmarkResult {

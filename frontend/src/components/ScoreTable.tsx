@@ -1,5 +1,5 @@
 import { type ReactElement } from 'react';
-import type { GameState } from '../api/client';
+import type { GameState } from '../api/board';
 import { toNumber } from '../utils/coerce';
 
 export interface ScoreTableProps {

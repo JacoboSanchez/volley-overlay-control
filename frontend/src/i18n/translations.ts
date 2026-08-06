@@ -150,6 +150,10 @@ export const translations: Record<string, TranslationDict> = {
     'config.logout': 'Logout',
     'config.logoutConfirm': 'Disconnect and return to OID entry?',
     'config.unsavedChangesConfirm': 'You have unsaved changes that will be lost. Leave anyway?',
+    'config.unsavedChangesTitle': 'Unsaved changes',
+    'config.unsavedChangesLeave': 'Leave',
+    'config.unsavedChangesStay': 'Stay',
+    'config.optionsLoadFailed': 'Some panel options could not be loaded.',
 
     // Config sections
     'section.presets': 'Presets',
@@ -1023,6 +1027,10 @@ export const translations: Record<string, TranslationDict> = {
     'config.logoutConfirm': '¿Desconectar y volver a la entrada de OID?',
     'config.unsavedChangesConfirm':
       'Hay cambios sin guardar que se perderán. ¿Salir de todas formas?',
+    'config.unsavedChangesTitle': 'Cambios sin guardar',
+    'config.unsavedChangesLeave': 'Salir',
+    'config.unsavedChangesStay': 'Quedarse',
+    'config.optionsLoadFailed': 'No se pudieron cargar algunas opciones del panel.',
 
     // Config sections
     'section.presets': 'Presets',
@@ -1903,6 +1911,10 @@ export const translations: Record<string, TranslationDict> = {
     'config.logoutConfirm': 'Desligar e voltar à introdução do OID?',
     'config.unsavedChangesConfirm':
       'Há alterações não guardadas que serão perdidas. Sair mesmo assim?',
+    'config.unsavedChangesTitle': 'Alterações não guardadas',
+    'config.unsavedChangesLeave': 'Sair',
+    'config.unsavedChangesStay': 'Ficar',
+    'config.optionsLoadFailed': 'Não foi possível carregar algumas opções do painel.',
 
     // Config sections
     'section.presets': 'Presets',
@@ -2776,6 +2788,10 @@ export const translations: Record<string, TranslationDict> = {
     'config.logoutConfirm': 'Disconnettersi e tornare all’inserimento OID?',
     'config.unsavedChangesConfirm':
       'Ci sono modifiche non salvate che andranno perse. Uscire comunque?',
+    'config.unsavedChangesTitle': 'Modifiche non salvate',
+    'config.unsavedChangesLeave': 'Esci',
+    'config.unsavedChangesStay': 'Resta',
+    'config.optionsLoadFailed': 'Non è stato possibile caricare alcune opzioni del pannello.',
 
     // Config sections
     'section.presets': 'Preset',
@@ -3648,6 +3664,10 @@ export const translations: Record<string, TranslationDict> = {
     'config.logoutConfirm': 'Se déconnecter et revenir à la saisie de l’OID ?',
     'config.unsavedChangesConfirm':
       'Des modifications non enregistrées seront perdues. Quitter quand même ?',
+    'config.unsavedChangesTitle': 'Modifications non enregistrées',
+    'config.unsavedChangesLeave': 'Quitter',
+    'config.unsavedChangesStay': 'Rester',
+    'config.optionsLoadFailed': 'Certaines options du panneau n’ont pas pu être chargées.',
 
     // Config sections
     'section.presets': 'Presets',
@@ -4528,6 +4548,10 @@ export const translations: Record<string, TranslationDict> = {
     'config.logoutConfirm': 'Abmelden und zur OID-Eingabe zurückkehren?',
     'config.unsavedChangesConfirm':
       'Es gibt ungespeicherte Änderungen, die verloren gehen. Trotzdem verlassen?',
+    'config.unsavedChangesTitle': 'Ungespeicherte Änderungen',
+    'config.unsavedChangesLeave': 'Verlassen',
+    'config.unsavedChangesStay': 'Bleiben',
+    'config.optionsLoadFailed': 'Einige Panel-Optionen konnten nicht geladen werden.',
 
     // Config sections
     'section.presets': 'Vorlagen',

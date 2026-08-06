@@ -5,7 +5,8 @@
    exactly one such field. */
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import * as api from '../api/client';
+import * as api from '../api/auth';
+import { ApiError } from '../api/http';
 import { useAuth } from '../auth/AuthContext';
 import { useI18n } from '../i18n';
 import './account.css';
@@ -71,7 +72,7 @@ export default function RegisterPage() {
       navigate('/');
     } catch (err) {
       setError(
-        err instanceof api.ApiError && err.status === 400
+        err instanceof ApiError && err.status === 400
           ? t('acc.auth.register.errorTaken')
           : t('acc.auth.register.errorFailed'),
       );

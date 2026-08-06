@@ -15,7 +15,7 @@ vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({ ctx: mockCtx, refresh: vi.fn(), loading: false, setUser: vi.fn() }),
 }));
 
-vi.mock('../api/client', () => ({
+vi.mock('../api/auth', () => ({
   logout: vi.fn().mockResolvedValue(undefined),
 }));
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useI18n } from '../../i18n';
-import * as api from '../../api/client';
+import * as api from '../../api/board';
 import { useAsyncAction } from '../../hooks/useAsyncAction';
 import { InstantHint } from './fields';
 

@@ -1,4 +1,5 @@
 import { useI18n } from '../../i18n';
+import type { SetSetting } from '../../hooks/useSettings';
 import { ConfigSwitch, InstantHint } from './fields';
 
 export interface StatsSettings {
@@ -8,7 +9,7 @@ export interface StatsSettings {
 
 export interface StatsSectionProps {
   settings: StatsSettings;
-  setSetting: <K extends keyof StatsSettings>(key: K, value: StatsSettings[K]) => void;
+  setSetting: SetSetting;
 }
 
 export default function StatsSection({ settings, setSetting }: StatsSectionProps) {

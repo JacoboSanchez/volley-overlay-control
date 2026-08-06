@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
-import { setControlToken, setPublicUser } from './api/client';
-import type { AuditRecord } from './api/client';
+import { setControlToken, setPublicUser } from './api/http';
+import type { AuditRecord } from './api/board';
 import { useI18n } from './i18n';
 import { useToast } from './components/Toast';
 import { useAppConfig } from './hooks/useAppConfig';
@@ -285,7 +285,7 @@ export default function App({
   }, [actions]);
 
   const setSummaryStyle = (state?.set_summary_style ??
-    'brand_ledger') as import('./api/client').SetSummaryStyle;
+    'brand_ledger') as import('./api/board').SetSummaryStyle;
 
   const handleToggleSetSummary = useCallback(() => {
     if (!settingsRef.current.setSummaryEnabled) return;
@@ -293,7 +293,7 @@ export default function App({
   }, [actions]);
 
   const handleChangeSetSummaryStyle = useCallback(
-    (style: import('./api/client').SetSummaryStyle) => {
+    (style: import('./api/board').SetSummaryStyle) => {
       actions.setSetSummaryStyle(style);
     },
     [actions],
@@ -547,7 +547,6 @@ export default function App({
           <ConfigPanel
             oid={oid}
             customization={customization}
-            actions={actions}
             gameConfig={state?.config ?? null}
             autoSwapSides={state?.auto_swap_sides ?? null}
             onBack={() => setActiveTab('scoreboard')}

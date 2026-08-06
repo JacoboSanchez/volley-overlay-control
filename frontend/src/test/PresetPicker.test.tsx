@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import PresetPicker from '../components/PresetPicker';
-import * as api from '../api/client';
-import type { PresetSummary } from '../api/client';
+import * as api from '../api/presets';
+import type { PresetSummary } from '../api/presets';
 import { renderWithI18n } from './helpers';
 
-vi.mock('../api/client', () => ({
+vi.mock('../api/presets', () => ({
   listPresets: vi.fn(),
   createPreset: vi.fn(),
   deletePreset: vi.fn(),

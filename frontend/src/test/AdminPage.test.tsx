@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import AdminPage from '../pages/AdminPage';
-import * as api from '../api/client';
+import * as api from '../api/admin';
+import type { UserOut } from '../api/auth';
 import { ToastProvider } from '../components/Toast';
 import { renderWithI18n } from './helpers';
 
@@ -18,8 +19,8 @@ vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({ ctx: authCtx, refresh: refreshMock }),
 }));
 
-vi.mock('../api/client', () => {
-  class ApiError extends Error {
+vi.mock('../api/http', () => ({
+  ApiError: class ApiError extends Error {
     status: number;
     detail: string;
     constructor(status: number, message: string, detail?: string) {
@@ -27,20 +28,20 @@ vi.mock('../api/client', () => {
       this.status = status;
       this.detail = detail || message;
     }
-  }
-  return {
-    ApiError,
-    adminListUsers: vi.fn(),
-    adminCreateUser: vi.fn(),
-    adminResetPassword: vi.fn(),
-    adminUpdateUser: vi.fn(),
-    adminDeleteUser: vi.fn(),
-    adminGetRegistration: vi.fn(),
-    adminSetRegistration: vi.fn(),
-  };
-});
+  },
+}));
 
-const ROOT: api.UserOut = {
+vi.mock('../api/admin', () => ({
+  adminListUsers: vi.fn(),
+  adminCreateUser: vi.fn(),
+  adminResetPassword: vi.fn(),
+  adminUpdateUser: vi.fn(),
+  adminDeleteUser: vi.fn(),
+  adminGetRegistration: vi.fn(),
+  adminSetRegistration: vi.fn(),
+}));
+
+const ROOT: UserOut = {
   id: 1,
   username: 'root',
   role: 'admin',
@@ -48,8 +49,8 @@ const ROOT: api.UserOut = {
   must_change_password: false,
   display_name: null,
   email: null,
-} as unknown as api.UserOut;
-const OTHER_ADMIN: api.UserOut = {
+} as unknown as UserOut;
+const OTHER_ADMIN: UserOut = {
   id: 2,
   username: 'backup',
   role: 'admin',
@@ -57,8 +58,8 @@ const OTHER_ADMIN: api.UserOut = {
   must_change_password: false,
   display_name: null,
   email: null,
-} as unknown as api.UserOut;
-const PLAIN: api.UserOut = {
+} as unknown as UserOut;
+const PLAIN: UserOut = {
   id: 3,
   username: 'scorer',
   role: 'user',
@@ -66,7 +67,7 @@ const PLAIN: api.UserOut = {
   must_change_password: false,
   display_name: null,
   email: null,
-} as unknown as api.UserOut;
+} as unknown as UserOut;
 
 describe('AdminPage user management', () => {
   beforeEach(() => {

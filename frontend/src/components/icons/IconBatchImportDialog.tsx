@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import * as api from '../../api/client';
+import type { IconImportResult } from '../../api/icons';
+import type { TeamOut } from '../../api/teams';
 import Dialog from '../Dialog';
 import { useI18n } from '../../i18n';
+import { apiErrorMessage } from '../../hooks/useAsyncAction';
 
 /** Convert selected teams' external logo URLs into hosted library icons.
  *
@@ -18,8 +20,8 @@ export default function IconBatchImportDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  teams: api.TeamOut[];
-  importFn: (teamIds: number[]) => Promise<{ results: api.IconImportResult[] }>;
+  teams: TeamOut[];
+  importFn: (teamIds: number[]) => Promise<{ results: IconImportResult[] }>;
   onDone: () => void;
 }) {
   const { t } = useI18n();
@@ -28,7 +30,7 @@ export default function IconBatchImportDialog({
     [teams],
   );
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [results, setResults] = useState<api.IconImportResult[] | null>(null);
+  const [results, setResults] = useState<IconImportResult[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -65,13 +67,13 @@ export default function IconBatchImportDialog({
       setResults(res.results);
       onDone();
     } catch (e) {
-      setError(e instanceof api.ApiError ? e.detail : t('acc.icons.errorImport'));
+      setError(apiErrorMessage(e, t('acc.icons.errorImport')));
     } finally {
       setBusy(false);
     }
   }
 
-  const statusLabel: Record<api.IconImportResult['status'], string> = {
+  const statusLabel: Record<IconImportResult['status'], string> = {
     ok: t('acc.icons.statusOk'),
     skipped: t('acc.icons.statusSkipped'),
     error: t('acc.icons.statusError'),

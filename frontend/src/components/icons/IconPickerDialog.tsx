@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import * as api from '../../api/client';
+import { adminUploadIcon } from '../../api/admin';
+import { listIcons, uploadMyIcon } from '../../api/icons';
+import type { IconLibrary, IconOut } from '../../api/icons';
 import Dialog from '../Dialog';
 import { FILTER_THRESHOLD } from '../teams/teamUtils';
 import { prefillIconName } from './iconName';
 import { useI18n } from '../../i18n';
+import { apiErrorMessage } from '../../hooks/useAsyncAction';
 
 /** Browse-and-pick dialog over the hosted icon library.
  *
@@ -24,7 +27,7 @@ export default function IconPickerDialog({
   uploadScope?: 'personal' | 'global';
 }) {
   const { t } = useI18n();
-  const [library, setLibrary] = useState<api.IconLibrary | null>(null);
+  const [library, setLibrary] = useState<IconLibrary | null>(null);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -41,14 +44,13 @@ export default function IconPickerDialog({
     // Cancel guard (the useOverlays pattern): the picker unmounts with its
     // editor row, and two rapid opens must not apply responses out of order.
     let cancelled = false;
-    api
-      .listIcons()
+    listIcons()
       .then((lib) => {
         if (!cancelled) setLibrary(lib);
       })
       .catch((e) => {
         if (!cancelled) {
-          setError(e instanceof api.ApiError ? e.detail : t('acc.icons.errorLoad'));
+          setError(apiErrorMessage(e, t('acc.icons.errorLoad')));
         }
       });
     return () => {
@@ -56,7 +58,7 @@ export default function IconPickerDialog({
     };
   }, [open, t]);
 
-  function pick(icon: api.IconOut) {
+  function pick(icon: IconOut) {
     onSelect(icon.url);
     onClose();
   }
@@ -74,11 +76,11 @@ export default function IconPickerDialog({
     try {
       const uploaded =
         uploadScope === 'global'
-          ? await api.adminUploadIcon(uploadName.trim(), pendingFile)
-          : await api.uploadMyIcon(uploadName.trim(), pendingFile);
+          ? await adminUploadIcon(uploadName.trim(), pendingFile)
+          : await uploadMyIcon(uploadName.trim(), pendingFile);
       pick(uploaded);
     } catch (e) {
-      setError(e instanceof api.ApiError ? e.detail : t('acc.icons.errorUpload'));
+      setError(apiErrorMessage(e, t('acc.icons.errorUpload')));
     } finally {
       setBusy(false);
     }
@@ -89,11 +91,11 @@ export default function IconPickerDialog({
 
   const totalIcons = (library?.globals.length ?? 0) + (library?.mine.length ?? 0);
   const needle = query.trim().toLowerCase();
-  const matches = (icon: api.IconOut) => !needle || icon.name.toLowerCase().includes(needle);
+  const matches = (icon: IconOut) => !needle || icon.name.toLowerCase().includes(needle);
   const shownGlobals = (library?.globals ?? []).filter(matches);
   const shownMine = (library?.mine ?? []).filter(matches);
 
-  function renderSection(title: string, icons: api.IconOut[]) {
+  function renderSection(title: string, icons: IconOut[]) {
     return (
       <div className="acc-icon-section">
         <h4 className="acc-muted">{title}</h4>

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { classifyRecords, useRecentEvents } from '../hooks/useRecentEvents';
-import type { AuditRecord } from '../api/client';
+import type { AuditRecord } from '../api/board';
 
 function rec(
   ts: number,

@@ -1,5 +1,5 @@
 import { useI18n } from '../i18n';
-import type { GameState } from '../api/client';
+import type { GameState } from '../api/board';
 
 export interface MatchAlertIndicatorProps {
   /**

@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
-import * as api from '../api/client';
+import * as api from '../api/auth';
 import { useAuth } from '../auth/AuthContext';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { useI18n } from '../i18n';

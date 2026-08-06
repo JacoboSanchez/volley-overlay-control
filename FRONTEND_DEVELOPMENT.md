@@ -218,10 +218,11 @@ any headless client — it avoids storing an account password. It reaches the
 board surface only (scoring, display, customization, rules); account routes
 still return `401`.
 
-In the bundled SPA, the API client (`frontend/src/api/client.ts`) sends every
-request with `credentials: 'include'`, so the cookie travels automatically, and
-forwards a `?c=` token from the page URL when the board was opened from a
-control link. The client exposes an `ApiError` class (carrying the HTTP status);
+In the bundled SPA, the API transport (`frontend/src/api/http.ts`, shared by the
+per-domain clients beside it) sends every request with `credentials: 'include'`,
+so the cookie travels automatically, and forwards a `?c=` token from the page URL
+when the board was opened from a control link. It exposes an `ApiError` class
+(carrying the HTTP status);
 a `401` routes the user back to `/login`, while a `403` on a board route means
 the control link is invalid or was revoked.
 

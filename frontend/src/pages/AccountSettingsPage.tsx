@@ -1,10 +1,13 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import * as api from '../api/client';
+import * as api from '../api/auth';
+import { ApiError } from '../api/http';
 import { useAuth } from '../auth/AuthContext';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmProvider';
 import { useI18n, LANGUAGE_NAMES } from '../i18n';
+import { useAsyncAction } from '../hooks/useAsyncAction';
+import { useToastAction } from '../hooks/useToastAction';
 
 export default function AccountSettingsPage() {
   const { ctx, refresh } = useAuth();
@@ -16,8 +19,6 @@ export default function AccountSettingsPage() {
 
   const [displayName, setDisplayName] = useState(user?.display_name || '');
   const [email, setEmail] = useState(user?.email || '');
-  const [profileErr, setProfileErr] = useState('');
-  const [profileBusy, setProfileBusy] = useState(false);
 
   // The auth context resolves asynchronously (and can refresh), so seed the
   // editable fields once the user lands / changes — useState only reads the
@@ -30,54 +31,69 @@ export default function AccountSettingsPage() {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
-  const [pwErr, setPwErr] = useState('');
-  const [pwBusy, setPwBusy] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  // A mismatch is caught before the request, so it is the one password error
+  // this component raises itself rather than reading off a response.
+  const [pwMismatch, setPwMismatch] = useState('');
 
-  async function saveProfile(e: FormEvent) {
-    e.preventDefault();
-    setProfileErr('');
-    setProfileBusy(true);
-    try {
+  const {
+    run: saveProfile,
+    pending: profileBusy,
+    error: profileErr,
+  } = useAsyncAction(
+    async (e: FormEvent) => {
+      e.preventDefault();
       await api.updateMe({ display_name: displayName, email });
       await refresh();
       // Success is transient (toast); the inline banner is for errors only.
       toast(t('acc.account.profileSaved'));
-    } catch (err) {
-      setProfileErr(
-        err instanceof api.ApiError && err.detail ? err.detail : t('acc.account.errorProfile'),
-      );
-    } finally {
-      setProfileBusy(false);
-    }
-  }
+    },
+    {
+      formatError: (err) =>
+        err instanceof ApiError && err.detail ? err.detail : t('acc.account.errorProfile'),
+    },
+  );
 
-  async function savePassword(e: FormEvent) {
-    e.preventDefault();
-    setPwErr('');
-    if (next !== confirmPw) {
-      setPwErr(t('acc.account.errorPasswordMismatch'));
-      return;
-    }
-    setPwBusy(true);
-    try {
+  const {
+    run: runSavePassword,
+    pending: pwBusy,
+    error: pwRequestErr,
+  } = useAsyncAction(
+    async () => {
       await api.changePassword(current, next);
       setCurrent('');
       setNext('');
       setConfirmPw('');
       toast(t('acc.account.toastPasswordChanged'));
-    } catch (err) {
-      if (err instanceof api.ApiError && err.status === 403) {
-        setPwErr(t('acc.account.errorWrongPassword'));
-      } else if (err instanceof api.ApiError && err.detail) {
-        setPwErr(err.detail);
-      } else {
-        setPwErr(t('acc.account.errorShortPassword'));
-      }
-    } finally {
-      setPwBusy(false);
+    },
+    {
+      formatError: (err) => {
+        // 403 is specifically "the current password is wrong" — worth its own
+        // copy, since the generic detail would not tell the user which field.
+        if (err instanceof ApiError && err.status === 403) {
+          return t('acc.account.errorWrongPassword');
+        }
+        if (err instanceof ApiError && err.detail) return err.detail;
+        return t('acc.account.errorShortPassword');
+      },
+    },
+  );
+  const pwErr = pwMismatch || pwRequestErr;
+
+  async function savePassword(e: FormEvent) {
+    e.preventDefault();
+    setPwMismatch('');
+    if (next !== confirmPw) {
+      setPwMismatch(t('acc.account.errorPasswordMismatch'));
+      return;
     }
+    await runSavePassword();
   }
+
+  const { run: runDelete, pending: deleting } = useToastAction(async () => {
+    await api.deleteMe();
+    await refresh();
+    navigate('/login');
+  }, t('acc.account.errorDelete'));
 
   async function deleteAccount() {
     const ok = await confirm({
@@ -87,16 +103,7 @@ export default function AccountSettingsPage() {
       danger: true,
     });
     if (!ok) return;
-    setDeleting(true);
-    try {
-      await api.deleteMe();
-      await refresh();
-      navigate('/login');
-    } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t('acc.account.errorDelete'), 'error');
-    } finally {
-      setDeleting(false);
-    }
+    await runDelete();
   }
 
   return (

@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { useI18n } from '../i18n';
-import { SET_SUMMARY_STYLES, type SetSummaryStyle } from '../api/client';
+import { SET_SUMMARY_STYLES, type SetSummaryStyle } from '../api/board';
 
 export interface SetSummaryStylePickerProps {
   /** Current selection (mirrors ``state.set_summary_style`` from the backend). */

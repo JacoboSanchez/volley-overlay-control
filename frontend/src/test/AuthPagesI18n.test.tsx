@@ -12,7 +12,13 @@ vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({ ctx: mockCtx, refresh: vi.fn() }),
 }));
 
-vi.mock('../api/client', () => ({
+vi.mock('../api/auth', () => ({
+  login: vi.fn(),
+  registerAccount: vi.fn(),
+  changePassword: vi.fn(),
+  claimAdmin: vi.fn(),
+}));
+vi.mock('../api/http', () => ({
   ApiError: class ApiError extends Error {
     status: number;
     detail: string;
@@ -22,10 +28,6 @@ vi.mock('../api/client', () => ({
       this.detail = detail || message;
     }
   },
-  login: vi.fn(),
-  registerAccount: vi.fn(),
-  changePassword: vi.fn(),
-  claimAdmin: vi.fn(),
 }));
 
 function renderPage(page: React.ReactElement) {

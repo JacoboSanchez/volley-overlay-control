@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import type * as api from '../api/client';
+import type * as api from '../api/board';
 import type { GameActions } from './useGameState';
 import type { Settings } from './useSettings';
 import type { useHaptics } from './useHaptics';

@@ -1,5 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
-import * as api from '../api/client';
+import * as api from '../api/teams';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmProvider';
@@ -10,8 +10,9 @@ import TeamCreatePanel from '../components/teams/TeamCreatePanel';
 import TeamInlineEditor from '../components/teams/TeamInlineEditor';
 import IconLibrarySection from '../components/icons/IconLibrarySection';
 import { SwatchBox } from '../components/teams/TeamSwatch';
-import { useTeamSelection } from '../components/teams/useTeamSelection';
+import { useSelection } from '../hooks/useSelection';
 import { FILTER_THRESHOLD, filterTeams } from '../components/teams/teamUtils';
+import { apiErrorMessage } from '../hooks/useAsyncAction';
 
 /** The user's team groups are the primary unit. "All" (catalog + customs) is
  *  read-only; shared admin groups can be extended with the user's own teams;
@@ -93,7 +94,7 @@ function CreateGroupForm({ onCreated }: { onCreated: () => void }) {
       onCreated();
       toast(t('acc.groups.toastCreated', { name: g.name }));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t('acc.groups.errorCreate'), 'error');
+      toast(apiErrorMessage(err, t('acc.groups.errorCreate')), 'error');
     } finally {
       setBusy(false);
     }
@@ -147,7 +148,7 @@ function GroupCard({
       // against stale data.
       await onChange();
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t(errKey), 'error');
+      toast(apiErrorMessage(err, t(errKey)), 'error');
     } finally {
       setBusy(false);
     }
@@ -308,10 +309,11 @@ function AddTeamsPanel({
   onCancel: () => void;
 }) {
   const { t } = useI18n();
-  const sel = useTeamSelection();
+  const sel = useSelection<number>();
   const [query, setQuery] = useState('');
   const shown = filterTeams(addable, query);
-  const selShownIds = shown.filter((x) => sel.has(x.id)).map((x) => x.id);
+  const shownIds = shown.map((x) => x.id);
+  const selShownIds = sel.selectedAmong(shownIds);
 
   if (addable.length === 0) {
     return (
@@ -329,10 +331,8 @@ function AddTeamsPanel({
       <TeamListToolbar
         shownCount={shown.length}
         selectedShownCount={selShownIds.length}
-        onSelectAll={() => sel.replace([...new Set([...sel.ids, ...shown.map((x) => x.id)])])}
-        onClearSelection={() =>
-          sel.replace(sel.ids.filter((id) => !shown.some((x) => x.id === id)))
-        }
+        onSelectAll={() => sel.add(shownIds)}
+        onClearSelection={() => sel.remove(shownIds)}
         query={query}
         onQuery={setQuery}
         total={addable.length}
@@ -401,7 +401,7 @@ function CustomTeamsSection({
       onChange();
       toast(t('acc.teams.toastRemoved', { n: 1 }));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t('acc.teams.errorRemove'), 'error');
+      toast(apiErrorMessage(err, t('acc.teams.errorRemove')), 'error');
     }
   }
 

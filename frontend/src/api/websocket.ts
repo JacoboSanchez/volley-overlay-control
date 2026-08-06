@@ -2,8 +2,8 @@
  * WebSocket client for real-time state updates.
  */
 
-import type { AuditRecord, GameState } from './client';
-import { getControlToken, getPublicUser } from './client';
+import type { AuditRecord, GameState } from './board';
+import { getControlToken, getPublicUser } from './http';
 import { WS_PING_INTERVAL_MS } from '../constants';
 
 export interface StateUpdateMessage {

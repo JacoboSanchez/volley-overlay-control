@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { GameState } from '../api/client';
+import type { GameState } from '../api/board';
 
 export interface UseStaleSetPromptResult {
   stalePromptOpen: boolean;

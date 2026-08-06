@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import * as api from '../api/client';
+import * as boardApi from '../api/board';
+import * as httpApi from '../api/http';
 import { createWebSocket } from '../api/websocket';
 
 describe('control-token (operator) mode', () => {
   afterEach(() => {
-    api.setControlToken(null);
-    api.setPublicUser(null);
+    httpApi.setControlToken(null);
+    httpApi.setPublicUser(null);
     vi.restoreAllMocks();
   });
 
@@ -14,8 +15,8 @@ describe('control-token (operator) mode', () => {
       .spyOn(globalThis, 'fetch')
       .mockResolvedValue(new Response(JSON.stringify({ team_1: {} }), { status: 200 }));
 
-    api.setPublicUser('alice');
-    await api.getState('liga');
+    httpApi.setPublicUser('alice');
+    await boardApi.getState('liga');
 
     const url = fetchMock.mock.calls[0]![0] as string;
     expect(url).toContain('/state?u=alice&oid=liga');
@@ -27,8 +28,8 @@ describe('control-token (operator) mode', () => {
       .spyOn(globalThis, 'fetch')
       .mockResolvedValue(new Response(JSON.stringify({ team_1: {} }), { status: 200 }));
 
-    api.setControlToken('TOK-123');
-    await api.getState('ignored-oid');
+    httpApi.setControlToken('TOK-123');
+    await boardApi.getState('ignored-oid');
 
     const url = fetchMock.mock.calls[0]![0] as string;
     expect(url).toContain('/state?c=TOK-123');
@@ -40,8 +41,8 @@ describe('control-token (operator) mode', () => {
       .spyOn(globalThis, 'fetch')
       .mockResolvedValue(new Response(JSON.stringify({ team_1: {} }), { status: 200 }));
 
-    api.setControlToken(null);
-    await api.getState('liga');
+    httpApi.setControlToken(null);
+    await boardApi.getState('liga');
 
     const url = fetchMock.mock.calls[0]![0] as string;
     expect(url).toContain('/state?oid=liga');
@@ -53,8 +54,8 @@ describe('control-token (operator) mode', () => {
       .spyOn(globalThis, 'fetch')
       .mockResolvedValue(new Response(JSON.stringify({ success: true }), { status: 200 }));
 
-    api.setControlToken('TOK-9');
-    await api.initSession('liga');
+    httpApi.setControlToken('TOK-9');
+    await boardApi.initSession('liga');
 
     const url = fetchMock.mock.calls[0]![0] as string;
     expect(url).toContain('/session/init?c=TOK-9');
@@ -72,7 +73,7 @@ describe('control-token (operator) mode', () => {
       } as unknown as typeof WebSocket,
     );
 
-    api.setControlToken('WS-TOK');
+    httpApi.setControlToken('WS-TOK');
     createWebSocket('ignored-oid', {});
     expect(created[0]).toContain('/api/v1/ws?c=WS-TOK');
     expect(created[0]).not.toContain('oid=');

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 import ControlButtons from '../components/ControlButtons';
 import { mockGameState, renderWithBoard } from './helpers';
-import type { GameState } from '../api/client';
+import type { GameState } from '../api/board';
 
 function liveState(overrides: Partial<GameState> = {}): GameState {
   return { ...mockGameState, ...overrides };

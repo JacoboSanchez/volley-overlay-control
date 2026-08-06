@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useI18n, type Translate } from '../i18n';
 import type { AuditFeed } from '../hooks/useAuditFeed';
-import type { AuditRecord } from '../api/client';
+import type { AuditRecord } from '../api/board';
 import ActionChip from './ActionChip';
 import { classifyChip } from '../utils/chipCatalogue';
 

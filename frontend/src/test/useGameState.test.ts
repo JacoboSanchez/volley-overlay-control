@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useGameState } from '../hooks/useGameState';
-import * as api from '../api/client';
+import * as api from '../api/board';
+import { ApiError } from '../api/http';
 import * as ws from '../api/websocket';
 
-vi.mock('../api/client', () => {
-  class ApiError extends Error {
+vi.mock('../api/http', () => ({
+  ApiError: class ApiError extends Error {
     status: number;
     detail: string;
     constructor(status: number, message: string, detail?: string) {
@@ -13,31 +14,34 @@ vi.mock('../api/client', () => {
       this.status = status;
       this.detail = detail || message;
     }
-  }
-  return {
-    ApiError,
-    initSession: vi.fn(),
-    getCustomization: vi.fn(),
-    addPoint: vi.fn(),
-    addSet: vi.fn(),
-    addTimeout: vi.fn(),
-    changeServe: vi.fn(),
-    setScore: vi.fn(),
-    setSets: vi.fn(),
-    resetGame: vi.fn(),
-    setVisibility: vi.fn(),
-    setSimpleMode: vi.fn(),
-    undoLast: vi.fn(),
-    startMatch: vi.fn(),
-    getAudit: vi.fn(),
-  };
-});
+  },
+}));
+
+vi.mock('../api/board', () => ({
+  initSession: vi.fn(),
+  getCustomization: vi.fn(),
+  addPoint: vi.fn(),
+  addSet: vi.fn(),
+  addTimeout: vi.fn(),
+  changeServe: vi.fn(),
+  setScore: vi.fn(),
+  setSets: vi.fn(),
+  resetGame: vi.fn(),
+  setVisibility: vi.fn(),
+  setSimpleMode: vi.fn(),
+  undoLast: vi.fn(),
+  startMatch: vi.fn(),
+  getAudit: vi.fn(),
+  setSwapSides: vi.fn(),
+  setSetSummary: vi.fn(),
+  setSetSummaryStyle: vi.fn(),
+}));
 
 vi.mock('../api/websocket', () => ({
   createWebSocket: vi.fn(),
 }));
 
-import type { GameState } from '../api/client';
+import type { GameState } from '../api/board';
 
 const mockState = {
   team_1: { sets: 0, scores: { set_1: 0 } },
@@ -117,7 +121,7 @@ describe('useGameState', () => {
 
   it('initialize surfaces the clean ApiError detail, not the raw message', async () => {
     vi.mocked(api.initSession).mockRejectedValue(
-      new api.ApiError(
+      new ApiError(
         403,
         'API POST /session/init failed (403): {"detail":"Invalid or revoked control link."}',
         'Invalid or revoked control link.',
@@ -289,11 +293,7 @@ describe('useGameState', () => {
 
   it('action surfaces the clean ApiError detail, not the raw message', async () => {
     vi.mocked(api.addPoint).mockRejectedValue(
-      new api.ApiError(
-        409,
-        'API POST /game/add-point failed (409): {...}',
-        'Set already finished.',
-      ),
+      new ApiError(409, 'API POST /game/add-point failed (409): {...}', 'Set already finished.'),
     );
     const { result } = renderHook(() => useGameState('oid'));
     await act(async () => {

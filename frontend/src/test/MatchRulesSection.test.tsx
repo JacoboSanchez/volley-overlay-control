@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { renderWithI18n } from './helpers';
 import MatchRulesSection from '../components/config/MatchRulesSection';
-import * as api from '../api/client';
+import * as api from '../api/board';
 
-vi.mock('../api/client', async () => {
-  const actual = await vi.importActual<typeof import('../api/client')>('../api/client');
+vi.mock('../api/board', async () => {
+  const actual = await vi.importActual<typeof import('../api/board')>('../api/board');
   return {
     ...actual,
     setRules: vi.fn().mockResolvedValue({ success: true, state: null }),

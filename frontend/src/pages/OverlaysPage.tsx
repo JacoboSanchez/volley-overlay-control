@@ -1,11 +1,12 @@
 import { type FormEvent, useState } from 'react';
-import * as api from '../api/client';
+import * as api from '../api/overlays';
 import CopyField from '../components/CopyField';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmProvider';
 import { useOverlays } from '../hooks/useOverlays';
 import { useI18n } from '../i18n';
+import { apiErrorMessage } from '../hooks/useAsyncAction';
 
 export default function OverlaysPage() {
   const { t } = useI18n();
@@ -39,7 +40,7 @@ export default function OverlaysPage() {
       await reload();
       toast(t('acc.overlays.toastCreated', { oid: created }));
     } catch (err) {
-      setCreateError(err instanceof api.ApiError ? err.detail : t('acc.overlays.errorCreate'));
+      setCreateError(apiErrorMessage(err, t('acc.overlays.errorCreate')));
     }
   }
 
@@ -56,7 +57,7 @@ export default function OverlaysPage() {
       await reload();
       toast(t('acc.overlays.toastDeleted', { oid: o.oid }));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t('acc.overlays.errorDelete'), 'error');
+      toast(apiErrorMessage(err, t('acc.overlays.errorDelete')), 'error');
     }
   }
 
@@ -255,7 +256,7 @@ function RenamePanel({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => voi
       onSaved();
       toast(t('acc.overlays.toastSaved'));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t('acc.overlays.errorSave'), 'error');
+      toast(apiErrorMessage(err, t('acc.overlays.errorSave')), 'error');
     } finally {
       setBusy(false);
     }
@@ -303,7 +304,7 @@ function ShareControl({ o, onChanged }: { o: api.OverlayPayload; onChanged: () =
       onChanged();
       toast(t('acc.overlays.controlToast'));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t('acc.overlays.controlError'), 'error');
+      toast(apiErrorMessage(err, t('acc.overlays.controlError')), 'error');
     } finally {
       setBusy(false);
     }
@@ -368,7 +369,7 @@ function BookmarkAdvanced({ o, onChanged }: { o: api.OverlayPayload; onChanged: 
         o.public_control ? t('acc.overlays.bookmarkDisabled') : t('acc.overlays.bookmarkEnabled'),
       );
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : t('acc.overlays.bookmarkError'), 'error');
+      toast(apiErrorMessage(err, t('acc.overlays.bookmarkError')), 'error');
     } finally {
       setBusy(false);
     }

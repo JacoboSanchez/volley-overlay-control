@@ -2,20 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import TeamsPage from '../pages/TeamsPage';
 
-vi.mock('../api/client', () => ({
+vi.mock('../api/http', () => ({
   ApiError: class ApiError extends Error {
     detail = '';
   },
-  getMyGroups: vi.fn(),
-  getTeamCatalog: vi.fn(),
-  createMyGroup: vi.fn(),
-  renameMyGroup: vi.fn(),
-  deleteMyGroup: vi.fn(),
-  addTeamsToMyGroup: vi.fn(),
-  removeTeamFromMyGroup: vi.fn(),
-  createMyTeam: vi.fn(),
-  updateMyTeam: vi.fn(),
-  deleteMyTeam: vi.fn(),
+}));
+vi.mock('../api/icons', () => ({
   // Icon library (rendered by IconLibrarySection / the fieldset picker).
   listIcons: vi.fn().mockResolvedValue({
     globals: [],
@@ -28,8 +20,20 @@ vi.mock('../api/client', () => ({
   deleteMyIcon: vi.fn(),
   importIconsFromMyTeams: vi.fn(),
 }));
+vi.mock('../api/teams', () => ({
+  getMyGroups: vi.fn(),
+  getTeamCatalog: vi.fn(),
+  createMyGroup: vi.fn(),
+  renameMyGroup: vi.fn(),
+  deleteMyGroup: vi.fn(),
+  addTeamsToMyGroup: vi.fn(),
+  removeTeamFromMyGroup: vi.fn(),
+  createMyTeam: vi.fn(),
+  updateMyTeam: vi.fn(),
+  deleteMyTeam: vi.fn(),
+}));
 
-import * as api from '../api/client';
+import * as api from '../api/teams';
 
 const team = (id: number, name: string, is_global = true): api.TeamOut => ({
   id,

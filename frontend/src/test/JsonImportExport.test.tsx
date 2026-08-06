@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import JsonImportExport from '../pages/JsonImportExport';
-import * as api from '../api/client';
+import * as api from '../api/http';
 import { renderWithI18n } from './helpers';
 
-vi.mock('../api/client', () => ({
+vi.mock('../api/http', () => ({
   ApiError: class ApiError extends Error {
     status: number;
     detail: string;

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useAutoSetSummary } from '../hooks/useAutoSetSummary';
-import type { GameState } from '../api/client';
+import type { GameState } from '../api/board';
 
 function makeState(
   opts: {

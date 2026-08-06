@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import * as api from '../api/client';
+import { getOverlays } from '../api/overlays';
+import type { OverlayPayload } from '../api/overlays';
+import { deleteMatch, listReports } from '../api/reports';
+import type { MatchSummary } from '../api/reports';
 import EmptyState from '../components/EmptyState';
 import MatchCalendar, { dayKey } from '../components/MatchCalendar';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmProvider';
+import { useSelection } from '../hooks/useSelection';
 import { useI18n } from '../i18n';
 
 type SortKey = 'ended' | 'duration';
@@ -16,12 +20,14 @@ export default function ReportsPage() {
   const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
-  const [overlays, setOverlays] = useState<api.OverlayPayload[]>([]);
+  const [overlays, setOverlays] = useState<OverlayPayload[]>([]);
   const [oid, setOid] = useState('');
-  const [matches, setMatches] = useState<api.MatchSummary[]>([]);
+  const [matches, setMatches] = useState<MatchSummary[]>([]);
   const [day, setDay] = useState<string | null>(null);
   const [modeFilter, setModeFilter] = useState<string>('');
-  const [sel, setSel] = useState<Set<string>>(new Set());
+  const sel = useSelection<string>();
+  // Stable across selection changes, unlike `sel` itself — safe as an effect dep.
+  const { clear: clearSelection } = sel;
   const [sortKey, setSortKey] = useState<SortKey>('ended');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(0);
@@ -34,7 +40,7 @@ export default function ReportsPage() {
   useEffect(() => {
     void (async () => {
       try {
-        const ovs = await api.getOverlays();
+        const ovs = await getOverlays();
         setOverlays(ovs);
         if (ovs[0]) {
           // Honour a ``?oid=`` deep link (e.g. the board's "All reports"
@@ -61,7 +67,7 @@ export default function ReportsPage() {
       setLoading(true);
       setError('');
       try {
-        const res = await api.listReports(id);
+        const res = await listReports(id);
         setMatches(res.matches);
       } catch {
         setError(t('acc.reports.errorReports'));
@@ -77,9 +83,9 @@ export default function ReportsPage() {
     // filters rarely map onto another overlay's matches. Selection resets too.
     setDay(null);
     setModeFilter('');
-    setSel(new Set());
+    clearSelection();
     void load(oid);
-  }, [oid, load]);
+  }, [oid, load, clearSelection]);
 
   // Match-type filter first (feeds the calendar so it only dots days with
   // matches of the chosen type), then the day filter on top.
@@ -97,7 +103,7 @@ export default function ReportsPage() {
 
   const shown = useMemo(() => {
     const sign = sortDir === 'asc' ? 1 : -1;
-    const val = (m: api.MatchSummary) => (sortKey === 'ended' ? m.ended_at : m.duration_s) ?? 0;
+    const val = (m: MatchSummary) => (sortKey === 'ended' ? m.ended_at : m.duration_s) ?? 0;
     return [...filtered].sort((a, b) => sign * (val(a) - val(b)));
   }, [filtered, sortKey, sortDir]);
 
@@ -126,44 +132,26 @@ export default function ReportsPage() {
     return sortDir === 'asc' ? ' ▲' : ' ▼';
   }
 
-  function toggleOne(id: string) {
-    setSel((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
   const shownIds = shown.map((m) => m.match_id);
-  const someSelected = shownIds.some((id) => sel.has(id));
+  const someSelected = sel.someSelected(shownIds);
 
   // The header checkbox selects/clears just the rows on the *current page*,
   // adding to (or removing from) any selection made on other pages — so a
   // multi-page delete still works by paging and selecting each page in turn.
   const pageIds = paged.map((m) => m.match_id);
-  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => sel.has(id));
-  const somePageSelected = pageIds.some((id) => sel.has(id));
-
-  function toggleAllPage() {
-    setSel((prev) => {
-      const next = new Set(prev);
-      if (allPageSelected) pageIds.forEach((id) => next.delete(id));
-      else pageIds.forEach((id) => next.add(id));
-      return next;
-    });
-  }
+  const allPageSelected = sel.allSelected(pageIds);
+  const somePageSelected = sel.someSelected(pageIds);
 
   async function deleteIds(ids: string[]) {
     // The backend exposes a single-match delete; fan out and tolerate
     // partial failures so one stale row can't block the rest.
     setDeleting(true);
     try {
-      const results = await Promise.allSettled(ids.map((id) => api.deleteMatch(id)));
+      const results = await Promise.allSettled(ids.map((id) => deleteMatch(id)));
       const ok = results.filter((r) => r.status === 'fulfilled').length;
       const failed = results.length - ok;
       await load(oid);
-      setSel(new Set());
+      sel.clear();
       if (ok > 0) toast(t('acc.reports.toastDeleted', { n: ok }));
       if (failed > 0) toast(t('acc.reports.errorDelete'), 'error');
     } finally {
@@ -171,7 +159,7 @@ export default function ReportsPage() {
     }
   }
 
-  async function onDeleteOne(m: api.MatchSummary) {
+  async function onDeleteOne(m: MatchSummary) {
     if (deleting) return;
     const ok = await confirm({
       title: t('acc.reports.confirmDeleteTitle'),
@@ -185,7 +173,7 @@ export default function ReportsPage() {
 
   async function onDeleteSelected() {
     if (deleting) return;
-    const ids = shownIds.filter((id) => sel.has(id));
+    const ids = sel.selectedAmong(shownIds);
     if (ids.length === 0) return;
     const ok = await confirm({
       title: t('acc.reports.confirmDeleteSelectedTitle'),
@@ -262,7 +250,7 @@ export default function ReportsPage() {
                     onClick={onDeleteSelected}
                   >
                     {t('acc.reports.deleteSelected', {
-                      n: shownIds.filter((id) => sel.has(id)).length,
+                      n: sel.selectedAmong(shownIds).length,
                     })}
                   </button>
                 )}
@@ -292,7 +280,7 @@ export default function ReportsPage() {
                           ref={(el) => {
                             if (el) el.indeterminate = somePageSelected && !allPageSelected;
                           }}
-                          onChange={toggleAllPage}
+                          onChange={() => sel.toggleAll(pageIds)}
                         />
                       </th>
                       <th scope="col">
@@ -327,7 +315,7 @@ export default function ReportsPage() {
                             type="checkbox"
                             aria-label={t('acc.reports.selectMatch')}
                             checked={sel.has(m.match_id)}
-                            onChange={() => toggleOne(m.match_id)}
+                            onChange={() => sel.toggle(m.match_id)}
                           />
                         </td>
                         <td data-label={t('acc.reports.colEnded')}>
@@ -401,7 +389,7 @@ export default function ReportsPage() {
 
 /** "Team 1  3–1  Team 2", with the winner's name highlighted. Falls back to
  *  "Team 1" / "Team 2" when a match was archived without custom names. */
-function MatchTeams({ m }: { m: api.MatchSummary }) {
+function MatchTeams({ m }: { m: MatchSummary }) {
   const { t } = useI18n();
   const n1 = m.team_1_name || t('acc.reports.team', { n: 1 });
   const n2 = m.team_2_name || t('acc.reports.team', { n: 2 });

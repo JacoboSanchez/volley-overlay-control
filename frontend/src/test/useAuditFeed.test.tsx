@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { AUDIT_FEED_LIMIT, useAuditFeed } from '../hooks/useAuditFeed';
-import type { AuditRecord } from '../api/client';
-import * as apiClient from '../api/client';
+import * as apiClient from '../api/board';
+import type { AuditRecord } from '../api/board';
 
 function rec(ts: number, action = 'add_point'): AuditRecord {
   return { ts, action, params: { team: 1 } } as unknown as AuditRecord;

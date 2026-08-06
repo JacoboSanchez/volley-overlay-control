@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import Dialog from './Dialog';
 import { useI18n } from '../i18n';
-import { POINT_TYPES, ERROR_TYPES } from '../api/client';
-import type { Team, PointType, ErrorType } from '../api/client';
+import { POINT_TYPES, ERROR_TYPES } from '../api/board';
+import type { Team, PointType, ErrorType } from '../api/board';
 
 export interface PointTypePickerProps {
   team: Team;

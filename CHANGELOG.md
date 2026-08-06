@@ -222,6 +222,48 @@ archive by hand.
 
 ### Changed
 
+- **The config panel's structure now matches its concerns.** The 675-line
+  `ConfigPanel.tsx` mixed six of them: the form model, four independent
+  remote lookups, history/back interception, save orchestration, the section
+  registry and two full alternate layouts. It is now a ~250-line composition
+  over `useConfigModel`, `useConfigOptions`, `useUnsavedChangesGuard`, a
+  single `CONFIG_SECTIONS` registry (replacing four parallel structures a new
+  section had to be added to in lockstep) and per-surface components for the
+  top bar, bottom bar, section nav and section body. The dead `actions` prop
+  is gone, and the five `setSetting as XSectionProps['setSetting']` casts —
+  type holes with the same effect as `as any`, invisible to
+  `no-explicit-any` — are replaced by the shared `SetSetting` type.
+  Refs [#438](https://github.com/JacoboSanchez/volley-overlay-control/issues/438).
+
+- **The SPA's API client is split by domain.** `api/client.ts` was a single
+  909-line module with 139 exports that every consumer imported wholesale,
+  so the login page reached the entire admin surface through the same module
+  object. It is now `api/http.ts` (the transport: `fetch`, `ApiError`, the
+  paginated-listing walk, the board credential mode) plus one module per
+  route family — `board`, `auth`, `admin`, `teams`, `icons`, `presets`,
+  `overlays`, `reports`, `app`. Every consumer imports only the domain it
+  uses; the request behaviour is unchanged.
+  Refs [#438](https://github.com/JacoboSanchez/volley-overlay-control/issues/438).
+
+- **Shared hooks replace the SPA's copy-pasted list and action
+  scaffolding.** `useAsyncAction` gains an `onError` option and is joined by
+  `useAsyncRunner` (one pending flag and one error slot for a screen's whole
+  set of actions) and `useToastAction`, replacing roughly fifty hand-rolled
+  `useState(false)` busy flags and twenty-five repetitions of the same
+  ApiError-detail ternary. `useTeamSelection` — hardcoded to numeric team ids,
+  which is why the reports page grew its own near-identical copy — is now the
+  generic `useSelection<K>`, shared by the reports, teams and admin-teams
+  screens. No behaviour change.
+  Refs [#438](https://github.com/JacoboSanchez/volley-overlay-control/issues/438).
+
+- **The unsaved-changes prompt uses the app's own dialog.** Leaving the
+  config panel with unsaved edits raised a browser `window.confirm` —
+  unstyled, untranslated and ignoring the `ConfirmProvider` already mounted
+  around the board. It now uses the same styled, translated confirmation as
+  the reports and admin pages, on the back button, a swipe-back gesture, the
+  dashboard link and an overlay switch alike.
+  Refs [#438](https://github.com/JacoboSanchez/volley-overlay-control/issues/438).
+
 - **The control SPA now loads account pages on demand instead of all at
   once.** `AppRouter` statically imported all thirteen pages, so anyone
   sitting on the login screen downloaded the admin, teams, reports,
@@ -324,6 +366,22 @@ archive by hand.
   deployments configure them like anything else. [#441](https://github.com/JacoboSanchez/volley-overlay-control/issues/441).
 
 ### Fixed
+
+- **The config panel no longer fails its option lookups silently.** The team
+  groups, output links, overlay styles and per-style capabilities were each
+  fetched with a bare `.catch(console.warn)`, so a failure left the operator
+  looking at an empty dropdown with no explanation and no way to try again —
+  while the save path beside it had a proper error banner. A failed lookup now
+  raises a retryable banner, and one dead lookup no longer blanks the other
+  three.
+  Refs [#438](https://github.com/JacoboSanchez/volley-overlay-control/issues/438).
+
+- **The config panel's section list is now announced correctly.** Accordion
+  headers carried no `aria-expanded`/`aria-controls` and sidebar entries no
+  `aria-current`, so a screen reader could not tell which section was open —
+  unlike the team rows, overlay switcher, preset picker and match calendar,
+  which all do this already.
+  Refs [#438](https://github.com/JacoboSanchez/volley-overlay-control/issues/438).
 
 - **A failed customization refresh no longer passes silently.** After a save
   from the config panel, the SPA re-reads customization from the server; that

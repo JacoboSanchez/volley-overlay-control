@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useAsyncAction } from '../hooks/useAsyncAction';
+import { apiErrorMessage, useAsyncAction, useAsyncRunner } from '../hooks/useAsyncAction';
+import { ApiError } from '../api/http';
 
 function deferred() {
   let resolve!: () => void;
@@ -135,5 +136,136 @@ describe('useAsyncAction', () => {
     });
     expect(first).not.toHaveBeenCalled();
     expect(second).toHaveBeenCalledOnce();
+  });
+});
+
+describe('apiErrorMessage', () => {
+  it('prefers the API detail over the caller fallback', () => {
+    const err = new ApiError(409, 'API POST /x failed (409): {...}', 'oid already exists');
+    expect(apiErrorMessage(err, 'could not create')).toBe('oid already exists');
+  });
+
+  it('falls back for anything that is not an ApiError', () => {
+    expect(apiErrorMessage(new Error('socket hang up'), 'could not create')).toBe(
+      'could not create',
+    );
+    expect(apiErrorMessage('nope', 'could not create')).toBe('could not create');
+  });
+});
+
+describe('useAsyncAction onError', () => {
+  it('reports the formatted message and the raw throwable', async () => {
+    const onError = vi.fn();
+    const boom = new ApiError(500, 'raw envelope', 'server exploded');
+    const { result } = renderHook(() =>
+      useAsyncAction(
+        async () => {
+          throw boom;
+        },
+        { formatError: (err) => apiErrorMessage(err, 'fallback'), onError },
+      ),
+    );
+    await act(async () => {
+      await result.current.run();
+    });
+    expect(onError).toHaveBeenCalledWith('server exploded', boom);
+    // The message still lands in `error` for callers that render it inline.
+    expect(result.current.error).toBe('server exploded');
+  });
+
+  it('is not called on a successful run', async () => {
+    const onError = vi.fn();
+    const { result } = renderHook(() => useAsyncAction(async () => {}, { onError }));
+    await act(async () => {
+      await result.current.run();
+    });
+    expect(onError).not.toHaveBeenCalled();
+  });
+});
+
+describe('useAsyncRunner', () => {
+  it('shares one pending flag across differently-typed actions', async () => {
+    const d = deferred();
+    const { result } = renderHook(() => useAsyncRunner());
+    expect(result.current.pending).toBe(false);
+
+    let runPromise: Promise<void>;
+    act(() => {
+      runPromise = result.current.run(() => d.promise, { fallback: 'nope' });
+    });
+    expect(result.current.pending).toBe(true);
+    await act(async () => {
+      d.resolve();
+      await runPromise;
+    });
+    expect(result.current.pending).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('stores the ApiError detail, else the per-call fallback', async () => {
+    const { result } = renderHook(() => useAsyncRunner());
+    await act(async () => {
+      await result.current.run(
+        async () => {
+          throw new ApiError(403, 'raw', 'last admin cannot be demoted');
+        },
+        { fallback: 'could not change role' },
+      );
+    });
+    expect(result.current.error).toBe('last admin cannot be demoted');
+
+    await act(async () => {
+      await result.current.run(
+        async () => {
+          throw new Error('offline');
+        },
+        { fallback: 'could not delete' },
+      );
+    });
+    expect(result.current.error).toBe('could not delete');
+  });
+
+  it('runs onFailure after a failure and not after a success', async () => {
+    const onFailure = vi.fn();
+    const { result } = renderHook(() => useAsyncRunner());
+    await act(async () => {
+      await result.current.run(async () => {}, { fallback: 'x', onFailure });
+    });
+    expect(onFailure).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.run(
+        async () => {
+          throw new Error('boom');
+        },
+        { fallback: 'x', onFailure },
+      );
+    });
+    expect(onFailure).toHaveBeenCalledOnce();
+  });
+
+  it('exposes setError for failures raised outside a run, and clearError', async () => {
+    const { result } = renderHook(() => useAsyncRunner());
+    act(() => result.current.setError('could not load'));
+    expect(result.current.error).toBe('could not load');
+    act(() => result.current.clearError());
+    expect(result.current.error).toBeNull();
+  });
+
+  it('clears a previous error when the next run starts', async () => {
+    const { result } = renderHook(() => useAsyncRunner());
+    await act(async () => {
+      await result.current.run(
+        async () => {
+          throw new Error('boom');
+        },
+        { fallback: 'first failed' },
+      );
+    });
+    expect(result.current.error).toBe('first failed');
+    await act(async () => {
+      await result.current.run(async () => {}, { fallback: 'second failed' });
+    });
+    expect(result.current.error).toBeNull();
   });
 });

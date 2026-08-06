@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 import { renderWithI18n } from './helpers';
 import TeamsSection from '../components/config/TeamsSection';
-import type { BoardGroup } from '../api/client';
+import type { BoardGroup } from '../api/board';
 
 const GROUPS: BoardGroup[] = [
   { id: null, name: 'All teams', kind: 'all', count: 3 },

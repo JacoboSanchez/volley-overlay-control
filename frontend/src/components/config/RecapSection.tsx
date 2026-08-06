@@ -1,7 +1,8 @@
 import { useI18n } from '../../i18n';
+import type { SetSetting } from '../../hooks/useSettings';
 import { ConfigRange, ConfigSwitch, InstantHint } from './fields';
 import SetSummaryStylePicker from '../SetSummaryStylePicker';
-import type { SetSummaryStyle } from '../../api/client';
+import type { SetSummaryStyle } from '../../api/board';
 
 export interface RecapSettings {
   setSummaryEnabled: boolean;
@@ -12,7 +13,7 @@ export interface RecapSettings {
 
 export interface RecapSectionProps {
   settings: RecapSettings;
-  setSetting: <K extends keyof RecapSettings>(key: K, value: RecapSettings[K]) => void;
+  setSetting: SetSetting;
   /**
    * Set summary overlay — currently selected style (from the broadcast
    * state) and a handler to broadcast a change. When omitted the

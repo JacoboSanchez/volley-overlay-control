@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { AuthProvider } from '../auth/AuthContext';
 import BoardPage from '../pages/BoardPage';
-import * as api from '../api/client';
+import * as api from '../api/auth';
 
 // The board itself is exercised by App.test.tsx — here only the /board route
 // wiring matters: which credential mode BoardPage hands to App and where it
@@ -19,12 +19,14 @@ vi.mock('../App', () => ({
   ),
 }));
 
-vi.mock('../api/client', () => ({
+vi.mock('../api/auth', () => ({
+  getAuthContext: vi.fn(),
+}));
+vi.mock('../api/http', () => ({
   ApiError: class ApiError extends Error {
     status = 0;
     detail = '';
   },
-  getAuthContext: vi.fn(),
 }));
 
 const anonymous = {

@@ -18,7 +18,11 @@ vi.mock('react-router', async (importOriginal) => {
   return { ...actual, useNavigate: () => navigate };
 });
 
-vi.mock('../api/client', () => ({
+vi.mock('../api/auth', () => ({
+  login: vi.fn(),
+  registerAccount: vi.fn(),
+}));
+vi.mock('../api/http', () => ({
   ApiError: class ApiError extends Error {
     status: number;
     detail: string;
@@ -28,11 +32,10 @@ vi.mock('../api/client', () => ({
       this.detail = detail || message;
     }
   },
-  login: vi.fn(),
-  registerAccount: vi.fn(),
 }));
 
-import * as api from '../api/client';
+import * as authApi from '../api/auth';
+import * as httpApi from '../api/http';
 
 function renderPage(page: React.ReactElement) {
   return render(
@@ -55,19 +58,19 @@ describe('LoginPage submit flows', () => {
   });
 
   it('logs in, refreshes the auth context, and navigates home', async () => {
-    vi.mocked(api.login).mockResolvedValue({ must_change_password: false } as never);
+    vi.mocked(authApi.login).mockResolvedValue({ must_change_password: false } as never);
     renderPage(<LoginPage />);
     fill(/Username/, ' alice ');
     fill(/Password/, 'secret123');
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/', { replace: true }));
     // The username is trimmed before hitting the API.
-    expect(api.login).toHaveBeenCalledWith('alice', 'secret123');
+    expect(authApi.login).toHaveBeenCalledWith('alice', 'secret123');
     expect(refresh).toHaveBeenCalled();
   });
 
   it('routes to /change-password when the account owes a rotation', async () => {
-    vi.mocked(api.login).mockResolvedValue({ must_change_password: true } as never);
+    vi.mocked(authApi.login).mockResolvedValue({ must_change_password: true } as never);
     renderPage(<LoginPage />);
     fill(/Username/, 'alice');
     fill(/Password/, 'temppass1');
@@ -78,7 +81,7 @@ describe('LoginPage submit flows', () => {
   });
 
   it('shows the invalid-credentials copy only for a 401', async () => {
-    vi.mocked(api.login).mockRejectedValue(new api.ApiError(401, 'nope'));
+    vi.mocked(authApi.login).mockRejectedValue(new httpApi.ApiError(401, 'nope'));
     renderPage(<LoginPage />);
     fill(/Username/, 'alice');
     fill(/Password/, 'wrong');
@@ -90,8 +93,8 @@ describe('LoginPage submit flows', () => {
   });
 
   it('surfaces the server detail for non-401 errors (deactivated / rate limit)', async () => {
-    vi.mocked(api.login).mockRejectedValue(
-      new api.ApiError(403, 'forbidden', 'Account is deactivated.'),
+    vi.mocked(authApi.login).mockRejectedValue(
+      new httpApi.ApiError(403, 'forbidden', 'Account is deactivated.'),
     );
     renderPage(<LoginPage />);
     fill(/Username/, 'alice');
@@ -101,7 +104,7 @@ describe('LoginPage submit flows', () => {
   });
 
   it('shows the network-error copy for non-API failures', async () => {
-    vi.mocked(api.login).mockRejectedValue(new TypeError('Failed to fetch'));
+    vi.mocked(authApi.login).mockRejectedValue(new TypeError('Failed to fetch'));
     renderPage(<LoginPage />);
     fill(/Username/, 'alice');
     fill(/Password/, 'secret123');
@@ -141,12 +144,12 @@ describe('RegisterPage submit flows', () => {
   }
 
   it('registers (trimmed fields), refreshes, and navigates home', async () => {
-    vi.mocked(api.registerAccount).mockResolvedValue({} as never);
+    vi.mocked(authApi.registerAccount).mockResolvedValue({} as never);
     renderPage(<RegisterPage />);
     fillForm();
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
-    expect(api.registerAccount).toHaveBeenCalledWith(
+    expect(authApi.registerAccount).toHaveBeenCalledWith(
       'bob',
       'secret123',
       undefined,
@@ -160,11 +163,11 @@ describe('RegisterPage submit flows', () => {
     fillForm({ confirm: 'different1' });
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
     await waitFor(() => expect(screen.getByText(/Passwords do not match/i)).toBeInTheDocument());
-    expect(api.registerAccount).not.toHaveBeenCalled();
+    expect(authApi.registerAccount).not.toHaveBeenCalled();
   });
 
   it('maps a 400 to the username-taken copy', async () => {
-    vi.mocked(api.registerAccount).mockRejectedValue(new api.ApiError(400, 'taken'));
+    vi.mocked(authApi.registerAccount).mockRejectedValue(new httpApi.ApiError(400, 'taken'));
     renderPage(<RegisterPage />);
     fillForm();
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
@@ -172,7 +175,7 @@ describe('RegisterPage submit flows', () => {
   });
 
   it('shows the generic failure copy for other errors', async () => {
-    vi.mocked(api.registerAccount).mockRejectedValue(new TypeError('Failed to fetch'));
+    vi.mocked(authApi.registerAccount).mockRejectedValue(new TypeError('Failed to fetch'));
     renderPage(<RegisterPage />);
     fillForm();
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }));

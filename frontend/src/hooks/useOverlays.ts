@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import * as api from '../api/client';
+import * as api from '../api/overlays';
 
 export interface UseOverlaysResult {
   overlays: api.OverlayPayload[];

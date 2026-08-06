@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, fireEvent, act } from '@testing-library/react';
 import TeamPanel from '../components/TeamPanel';
-import type { GameState, TeamState } from '../api/client';
+import type { GameState, TeamState } from '../api/board';
 import { mockGameState, mockCustomization, renderWithBoard } from './helpers';
 
 const baseTeamState: TeamState = {
