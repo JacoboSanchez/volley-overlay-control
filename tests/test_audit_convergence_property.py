@@ -42,6 +42,7 @@ from __future__ import annotations
 import random
 import threading
 import time
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
@@ -223,7 +224,16 @@ class ClientFeed:
         self.version: int | None = None
         self.error: str | None = None
         self.last_read_ok = False
+        #: Successful reads so far. A dropped frame is healed by the next
+        #: read, so the walk has to tell "a read just landed" from "the
+        #: last read, whenever it was, succeeded".
+        self.reads_ok = 0
         self._pending_read = False
+        # Pushes that arrived non-contiguous with the version held, i.e.
+        # gaps the client actually detected. The walk asserts this is
+        # non-zero, so a transport fault that quietly stops producing gaps
+        # cannot leave the property looking healthy.
+        self.gaps_detected = 0
 
     def open_board(self, oid: str) -> None:
         """Mount on a new board: the previous board's rows leave with it."""
@@ -241,6 +251,8 @@ class ClientFeed:
     def on_append(self, version: int, record: dict) -> None:
         held = self.version
         if held is None or version != held + 1:
+            if held is not None:
+                self.gaps_detected += 1
             self.refresh()
             return
         self.version = version
@@ -272,6 +284,7 @@ class ClientFeed:
             self.version = version
             self.error = None
             self.last_read_ok = True
+            self.reads_ok += 1
 
 
 # ---------------------------------------------------------------------------
@@ -380,6 +393,8 @@ class Walk:
     steps: int = STEPS
     violations: list[Violation] = field(default_factory=list)
     trace: list[str] = field(default_factory=list)
+    #: How many frames each transport fault actually perturbed.
+    faults: Counter = field(default_factory=Counter)
 
     def run(self) -> list[Violation]:
         rng = random.Random(self.seed)
@@ -505,14 +520,35 @@ class Walk:
         if self.defect is not Defect.NO_RESYNC_ON_OPEN:
             self.client.on_resync()
 
-    def _op_drop_frame(self, _rng: random.Random) -> None:
-        self.wire.drop_one()
+    # Every step drains the wire, so a fault operation has to produce the
+    # frames it perturbs — otherwise it acts on an empty queue and is a
+    # silent no-op, which is how a transport fault stops being tested
+    # without any test going red. ``faults`` counts what was actually
+    # perturbed and is asserted non-zero, so that cannot come back.
 
-    def _op_duplicate_frame(self, _rng: random.Random) -> None:
-        self.wire.duplicate_one()
+    def _op_drop_frame(self, rng: random.Random) -> None:
+        """A mutation whose frame is lost in flight.
 
-    def _op_reorder_frames(self, _rng: random.Random) -> None:
-        self.wire.reorder_pair()
+        The log moved; the client is never told. Only the next frame or the
+        next read can heal that, which is why liveness is not asserted
+        until one of them happens.
+        """
+        self._append(self._oid(), rng)
+        if self.wire.drop_one():
+            self.faults["dropped"] += 1
+
+    def _op_duplicate_frame(self, rng: random.Random) -> None:
+        """The same frame delivered twice — the record must not land twice."""
+        self._append(self._oid(), rng)
+        if self.wire.duplicate_one():
+            self.faults["duplicated"] += 1
+
+    def _op_reorder_frames(self, rng: random.Random) -> None:
+        """Two frames delivered newest-first."""
+        self._append(self._oid(), rng)
+        self._append(self._oid(), rng)
+        if self.wire.reorder_pair():
+            self.faults["reordered"] += 1
 
     def _op_read_fault(self, _rng: random.Random) -> None:
         """Make the client's next ``GET /audit`` fail transiently."""
@@ -570,9 +606,13 @@ class Walk:
 
     def _settle_and_check(self, step: int, op: str) -> None:
         self._snapshot()
+        reads_before = self.client.reads_ok
         self._deliver()
         self._client_settle()
-        if self.client.last_read_ok:
+        # A lost frame is healed by the next *read*, not by the memory of an
+        # earlier one — clearing this on ``last_read_ok`` would assert
+        # liveness against a client nothing has re-read for.
+        if self.client.reads_ok > reads_before:
             self.wire.pending_loss = False
         self._check(step, op)
 
@@ -664,14 +704,29 @@ class TestAuditConvergenceProperty:
     def test_the_walk_actually_exercises_every_operation(self):
         """A property that never reaches the interesting states proves nothing.
 
-        Cheap insurance against a future edit to ``OPS`` (or to an op that
-        silently becomes a no-op) quietly reducing this file to a very slow
-        way of asserting that appends work.
+        Appearing in the trace is not enough — an operation can be selected
+        and still do nothing, which is exactly what happened to the three
+        transport faults when they were written to perturb a queue the
+        previous step had already drained. So this also counts the frames
+        each fault really perturbed, and the gaps the client really saw as
+        a result.
         """
         seen: set[str] = set()
+        faults: Counter = Counter()
+        gaps = 0
         for seed in SEEDS[:20]:
-            seen.update(_run(seed).trace)
+            walk = _run(seed)
+            seen.update(walk.trace)
+            faults.update(walk.faults)
+            gaps += walk.client.gaps_detected
         assert seen == set(OPS)
+        assert faults["dropped"] > 0
+        assert faults["duplicated"] > 0
+        assert faults["reordered"] > 0
+        # A fault the client never notices is a fault that tests nothing:
+        # the duplicated and reordered frames must actually be landing on a
+        # client that holds a version to compare them against.
+        assert gaps > 0
 
     def test_the_log_is_the_real_one(self):
         """Guard against the harness drifting into a mock of the thing.
