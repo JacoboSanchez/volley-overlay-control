@@ -116,8 +116,14 @@ export default function AccountLayout() {
               a hashed chunk the new build no longer serves, and without
               this the rejection would blank the account UI. Inside the
               layout on purpose: the nav survives, so the operator can still
-              move around. */}
-          <ErrorBoundary>
+              move around.
+
+              Keyed by pathname because an error boundary latches: once it
+              has caught, it renders its fallback until it is remounted, so
+              without this the surviving nav would change the route and
+              still show the error — visible but useless, which is worse
+              than honest. A new key gives each route its own boundary. */}
+          <ErrorBoundary key={location.pathname}>
             <Suspense fallback={null}>
               <Outlet />
             </Suspense>

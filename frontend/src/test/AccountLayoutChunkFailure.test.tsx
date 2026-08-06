@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { lazy } from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import AccountLayout from '../pages/AccountLayout';
 import { I18nProvider } from '../i18n';
@@ -34,6 +34,7 @@ function renderAccountShell() {
         <Routes>
           <Route element={<AccountLayout />}>
             <Route path="/teams" element={<StaleChunkPage />} />
+            <Route path="/overlays" element={<div>overlays page loaded</div>} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -70,5 +71,20 @@ describe('AccountLayout with a chunk that will not load', () => {
     // a root-level one would take the whole shell down with the page.
     expect(screen.getByRole('navigation')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /overlays/i })).toBeInTheDocument();
+  });
+
+  it('actually navigates away, rather than just showing a live-looking nav', async () => {
+    // The point of the previous test, done properly. An error boundary
+    // latches: having caught once it renders its fallback until it is
+    // remounted. A nav that is present but cannot change what is on
+    // screen is worse than no nav, so assert the destination renders —
+    // not merely that the link exists.
+    renderAccountShell();
+    await screen.findByRole('alert');
+
+    fireEvent.click(screen.getByRole('link', { name: /overlays/i }));
+
+    expect(await screen.findByText('overlays page loaded')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });
