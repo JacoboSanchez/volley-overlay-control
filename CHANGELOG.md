@@ -114,6 +114,28 @@ archive by hand.
 
 ### Added
 
+- **A property test for the live audit protocol, replacing five one-off
+  regression tests with one invariant.** Review of the audit push protocol
+  found five defects in the seam between the `GET /audit` read, the
+  `audit_append` / `audit_invalidate` frames and the per-OID log lock —
+  including one introduced while fixing another of the same shape. Both
+  halves of that seam are now driven by randomised, seeded interleavings of
+  log mutations (append, undo, rapid-pair tombstone/restore, clear, delete,
+  rotation), transport faults (dropped, duplicated, reordered frames,
+  disconnect/reconnect), transient read failures and board switches, and
+  checked against one property: a client that believes it is current shows
+  exactly what the log holds at the version it holds, and never shows a row
+  the board never logged. `tests/test_audit_convergence_property.py` drives
+  the real `action_log` — lock, tombstone filter, record cache and real
+  rotation included — against a port of the client reducer, and
+  `frontend/src/test/useAuditFeed.property.test.tsx` drives the real
+  `useAuditFeed` hook against a model of the log; only the wire between them
+  is faked. Each of the five reviewed defects is pinned as an injectable
+  regression seed with a test asserting the property fails under it, so the
+  next defect of that shape is caught by the property rather than by
+  remembering to write its one-off test.
+  Fixes [#488](https://github.com/JacoboSanchez/volley-overlay-control/issues/488).
+
 - **Backfilled tests for the three highest-risk untested surfaces.**
   `frontend/src/test/useDoubleTap.test.tsx` covers the press-gesture state
   machine behind every score, timeout and set button — single tap, double
