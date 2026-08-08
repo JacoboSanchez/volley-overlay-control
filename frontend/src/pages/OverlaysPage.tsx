@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import * as api from '../api/overlays';
 import CopyField from '../components/CopyField';
 import EmptyState from '../components/EmptyState';
@@ -15,6 +15,8 @@ export default function OverlaysPage() {
   const { overlays, loading, error: loadError, reload } = useOverlays();
   const [oid, setOid] = useState('');
   const [description, setDescription] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   // Create errors are shown inline above the list but must not hide the list
   // (it is still valid); load errors are handled separately via ``loadError``.
   const [createError, setCreateError] = useState('');
@@ -23,13 +25,22 @@ export default function OverlaysPage() {
   // an invalid id is rejected inline instead of round-tripping to a 4xx.
   const OID_RE = /^(?!\.{1,2}$)[A-Za-z0-9._-]{1,64}$/;
 
+  // A first-time user should land directly in the only useful empty-state
+  // action. Once overlays exist, keep this occasional form out of the way so
+  // opening an existing scoreboard remains above the fold.
+  useEffect(() => {
+    if (!loading && !loadError && overlays.length === 0) setCreateOpen(true);
+  }, [loadError, loading, overlays.length]);
+
   async function onCreate(e: FormEvent) {
     e.preventDefault();
+    if (creating) return;
     setCreateError('');
     if (!OID_RE.test(oid.trim())) {
       setCreateError(t('acc.overlays.field.oidHelp'));
       return;
     }
+    setCreating(true);
     try {
       const created = oid.trim();
       await api.createOverlay(created, {
@@ -38,9 +49,12 @@ export default function OverlaysPage() {
       setOid('');
       setDescription('');
       await reload();
+      setCreateOpen(false);
       toast(t('acc.overlays.toastCreated', { oid: created }));
     } catch (err) {
       setCreateError(apiErrorMessage(err, t('acc.overlays.errorCreate')));
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -63,38 +77,60 @@ export default function OverlaysPage() {
 
   return (
     <div>
-      <h2>{t('acc.nav.overlays')}</h2>
-      <p className="acc-muted">{t('acc.overlays.intro')}</p>
-
-      <form className="acc-form" onSubmit={onCreate}>
-        <label className="acc-field">
-          <span>{t('acc.overlays.field.oid')}</span>
-          <input
-            className="acc-input"
-            value={oid}
-            placeholder={t('acc.overlays.field.oidPlaceholder')}
-            maxLength={64}
-            onChange={(e) => setOid(e.target.value)}
-          />
-          <small className="acc-muted">{t('acc.overlays.field.oidHelp')}</small>
-        </label>
-        <label className="acc-field">
-          <span>{t('acc.overlays.field.description')}</span>
-          <input
-            className="acc-input"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </label>
-        <div className="acc-form-actions">
-          <span className="acc-form-spacer" aria-hidden="true">
-            &nbsp;
-          </span>
-          <button className="acc-btn" type="submit" disabled={!oid.trim()}>
-            {t('acc.overlays.add')}
-          </button>
+      <div className="acc-overlays-titlebar">
+        <div>
+          <h2>{t('acc.nav.overlays')}</h2>
+          <p className="acc-muted">{t('acc.overlays.intro')}</p>
         </div>
-      </form>
+        <button
+          type="button"
+          className={`acc-btn${createOpen ? ' ghost' : ''}`}
+          aria-expanded={createOpen}
+          onClick={() => {
+            setCreateError('');
+            setCreateOpen((value) => !value);
+          }}
+        >
+          <span className="material-icons" aria-hidden="true">
+            {createOpen ? 'close' : 'add'}
+          </span>
+          {createOpen ? t('acc.common.cancel') : t('acc.overlays.new')}
+        </button>
+      </div>
+
+      {createOpen && (
+        <form className="acc-form acc-overlay-create" onSubmit={onCreate}>
+          <label className="acc-field">
+            <span>{t('acc.overlays.field.oid')}</span>
+            <input
+              className="acc-input"
+              value={oid}
+              placeholder={t('acc.overlays.field.oidPlaceholder')}
+              maxLength={64}
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- the user explicitly opened this inline creation form
+              autoFocus
+              onChange={(e) => setOid(e.target.value)}
+            />
+            <small className="acc-muted">{t('acc.overlays.field.oidHelp')}</small>
+          </label>
+          <label className="acc-field">
+            <span>{t('acc.overlays.field.description')}</span>
+            <input
+              className="acc-input"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </label>
+          <div className="acc-form-actions">
+            <span className="acc-form-spacer" aria-hidden="true">
+              &nbsp;
+            </span>
+            <button className="acc-btn" type="submit" disabled={!oid.trim() || creating}>
+              {creating ? t('acc.common.working') : t('acc.overlays.add')}
+            </button>
+          </div>
+        </form>
+      )}
       {(createError || loadError) && (
         <div className="acc-error">{createError || t('acc.reports.errorOverlays')}</div>
       )}
@@ -115,15 +151,10 @@ export default function OverlaysPage() {
   );
 }
 
-/** One scoreboard, rendered as a collapsible row so a long list stays
- *  scannable — you expand just the one you need. The collapsed header
- *  identifies it (the oid is the name; the optional description is a small
- *  subtitle, plus a chip when the public bookmark is on). Expanding reveals
- *  its two jobs:
- *   - OUTPUT — the `/overlay` graphic you paste into OBS once.
- *   - CONTROL — the board where the match is scored: open it yourself, or hand
- *     a no-login link to whoever keeps score.
- *  Rename/Delete are small management icons in the header. */
+/** One scoreboard. Its two frequent actions stay available while collapsed:
+ *  controlling the match and checking the visual overlay. The disclosure is
+ *  reserved for copy-once links and occasional settings, keeping a long list
+ *  scannable without making the operator drill into every card. */
 function OverlayCard({
   o,
   onChanged,
@@ -140,56 +171,69 @@ function OverlayCard({
   return (
     <section className={`acc-overlay-card${open ? ' is-open' : ''}`}>
       <header className="acc-overlay-card__head">
-        <button
-          type="button"
-          className="acc-overlay-toggle"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-        >
-          <span className="material-icons acc-overlay-chevron" aria-hidden="true">
-            {open ? 'expand_less' : 'expand_more'}
-          </span>
-          <span className="acc-overlay-headtext">
-            <span className="acc-overlay-titlerow">
-              <strong className="acc-overlay-card__title">{o.oid}</strong>
-              {o.public_control && (
-                <span className="acc-pill is-on" title={t('acc.overlays.bookmarkTitle')}>
-                  {t('acc.overlays.chipBookmark')}
-                </span>
-              )}
+        <div className="acc-overlay-headtext">
+          <div className="acc-overlay-titlerow">
+            <strong className="acc-overlay-card__title">{o.description || o.oid}</strong>
+            {o.public_control && (
+              <span className="acc-pill is-on" title={t('acc.overlays.bookmarkTitle')}>
+                {t('acc.overlays.chipBookmark')}
+              </span>
+            )}
+          </div>
+          {o.description && (
+            <span className="acc-overlay-card__desc">
+              {t('acc.overlays.idMeta', { oid: o.oid })}
             </span>
-            {o.description && <span className="acc-overlay-card__desc">{o.description}</span>}
-          </span>
-        </button>
-        <div className="acc-overlay-manage">
-          <button
-            type="button"
-            className={`acc-iconbtn${renaming ? ' is-active' : ''}`}
-            aria-pressed={renaming}
-            aria-label={t('acc.overlays.rename')}
-            title={t('acc.overlays.rename')}
-            onClick={() => {
+          )}
+        </div>
+        <div className="acc-overlay-quick-actions">
+          <a
+            className="acc-btn acc-overlay-control"
+            href={`/board?oid=${encodeURIComponent(o.oid)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span className="material-icons" aria-hidden="true">
+              sports_esports
+            </span>
+            {t('acc.overlays.openBoard')}
+          </a>
+          <a
+            className="acc-btn secondary acc-overlay-view"
+            href={o.output_url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span className="material-icons" aria-hidden="true">
+              open_in_new
+            </span>
+            {t('acc.overlays.viewOverlay')}
+          </a>
+          <OverlayManageMenu
+            active={renaming}
+            onEdit={() => {
               setOpen(true);
-              setRenaming((v) => !v);
+              setRenaming((value) => !value);
             }}
-          >
-            <span className="material-icons" aria-hidden="true">
-              edit
-            </span>
-          </button>
-          <button
-            type="button"
-            className="acc-iconbtn danger"
-            aria-label={t('acc.common.delete')}
-            title={t('acc.common.delete')}
-            onClick={onDelete}
-          >
-            <span className="material-icons" aria-hidden="true">
-              delete
-            </span>
-          </button>
+            onDelete={onDelete}
+          />
         </div>
       </header>
+
+      <button
+        type="button"
+        className="acc-overlay-details-toggle"
+        aria-expanded={open}
+        onClick={() => {
+          if (open) setRenaming(false);
+          setOpen((value) => !value);
+        }}
+      >
+        <span className="material-icons" aria-hidden="true">
+          {open ? 'expand_less' : 'expand_more'}
+        </span>
+        {t('acc.overlays.linksSettings')}
+      </button>
 
       {open && (
         <div className="acc-overlay-body">
@@ -203,7 +247,22 @@ function OverlayCard({
             />
           )}
 
-          {/* JOB 1 — the on-stream graphic (paste into OBS once). */}
+          {/* The operator share link is used more often than the copy-once OBS
+              URL, so it leads the details panel. */}
+          <div className="acc-overlay-job">
+            <div className="acc-overlay-job__label">
+              <span className="material-icons" aria-hidden="true">
+                share
+              </span>
+              {t('acc.overlays.controlLabel')}
+            </div>
+            <p className="acc-overlay-job__desc acc-muted">{t('acc.overlays.controlGroupDesc')}</p>
+            <ShareControl o={o} onChanged={onChanged} />
+            <BookmarkAdvanced o={o} onChanged={onChanged} />
+          </div>
+
+          {/* The OBS graphic is normally configured once, but remains easy to
+              copy or open from the quick action above. */}
           <div className="acc-overlay-job">
             <div className="acc-overlay-job__label">
               <span className="material-icons" aria-hidden="true">
@@ -214,31 +273,93 @@ function OverlayCard({
             <p className="acc-overlay-job__desc acc-muted">{t('acc.overlays.outputDesc')}</p>
             <CopyField value={o.output_url} label={t('acc.overlays.outputLabel')} multiline />
           </div>
-
-          {/* JOB 2 — the scoring board (open mine / share a link). */}
-          <div className="acc-overlay-job">
-            <div className="acc-overlay-job__label">
-              <span className="material-icons" aria-hidden="true">
-                sports_esports
-              </span>
-              {t('acc.overlays.controlLabel')}
-            </div>
-            <p className="acc-overlay-job__desc acc-muted">{t('acc.overlays.controlGroupDesc')}</p>
-            <a
-              className="acc-btn acc-overlay-open"
-              href={`/board?oid=${encodeURIComponent(o.oid)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {t('acc.overlays.openBoard')}
-              <span aria-hidden="true"> ↗</span>
-            </a>
-            <ShareControl o={o} onChanged={onChanged} />
-            <BookmarkAdvanced o={o} onChanged={onChanged} />
-          </div>
         </div>
       )}
     </section>
+  );
+}
+
+function OverlayManageMenu({
+  active,
+  onEdit,
+  onDelete,
+}: {
+  active: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div className="acc-overlay-manage" ref={rootRef}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`acc-iconbtn${active ? ' is-active' : ''}`}
+        aria-label={t('acc.overlays.moreActions')}
+        title={t('acc.overlays.moreActions')}
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="material-icons" aria-hidden="true">
+          more_vert
+        </span>
+      </button>
+      {open && (
+        <div
+          className="acc-overlay-manage__menu"
+          role="group"
+          aria-label={t('acc.overlays.moreActions')}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onEdit();
+            }}
+          >
+            <span className="material-icons" aria-hidden="true">
+              edit
+            </span>
+            {t('acc.overlays.rename')}
+          </button>
+          <button
+            type="button"
+            className="danger"
+            onClick={() => {
+              setOpen(false);
+              onDelete();
+            }}
+          >
+            <span className="material-icons" aria-hidden="true">
+              delete
+            </span>
+            {t('acc.common.delete')}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

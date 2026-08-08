@@ -441,11 +441,12 @@
   border-color: #4f8cff;
 }
 
-/* The icon-only copy button hugs the value block's first line. */
+/* The icon-only copy button hugs the value block's first line while retaining
+   a comfortable pointer/touch target. */
 .acc-copy-iconbtn {
   flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
 }
 .acc-copy-iconbtn .material-icons {
   font-size: 18px;
@@ -537,9 +538,43 @@
   margin-bottom: 6px;
 }
 
-/* ``My overlays`` cards. Each scoreboard leads with the action taken every
-   match — opening the control board — and demotes the copy-once browser-source
-   URL plus the occasional share/rename actions below it. */
+/* ``My overlays``: keep the occasional create form behind an explicit action,
+   leaving the existing scoreboards at the top of the working area. */
+.acc-overlays-titlebar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+.acc-overlays-titlebar > div {
+  min-width: 0;
+}
+.acc-overlays-titlebar h2 {
+  margin-bottom: 6px;
+}
+.acc-overlays-titlebar p {
+  max-width: 700px;
+  margin: 0;
+}
+.acc-overlays-titlebar > .acc-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.acc-overlays-titlebar > .acc-btn .material-icons {
+  font-size: 19px;
+}
+.acc-overlay-create {
+  padding: 16px;
+  border: 1px solid #262b35;
+  border-radius: 12px;
+  background: #181b22;
+}
+
+/* Each scoreboard exposes its two frequent actions while collapsed. Copy-once
+   URLs and occasional management controls live in the disclosure below. */
 .acc-overlay-cards {
   margin-top: 18px;
   display: flex;
@@ -556,40 +591,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-}
-.acc-overlay-card__id {
-  min-width: 0;
+  gap: 16px;
 }
 .acc-overlay-card__title {
   font-size: 1.15rem;
   word-break: break-word;
 }
-
-/* Collapsible header: the whole left block is one toggle button so a long
-   overlay list stays scannable and you expand just the one you need. */
-.acc-overlay-toggle {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 0;
-  background: transparent;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-}
-.acc-overlay-chevron {
-  flex: 0 0 auto;
-  color: #8b93a7;
-  font-size: 24px;
-}
-.acc-overlay-toggle:hover .acc-overlay-chevron {
-  color: #c2c8d2;
-}
 .acc-overlay-headtext {
+  flex: 1 1 220px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -606,20 +615,54 @@
   font-size: 0.85rem;
   word-break: break-word;
 }
-/* The expanded body holds the two job blocks + the rename panel. */
-.acc-overlay-body {
-  margin-top: 4px;
-}
-/* The hero action: visually the heaviest thing on the card. */
-.acc-overlay-open {
+
+/* Frequent actions: control the match, inspect the visual output, or open the
+   compact management menu. */
+.acc-overlay-quick-actions {
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.acc-overlay-quick-actions > .acc-btn {
+  min-height: 44px;
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 20px;
-  font-size: 1rem;
+  gap: 7px;
+  padding: 9px 14px;
   text-decoration: none;
   white-space: nowrap;
+}
+.acc-overlay-quick-actions > .acc-btn .material-icons {
+  font-size: 19px;
+}
+.acc-overlay-details-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 38px;
+  margin: 8px 0 -6px;
+  padding: 5px 4px 5px 0;
+  border: none;
+  background: transparent;
+  color: #98a2b3;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+.acc-overlay-details-toggle:hover {
+  color: #e7e9ee;
+}
+.acc-overlay-details-toggle .material-icons {
+  font-size: 20px;
+}
+
+/* The expanded body holds the two link blocks + the rename panel. */
+.acc-overlay-body {
+  margin-top: 8px;
+  padding-top: 2px;
+  border-top: 1px solid #232833;
 }
 .acc-overlay-source {
   margin-top: 16px;
@@ -676,14 +719,9 @@
   gap: 6px;
   margin-top: 6px;
 }
-.acc-overlay-manage {
-  flex: 0 0 auto;
-  display: flex;
-  gap: 6px;
-}
 .acc-iconbtn {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -703,16 +741,52 @@
   border-color: #4f8cff;
   color: #fff;
 }
-.acc-iconbtn.danger {
-  color: #e07d6f;
-  border-color: #5a2f2a;
-}
-.acc-iconbtn.danger:hover {
-  background: #2a1c1a;
-}
 .acc-iconbtn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.acc-overlay-manage {
+  position: relative;
+  flex: 0 0 auto;
+}
+.acc-overlay-manage__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  width: max-content;
+  min-width: 190px;
+  padding: 5px;
+  border: 1px solid #303744;
+  border-radius: 10px;
+  background: #1d212a;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+.acc-overlay-manage__menu button {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #e7e9ee;
+  font: inherit;
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+}
+.acc-overlay-manage__menu button:hover {
+  background: #292f3a;
+}
+.acc-overlay-manage__menu button.danger {
+  color: #f08a7b;
+}
+.acc-overlay-manage__menu .material-icons {
+  font-size: 19px;
 }
 
 /* The two job blocks; the second is divided off from the first. */
@@ -742,12 +816,6 @@
   margin: 4px 0 10px;
 }
 
-/* "Open my board" sits at the top of the control job as the every-match
-   action; the share link follows it. */
-.acc-overlay-job .acc-overlay-open {
-  margin-bottom: 12px;
-}
-
 /* Label line of the share link, with the small regenerate control on its
    right — it revokes/remints the link as a whole, so it belongs to the
    heading, and the URL block below keeps the full width. */
@@ -765,8 +833,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: none;
   border-radius: 6px;
@@ -1251,11 +1319,44 @@
     grid-template-columns: 1fr;
   }
 
-  /* On phones the "Open my board" button spans the full width of the control
-     job so it stays the obvious primary tap target. The header keeps the id +
-     management icons on one row. */
-  .acc-overlay-open {
+  /* Keep existing overlays above the occasional creation form and make both
+     frequent per-overlay actions comfortable thumb targets. */
+  .acc-overlays-titlebar {
+    flex-direction: column;
+    gap: 14px;
+  }
+  .acc-overlays-titlebar > .acc-btn {
     width: 100%;
+    justify-content: center;
+  }
+  .acc-overlay-card {
+    padding: 14px;
+  }
+  .acc-overlay-card__head {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+  /* The desktop flex-basis is a width; in this column it would become a large
+     empty height above the actions, so let the identity block hug its text. */
+  .acc-overlay-headtext {
+    flex: 0 0 auto;
+  }
+  .acc-overlay-quick-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
+  }
+  .acc-overlay-quick-actions > .acc-btn {
+    min-width: 0;
+    padding-right: 10px;
+    padding-left: 10px;
+    white-space: normal;
+    text-align: center;
+  }
+  .acc-overlay-details-toggle {
+    width: 100%;
+    min-height: 44px;
+    margin-bottom: -8px;
   }
 
   /* Sticky top bar carries the brand + hamburger; it stays above the drawer so

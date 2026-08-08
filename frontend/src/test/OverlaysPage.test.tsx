@@ -44,29 +44,37 @@ describe('OverlaysPage', () => {
     vi.clearAllMocks();
   });
 
-  it('shows the oid as the name and the description as a small subtitle, collapsed by default', async () => {
+  it('shows a friendly name and both frequent actions while details stay collapsed', async () => {
     vi.mocked(api.getOverlays).mockResolvedValue([OVERLAY]);
     renderWithI18n(<OverlaysPage />);
 
-    // Header identifies the overlay by its oid (the name) + description.
-    await waitFor(() => expect(screen.getByText('liga')).toBeInTheDocument());
-    expect(screen.getByText('Liga Local')).toBeInTheDocument();
-    // Collapsed by default: the jobs/URLs are not rendered until expanded.
+    // The human description leads; the immutable oid remains useful metadata.
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
+    expect(screen.getByText('ID: liga')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /control scoreboard/i })).toHaveAttribute(
+      'href',
+      '/board?oid=liga',
+    );
+    expect(screen.getByRole('link', { name: /view overlay/i })).toHaveAttribute(
+      'href',
+      OVERLAY.output_url,
+    );
+    // Copy-once links and settings are not rendered until expanded.
     expect(screen.queryByText('For OBS · video output')).not.toBeInTheDocument();
     expect(screen.queryByText('https://x/overlay/pub')).not.toBeInTheDocument();
-    const toggle = screen.getByRole('button', { name: /liga/i });
+    const toggle = screen.getByRole('button', { name: /links and settings/i });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('expands to reveal the two jobs and both URLs inline', async () => {
     vi.mocked(api.getOverlays).mockResolvedValue([OVERLAY]);
     renderWithI18n(<OverlaysPage />);
-    await waitFor(() => expect(screen.getByText('liga')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole('button', { name: /liga/i }));
+    fireEvent.click(screen.getByRole('button', { name: /links and settings/i }));
 
     expect(screen.getByText('For OBS · video output')).toBeInTheDocument();
-    expect(screen.getByText('To control · scoreboard')).toBeInTheDocument();
+    expect(screen.getByText('Share control')).toBeInTheDocument();
     // URLs render as wrapping text blocks (not inputs) so a portrait phone
     // shows the whole URI, not just its first characters.
     expect(screen.getByText('https://x/overlay/pub')).toBeInTheDocument();
@@ -83,9 +91,9 @@ describe('OverlaysPage', () => {
     renderWithI18n(<OverlaysPage />);
 
     // The chip is visible without expanding the card.
-    await waitFor(() => expect(screen.getByText('Bookmark on')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Permanent link on')).toBeInTheDocument());
     // Once expanded, the Advanced disclosure is open and shows the bookmark URL.
-    fireEvent.click(screen.getByRole('button', { name: /liga/i }));
+    fireEvent.click(screen.getByRole('button', { name: /links and settings/i }));
     const advanced = screen.getByText('Advanced: permanent bookmark link').closest('details');
     expect(advanced).toHaveAttribute('open');
     expect(screen.getByText('https://x/board?u=me&oid=liga')).toBeInTheDocument();
@@ -95,7 +103,9 @@ describe('OverlaysPage', () => {
 // ---- flows: create / delete / rename / share / bookmark ---------------------
 
 function cardFor(oid: string): HTMLElement {
-  return screen.getByText(oid).closest('.acc-overlay-card') as HTMLElement;
+  return document
+    .querySelector(`a[href="/board?oid=${oid}"]`)
+    ?.closest('.acc-overlay-card') as HTMLElement;
 }
 
 describe('OverlaysPage flows', () => {
@@ -107,8 +117,9 @@ describe('OverlaysPage flows', () => {
   it('creates an overlay (trimmed description), clears the form, reloads', async () => {
     vi.mocked(api.createOverlay).mockResolvedValue({ ...OVERLAY, oid: 'nueva' });
     renderWithI18n(<OverlaysPage />);
-    await waitFor(() => expect(screen.getByText('liga')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
 
+    fireEvent.click(screen.getByRole('button', { name: /new overlay/i }));
     const inputs = screen.getAllByRole('textbox');
     fireEvent.change(inputs[0]!, { target: { value: 'nueva' } });
     fireEvent.change(inputs[1]!, { target: { value: '  Cup  ' } });
@@ -121,13 +132,14 @@ describe('OverlaysPage flows', () => {
     await waitFor(() =>
       expect(api.createOverlay).toHaveBeenCalledWith('nueva', { description: 'Cup' }),
     );
-    await waitFor(() => expect(screen.getByText('nueva')).toBeInTheDocument());
-    expect((screen.getAllByRole('textbox')[0] as HTMLInputElement).value).toBe('');
+    await waitFor(() => expect(screen.getByText('ID: nueva')).toBeInTheDocument());
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
   it('rejects an invalid oid inline without calling the API', async () => {
     renderWithI18n(<OverlaysPage />);
-    await waitFor(() => expect(screen.getByText('liga')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /new overlay/i }));
     fireEvent.change(screen.getAllByRole('textbox')[0]!, { target: { value: 'bad name!' } });
     fireEvent.click(screen.getByRole('button', { name: /add overlay/i }));
     await waitFor(() => expect(document.querySelector('.acc-error')).not.toBeNull());
@@ -139,22 +151,24 @@ describe('OverlaysPage flows', () => {
       new ApiError(400, 'dup', 'You already have an overlay with that id.'),
     );
     renderWithI18n(<OverlaysPage />);
-    await waitFor(() => expect(screen.getByText('liga')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /new overlay/i }));
     fireEvent.change(screen.getAllByRole('textbox')[0]!, { target: { value: 'liga' } });
     fireEvent.click(screen.getByRole('button', { name: /add overlay/i }));
     await waitFor(() =>
       expect(screen.getByText('You already have an overlay with that id.')).toBeInTheDocument(),
     );
-    expect(screen.getByText('liga')).toBeInTheDocument();
+    expect(screen.getByText('ID: liga')).toBeInTheDocument();
   });
 
   it('deletes after confirmation and reloads to the empty state', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.mocked(api.deleteOverlay).mockResolvedValue(undefined as never);
     renderWithI18n(<OverlaysPage />);
-    await waitFor(() => expect(screen.getByText('liga')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
 
     vi.mocked(api.getOverlays).mockResolvedValue([]);
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /more actions/i }));
     fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /delete/i }));
     await waitFor(() => expect(api.deleteOverlay).toHaveBeenCalledWith('liga'));
     confirmSpy.mockRestore();
@@ -163,7 +177,8 @@ describe('OverlaysPage flows', () => {
   it('does not delete when the confirm is declined', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     renderWithI18n(<OverlaysPage />);
-    await waitFor(() => expect(screen.getByText('liga')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /more actions/i }));
     fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /delete/i }));
     await waitFor(() => expect(confirmSpy).toHaveBeenCalled());
     expect(api.deleteOverlay).not.toHaveBeenCalled();
@@ -173,9 +188,10 @@ describe('OverlaysPage flows', () => {
   it('saves a new description from the rename panel', async () => {
     vi.mocked(api.updateOverlay).mockResolvedValue({ ...OVERLAY, description: 'Renamed' });
     renderWithI18n(<OverlaysPage />);
-    await waitFor(() => expect(screen.getByText('liga')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
 
-    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /edit settings/i }));
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /more actions/i }));
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /edit name/i }));
     const panelInput = screen.getByDisplayValue('Liga Local');
     fireEvent.change(panelInput, { target: { value: 'Renamed' } });
     fireEvent.click(screen.getByRole('button', { name: /save settings/i }));
@@ -188,9 +204,9 @@ describe('OverlaysPage flows', () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.mocked(api.regenerateControlToken).mockResolvedValue(OVERLAY);
     renderWithI18n(<OverlaysPage />);
-    await waitFor(() => expect(screen.getByText('liga')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole('button', { name: /liga/i }));
+    fireEvent.click(screen.getByRole('button', { name: /links and settings/i }));
     fireEvent.click(screen.getByRole('button', { name: /regenerate/i }));
     await waitFor(() => expect(api.regenerateControlToken).toHaveBeenCalledWith('liga'));
     expect(confirmSpy).toHaveBeenCalled();
@@ -201,9 +217,9 @@ describe('OverlaysPage flows', () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.mocked(api.updateOverlay).mockResolvedValue({ ...OVERLAY, public_control: true });
     renderWithI18n(<OverlaysPage />);
-    await waitFor(() => expect(screen.getByText('liga')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole('button', { name: /liga/i }));
+    fireEvent.click(screen.getByRole('button', { name: /links and settings/i }));
     vi.mocked(api.getOverlays).mockResolvedValue([
       { ...OVERLAY, public_control: true, public_control_url: 'https://x/board?u=me&oid=liga' },
     ]);
@@ -211,7 +227,7 @@ describe('OverlaysPage flows', () => {
     await waitFor(() =>
       expect(api.updateOverlay).toHaveBeenCalledWith('liga', { public_control: true }),
     );
-    await waitFor(() => expect(screen.getByText('Bookmark on')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Permanent link on')).toBeInTheDocument());
     confirmSpy.mockRestore();
   });
 

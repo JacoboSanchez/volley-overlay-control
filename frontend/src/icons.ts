@@ -53,6 +53,8 @@ export const LITERAL_ICONS = [
   'image',
   'light_mode',
   'logout',
+  'more_vert',
+  'open_in_new',
   'play_arrow',
   'podcasts',
   'radio_button_unchecked',
