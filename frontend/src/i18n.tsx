@@ -1,6 +1,15 @@
-import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  type ReactNode,
+} from 'react';
 
 import { translations } from './i18n/translations';
+import { getScopedItem, setScopedItem, useStorageScope } from './storage/ScopedStorage';
 
 export type TranslateParams = Record<string, string | number>;
 export type Translate = (key: string, params?: TranslateParams) => string;
@@ -23,7 +32,7 @@ export const LANGUAGE_NAMES: Record<string, string> = {
   de: 'Deutsch',
 };
 
-const STORAGE_KEY = 'volley_lang';
+const STORAGE_NAME = 'lang';
 
 function translate(lang: string, key: string, params?: TranslateParams): string {
   let str = translations[lang]?.[key] ?? translations.en?.[key] ?? key;
@@ -35,9 +44,9 @@ function translate(lang: string, key: string, params?: TranslateParams): string 
   return str;
 }
 
-function detectInitialLang(): string {
+function detectInitialLang(scope: ReturnType<typeof useStorageScope>): string {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = getScopedItem(scope, STORAGE_NAME);
     if (saved && translations[saved]) return saved;
   } catch (e) {
     console.warn('Failed to read language setting:', e);
@@ -50,16 +59,24 @@ function detectInitialLang(): string {
 const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<string>(detectInitialLang);
+  const storageScope = useStorageScope();
+  const [lang, setLang] = useState<string>(() => detectInitialLang(storageScope));
 
-  const setLanguage = useCallback((l: string) => {
-    setLang(l);
-    try {
-      localStorage.setItem(STORAGE_KEY, l);
-    } catch (e) {
-      console.warn('Failed to save language setting:', e);
-    }
-  }, []);
+  useEffect(() => {
+    setLang(detectInitialLang(storageScope));
+  }, [storageScope]);
+
+  const setLanguage = useCallback(
+    (l: string) => {
+      setLang(l);
+      try {
+        setScopedItem(storageScope, STORAGE_NAME, l);
+      } catch (e) {
+        console.warn('Failed to save language setting:', e);
+      }
+    },
+    [storageScope],
+  );
 
   const t = useCallback<Translate>((key, params) => translate(lang, key, params), [lang]);
 

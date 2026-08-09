@@ -40,6 +40,7 @@ import AppDialogs from './components/AppDialogs';
 import PointTypePicker from './components/PointTypePicker';
 import ErrorBoundary from './components/ErrorBoundary';
 import { asString } from './utils/coerce';
+import { setScopedItem, useStorageScope } from './storage/ScopedStorage';
 
 // Stable identity so the momentum strip's memo doesn't churn while the
 // preview is showing and the strip is not rendered at all.
@@ -63,12 +64,14 @@ export default function App({
   const { toast } = useToast();
   const appConfig = useAppConfig();
   const { settings, setSetting } = useSettings();
+  const storageScope = useStorageScope();
   const { isPortrait, buttonSize, hasRoomForPersistentControls } = useOrientation();
 
   const [activeTab, setActiveTab] = useState<'scoreboard' | 'config'>('scoreboard');
   const { oid, setOid, oidInput, setOidInput, handleInit, handleLogout } = useOidSession({
     onLogout: useCallback(() => setActiveTab('scoreboard'), []),
     initialOid: controlToken,
+    storageScope,
   });
 
   // In-place board switch (owner mode, from the config panel's
@@ -138,14 +141,14 @@ export default function App({
       // hijack a later owner visit to /board.
       if (!isCapabilityMode) {
         try {
-          localStorage.setItem('volley_oid', oid);
+          setScopedItem(storageScope, 'oid', oid);
         } catch (e) {
           console.warn('Failed to save OID:', e);
         }
       }
       initialize();
     }
-  }, [oid, initialize, isCapabilityMode]);
+  }, [oid, initialize, isCapabilityMode, storageScope]);
 
   useOverlayLocaleSync({ oid, lang, customization, refreshCustomization });
 

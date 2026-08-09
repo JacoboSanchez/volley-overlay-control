@@ -27,6 +27,12 @@ archive by hand.
 
 ### Changed
 
+- **Browser preferences and the recent overlay are isolated by account.**
+  Language, board workflow settings, recent colours and the last owner OID now
+  use the authenticated user id as their local-storage namespace. Existing
+  unscoped values migrate once to the first account that reads them; later
+  accounts start independently. Control links and public bookmarks use a
+  separate guest namespace and no storage key contains their credential.
 - **Overlay background work now uses one bounded, process-wide executor.**
   Creating or evicting a game session no longer creates or shuts down a
   private five-thread pool. Tasks remain FIFO within each per-user overlay
