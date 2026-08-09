@@ -19,6 +19,7 @@ vi.mock('../api/http', () => ({
 
 vi.mock('../api/board', () => ({
   initSession: vi.fn(),
+  getState: vi.fn(),
   getCustomization: vi.fn(),
   addPoint: vi.fn(),
   addSet: vi.fn(),
@@ -44,6 +45,8 @@ vi.mock('../api/websocket', () => ({
 import type { GameState } from '../api/board';
 
 const mockState = {
+  revision: 3,
+  controller_count: 1,
   team_1: { sets: 0, scores: { set_1: 0 } },
   team_2: { sets: 0, scores: { set_1: 0 } },
   visible: true,
@@ -66,6 +69,7 @@ describe('useGameState', () => {
     mockWs = { close: vi.fn(), onclose: null, onerror: null };
     vi.mocked(ws.createWebSocket).mockReturnValue(mockWs as unknown as WebSocket);
     vi.mocked(api.initSession).mockResolvedValue({ success: true, state: mockState });
+    vi.mocked(api.getState).mockResolvedValue(mockState);
     vi.mocked(api.getCustomization).mockResolvedValue(mockCustomization);
     vi.mocked(api.getAudit).mockResolvedValue({
       oid: 'ws-oid',
@@ -157,6 +161,44 @@ describe('useGameState', () => {
     expect(ws.createWebSocket).toHaveBeenCalledWith('ws-oid', expect.any(Object));
   });
 
+  it('tracks aggregate controller presence from the WebSocket', async () => {
+    const { result } = renderHook(() => useGameState('ws-oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    expect(result.current.controllerCount).toBe(1);
+    const handlers = vi.mocked(ws.createWebSocket).mock.calls.at(-1)![1];
+    act(() => {
+      handlers.onPresenceUpdate?.(2, [
+        { client_id: 'tab-main-a', label: null },
+        { client_id: 'tab-main-b', label: 'Auxiliar' },
+      ]);
+    });
+    expect(result.current.controllerCount).toBe(2);
+  });
+
+  it('accepts a lower revision when switching to a different board', async () => {
+    const high = { ...mockState, revision: 20 } as unknown as GameState;
+    const low = { ...mockState, revision: 1 } as unknown as GameState;
+    vi.mocked(api.initSession).mockResolvedValueOnce({ success: true, state: high });
+
+    const { result, rerender } = renderHook(({ oid }) => useGameState(oid), {
+      initialProps: { oid: 'board-a' },
+    });
+    await act(async () => {
+      await result.current.initialize();
+    });
+    expect(result.current.state?.revision).toBe(20);
+
+    vi.mocked(api.initSession).mockResolvedValueOnce({ success: true, state: low });
+    rerender({ oid: 'board-b' });
+    await act(async () => {
+      await result.current.initialize();
+    });
+    expect(result.current.state?.revision).toBe(1);
+  });
+
   it('re-reads the audit log when the socket opens, including the first open', async () => {
     // The feed's mount fetch races the handshake: this socket does not
     // exist yet while that read is in flight, so an action from another
@@ -213,7 +255,7 @@ describe('useGameState', () => {
       await result.current.actions.addPoint(1);
     });
 
-    expect(api.addPoint).toHaveBeenCalledWith('oid', 1, false, undefined, undefined);
+    expect(api.addPoint).toHaveBeenCalledWith('oid', 1, false, undefined, undefined, 3);
     expect(result.current.state).toEqual(updatedState);
   });
 
@@ -273,7 +315,7 @@ describe('useGameState', () => {
       await result.current.actions.addPoint(2, true);
     });
 
-    expect(api.addPoint).toHaveBeenCalledWith('oid', 2, true, undefined, undefined);
+    expect(api.addPoint).toHaveBeenCalledWith('oid', 2, true, undefined, undefined, 3);
   });
 
   it('action sets error on exception', async () => {
@@ -309,6 +351,100 @@ describe('useGameState', () => {
     expect(result.current.error).toBe('Set already finished.');
   });
 
+  it('reloads authoritative state after a revision conflict', async () => {
+    const latest = {
+      ...mockState,
+      revision: 4,
+      team_2: { ...mockState.team_2, scores: { set_1: 1 } },
+    } as unknown as GameState;
+    vi.mocked(api.addPoint).mockRejectedValue(
+      new ApiError(409, 'conflict', 'state_revision_conflict'),
+    );
+    vi.mocked(api.getState).mockResolvedValue(latest);
+
+    const { result } = renderHook(() => useGameState('oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    await act(async () => {
+      const response = await result.current.actions.addPoint(1);
+      expect(response).toMatchObject({ success: false, state: latest });
+    });
+
+    expect(api.getState).toHaveBeenCalledWith('oid');
+    expect(result.current.state).toEqual(latest);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('does not let an older HTTP acknowledgement overwrite a newer WS state', async () => {
+    const httpState = { ...mockState, revision: 4 } as unknown as GameState;
+    const wsState = {
+      ...mockState,
+      revision: 5,
+      team_2: { ...mockState.team_2, scores: { set_1: 2 } },
+    } as unknown as GameState;
+    let resolveAction: (value: { success: true; state: GameState }) => void = () => {};
+    vi.mocked(api.addPoint).mockReturnValue(
+      new Promise((resolve) => {
+        resolveAction = resolve;
+      }),
+    );
+
+    const { result } = renderHook(() => useGameState('oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+    const handlers = vi.mocked(ws.createWebSocket).mock.calls.at(-1)![1];
+
+    let actionPromise: Promise<unknown> = Promise.resolve();
+    act(() => {
+      actionPromise = result.current.actions.addPoint(1);
+      handlers.onStateUpdate?.(wsState);
+    });
+    await act(async () => {
+      resolveAction({ success: true, state: httpState });
+      await actionPromise;
+    });
+
+    expect(result.current.state).toEqual(wsState);
+    expect(result.current.confirmedState).toEqual(wsState);
+  });
+
+  it('serializes same-tab mutations so intentional sequences do not self-conflict', async () => {
+    const afterPoint = { ...mockState, revision: 4 } as unknown as GameState;
+    const afterSimple = { ...afterPoint, revision: 5, simple_mode: true } as unknown as GameState;
+    let resolvePoint: (value: { success: true; state: GameState }) => void = () => {};
+    vi.mocked(api.addPoint).mockReturnValue(
+      new Promise((resolve) => {
+        resolvePoint = resolve;
+      }),
+    );
+    vi.mocked(api.setSimpleMode).mockResolvedValue({ success: true, state: afterSimple });
+
+    const { result } = renderHook(() => useGameState('oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    let pointPromise: Promise<unknown> = Promise.resolve();
+    let simplePromise: Promise<unknown> = Promise.resolve();
+    act(() => {
+      pointPromise = result.current.actions.addPoint(1);
+      simplePromise = result.current.actions.setSimpleMode(true);
+    });
+    expect(api.setSimpleMode).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolvePoint({ success: true, state: afterPoint });
+      await pointPromise;
+      await simplePromise;
+    });
+
+    expect(api.setSimpleMode).toHaveBeenCalledWith('oid', true, 4);
+    expect(result.current.state).toEqual(afterSimple);
+  });
+
   it('reset action calls api.resetGame', async () => {
     vi.mocked(api.resetGame).mockResolvedValue({ success: true, state: mockState });
     const { result } = renderHook(() => useGameState('oid'));
@@ -320,7 +456,7 @@ describe('useGameState', () => {
       await result.current.actions.reset();
     });
 
-    expect(api.resetGame).toHaveBeenCalledWith('oid');
+    expect(api.resetGame).toHaveBeenCalledWith('oid', 3);
   });
 
   it('undoLast action calls api.undoLast', async () => {
@@ -334,7 +470,7 @@ describe('useGameState', () => {
       await result.current.actions.undoLast();
     });
 
-    expect(api.undoLast).toHaveBeenCalledWith('oid');
+    expect(api.undoLast).toHaveBeenCalledWith('oid', 3);
   });
 
   it('startMatch action calls api.startMatch', async () => {
@@ -348,7 +484,7 @@ describe('useGameState', () => {
       await result.current.actions.startMatch();
     });
 
-    expect(api.startMatch).toHaveBeenCalledWith('oid');
+    expect(api.startMatch).toHaveBeenCalledWith('oid', 3);
   });
 
   it('setVisibility action calls api', async () => {
@@ -362,7 +498,7 @@ describe('useGameState', () => {
       await result.current.actions.setVisibility(false);
     });
 
-    expect(api.setVisibility).toHaveBeenCalledWith('oid', false);
+    expect(api.setVisibility).toHaveBeenCalledWith('oid', false, 3);
   });
 
   it('refreshCustomization fetches new customization without re-init', async () => {

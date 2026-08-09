@@ -21,6 +21,8 @@ import type { ConfigModel } from './TeamCard';
 export interface ConfigPanelProps {
   oid: string;
   customization: ConfigModel | null | undefined;
+  /** Last authoritative revision rendered by the board. */
+  stateRevision?: number | undefined;
   /**
    * Live ``state.config`` from useGameState. Used by the
    * MatchRulesSection; ``null`` while the WebSocket is still
@@ -77,6 +79,7 @@ export interface ConfigPanelProps {
 export default function ConfigPanel({
   oid,
   customization,
+  stateRevision,
   gameConfig,
   autoSwapSides = null,
   onBack,
@@ -132,7 +135,8 @@ export default function ConfigPanel({
     clearError: clearSaveError,
   } = useAsyncAction(
     async () => {
-      await updateCustomization(oid, model);
+      if (stateRevision === undefined) await updateCustomization(oid, model);
+      else await updateCustomization(oid, model, stateRevision);
       // Before awaiting the refresh below: the panel must commit clean as
       // early as possible so an immediate Back press doesn't prompt.
       // Staying in the panel is deliberate — the "Saved ✓" status is the
@@ -161,6 +165,7 @@ export default function ConfigPanel({
         options={options}
         settings={settings}
         setSetting={setSetting}
+        stateRevision={stateRevision}
         gameConfig={gameConfig}
         autoSwapSides={autoSwapSides}
         onShowShortcuts={onShowShortcuts}
@@ -176,6 +181,7 @@ export default function ConfigPanel({
       options,
       settings,
       setSetting,
+      stateRevision,
       gameConfig,
       autoSwapSides,
       onShowShortcuts,

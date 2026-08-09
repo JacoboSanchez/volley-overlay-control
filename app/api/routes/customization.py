@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app import presets_service
-from app.api.dependencies import get_session
+from app.api.dependencies import get_mutation_session, get_session
 from app.api.game_service import GameService
 from app.api.pagination import PAGINATED_RESPONSES, Page, PageDep, with_total
 from app.api.schemas import (
@@ -56,11 +56,10 @@ async def get_customization(
 )
 async def update_customization(
     data: CustomizationUpdateRequest,
-    session: GameSession = Depends(get_session),
+    session: GameSession = Depends(get_mutation_session),
 ) -> ActionResponse:
-    async with session.lock:
-        logger.debug("Customization updated (%d keys)", len(data.root))
-        return GameService.update_customization(session, data.root)
+    logger.debug("Customization updated (%d keys)", len(data.root))
+    return GameService.update_customization(session, data.root)
 
 
 # ---------------------------------------------------------------------------

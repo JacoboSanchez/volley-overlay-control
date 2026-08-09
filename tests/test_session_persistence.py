@@ -97,6 +97,7 @@ class TestGameSessionMeta:
             "mode": session.mode,
             "first_server": session.first_server,
             "selected_team_group_id": None,
+            "state_revision": 0,
         }
 
     def test_apply_meta_restores_fields(self, mock_conf):
@@ -106,11 +107,13 @@ class TestGameSessionMeta:
             "points_limit": 21,
             "points_limit_last_set": 11,
             "sets_limit": 3,
+            "state_revision": 7,
         })
         assert session.simple is True
         assert session.points_limit == 21
         assert session.points_limit_last_set == 11
         assert session.sets_limit == 3
+        assert session.state_revision == 7
 
     def test_apply_meta_ignores_invalid_values(self, mock_conf):
         session = GameSession("oid", mock_conf, _backend_for())

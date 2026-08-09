@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import time
 from typing import TYPE_CHECKING, Any, cast
@@ -20,6 +22,7 @@ from app.api.schemas import (
     ServeSwitch,
     TeamState,
 )
+from app.api.ws_hub import WSHub
 from app.customization_cache_ttl import customization_cache_ttl_seconds
 from app.env_vars_manager import EnvVarsManager
 from app.state import State
@@ -75,6 +78,44 @@ class GameStatePresenter:
                 exc_info=True,
             )
             return 0
+
+    @classmethod
+    def _apply_state_revision(
+        cls,
+        session: GameSession,
+        response: GameStateResponse,
+    ) -> None:
+        """Advance the revision iff the authoritative control state changed."""
+        payload = response.model_dump(
+            exclude={
+                "revision",
+                "server_time",
+                "obs_clients",
+                "controller_count",
+            }
+        )
+        # Customization is broadcast through the same mutation surface but is
+        # not embedded in GameStateResponse, so include it in the change token.
+        payload["customization"] = session.customization.get_model()
+        encoded = json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            default=str,
+        ).encode("utf-8")
+        fingerprint = hashlib.sha256(encoded).hexdigest()
+        changed = False
+        with session._revision_lock:
+            if session._state_fingerprint is None:
+                session._state_fingerprint = fingerprint
+            elif session._state_fingerprint != fingerprint:
+                session.state_revision += 1
+                session._state_fingerprint = fingerprint
+                changed = True
+            response.revision = session.state_revision
+        if changed:
+            session.persist_meta()
 
     @classmethod
     def _resolve_last_match_id(cls, session: GameSession) -> str | None:
@@ -220,6 +261,7 @@ class GameStatePresenter:
             )
             points_by_set_cache = None
         response = GameStateResponse(
+            revision=session.state_revision,
             current_set=session.current_set,
             visible=session.visible,
             simple_mode=session.simple,
@@ -257,8 +299,10 @@ class GameStatePresenter:
             set_summary_style=str(getattr(session, "set_summary_style", "brand_ledger")),
             server_time=time.time(),
             obs_clients=_service(cls)._obs_client_count(session),
+            controller_count=WSHub.controller_count(session.oid),
             last_match_id=(_service(cls)._resolve_last_match_id(session) if match_finished else None),
         )
+        _service(cls)._apply_state_revision(session, response)
         elapsed_ms = (time.perf_counter() - t0) * 1000
         # Misconfigured env var must not turn every /state call into a 500;
         # silently fall back to the documented default.

@@ -54,6 +54,19 @@ async def websocket_endpoint(
     control: str | None = Query(None, description="Alias of `oid` for backward compatibility"),
     c: str | None = Query(None, description="Control capability token (shareable board link)"),
     u: str | None = Query(None, description="Username for a public ?u=&oid= board URL"),
+    client_id: str | None = Query(
+        None,
+        min_length=8,
+        max_length=64,
+        pattern=r"^[A-Za-z0-9._:-]+$",
+        description="Ephemeral browser-tab id used only for presence.",
+    ),
+    client_label: str | None = Query(
+        None,
+        max_length=40,
+        pattern=r"^[^\x00-\x1f\x7f]*$",
+        description="Optional operator-supplied presence label.",
+    ),
 ) -> None:
     resolved = oid or control
     if not resolved and not c:
@@ -71,7 +84,12 @@ async def websocket_endpoint(
         return
 
     try:
-        await WSHub.connect(ws, skey)
+        await WSHub.connect(
+            ws,
+            skey,
+            client_id=client_id,
+            client_label=client_label.strip() if client_label else None,
+        )
     except WSHubFull as exc:
         # 1013 = Try Again Later. Reason stays generic so a probing client
         # cannot use the close text to enumerate which sessions are at cap.
@@ -84,6 +102,10 @@ async def websocket_endpoint(
     try:
         state_data = GameService.get_state(session).model_dump()
         await ws.send_json({"type": "state_update", "data": state_data})
+        # The new tab already has the aggregate in its initial state. Notify
+        # only the older tabs so their unobtrusive presence indicator updates
+        # without putting a redundant frame in front of the new tab's pong.
+        await WSHub.broadcast_presence(skey, exclude=ws)
 
         while True:
             data = await ws.receive_text()
@@ -97,3 +119,4 @@ async def websocket_endpoint(
         logger.exception("WebSocket error for %s", redact_oid(skey))
     finally:
         WSHub.disconnect(ws, skey)
+        await WSHub.broadcast_presence(skey)

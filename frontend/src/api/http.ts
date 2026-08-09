@@ -7,6 +7,8 @@
  * file talks to ``fetch`` directly.
  */
 
+import { clientHeaders } from './clientIdentity';
+
 const BASE_URL = '/api/v1';
 
 // Authentication is cookie-based now (HttpOnly session cookie). Requests are
@@ -83,10 +85,15 @@ export async function request<T = unknown>(
   path: string,
   body: unknown = null,
   signal?: AbortSignal,
+  extraHeaders?: Record<string, string>,
 ): Promise<T> {
   const opts: RequestInit = {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...clientHeaders(),
+      ...extraHeaders,
+    },
     credentials: 'include',
   };
   if (body !== null) {
@@ -105,7 +112,12 @@ export async function requestMultipart<T = unknown>(
   path: string,
   form: FormData,
 ): Promise<T> {
-  return send<T>(method, path, { method, body: form, credentials: 'include' });
+  return send<T>(method, path, {
+    method,
+    body: form,
+    credentials: 'include',
+    headers: clientHeaders(),
+  });
 }
 
 async function send<T>(method: HttpMethod, path: string, opts: RequestInit): Promise<T> {
@@ -170,7 +182,7 @@ export async function getPage<B>(
 ): Promise<{ body: B; total: number }> {
   const { data, response } = await sendWithResponse<B>('GET', pagedPath(path, offset), {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...clientHeaders() },
     credentials: 'include',
   });
   const header = response.headers?.get('X-Total-Count');

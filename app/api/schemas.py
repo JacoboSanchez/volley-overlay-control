@@ -384,6 +384,9 @@ class MatchPointInfo(BaseModel):
 
 
 class GameStateResponse(BaseModel):
+    # Monotonic control-state version. Mutating callers can send it back in
+    # ``X-Expected-State-Revision`` to turn an action into a conditional write.
+    revision: int = 0
     current_set: int
     visible: bool
     simple_mode: bool
@@ -447,6 +450,10 @@ class GameStateResponse(BaseModel):
     # Lets the control board show an "on-air" indicator so the operator
     # can confirm the scoreboard is actually reaching OBS/viewers.
     obs_clients: int = 0
+    # Distinct browser-tab controllers currently attached to the private
+    # control WebSocket. This is an aggregate only; presence frames carry the
+    # optional non-sensitive labels separately.
+    controller_count: int = 0
     # ``match_id`` of the report archived for the just-finished match,
     # populated only while ``match_finished`` is true so the control
     # board can offer a "View match report" link. ``None`` mid-match.

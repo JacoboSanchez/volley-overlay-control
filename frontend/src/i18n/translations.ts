@@ -49,6 +49,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Connection status
     'conn.online': 'Live updates connected',
+    'conn.controllers': '{count} controllers connected',
     'conn.reconnecting': 'Reconnecting…',
 
     // Confirmation dialogs
@@ -941,6 +942,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Connection status
     'conn.online': 'Sincronización en directo',
+    'conn.controllers': '{count} operadores conectados',
     'conn.reconnecting': 'Reconectando…',
 
     // Confirmation dialogs
@@ -1843,6 +1845,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Connection status
     'conn.online': 'Sincronização em direto',
+    'conn.controllers': '{count} operadores ligados',
     'conn.reconnecting': 'A reconectar…',
 
     // Confirmation dialogs
@@ -2737,6 +2740,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Connection status
     'conn.online': 'Sincronizzazione in diretta',
+    'conn.controllers': '{count} operatori connessi',
     'conn.reconnecting': 'Riconnessione…',
 
     // Confirmation dialogs
@@ -3630,6 +3634,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Connection status
     'conn.online': 'Synchronisation en direct',
+    'conn.controllers': '{count} opérateurs connectés',
     'conn.reconnecting': 'Reconnexion…',
 
     // Confirmation dialogs
@@ -4531,6 +4536,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Connection status
     'conn.online': 'Live-Synchronisation aktiv',
+    'conn.controllers': '{count} Bediener verbunden',
     'conn.reconnecting': 'Verbindung wird wiederhergestellt…',
 
     // Confirmation dialogs

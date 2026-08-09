@@ -16,6 +16,15 @@ archive by hand.
 
 ### Added
 
+- **Revision-safe multi-operator control and privacy-preserving presence.**
+  Every control-state response and WebSocket broadcast now carries a persisted
+  monotonic revision. Bundled-client mutations conditionally send their last
+  rendered revision; stale writes return `409 state_revision_conflict` and the
+  UI reloads authoritative state instead of silently overwriting another
+  operator. Browser tabs use ephemeral ids for an aggregate connected-
+  controller indicator and optional audit attribution. Presence and audit
+  metadata never disclose the overlay owner's account identity, while clients
+  that omit the new headers remain backward compatible.
 - **A usability, functionality and performance roadmap** now records the
   post-7.0 delivery order, user outcomes and measurable completion criteria in
   `docs/USABILITY_FUNCTIONALITY_PERFORMANCE_ROADMAP.md`.

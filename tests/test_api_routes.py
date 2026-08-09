@@ -67,6 +67,21 @@ class TestSessionInit:
         # The second init should NOT re-validate the OID (short-circuit path).
         fake_backend_cls.validate_and_store_model_for_oid.assert_not_called()
 
+    def test_state_revision_does_not_go_backwards_after_session_rebuild(
+        self, client, fake_backend_cls,
+    ):
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        changed = client.post(
+            "/api/v1/game/add-point?oid=abc",
+            json={"team": 1},
+            headers={"X-Expected-State-Revision": "0"},
+        ).json()["state"]
+        SessionManager.remove(_skey(client, "abc"))
+
+        rebuilt = client.post("/api/v1/session/init", json={"oid": "abc"}).json()["state"]
+
+        assert rebuilt["revision"] >= changed["revision"]
+
     def test_init_invalid_oid_returns_error(self, client):
         with patch("app.api.routes.session.Backend") as backend_cls:
             inst = backend_cls.return_value
@@ -96,7 +111,8 @@ class TestGameRoutes:
         assert r.status_code == 404
 
     def test_add_point_with_session(self, client, fake_backend_cls):
-        client.post("/api/v1/session/init", json={"oid": "abc"})
+        initial = client.post("/api/v1/session/init", json={"oid": "abc"}).json()["state"]
+        assert initial["revision"] == 0
         r = client.post(
             "/api/v1/game/add-point?oid=abc",
             json={"team": 1},
@@ -105,6 +121,64 @@ class TestGameRoutes:
         body = r.json()
         assert body["success"] is True
         assert body["state"]["team_1"]["scores"]["set_1"] == 1
+        assert body["state"]["revision"] == 1
+
+    def test_stale_revision_is_rejected_without_mutating(self, client, fake_backend_cls):
+        initial = client.post("/api/v1/session/init", json={"oid": "abc"}).json()["state"]
+        headers = {
+            "X-Expected-State-Revision": str(initial["revision"]),
+            "X-Client-ID": "tab-score-table-a",
+        }
+
+        first = client.post(
+            "/api/v1/game/add-point?oid=abc",
+            json={"team": 1},
+            headers=headers,
+        )
+        assert first.status_code == 200
+        assert first.json()["state"]["revision"] == initial["revision"] + 1
+
+        stale = client.post(
+            "/api/v1/game/add-point?oid=abc",
+            json={"team": 1},
+            headers=headers,
+        )
+        assert stale.status_code == 409
+        assert stale.json()["detail"] == "state_revision_conflict"
+        assert stale.headers["X-State-Revision"] == str(initial["revision"] + 1)
+
+        current = client.get("/api/v1/state?oid=abc").json()
+        assert current["team_1"]["scores"]["set_1"] == 1
+        assert current["revision"] == initial["revision"] + 1
+
+    def test_mutation_without_revision_remains_backward_compatible(self, client, fake_backend_cls):
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        first = client.post("/api/v1/game/add-point?oid=abc", json={"team": 1})
+        second = client.post("/api/v1/game/add-point?oid=abc", json={"team": 1})
+
+        assert first.status_code == second.status_code == 200
+        assert second.json()["state"]["team_1"]["scores"]["set_1"] == 2
+
+    def test_audit_attributes_ephemeral_client_not_owner(self, client, fake_backend_cls):
+        from app.api import action_log
+
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        response = client.post(
+            "/api/v1/game/add-point?oid=abc",
+            json={"team": 1},
+            headers={
+                "X-Expected-State-Revision": "0",
+                "X-Client-ID": "tab-score-table-a",
+                "X-Client-Label": "Mesa principal",
+            },
+        )
+        assert response.status_code == 200
+
+        params = action_log.read_all(_skey(client, "abc"))[-1]["params"]
+        assert params["client_id"] == "tab-score-table-a"
+        assert params["client_label"] == "Mesa principal"
+        assert "username" not in params
+        assert "user_id" not in params
 
     def test_start_match_arms_timer(self, client, fake_backend_cls):
         client.post("/api/v1/session/init", json={"oid": "abc"})
@@ -118,6 +192,7 @@ class TestGameRoutes:
         # Idempotent: second call leaves the original anchor in place.
         r2 = client.post("/api/v1/game/start-match?oid=abc")
         assert r2.json()["state"]["match_started_at"] == anchor
+        assert r2.json()["state"]["revision"] == body["state"]["revision"]
 
     def test_add_point_records_point_type(self, client, fake_backend_cls):
         from app.api import action_log
@@ -198,10 +273,33 @@ class TestWebSocketRoute:
 
     def test_ws_receives_initial_state(self, client, fake_backend_cls):
         client.post("/api/v1/session/init", json={"oid": "abc"})
-        with client.websocket_connect("/api/v1/ws?oid=abc") as ws:
+        with client.websocket_connect("/api/v1/ws?oid=abc&client_id=tab-main-a") as ws:
             msg = ws.receive_json()
             assert msg["type"] == "state_update"
             assert msg["data"]["current_set"] == 1
+            assert msg["data"]["revision"] == 0
+            assert msg["data"]["controller_count"] == 1
+
+    def test_ws_broadcasts_aggregate_presence(self, client, fake_backend_cls):
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        with client.websocket_connect("/api/v1/ws?oid=abc&client_id=tab-main-a") as ws1:
+            ws1.receive_json()
+            with client.websocket_connect(
+                "/api/v1/ws?oid=abc&client_id=tab-main-b&client_label=Auxiliar",
+            ) as ws2:
+                initial_second = ws2.receive_json()
+                assert initial_second["data"]["controller_count"] == 2
+                joined = ws1.receive_json()
+                assert joined["type"] == "presence_update"
+                assert joined["data"]["controller_count"] == 2
+                assert {item["client_id"] for item in joined["data"]["clients"]} == {
+                    "tab-main-a",
+                    "tab-main-b",
+                }
+                assert all("username" not in item for item in joined["data"]["clients"])
+            left = ws1.receive_json()
+            assert left["type"] == "presence_update"
+            assert left["data"]["controller_count"] == 1
 
     def test_ws_pong(self, client, fake_backend_cls):
         client.post("/api/v1/session/init", json={"oid": "abc"})
@@ -230,6 +328,7 @@ class TestWSHubBroadcast:
                 client.websocket_connect("/api/v1/ws?oid=abc") as ws2:
             ws1.receive_json()  # initial
             ws2.receive_json()  # initial
+            ws1.receive_json()  # presence update after ws2 joined
 
             # Trigger a state change via HTTP → handler broadcasts via WSHub.
             r = client.post(
@@ -577,5 +676,9 @@ class TestWSHubHeartbeat:
         assert healthy in WSHub._connections["oid-mix"]
         assert zombie not in WSHub._connections["oid-mix"]
         zombie.close.assert_called_once()
-        healthy.send_text.assert_called_once_with('{"type":"ping"}')
+        assert healthy.send_text.await_args_list[0].args == ('{"type":"ping"}',)
+        assert any(
+            '"type":"presence_update"' in call.args[0]
+            for call in healthy.send_text.await_args_list[1:]
+        )
         WSHub.clear()

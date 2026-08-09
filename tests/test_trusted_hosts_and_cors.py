@@ -183,7 +183,8 @@ def test_cors_preflight_passes_through(monkeypatch):
             "Origin": "https://control.example.com",
             "Access-Control-Request-Method": "GET",
             "Access-Control-Request-Headers": (
-                "Authorization, traceparent, tracestate"
+                "Authorization, traceparent, tracestate, X-Client-ID, "
+                "X-Client-Label, X-Expected-State-Revision"
             ),
         },
     )
@@ -196,6 +197,23 @@ def test_cors_preflight_passes_through(monkeypatch):
     ).lower()
     assert "traceparent" in res.headers["access-control-allow-headers"].lower()
     assert "tracestate" in res.headers["access-control-allow-headers"].lower()
+    allowed = res.headers["access-control-allow-headers"].lower()
+    assert "x-client-id" in allowed
+    assert "x-client-label" in allowed
+    assert "x-expected-state-revision" in allowed
+
+
+def test_cors_exposes_current_revision_header(monkeypatch):
+    app = _build_app(
+        monkeypatch, cors_origins=["https://control.example.com"],
+    )
+    response = TestClient(app).get(
+        "/health",
+        headers={"Origin": "https://control.example.com"},
+    )
+
+    exposed = response.headers["access-control-expose-headers"].lower()
+    assert "x-state-revision" in exposed
 
 
 @pytest.fixture(autouse=True)

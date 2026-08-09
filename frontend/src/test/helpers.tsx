@@ -24,6 +24,8 @@ export function renderWithI18n(ui: ReactElement, options: Omit<RenderOptions, 'w
 }
 
 export const mockGameState: GameState = {
+  revision: 3,
+  controller_count: 1,
   team_1: {
     sets: 1,
     timeouts: 1,

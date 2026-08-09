@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from starlette.concurrency import run_in_threadpool
 
 from app import overlays_service
-from app.api.dependencies import BoardAccess, board_access, get_session
+from app.api.dependencies import BoardAccess, board_access, get_mutation_session
 from app.api.game_service import GameService
 from app.api.routes.lifespan import get_init_lock
 from app.api.schemas import ActionResponse, InitRequest, SetRulesRequest
@@ -111,7 +111,7 @@ async def init_session(
 )
 async def set_rules(
     req: SetRulesRequest,
-    session: GameSession = Depends(get_session),
+    session: GameSession = Depends(get_mutation_session),
 ) -> ActionResponse:
     """Update match-rule preset for the session.
 
@@ -122,12 +122,11 @@ async def set_rules(
     in the same call still win, so the UI can switch modes and
     keep one custom limit in a single request.
     """
-    async with session.lock:
-        return GameService.set_rules(
-            session,
-            mode=req.mode,
-            points_limit=req.points_limit,
-            points_limit_last_set=req.points_limit_last_set,
-            sets_limit=req.sets_limit,
-            reset_to_defaults=req.reset_to_defaults,
-        )
+    return GameService.set_rules(
+        session,
+        mode=req.mode,
+        points_limit=req.points_limit,
+        points_limit_last_set=req.points_limit_last_set,
+        sets_limit=req.sets_limit,
+        reset_to_defaults=req.reset_to_defaults,
+    )

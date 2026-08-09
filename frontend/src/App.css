@@ -3750,6 +3750,18 @@ body {
   animation: connection-pulse 1.4s ease-in-out infinite;
 }
 
+.connection-status-presence {
+  background: color-mix(in srgb, var(--panel) 92%, var(--blue) 8%);
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--blue) 45%, var(--border));
+  box-shadow: 0 2px 6px var(--shadow);
+}
+
+.connection-status-presence .material-icons {
+  color: var(--blue);
+  font-size: 1rem;
+}
+
 .connection-status-offline .material-icons {
   font-size: 1rem;
 }

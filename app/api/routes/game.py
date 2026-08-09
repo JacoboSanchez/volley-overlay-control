@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends
 
-from app.api.dependencies import get_session
+from app.api.dependencies import get_mutation_session
 from app.api.game_service import GameService
 from app.api.schemas import (
     ActionResponse,
@@ -22,12 +22,11 @@ router = APIRouter()
     response_model=ActionResponse,
 )
 async def add_point(req: AddPointRequest,
-                    session: GameSession = Depends(get_session)) -> ActionResponse:
-    async with session.lock:
-        return GameService.add_point(
-            session, req.team, req.undo,
-            point_type=req.point_type, error_type=req.error_type,
-        )
+                    session: GameSession = Depends(get_mutation_session)) -> ActionResponse:
+    return GameService.add_point(
+        session, req.team, req.undo,
+        point_type=req.point_type, error_type=req.error_type,
+    )
 
 
 @router.post(
@@ -35,9 +34,8 @@ async def add_point(req: AddPointRequest,
     response_model=ActionResponse,
 )
 async def add_set(req: TeamActionRequest,
-                  session: GameSession = Depends(get_session)) -> ActionResponse:
-    async with session.lock:
-        return GameService.add_set(session, req.team, req.undo)
+                  session: GameSession = Depends(get_mutation_session)) -> ActionResponse:
+    return GameService.add_set(session, req.team, req.undo)
 
 
 @router.post(
@@ -45,9 +43,8 @@ async def add_set(req: TeamActionRequest,
     response_model=ActionResponse,
 )
 async def add_timeout(req: TeamActionRequest,
-                      session: GameSession = Depends(get_session)) -> ActionResponse:
-    async with session.lock:
-        return GameService.add_timeout(session, req.team, req.undo)
+                      session: GameSession = Depends(get_mutation_session)) -> ActionResponse:
+    return GameService.add_timeout(session, req.team, req.undo)
 
 
 @router.post(
@@ -55,9 +52,8 @@ async def add_timeout(req: TeamActionRequest,
     response_model=ActionResponse,
 )
 async def change_serve(req: ServeRequest,
-                       session: GameSession = Depends(get_session)) -> ActionResponse:
-    async with session.lock:
-        return GameService.change_serve(session, req.team)
+                       session: GameSession = Depends(get_mutation_session)) -> ActionResponse:
+    return GameService.change_serve(session, req.team)
 
 
 @router.post(
@@ -65,9 +61,8 @@ async def change_serve(req: ServeRequest,
     response_model=ActionResponse,
 )
 async def set_score(req: SetScoreRequest,
-                    session: GameSession = Depends(get_session)) -> ActionResponse:
-    async with session.lock:
-        return GameService.set_score(session, req.team, req.set_number, req.value)
+                    session: GameSession = Depends(get_mutation_session)) -> ActionResponse:
+    return GameService.set_score(session, req.team, req.set_number, req.value)
 
 
 @router.post(
@@ -75,18 +70,16 @@ async def set_score(req: SetScoreRequest,
     response_model=ActionResponse,
 )
 async def set_sets(req: SetSetsRequest,
-                   session: GameSession = Depends(get_session)) -> ActionResponse:
-    async with session.lock:
-        return GameService.set_sets_value(session, req.team, req.value)
+                   session: GameSession = Depends(get_mutation_session)) -> ActionResponse:
+    return GameService.set_sets_value(session, req.team, req.value)
 
 
 @router.post(
     "/game/reset",
     response_model=ActionResponse,
 )
-async def reset_game(session: GameSession = Depends(get_session)) -> ActionResponse:
-    async with session.lock:
-        return GameService.reset(session)
+async def reset_game(session: GameSession = Depends(get_mutation_session)) -> ActionResponse:
+    return GameService.reset(session)
 
 
 @router.post(
@@ -94,14 +87,13 @@ async def reset_game(session: GameSession = Depends(get_session)) -> ActionRespo
     response_model=ActionResponse,
     summary="Arm the match-start timer without scoring a point",
 )
-async def start_match(session: GameSession = Depends(get_session)) -> ActionResponse:
+async def start_match(session: GameSession = Depends(get_mutation_session)) -> ActionResponse:
     """Stamps ``match_started_at`` with the current wallclock if the
     match isn't already armed. Idempotent — a second call leaves the
     original anchor in place. The HUD timer / report duration / undo
     flow all read this field downstream.
     """
-    async with session.lock:
-        return GameService.start_match(session)
+    return GameService.start_match(session)
 
 
 @router.post(
@@ -109,11 +101,10 @@ async def start_match(session: GameSession = Depends(get_session)) -> ActionResp
     response_model=ActionResponse,
     summary="Reverse the most recent undoable action",
 )
-async def undo_last(session: GameSession = Depends(get_session)) -> ActionResponse:
+async def undo_last(session: GameSession = Depends(get_mutation_session)) -> ActionResponse:
     """Pops the most recent forward ``add_point`` / ``add_set`` /
     ``add_timeout`` from the audit log and applies the inverse via
     ``undo=True``. Returns ``success=false`` with message
     ``"Nothing to undo."`` when the log has no eligible entry.
     """
-    async with session.lock:
-        return GameService.undo_last(session)
+    return GameService.undo_last(session)

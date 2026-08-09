@@ -6,6 +6,8 @@ import { InstantHint } from './fields';
 
 export interface MatchRulesSectionProps {
   oid: string;
+  /** Last authoritative board revision used as a conditional-write guard. */
+  expectedRevision?: number | undefined;
   /**
    * Live values pulled from ``state.config``. The component renders
    * controlled inputs around them, so it always reflects what the
@@ -45,6 +47,7 @@ const MODE_ICONS: Record<api.MatchMode, string> = {
 
 export default function MatchRulesSection({
   oid,
+  expectedRevision,
   mode,
   pointsLimit,
   pointsLimitLastSet,
@@ -69,7 +72,8 @@ export default function MatchRulesSection({
     pending,
     error,
   } = useAsyncAction<[api.SetRulesPayload]>(async (payload) => {
-    await api.setRules(oid, payload);
+    if (expectedRevision === undefined) await api.setRules(oid, payload);
+    else await api.setRules(oid, payload, expectedRevision);
     onChanged?.();
   });
 
@@ -155,7 +159,11 @@ export default function MatchRulesSection({
           onChange={(e) => {
             void (async () => {
               try {
-                await api.setAutoSwapSides(oid, e.target.checked);
+                if (expectedRevision === undefined) {
+                  await api.setAutoSwapSides(oid, e.target.checked);
+                } else {
+                  await api.setAutoSwapSides(oid, e.target.checked, expectedRevision);
+                }
                 onChanged?.();
               } catch {
                 /* surfaced by the next state poll */

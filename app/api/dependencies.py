@@ -20,6 +20,7 @@ action pays a second identical token lookup.
 """
 
 import logging
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from functools import partial
 
@@ -173,3 +174,46 @@ def get_session(
             detail="No active session for this board. Call POST /api/v1/session/init first.",
         )
     return session
+
+
+async def get_mutation_session(
+    session: GameSession = Depends(get_session),
+    expected_revision: int | None = Header(
+        None,
+        alias="X-Expected-State-Revision",
+        ge=0,
+        description="Apply only when the current game-state revision matches.",
+    ),
+    client_id: str | None = Header(
+        None,
+        alias="X-Client-ID",
+        min_length=8,
+        max_length=64,
+        pattern=r"^[A-Za-z0-9._:-]+$",
+        description="Ephemeral browser-tab id for audit attribution.",
+    ),
+    client_label: str | None = Header(
+        None,
+        alias="X-Client-Label",
+        max_length=40,
+        pattern=r"^[^\x00-\x1f\x7f]*$",
+        description="Optional operator-supplied display label; never account identity.",
+    ),
+) -> AsyncIterator[GameSession]:
+    """Lock one mutation, reject stale conditional writes and bind its caller."""
+    async with session.lock:
+        if expected_revision is not None and expected_revision != session.state_revision:
+            raise HTTPException(
+                status_code=409,
+                detail="state_revision_conflict",
+                headers={"X-State-Revision": str(session.state_revision)},
+            )
+        previous_id = session.mutation_client_id
+        previous_label = session.mutation_client_label
+        session.mutation_client_id = client_id
+        session.mutation_client_label = client_label.strip() if client_label else None
+        try:
+            yield session
+        finally:
+            session.mutation_client_id = previous_id
+            session.mutation_client_label = previous_label

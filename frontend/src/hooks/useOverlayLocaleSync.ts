@@ -18,11 +18,13 @@ export function useOverlayLocaleSync({
   oid,
   lang,
   customization,
+  expectedRevision,
   refreshCustomization,
 }: {
   oid: string;
   lang: string;
   customization: Customization | null;
+  expectedRevision?: number | undefined;
   refreshCustomization: () => void;
 }): void {
   const lastAttemptedLocaleRef = useRef<string | null>(null);
@@ -33,11 +35,14 @@ export function useOverlayLocaleSync({
     if (customizationLocale === lang) return;
     if (lastAttemptedLocaleRef.current === attemptKey) return;
     lastAttemptedLocaleRef.current = attemptKey;
-    api
-      .updateCustomization(oid, { locale: lang })
+    const update =
+      expectedRevision === undefined
+        ? api.updateCustomization(oid, { locale: lang })
+        : api.updateCustomization(oid, { locale: lang }, expectedRevision);
+    update
       .then(() => refreshCustomization())
       .catch((e) => {
         console.warn('Failed to sync overlay locale:', e);
       });
-  }, [oid, lang, customizationLocale, refreshCustomization]);
+  }, [oid, lang, customizationLocale, expectedRevision, refreshCustomization]);
 }

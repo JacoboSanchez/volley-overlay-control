@@ -711,6 +711,13 @@ The server closes with `4400` when neither `oid` nor `c` is supplied,
 `4003` when the credential does not resolve, and `4004` when that board
 has no active session.
 
+`client_id` and the optional `client_label` may also appear on the control-WS
+query for aggregate operator presence. They are untrusted presentation
+metadata, not credentials, and never change the storage key or authorization
+result. The equivalent REST metadata (`X-Client-ID`, `X-Client-Label`) and the
+concurrency precondition `X-Expected-State-Revision` likewise grant no access
+and are evaluated only after the normal board credential has resolved.
+
 > **Removed in the multi-user refactor:** the old
 > ``Sec-WebSocket-Protocol: bearer, <token>`` / ``Authorization:
 > Bearer`` / ``?token=`` ladder is gone — the same-origin cookie makes

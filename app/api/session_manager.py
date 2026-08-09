@@ -98,6 +98,17 @@ class GameSession:
         # match is finished, so the control board can link straight to the
         # report. In-memory only — falls back to a DB lookup after a restart.
         self.last_match_id: str | None = None
+        # Monotonic version of the control state. It is persisted so a process
+        # restart cannot make a freshly reconnected client observe a lower
+        # revision than it held before the restart. ``_state_fingerprint`` is
+        # process-local and established by the first presenter pass.
+        self.state_revision: int = 0
+        self._state_fingerprint: str | None = None
+        self._revision_lock = threading.Lock()
+        # Ephemeral caller metadata bound by the mutation dependency while it
+        # owns ``self.lock``. Never derived from the owner account.
+        self.mutation_client_id: str | None = None
+        self.mutation_client_label: str | None = None
         # Match-rule preset (``'indoor'`` or ``'beach'``). Persisted in
         # session_meta. Drives the beach side-switch indicator and the
         # "reset to defaults" affordance in the new MatchRulesSection.
@@ -218,6 +229,7 @@ class GameSession:
                 int(self.selected_team_group_id)
                 if self.selected_team_group_id is not None else None
             ),
+            "state_revision": int(self.state_revision),
         }
 
     def apply_meta(self, meta: dict[str, Any]) -> None:
@@ -267,6 +279,12 @@ class GameSession:
                     self.selected_team_group_id = int(raw)
                 except (TypeError, ValueError):
                     pass
+        revision = meta.get("state_revision")
+        if revision is not None:
+            try:
+                self.state_revision = max(0, int(revision))
+            except (TypeError, ValueError):
+                pass
 
     def _restore_optional_float(self, meta: dict[str, Any], key: str) -> None:
         """Restore an optional ``float | None`` attribute from *meta*.

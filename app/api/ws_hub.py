@@ -1,8 +1,10 @@
 import asyncio
 import json
 import logging
+import secrets
 import time
 from collections.abc import Callable, Coroutine
+from dataclasses import dataclass
 from typing import Any
 
 from fastapi import WebSocket
@@ -16,6 +18,14 @@ from app.constants import (
 from app.metrics import set_ws_gauges
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class ControllerPresence:
+    """Non-sensitive identity supplied by one browser tab."""
+
+    client_id: str
+    label: str | None = None
 
 
 class WSHubFull(Exception):
@@ -53,6 +63,7 @@ class WSHub:
     # by ``connect`` and bumped by the endpoint on every received frame
     # so the heartbeat loop can tell zombies from healthy idle clients.
     _last_seen: dict[WebSocket, float] = {}
+    _presence: dict[WebSocket, ControllerPresence] = {}
     # Background heartbeat task (created by ``start_heartbeat``).
     _heartbeat_task: asyncio.Task[None] | None = None
     # The application's event loop, captured at startup. The sync broadcast
@@ -67,8 +78,15 @@ class WSHub:
     _MAX_CLIENTS_PER_OID = WSHUB_MAX_CLIENTS_PER_OID
 
     @classmethod
-    async def connect(cls, ws: WebSocket, oid: str, *,
-                      subprotocol: str | None = None) -> None:
+    async def connect(
+        cls,
+        ws: WebSocket,
+        oid: str,
+        *,
+        subprotocol: str | None = None,
+        client_id: str | None = None,
+        client_label: str | None = None,
+    ) -> None:
         """Accept *ws* and register it under *oid*.
 
         Raises :class:`WSHubFull` (without ``accept``-ing) when the OID
@@ -96,6 +114,10 @@ class WSHub:
             await ws.accept()
         cls._connections.setdefault(oid, set()).add(ws)
         cls._last_seen[ws] = time.monotonic()
+        cls._presence[ws] = ControllerPresence(
+            client_id=client_id or f"legacy-{secrets.token_urlsafe(9)}",
+            label=client_label or None,
+        )
         cls._refresh_gauges()
         logger.debug(
             "WS client connected for OID=%s (total=%d)",
@@ -105,6 +127,24 @@ class WSHub:
     def connection_count(cls, oid: str) -> int:
         """Return the number of frontend WS clients subscribed to *oid*."""
         return len(cls._connections.get(oid, ()))
+
+    @classmethod
+    def presence(cls, oid: str) -> list[ControllerPresence]:
+        """Distinct browser tabs connected to *oid*, sorted for stable frames."""
+        distinct: dict[str, ControllerPresence] = {}
+        for ws in cls._connections.get(oid, ()):
+            item = cls._presence.get(ws)
+            if item is None:
+                item = ControllerPresence(
+                    client_id=f"legacy-{secrets.token_urlsafe(9)}",
+                )
+                cls._presence[ws] = item
+            distinct[item.client_id] = item
+        return sorted(distinct.values(), key=lambda item: item.client_id)
+
+    @classmethod
+    def controller_count(cls, oid: str) -> int:
+        return len(cls.presence(oid))
 
     @classmethod
     def mark_active(cls, ws: WebSocket) -> None:
@@ -136,6 +176,7 @@ class WSHub:
             if not conns:
                 del cls._connections[oid]
         cls._last_seen.pop(ws, None)
+        cls._presence.pop(ws, None)
         cls._refresh_gauges()
         logger.debug("WS client disconnected for OID=%s", oid)
 
@@ -145,7 +186,14 @@ class WSHub:
     _BROADCAST_SEND_TIMEOUT = WS_BROADCAST_SEND_TIMEOUT_SECONDS
 
     @classmethod
-    async def _broadcast_text(cls, oid: str, message: str) -> None:
+    async def _broadcast_text(
+        cls,
+        oid: str,
+        message: str,
+        *,
+        exclude: WebSocket | None = None,
+        notify_presence: bool = True,
+    ) -> None:
         """Send the pre-serialized *message* to every client for *oid*.
 
         Sends run concurrently with a per-socket timeout so a single stuck
@@ -156,7 +204,9 @@ class WSHub:
         if not conns:
             return
 
-        targets = list(conns)
+        targets = [ws for ws in conns if ws is not exclude]
+        if not targets:
+            return
 
         async def _send(ws: WebSocket) -> WebSocket | None:
             try:
@@ -178,6 +228,7 @@ class WSHub:
             if ws is not None:
                 conns.discard(ws)
                 cls._last_seen.pop(ws, None)
+                cls._presence.pop(ws, None)
                 evicted_any = True
         # Only drop the OID entry if the registry still holds *our* set.
         # A concurrent ``disconnect`` could have removed it and a concurrent
@@ -188,6 +239,8 @@ class WSHub:
             evicted_any = True
         if evicted_any:
             cls._refresh_gauges()
+            if notify_presence:
+                await cls.broadcast_presence(oid)
 
     @classmethod
     async def broadcast(
@@ -212,6 +265,35 @@ class WSHub:
         """
         message = '{"type":"state_update","data":' + payload_json + '}'
         await cls._broadcast_text(oid, message)
+
+    @classmethod
+    async def broadcast_presence(
+        cls,
+        oid: str,
+        *,
+        exclude: WebSocket | None = None,
+    ) -> None:
+        """Broadcast aggregate controller presence without account identity."""
+        clients = cls.presence(oid)
+        message = json.dumps(
+            {
+                "type": "presence_update",
+                "data": {
+                    "controller_count": len(clients),
+                    "clients": [
+                        {"client_id": item.client_id, "label": item.label}
+                        for item in clients
+                    ],
+                },
+            },
+            separators=(",", ":"),
+        )
+        await cls._broadcast_text(
+            oid,
+            message,
+            exclude=exclude,
+            notify_presence=False,
+        )
 
     @classmethod
     async def broadcast_audit(
@@ -310,6 +392,7 @@ class WSHub:
         """Remove all connections (for testing)."""
         cls._connections.clear()
         cls._last_seen.clear()
+        cls._presence.clear()
         cls._refresh_gauges()
 
     # ----- Heartbeat (opt-in via WSHUB_HEARTBEAT_INTERVAL_SECONDS > 0) ---
@@ -399,8 +482,10 @@ class WSHub:
 
         # Apply bookkeeping: every zombie disconnects, every healthy
         # client that failed the ping is also evicted.
+        presence_changed: set[str] = set()
         for oid, ws in zombies:
             cls.disconnect(ws, oid)
+            presence_changed.add(oid)
         for (oid, ws), ok in zip(healthy, ping_results, strict=False):
             if ok is True:
                 continue
@@ -411,6 +496,9 @@ class WSHub:
             except Exception:  # nosec B110
                 pass
             cls.disconnect(ws, oid)
+            presence_changed.add(oid)
+        for oid in presence_changed:
+            await cls.broadcast_presence(oid)
 
     @classmethod
     async def _heartbeat_loop(cls, interval: float) -> None:

@@ -238,12 +238,20 @@ def _maybe_register_cors(application: FastAPI) -> None:
             "Content-Type",
             "traceparent",
             "tracestate",
+            "X-Client-ID",
+            "X-Client-Label",
+            "X-Expected-State-Revision",
             "X-Request-ID",
             "Sec-WebSocket-Protocol",
         ],
         # Paginated listings report the full in-scope total here; a
         # cross-origin SPA cannot read it unless it is explicitly exposed.
-        expose_headers=["traceparent", "X-Request-ID", "X-Total-Count"],
+        expose_headers=[
+            "traceparent",
+            "X-Request-ID",
+            "X-State-Revision",
+            "X-Total-Count",
+        ],
     )
     logger.info(
         "CORSMiddleware enabled (origins=%s)",

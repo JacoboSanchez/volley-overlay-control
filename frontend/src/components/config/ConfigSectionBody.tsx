@@ -28,6 +28,7 @@ export interface ConfigSectionBodyProps {
   options: ConfigOptions;
   settings: Settings;
   setSetting: SetSetting;
+  stateRevision?: number | undefined;
   /** Live ``state.config`` from useGameState; ``null`` while connecting. */
   gameConfig?: Record<string, unknown> | null | undefined;
   autoSwapSides?: boolean | null | undefined;
@@ -47,6 +48,7 @@ export default function ConfigSectionBody({
   options,
   settings,
   setSetting,
+  stateRevision,
   gameConfig,
   autoSwapSides = null,
   onShowShortcuts,
@@ -110,6 +112,7 @@ export default function ConfigSectionBody({
       return (
         <MatchRulesSection
           oid={oid}
+          expectedRevision={stateRevision}
           autoSwapSides={autoSwapSides}
           mode={(gameConfig?.mode as MatchMode | undefined) ?? null}
           pointsLimit={(gameConfig?.points_limit as number | undefined) ?? null}

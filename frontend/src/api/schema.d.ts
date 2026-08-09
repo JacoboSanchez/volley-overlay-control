@@ -2164,6 +2164,11 @@ export interface components {
             config: {
                 [key: string]: unknown;
             };
+            /**
+             * Controller Count
+             * @default 0
+             */
+            controller_count: number;
             /** Current Set */
             current_set: number;
             /** Current Set Started At */
@@ -2182,6 +2187,11 @@ export interface components {
              * @default 0
              */
             obs_clients: number;
+            /**
+             * Revision
+             * @default 0
+             */
+            revision: number;
             /** Serve */
             serve: string;
             serve_switch?: components["schemas"]["ServeSwitch"] | null;
@@ -4484,6 +4494,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };
@@ -4635,6 +4651,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };
@@ -4682,6 +4704,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };
@@ -4729,6 +4757,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };
@@ -4776,6 +4810,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };
@@ -4823,6 +4863,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };
@@ -4870,6 +4916,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };
@@ -4917,6 +4969,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };
@@ -4964,6 +5022,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };
@@ -5011,6 +5075,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };
@@ -5058,6 +5128,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };
@@ -5105,6 +5181,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };
@@ -5148,6 +5230,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };
@@ -5195,6 +5283,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };
@@ -5242,6 +5336,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };
@@ -5285,6 +5385,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };
@@ -6300,6 +6406,12 @@ export interface operations {
                 c?: string | null;
             };
             header?: {
+                /** @description Apply only when the current game-state revision matches. */
+                "X-Expected-State-Revision"?: number | null;
+                /** @description Ephemeral browser-tab id for audit attribution. */
+                "X-Client-ID"?: string | null;
+                /** @description Optional operator-supplied display label; never account identity. */
+                "X-Client-Label"?: string | null;
                 /** @description Control capability token (alternative to ?c=) */
                 "x-control-token"?: string | null;
             };

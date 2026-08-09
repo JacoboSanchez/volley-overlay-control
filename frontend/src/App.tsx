@@ -123,6 +123,7 @@ export default function App({
     confirmedState,
     customization,
     connected,
+    controllerCount,
     error,
     errorStatus,
     initialize,
@@ -150,7 +151,13 @@ export default function App({
     }
   }, [oid, initialize, isCapabilityMode, storageScope]);
 
-  useOverlayLocaleSync({ oid, lang, customization, refreshCustomization });
+  useOverlayLocaleSync({
+    oid,
+    lang,
+    customization,
+    expectedRevision: state?.revision,
+    refreshCustomization,
+  });
 
   // The operator just pressed Save in the config panel, so a failed
   // read-back is worth interrupting for: the panel would otherwise keep
@@ -523,7 +530,7 @@ export default function App({
   if (!state || !boardState) {
     return (
       <div className="app-container">
-        <ConnectionStatus connected={connected} />
+        <ConnectionStatus connected={connected} controllerCount={controllerCount} />
         <ScoreboardSkeleton isPortrait={isPortrait} />
       </div>
     );
@@ -531,7 +538,7 @@ export default function App({
 
   return (
     <div className="app-container" {...swipeHandlers}>
-      <ConnectionStatus connected={connected} />
+      <ConnectionStatus connected={connected} controllerCount={controllerCount} />
       {activeTab === 'scoreboard' && (
         <ErrorBoundary>
           <BoardContextProvider
@@ -550,6 +557,7 @@ export default function App({
           <ConfigPanel
             oid={oid}
             customization={customization}
+            stateRevision={state?.revision}
             gameConfig={state?.config ?? null}
             autoSwapSides={state?.auto_swap_sides ?? null}
             onBack={() => setActiveTab('scoreboard')}

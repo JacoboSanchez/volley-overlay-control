@@ -17,6 +17,12 @@ import { apiErrorMessage } from './useAsyncAction';
 
 type Customization = Record<string, unknown>;
 
+interface QueuedMutation {
+  run: () => Promise<ActionResponse>;
+  resolve: (response: ActionResponse) => void;
+  reject: (error: unknown) => void;
+}
+
 // Optimistic prediction of the next state after a successful addPoint. The
 // scoring team gains one point and takes the serve; the server later sends the
 // authoritative state via HTTP response and WebSocket broadcast. Undo actions
@@ -104,6 +110,8 @@ export interface UseGameStateResult {
   confirmedState: GameState | null;
   customization: Customization | null;
   connected: boolean;
+  /** Distinct browser-tab controllers currently attached to this board. */
+  controllerCount: number;
   error: string | null;
   /** HTTP status behind ``error`` when it came from an ApiError (null for
    *  network failures and non-HTTP errors) — lets consumers distinguish a
@@ -137,12 +145,16 @@ export function useGameState(
   const [confirmedState, setConfirmedState] = useState<GameState | null>(null);
   const [customization, setCustomization] = useState<Customization | null>(null);
   const [connected, setConnected] = useState<boolean>(false);
+  const [controllerCount, setControllerCount] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempts = useRef<number>(0);
   const abortRef = useRef<AbortController | null>(null);
+  const activeOidRef = useRef<string | null>(null);
+  const mutationQueueRef = useRef<QueuedMutation[]>([]);
+  const mutationRunningRef = useRef(false);
   // Mirror of `state` used by handleAction so it can synchronously snapshot
   // the current state and apply an optimistic update without relying on an
   // impure setState updater. Updated eagerly on every state write.
@@ -151,8 +163,22 @@ export function useGameState(
   const { onAppend: onAuditAppend, onInvalidate: onAuditInvalidate, onResync } = audit;
 
   const applyState = useCallback((next: GameState | null, confirmed: boolean = true) => {
+    const currentRevision = stateRef.current?.revision;
+    const nextRevision = next?.revision;
+    // An HTTP acknowledgement can race a newer remote WS push. Never let the
+    // older response roll the board back after another controller advanced it.
+    if (
+      typeof currentRevision === 'number' &&
+      typeof nextRevision === 'number' &&
+      nextRevision < currentRevision
+    ) {
+      return;
+    }
     stateRef.current = next;
     setState(next);
+    if (next && typeof next.controller_count === 'number') {
+      setControllerCount(next.controller_count);
+    }
     // ``confirmedState`` deliberately excludes optimistic writes so cache
     // keys derived from it (e.g. the recent-events refetch trigger) do
     // not advance until the server has acknowledged the change. Without
@@ -199,6 +225,7 @@ export function useGameState(
       onCustomizationUpdate: (newCust) => setCustomization(newCust),
       onAuditAppend,
       onAuditInvalidate,
+      onPresenceUpdate: (count) => setControllerCount(count),
       onOpen: () => {
         // Successful handshake: reset the backoff so the next outage
         // starts retrying quickly again.
@@ -217,6 +244,7 @@ export function useGameState(
       },
       onClose: (event) => {
         setConnected(false);
+        setControllerCount(0);
         // Application-level close codes (4xxx) are terminal: bad request
         // (4400), invalid/revoked credentials (4003) or no session (4004).
         // Reconnecting would just re-fail forever, so stop and surface why.
@@ -241,11 +269,23 @@ export function useGameState(
 
   const initialize = useCallback(async () => {
     if (!oid) {
+      activeOidRef.current = null;
       applyState(null);
       setCustomization(null);
       setConnected(false);
+      setControllerCount(0);
       setError(null);
       return;
+    }
+    // Revisions are monotonic per board, not globally. Clear the previous
+    // board before its revision can make the first snapshot for this OID look
+    // stale and therefore be discarded by ``applyState``.
+    if (activeOidRef.current !== oid) {
+      activeOidRef.current = oid;
+      applyState(null);
+      setConfirmedState(null);
+      setCustomization(null);
+      setControllerCount(0);
     }
     if (abortRef.current) {
       abortRef.current.abort();
@@ -286,6 +326,7 @@ export function useGameState(
 
   useEffect(() => {
     return () => {
+      activeOidRef.current = null;
       closeWs();
       if (abortRef.current) {
         abortRef.current.abort();
@@ -294,69 +335,127 @@ export function useGameState(
     };
   }, [oid, closeWs]);
 
+  const drainMutationQueue = useCallback(() => {
+    if (mutationRunningRef.current) return;
+    mutationRunningRef.current = true;
+
+    void (async () => {
+      while (mutationQueueRef.current.length > 0) {
+        const queued = mutationQueueRef.current.shift();
+        if (!queued) continue;
+        try {
+          queued.resolve(await queued.run());
+        } catch (queueError) {
+          queued.reject(queueError);
+        }
+      }
+      mutationRunningRef.current = false;
+    })();
+  }, []);
+
   const handleAction = useCallback(
-    async (
-      actionFn: (oid: string) => Promise<ActionResponse>,
+    (
+      actionFn: (oid: string, expectedRevision?: number) => Promise<ActionResponse>,
       optimisticUpdater?: (prev: GameState) => GameState,
     ): Promise<ActionResponse> => {
-      // Single narrowing point for the whole action surface: every action
-      // needs an overlay id, so checking here lets the callbacks below take
-      // a plain ``string`` instead of asserting a nullable one 14 times.
-      // Without a board there is nothing to act on — report it like any
-      // other rejected action rather than throwing.
       if (!oid) {
-        return { success: false, message: 'No overlay session' };
+        return Promise.resolve({ success: false, message: 'No overlay session' });
       }
-      // Capture the snapshot synchronously from the ref (not from an impure
-      // setState updater) so rollback is reliable even if actionFn rejects
-      // before React processes the update.
-      const snapshot = stateRef.current;
-      const shouldApplyOptimistic = Boolean(optimisticUpdater && snapshot);
-      if (shouldApplyOptimistic && snapshot && optimisticUpdater) {
-        applyState(optimisticUpdater(snapshot), false);
-      }
-      try {
-        const res = await actionFn(oid);
-        if (res.success && res.state) {
-          applyState(res.state);
-        } else if (!res.success && shouldApplyOptimistic) {
-          applyState(snapshot, false);
+      const actionOid = oid;
+      const run = async (): Promise<ActionResponse> => {
+        // A board switch cancels work still queued for the previous board. An
+        // already in-flight response is likewise ignored below.
+        if (activeOidRef.current !== actionOid) {
+          return { success: false, message: 'Board changed before action was sent.' };
         }
-        return res;
-      } catch (e) {
-        if (shouldApplyOptimistic) {
-          applyState(snapshot, false);
+        // Snapshot at execution time, after all earlier actions from this tab
+        // acknowledged. Intentional sequences therefore cannot conflict with
+        // themselves while remote controllers still get proper protection.
+        const snapshot = stateRef.current;
+        const shouldApplyOptimistic = Boolean(optimisticUpdater && snapshot);
+        if (shouldApplyOptimistic && snapshot && optimisticUpdater) {
+          applyState(optimisticUpdater(snapshot), false);
         }
-        const message = apiErrorMessage(e, e instanceof Error ? e.message : String(e));
-        setError(message);
-        setErrorStatus(e instanceof ApiError ? e.status : null);
-        return { success: false, message };
-      }
+        try {
+          const expectedRevision = snapshot?.revision;
+          const res = await actionFn(actionOid, expectedRevision);
+          if (activeOidRef.current !== actionOid) return res;
+          if (res.success && res.state) {
+            applyState(res.state);
+          } else if (!res.success && shouldApplyOptimistic) {
+            applyState(snapshot, false);
+          }
+          return res;
+        } catch (e) {
+          if (activeOidRef.current !== actionOid) {
+            return { success: false, message: 'Board changed while action was in flight.' };
+          }
+          if (shouldApplyOptimistic) {
+            applyState(snapshot, false);
+          }
+          if (e instanceof ApiError && e.status === 409 && e.detail === 'state_revision_conflict') {
+            try {
+              const latest = await api.getState(actionOid);
+              if (activeOidRef.current === actionOid) applyState(latest);
+              return {
+                success: false,
+                state: latest,
+                message: 'Another controller changed the scoreboard. Latest state loaded.',
+              };
+            } catch (refreshError) {
+              const message = apiErrorMessage(
+                refreshError,
+                refreshError instanceof Error ? refreshError.message : String(refreshError),
+              );
+              setError(message);
+              setErrorStatus(refreshError instanceof ApiError ? refreshError.status : null);
+              return { success: false, message };
+            }
+          }
+          const message = apiErrorMessage(e, e instanceof Error ? e.message : String(e));
+          setError(message);
+          setErrorStatus(e instanceof ApiError ? e.status : null);
+          return { success: false, message };
+        }
+      };
+
+      return new Promise<ActionResponse>((resolve, reject) => {
+        mutationQueueRef.current.push({ run, resolve, reject });
+        drainMutationQueue();
+      });
     },
-    [oid, applyState],
+    [oid, applyState, drainMutationQueue],
   );
 
   const actions = useMemo<GameActions>(
     () => ({
       addPoint: (team, undo = false, pointType, errorType) =>
         handleAction(
-          (id) => api.addPoint(id, team, undo, pointType, errorType),
+          (id, revision) => api.addPoint(id, team, undo, pointType, errorType, revision),
           undo ? undefined : (prev) => optimisticAddPoint(prev, team),
         ),
-      addSet: (team, undo = false) => handleAction((id) => api.addSet(id, team, undo)),
-      addTimeout: (team, undo = false) => handleAction((id) => api.addTimeout(id, team, undo)),
-      changeServe: (team) => handleAction((id) => api.changeServe(id, team)),
+      addSet: (team, undo = false) =>
+        handleAction((id, revision) => api.addSet(id, team, undo, revision)),
+      addTimeout: (team, undo = false) =>
+        handleAction((id, revision) => api.addTimeout(id, team, undo, revision)),
+      changeServe: (team) => handleAction((id, revision) => api.changeServe(id, team, revision)),
       setScore: (team, setNumber, value) =>
-        handleAction((id) => api.setScore(id, team, setNumber, value)),
-      setSets: (team, value) => handleAction((id) => api.setSets(id, team, value)),
-      reset: () => handleAction((id) => api.resetGame(id)),
-      setVisibility: (visible) => handleAction((id) => api.setVisibility(id, visible)),
-      setSimpleMode: (enabled) => handleAction((id) => api.setSimpleMode(id, enabled)),
-      setSetSummary: (enabled) => handleAction((id) => api.setSetSummary(id, enabled)),
-      setSwapSides: (swapped) => handleAction((id) => api.setSwapSides(id, swapped)),
-      setSetSummaryStyle: (style) => handleAction((id) => api.setSetSummaryStyle(id, style)),
-      undoLast: () => handleAction((id) => api.undoLast(id)),
-      startMatch: () => handleAction((id) => api.startMatch(id)),
+        handleAction((id, revision) => api.setScore(id, team, setNumber, value, revision)),
+      setSets: (team, value) =>
+        handleAction((id, revision) => api.setSets(id, team, value, revision)),
+      reset: () => handleAction((id, revision) => api.resetGame(id, revision)),
+      setVisibility: (visible) =>
+        handleAction((id, revision) => api.setVisibility(id, visible, revision)),
+      setSimpleMode: (enabled) =>
+        handleAction((id, revision) => api.setSimpleMode(id, enabled, revision)),
+      setSetSummary: (enabled) =>
+        handleAction((id, revision) => api.setSetSummary(id, enabled, revision)),
+      setSwapSides: (swapped) =>
+        handleAction((id, revision) => api.setSwapSides(id, swapped, revision)),
+      setSetSummaryStyle: (style) =>
+        handleAction((id, revision) => api.setSetSummaryStyle(id, style, revision)),
+      undoLast: () => handleAction((id, revision) => api.undoLast(id, revision)),
+      startMatch: () => handleAction((id, revision) => api.startMatch(id, revision)),
     }),
     [handleAction],
   );
@@ -388,6 +487,7 @@ export function useGameState(
     confirmedState,
     customization,
     connected,
+    controllerCount,
     error,
     errorStatus,
     initialize,

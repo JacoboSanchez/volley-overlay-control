@@ -6,12 +6,12 @@ operator problem, the intended change, and a measurable completion criterion.
 
 ## Delivery order
 
-The first implementation sequence is:
+The first implementation sequence is complete on the development branch:
 
-1. Make match-history browsing genuinely scalable.
-2. Replace per-scoreboard worker pools with one bounded shared executor.
-3. Isolate browser preferences and the last-opened overlay by account.
-4. Add state revisions and operator presence as the concurrency foundation for
+1. ✅ Make match-history browsing genuinely scalable.
+2. ✅ Replace per-scoreboard worker pools with one bounded shared executor.
+3. ✅ Isolate browser preferences and the last-opened overlay by account.
+4. ✅ Add state revisions and operator presence as the concurrency foundation for
    safe degraded/offline scoring.
 
 The remaining proposals stay in the backlog until those foundations have

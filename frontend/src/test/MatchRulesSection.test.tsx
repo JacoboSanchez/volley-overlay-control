@@ -66,6 +66,28 @@ describe('MatchRulesSection', () => {
     });
   });
 
+  it('guards a rules mutation with the rendered state revision', async () => {
+    renderWithI18n(
+      <MatchRulesSection
+        oid="my-oid"
+        expectedRevision={9}
+        mode="indoor"
+        pointsLimit={25}
+        pointsLimitLastSet={15}
+        setsLimit={5}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('rules-mode-beach'));
+
+    await waitFor(() => {
+      expect(mockedSetRules).toHaveBeenCalledWith(
+        'my-oid',
+        { mode: 'beach', reset_to_defaults: true },
+        9,
+      );
+    });
+  });
+
   it('changing the sets selector posts only sets_limit', async () => {
     renderWithI18n(
       <MatchRulesSection

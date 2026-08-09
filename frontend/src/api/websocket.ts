@@ -5,6 +5,7 @@
 import type { AuditRecord, GameState } from './board';
 import { getControlToken, getPublicUser } from './http';
 import { WS_PING_INTERVAL_MS } from '../constants';
+import { getClientId, getClientLabel } from './clientIdentity';
 
 export interface StateUpdateMessage {
   type: 'state_update';
@@ -32,8 +33,20 @@ export interface AuditInvalidateMessage {
   data: { version: number; record: null };
 }
 
+export interface PresenceUpdateMessage {
+  type: 'presence_update';
+  data: {
+    controller_count: number;
+    clients: Array<{ client_id: string; label: string | null }>;
+  };
+}
+
 export type OverlayMessage =
-  StateUpdateMessage | CustomizationUpdateMessage | AuditAppendMessage | AuditInvalidateMessage;
+  | StateUpdateMessage
+  | CustomizationUpdateMessage
+  | AuditAppendMessage
+  | AuditInvalidateMessage
+  | PresenceUpdateMessage;
 
 export interface CreateWebSocketHandlers {
   onStateUpdate?: (data: GameState) => void;
@@ -42,6 +55,10 @@ export interface CreateWebSocketHandlers {
   onAuditAppend?: (version: number, record: AuditRecord) => void;
   /** The audit log must be re-read. See ``AuditInvalidateMessage``. */
   onAuditInvalidate?: (version: number) => void;
+  onPresenceUpdate?: (
+    controllerCount: number,
+    clients: Array<{ client_id: string; label: string | null }>,
+  ) => void;
   onOpen?: () => void;
   onClose?: (event: CloseEvent) => void;
   onError?: (event: Event) => void;
@@ -54,6 +71,7 @@ export function createWebSocket(
     onCustomizationUpdate,
     onAuditAppend,
     onAuditInvalidate,
+    onPresenceUpdate,
     onOpen,
     onClose,
     onError,
@@ -69,6 +87,9 @@ export function createWebSocket(
   if (token) query = `c=${encodeURIComponent(token)}`;
   else if (user) query = `u=${encodeURIComponent(user)}&oid=${encodeURIComponent(oid)}`;
   else query = `oid=${encodeURIComponent(oid)}`;
+  query += `&client_id=${encodeURIComponent(getClientId())}`;
+  const clientLabel = getClientLabel();
+  if (clientLabel) query += `&client_label=${encodeURIComponent(clientLabel)}`;
   const url = `${protocol}//${host}/api/v1/ws?${query}`;
 
   const ws = new WebSocket(url);
@@ -109,6 +130,8 @@ export function createWebSocket(
         onAuditAppend?.(msg.data.version, msg.data.record);
       } else if (msg.type === 'audit_invalidate') {
         onAuditInvalidate?.(msg.data.version);
+      } else if (msg.type === 'presence_update') {
+        onPresenceUpdate?.(msg.data.controller_count, msg.data.clients);
       }
     } catch {
       // ignore non-JSON messages
