@@ -138,6 +138,58 @@ describe('OverlaysPage', () => {
     expect(screen.getByText('Cup final')).toBeInTheDocument();
   });
 
+  it('normalizes search independently from the browser locale', async () => {
+    const localeLower = vi
+      .spyOn(String.prototype, 'toLocaleLowerCase')
+      .mockImplementation(function (this: string) {
+        return this.toString().replaceAll('I', 'ı').toLowerCase();
+      });
+    vi.mocked(api.getOverlays).mockResolvedValue([
+      overlay('final', 'FINAL'),
+      overlay('beta', 'Beta'),
+      overlay('cup', 'Cup'),
+      overlay('league', 'League'),
+      overlay('north', 'North'),
+      overlay('south', 'South'),
+    ]);
+    renderWithI18n(<OverlaysPage />);
+
+    const search = await screen.findByRole('searchbox', { name: /search overlays/i });
+    fireEvent.change(search, { target: { value: 'final' } });
+
+    expect(screen.getByText('FINAL')).toBeInTheDocument();
+    localeLower.mockRestore();
+  });
+
+  it('keeps active filters visible when the list drops below the tools threshold', async () => {
+    const initial = [
+      overlay('alpha', 'Court one'),
+      overlay('beta', 'Court two'),
+      overlay('cup', 'Cup'),
+      overlay('league', 'League'),
+      overlay('north', 'North'),
+      overlay('south', 'South'),
+    ];
+    vi.mocked(api.getOverlays).mockResolvedValue(initial);
+    vi.mocked(api.deleteOverlay).mockResolvedValue(undefined as never);
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderWithI18n(<OverlaysPage />);
+
+    const search = await screen.findByRole('searchbox', { name: /search overlays/i });
+    fireEvent.change(search, { target: { value: 'court' } });
+    expect(screen.getByText('2 of 6')).toBeInTheDocument();
+
+    vi.mocked(api.getOverlays).mockResolvedValue(initial.filter((item) => item.oid !== 'alpha'));
+    fireEvent.click(within(cardFor('alpha')).getByRole('button', { name: /more actions/i }));
+    fireEvent.click(within(cardFor('alpha')).getByRole('button', { name: /delete/i }));
+
+    await waitFor(() => expect(api.deleteOverlay).toHaveBeenCalledWith('alpha'));
+    await waitFor(() => expect(screen.getByText('1 of 5')).toBeInTheDocument());
+    expect(screen.getByRole('searchbox', { name: /search overlays/i })).toHaveValue('court');
+    expect(screen.getByText('Court two')).toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
   it('sorts favorites first and can show only favorites', async () => {
     vi.mocked(api.getOverlays).mockResolvedValue([
       overlay('alpha', 'Alpha'),

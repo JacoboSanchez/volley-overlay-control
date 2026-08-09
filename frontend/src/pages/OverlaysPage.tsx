@@ -39,15 +39,16 @@ export default function OverlaysPage() {
 
   const favoriteCount = overlays.filter((overlay) => overlay.is_favorite).length;
   const visibleOverlays = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase();
+    const needle = query.trim().toLowerCase();
     return overlays
       .filter((overlay) => {
         if (favoritesOnly && !overlay.is_favorite) return false;
         if (!needle) return true;
-        return `${overlay.description ?? ''}\n${overlay.oid}`.toLocaleLowerCase().includes(needle);
+        return `${overlay.description ?? ''}\n${overlay.oid}`.toLowerCase().includes(needle);
       })
       .sort((a, b) => Number(b.is_favorite) - Number(a.is_favorite) || a.oid.localeCompare(b.oid));
   }, [favoritesOnly, overlays, query]);
+  const filtersActive = query.trim().length > 0 || favoritesOnly;
 
   // Removing the final favorite should not strand the user on an empty,
   // apparently broken list.
@@ -190,7 +191,7 @@ export default function OverlaysPage() {
         <EmptyState>{t('acc.overlays.empty')}</EmptyState>
       ) : (
         <>
-          {overlays.length >= OVERLAY_TOOLS_THRESHOLD && (
+          {(overlays.length >= OVERLAY_TOOLS_THRESHOLD || filtersActive) && (
             <div className="acc-overlay-toolbar">
               <label className="acc-overlay-search">
                 <span className="material-icons" aria-hidden="true">
