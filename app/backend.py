@@ -16,7 +16,7 @@ from app.overlay_backends import (
     OverlayKind,
     resolve_overlay_kind,
 )
-from app.overlay_executor import get_overlay_executor
+from app.overlay_executor import OverlayTaskExecutor, get_overlay_executor
 from app.overlay_payload import build_overlay_payload
 from app.state import State
 
@@ -50,12 +50,22 @@ class Backend:
 
     def __init__(self, config: Conf) -> None:
         self.conf = config
-        self.executor = get_overlay_executor()
         self._customization_cache = CustomizationCache(
             _CUSTOMIZATION_CACHE_TTL_SECONDS
         )
         self._rule_overrides_getter: Callable[[], dict[str, Any]] | None = None
         self._overlay = self._create_overlay_backend()
+
+    @property
+    def executor(self) -> OverlayTaskExecutor:
+        """Current process pool, reacquired after an app-lifespan restart.
+
+        A backend can outlive the particular ASGI application instance that
+        created it in embedded/test setups. Keeping a direct pool reference
+        would strand that backend on a shut-down executor after the lifespan
+        detached the singleton.
+        """
+        return get_overlay_executor()
 
     def set_rule_overrides_getter(
         self, getter: Callable[[], dict[str, Any]] | None

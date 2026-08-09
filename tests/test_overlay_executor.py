@@ -7,7 +7,7 @@ import time
 
 from app.backend import Backend
 from app.conf import Conf
-from app.overlay_executor import OverlayTaskExecutor
+from app.overlay_executor import OverlayTaskExecutor, shutdown_overlay_executor
 
 
 def test_same_key_tasks_run_in_submission_order() -> None:
@@ -103,6 +103,19 @@ def test_backends_share_pool_and_session_shutdown_does_not_stop_it() -> None:
 
     future = second.executor.submit("two", lambda: 42)
     assert future.result(timeout=2) == 42
+
+
+def test_existing_backend_reacquires_pool_after_lifespan_shutdown() -> None:
+    conf = Conf()
+    conf.oid = "one"
+    backend = Backend(conf)
+    previous = backend.executor
+
+    shutdown_overlay_executor(wait=True, cancel_futures=True)
+
+    replacement = backend.executor
+    assert replacement is not previous
+    assert replacement.submit("one", lambda: 42).result(timeout=2) == 42
 
 
 def test_failed_task_does_not_block_later_work_for_same_key() -> None:
