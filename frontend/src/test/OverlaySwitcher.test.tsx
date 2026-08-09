@@ -52,6 +52,7 @@ const overlayFixture = (oid: string, description: string | null = null) => ({
   control_url: null,
   public_control: false,
   public_control_url: null,
+  is_favorite: false,
 });
 
 const myOverlays = [

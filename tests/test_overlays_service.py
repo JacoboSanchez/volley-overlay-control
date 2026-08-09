@@ -10,6 +10,7 @@ from app.overlay_key import is_valid_skey, make_skey, split_skey
 
 def _user(db, username):
     from app.auth import service
+
     return service.create_user(db, username=username, password="password123")
 
 
@@ -75,6 +76,13 @@ def test_lookup_by_public_token_and_listing(db_session):
     assert overlays_service.get_by_public_token(db_session, o1.public_token).id == o1.id
     assert overlays_service.get_by_public_token(db_session, "nope") is None
     assert [o.oid for o in overlays_service.list_overlays(db_session, a.id)] == ["alpha", "beta"]
+
+    # Favorites sort first without disturbing the alphabetical order inside
+    # either group.
+    overlays_service.update_overlay(db_session, a.id, "beta", is_favorite=True)
+    db_session.commit()
+    assert [o.oid for o in overlays_service.list_overlays(db_session, a.id)] == ["beta", "alpha"]
+
     assert overlays_service.delete_overlay(db_session, a.id, "alpha") is True
     assert overlays_service.delete_overlay(db_session, a.id, "alpha") is False
     assert [o.oid for o in overlays_service.list_overlays(db_session, a.id)] == ["beta"]
@@ -85,17 +93,27 @@ def test_create_and_update_overlay_settings(db_session):
     a = _user(db_session, "alice")
     db_session.flush()
     o = overlays_service.create_overlay(
-        db_session, a.id, "liga",
+        db_session,
+        a.id,
+        "liga",
         description="Liga",
     )
     db_session.commit()
     assert o.description == "Liga"
+    assert o.is_favorite is False
 
     # Partial update: toggling public_control leaves description untouched.
-    overlays_service.update_overlay(db_session, a.id, "liga", public_control=True)
+    overlays_service.update_overlay(
+        db_session,
+        a.id,
+        "liga",
+        public_control=True,
+        is_favorite=True,
+    )
     db_session.commit()
     refreshed = overlays_service.get_overlay(db_session, a.id, "liga")
     assert refreshed.public_control is True
+    assert refreshed.is_favorite is True
     assert refreshed.description == "Liga"
 
     # Clearing a field with an empty string nulls it.

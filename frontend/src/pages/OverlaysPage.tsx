@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import * as api from '../api/overlays';
 import CopyField from '../components/CopyField';
 import EmptyState from '../components/EmptyState';
@@ -7,6 +7,8 @@ import { useConfirm } from '../components/ConfirmProvider';
 import { useOverlays } from '../hooks/useOverlays';
 import { useI18n } from '../i18n';
 import { apiErrorMessage } from '../hooks/useAsyncAction';
+
+const OVERLAY_TOOLS_THRESHOLD = 6;
 
 export default function OverlaysPage() {
   const { t } = useI18n();
@@ -17,6 +19,9 @@ export default function OverlaysPage() {
   const [description, setDescription] = useState('');
   const [creating, setCreating] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [newOverlayOid, setNewOverlayOid] = useState<string | null>(null);
   // Create errors are shown inline above the list but must not hide the list
   // (it is still valid); load errors are handled separately via ``loadError``.
   const [createError, setCreateError] = useState('');
@@ -31,6 +36,32 @@ export default function OverlaysPage() {
   useEffect(() => {
     if (!loading && !loadError && overlays.length === 0) setCreateOpen(true);
   }, [loadError, loading, overlays.length]);
+
+  const favoriteCount = overlays.filter((overlay) => overlay.is_favorite).length;
+  const visibleOverlays = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    return overlays
+      .filter((overlay) => {
+        if (favoritesOnly && !overlay.is_favorite) return false;
+        if (!needle) return true;
+        return `${overlay.description ?? ''}\n${overlay.oid}`.toLocaleLowerCase().includes(needle);
+      })
+      .sort((a, b) => Number(b.is_favorite) - Number(a.is_favorite) || a.oid.localeCompare(b.oid));
+  }, [favoritesOnly, overlays, query]);
+
+  // Removing the final favorite should not strand the user on an empty,
+  // apparently broken list.
+  useEffect(() => {
+    if (favoritesOnly && favoriteCount === 0) setFavoritesOnly(false);
+  }, [favoriteCount, favoritesOnly]);
+
+  // Keep the post-create emphasis transient; the direct actions remain after
+  // the highlight fades.
+  useEffect(() => {
+    if (!newOverlayOid) return;
+    const timeout = window.setTimeout(() => setNewOverlayOid(null), 4500);
+    return () => window.clearTimeout(timeout);
+  }, [newOverlayOid]);
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
@@ -50,6 +81,9 @@ export default function OverlaysPage() {
       setDescription('');
       await reload();
       setCreateOpen(false);
+      setQuery('');
+      setFavoritesOnly(false);
+      setNewOverlayOid(created);
       toast(t('acc.overlays.toastCreated', { oid: created }));
     } catch (err) {
       setCreateError(apiErrorMessage(err, t('acc.overlays.errorCreate')));
@@ -72,6 +106,20 @@ export default function OverlaysPage() {
       toast(t('acc.overlays.toastDeleted', { oid: o.oid }));
     } catch (err) {
       toast(apiErrorMessage(err, t('acc.overlays.errorDelete')), 'error');
+    }
+  }
+
+  async function onToggleFavorite(o: api.OverlayPayload) {
+    try {
+      await api.updateOverlay(o.oid, { is_favorite: !o.is_favorite });
+      await reload();
+      toast(
+        o.is_favorite
+          ? t('acc.overlays.toastFavoriteRemoved', { oid: o.oid })
+          : t('acc.overlays.toastFavoriteAdded', { oid: o.oid }),
+      );
+    } catch (err) {
+      toast(apiErrorMessage(err, t('acc.overlays.errorFavorite')), 'error');
     }
   }
 
@@ -141,11 +189,75 @@ export default function OverlaysPage() {
         0 ? (
         <EmptyState>{t('acc.overlays.empty')}</EmptyState>
       ) : (
-        <div className="acc-overlay-cards">
-          {overlays.map((o) => (
-            <OverlayCard key={o.oid} o={o} onChanged={reload} onDelete={() => onDelete(o)} />
-          ))}
-        </div>
+        <>
+          {overlays.length >= OVERLAY_TOOLS_THRESHOLD && (
+            <div className="acc-overlay-toolbar">
+              <label className="acc-overlay-search">
+                <span className="material-icons" aria-hidden="true">
+                  search
+                </span>
+                <input
+                  className="acc-input"
+                  type="search"
+                  value={query}
+                  aria-label={t('acc.overlays.searchLabel')}
+                  placeholder={t('acc.overlays.searchPlaceholder')}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                className={`acc-btn ghost acc-overlay-favorites-filter${favoritesOnly ? ' is-active' : ''}`}
+                aria-pressed={favoritesOnly}
+                disabled={favoriteCount === 0}
+                onClick={() => setFavoritesOnly((value) => !value)}
+              >
+                <span className="material-icons" aria-hidden="true">
+                  star
+                </span>
+                {t('acc.overlays.favoritesOnly')}
+                {favoriteCount > 0 && <span className="acc-pill">{favoriteCount}</span>}
+              </button>
+              <span className="acc-overlay-result-count acc-muted">
+                {t('acc.overlays.resultCount', {
+                  visible: visibleOverlays.length,
+                  total: overlays.length,
+                })}
+              </span>
+            </div>
+          )}
+
+          {visibleOverlays.length === 0 ? (
+            <div className="acc-empty">
+              <div>{t('acc.overlays.noMatches')}</div>
+              <div className="acc-empty-action">
+                <button
+                  type="button"
+                  className="acc-btn ghost"
+                  onClick={() => {
+                    setQuery('');
+                    setFavoritesOnly(false);
+                  }}
+                >
+                  {t('acc.overlays.clearFilters')}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="acc-overlay-cards">
+              {visibleOverlays.map((o) => (
+                <OverlayCard
+                  key={o.oid}
+                  o={o}
+                  highlighted={o.oid === newOverlayOid}
+                  onChanged={reload}
+                  onDelete={() => onDelete(o)}
+                  onToggleFavorite={() => onToggleFavorite(o)}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -157,23 +269,37 @@ export default function OverlaysPage() {
  *  scannable without making the operator drill into every card. */
 function OverlayCard({
   o,
+  highlighted,
   onChanged,
   onDelete,
+  onToggleFavorite,
 }: {
   o: api.OverlayPayload;
+  highlighted: boolean;
   onChanged: () => void;
   onDelete: () => void;
+  onToggleFavorite: () => void;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
 
   return (
-    <section className={`acc-overlay-card${open ? ' is-open' : ''}`}>
+    <section
+      className={`acc-overlay-card${open ? ' is-open' : ''}${highlighted ? ' is-new' : ''}`}
+      data-overlay-oid={o.oid}
+    >
       <header className="acc-overlay-card__head">
         <div className="acc-overlay-headtext">
           <div className="acc-overlay-titlerow">
             <strong className="acc-overlay-card__title">{o.description || o.oid}</strong>
+            {o.is_favorite && (
+              <span className="acc-overlay-favorite" title={t('acc.overlays.favoriteTitle')}>
+                <span className="material-icons" aria-hidden="true">
+                  star
+                </span>
+              </span>
+            )}
             {o.public_control && (
               <span className="acc-pill is-on" title={t('acc.overlays.bookmarkTitle')}>
                 {t('acc.overlays.chipBookmark')}
@@ -211,10 +337,12 @@ function OverlayCard({
           </a>
           <OverlayManageMenu
             active={renaming}
+            isFavorite={o.is_favorite}
             onEdit={() => {
               setOpen(true);
               setRenaming((value) => !value);
             }}
+            onToggleFavorite={onToggleFavorite}
             onDelete={onDelete}
           />
         </div>
@@ -281,11 +409,15 @@ function OverlayCard({
 
 function OverlayManageMenu({
   active,
+  isFavorite,
   onEdit,
+  onToggleFavorite,
   onDelete,
 }: {
   active: boolean;
+  isFavorite: boolean;
   onEdit: () => void;
+  onToggleFavorite: () => void;
   onDelete: () => void;
 }) {
   const { t } = useI18n();
@@ -332,6 +464,18 @@ function OverlayManageMenu({
           role="group"
           aria-label={t('acc.overlays.moreActions')}
         >
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onToggleFavorite();
+            }}
+          >
+            <span className="material-icons" aria-hidden="true">
+              {isFavorite ? 'star' : 'star_border'}
+            </span>
+            {isFavorite ? t('acc.overlays.favoriteRemove') : t('acc.overlays.favoriteAdd')}
+          </button>
           <button
             type="button"
             onClick={() => {

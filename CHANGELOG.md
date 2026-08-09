@@ -114,6 +114,11 @@ archive by hand.
 
 ### Added
 
+- **The “My overlays” page now supports account-persisted favorites and
+  fast filtering for long lists.** Favorite overlays sort first on every
+  device, can be isolated with a one-click filter, and lists of six or more
+  overlays gain name/id search with an explicit result count and empty state.
+
 - **A property test for the live audit protocol, replacing five one-off
   regression tests with one invariant.** Review of the audit push protocol
   found five defects in the seam between the `GET /audit` read, the
@@ -243,6 +248,14 @@ archive by hand.
   histogram, so an operator could not alert on either.
 
 ### Changed
+
+- **Common overlay actions are now available directly from every collapsed
+  card.** Operators can control the scoreboard or inspect its visual output in
+  one click; creation, share/OBS links, naming, and destructive actions use a
+  clearer progressive hierarchy with larger touch targets. Newly-created
+  overlays are briefly highlighted, and the mobile layout keeps multiple
+  boards within the first viewport. The account-page screenshots were
+  regenerated to match the new interface.
 
 - **The config panel's structure now matches its concerns.** The 675-line
   `ConfigPanel.tsx` mixed six of them: the form model, four independent

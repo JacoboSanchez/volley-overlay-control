@@ -37,7 +37,24 @@ const OVERLAY: api.OverlayPayload = {
   control_url: 'https://x/board?c=ctl',
   public_control: false,
   public_control_url: null,
+  is_favorite: false,
 };
+
+function overlay(
+  oid: string,
+  description: string | null = null,
+  isFavorite = false,
+): api.OverlayPayload {
+  return {
+    ...OVERLAY,
+    name: oid,
+    oid,
+    description,
+    output_url: `https://x/overlay/${oid}`,
+    control_url: `https://x/board?c=${oid}`,
+    is_favorite: isFavorite,
+  };
+}
 
 describe('OverlaysPage', () => {
   beforeEach(() => {
@@ -98,6 +115,49 @@ describe('OverlaysPage', () => {
     expect(advanced).toHaveAttribute('open');
     expect(screen.getByText('https://x/board?u=me&oid=liga')).toBeInTheDocument();
   });
+
+  it('searches long lists by friendly name or id and reports the result count', async () => {
+    vi.mocked(api.getOverlays).mockResolvedValue([
+      overlay('alpha', 'Central court'),
+      overlay('beta', 'Second court'),
+      overlay('cup-final', 'Cup final'),
+      overlay('league', 'League'),
+      overlay('north', 'North venue'),
+      overlay('south', 'South venue'),
+    ]);
+    renderWithI18n(<OverlaysPage />);
+
+    const search = await screen.findByRole('searchbox', { name: /search overlays/i });
+    fireEvent.change(search, { target: { value: 'central' } });
+
+    expect(screen.getByText('Central court')).toBeInTheDocument();
+    expect(screen.queryByText('Second court')).not.toBeInTheDocument();
+    expect(screen.getByText('1 of 6')).toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: 'cup-final' } });
+    expect(screen.getByText('Cup final')).toBeInTheDocument();
+  });
+
+  it('sorts favorites first and can show only favorites', async () => {
+    vi.mocked(api.getOverlays).mockResolvedValue([
+      overlay('alpha', 'Alpha'),
+      overlay('beta', 'Beta', true),
+      overlay('cup', 'Cup'),
+      overlay('league', 'League'),
+      overlay('north', 'North'),
+      overlay('south', 'South'),
+    ]);
+    renderWithI18n(<OverlaysPage />);
+
+    await screen.findByRole('button', { name: /favorites only/i });
+    const cards = document.querySelectorAll('.acc-overlay-card');
+    expect(cards[0]).toHaveTextContent('Beta');
+
+    fireEvent.click(screen.getByRole('button', { name: /favorites only/i }));
+    expect(screen.getByText('Beta')).toBeInTheDocument();
+    expect(screen.queryByText('Alpha')).not.toBeInTheDocument();
+    expect(screen.getByText('1 of 6')).toBeInTheDocument();
+  });
 });
 
 // ---- flows: create / delete / rename / share / bookmark ---------------------
@@ -134,6 +194,7 @@ describe('OverlaysPage flows', () => {
     );
     await waitFor(() => expect(screen.getByText('ID: nueva')).toBeInTheDocument());
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(cardFor('nueva')).toHaveClass('is-new');
   });
 
   it('rejects an invalid oid inline without calling the API', async () => {
@@ -197,6 +258,19 @@ describe('OverlaysPage flows', () => {
     fireEvent.click(screen.getByRole('button', { name: /save settings/i }));
     await waitFor(() =>
       expect(api.updateOverlay).toHaveBeenCalledWith('liga', { description: 'Renamed' }),
+    );
+  });
+
+  it('favorites an overlay from the management menu', async () => {
+    vi.mocked(api.updateOverlay).mockResolvedValue({ ...OVERLAY, is_favorite: true });
+    renderWithI18n(<OverlaysPage />);
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
+
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /more actions/i }));
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /add to favorites/i }));
+
+    await waitFor(() =>
+      expect(api.updateOverlay).toHaveBeenCalledWith('liga', { is_favorite: true }),
     );
   });
 

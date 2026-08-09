@@ -573,6 +573,57 @@
   background: #181b22;
 }
 
+/* Search/filter controls only render once the list is long enough to need
+   them. Favorites are counted explicitly so the filter's effect is obvious. */
+.acc-overlay-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+.acc-overlay-search {
+  position: relative;
+  flex: 1 1 300px;
+  max-width: 430px;
+}
+.acc-overlay-search > .material-icons {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  z-index: 1;
+  color: #8b93a7;
+  font-size: 19px;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+.acc-overlay-search .acc-input {
+  padding-left: 40px;
+}
+.acc-overlay-favorites-filter {
+  flex: 0 0 auto;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.acc-overlay-favorites-filter > .material-icons {
+  color: #f2c14e;
+  font-size: 19px;
+}
+.acc-overlay-favorites-filter .acc-pill {
+  min-width: 20px;
+  box-sizing: border-box;
+  padding: 2px 6px;
+  text-align: center;
+}
+.acc-overlay-result-count {
+  margin-left: auto;
+  white-space: nowrap;
+}
+.acc-overlay-toolbar + .acc-overlay-cards {
+  margin-top: 12px;
+}
+
 /* Each scoreboard exposes its two frequent actions while collapsed. Copy-once
    URLs and occasional management controls live in the disclosure below. */
 .acc-overlay-cards {
@@ -586,6 +637,22 @@
   border-radius: 12px;
   background: #181b22;
   padding: 16px 18px;
+}
+.acc-overlay-card.is-new {
+  animation: acc-overlay-new 4.5s ease-out;
+}
+@keyframes acc-overlay-new {
+  0%,
+  65% {
+    border-color: #4f8cff;
+    background: #18233a;
+    box-shadow: 0 0 0 2px rgba(79, 140, 255, 0.16);
+  }
+  100% {
+    border-color: #262b35;
+    background: #181b22;
+    box-shadow: none;
+  }
 }
 .acc-overlay-card__head {
   display: flex;
@@ -609,6 +676,14 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+.acc-overlay-favorite {
+  display: inline-flex;
+  align-items: center;
+  color: #f2c14e;
+}
+.acc-overlay-favorite .material-icons {
+  font-size: 19px;
 }
 .acc-overlay-card__desc {
   color: #98a2b3;
@@ -1329,6 +1404,21 @@
     width: 100%;
     justify-content: center;
   }
+  .acc-overlay-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .acc-overlay-search {
+    flex: 0 0 auto;
+    max-width: none;
+  }
+  .acc-overlay-favorites-filter {
+    justify-content: center;
+  }
+  .acc-overlay-result-count {
+    align-self: flex-end;
+    margin-left: 0;
+  }
   .acc-overlay-card {
     padding: 14px;
   }
@@ -1529,6 +1619,14 @@
   }
   .acc-bulkbar__actions .acc-btn {
     flex: 1 1 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acc-overlay-card.is-new {
+    animation: none;
+    border-color: #4f8cff;
+    box-shadow: 0 0 0 2px rgba(79, 140, 255, 0.16);
   }
 }
 

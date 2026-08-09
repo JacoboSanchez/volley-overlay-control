@@ -3,6 +3,7 @@
 Focus: the DELETE cascade (overlay row + live session + local state + archived
 matches) and cross-user isolation when two users own the same oid.
 """
+
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
@@ -18,7 +19,8 @@ def _archive(user_id: int, oid: str) -> str:
         oid=make_skey(user_id, oid),
         final_state={"team_1": {"sets": 3}, "team_2": {"sets": 0}},
         customization={"Team 1 Name": "Home", "Team 2 Name": "Away"},
-        winning_team=1, sets_limit=5,
+        winning_team=1,
+        sets_limit=5,
     )
     assert match_id is not None
     return match_id
@@ -55,3 +57,24 @@ def test_non_owner_cannot_delete_same_named_overlay(db_session):
     # Bob has no "liga" overlay; deleting it must 404, not touch Alice's.
     assert bob.delete("/api/v1/overlays/liga").status_code == 404
     assert any(o["oid"] == "liga" for o in alice.get("/api/v1/overlays").json())
+
+
+def test_owner_can_favorite_and_order_overlays(db_session):
+    c = TestClient(create_app())
+    login_client(c, db_session, username="owner")
+
+    alpha = c.post("/api/v1/overlays", json={"oid": "alpha"})
+    beta = c.post("/api/v1/overlays", json={"oid": "beta"})
+    assert alpha.status_code == beta.status_code == 201
+    assert alpha.json()["is_favorite"] is False
+
+    updated = c.patch(
+        "/api/v1/overlays/beta",
+        json={"is_favorite": True},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["is_favorite"] is True
+    assert [row["oid"] for row in c.get("/api/v1/overlays").json()] == [
+        "beta",
+        "alpha",
+    ]

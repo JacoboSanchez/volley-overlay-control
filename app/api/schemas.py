@@ -671,14 +671,15 @@ class PresetSetActiveRequest(BaseModel):
 class OverlayOut(BaseModel):
     """One of the caller's overlays."""
 
-    oid: str = Field(..., description="Overlay identifier (unique per user) — the name")
-    description: str | None = Field(None, description="Optional free-text description")
+    oid: str = Field(..., description="Overlay identifier (unique per user)")
+    description: str | None = Field(None, description="Optional friendly display name")
     public_token: str = Field(..., description="Public overlay-output capability token")
     output_url: str = Field(..., description="Built-in overlay output URL (the local /overlay/<token>)")
     control_token: str | None = Field(None, description="Shareable control capability token")
     control_url: str | None = Field(None, description="Ready-made shareable control-board link")
     public_control: bool = Field(False, description="Allow no-login control via the username+oid URL")
     public_control_url: str | None = Field(None, description="Stable username+oid bookmark link (when enabled)")
+    is_favorite: bool = Field(False, description="Pin this overlay to the top of the owner's list")
 
 
 class CreateOverlayRequest(BaseModel):
@@ -689,3 +690,4 @@ class CreateOverlayRequest(BaseModel):
 class UpdateOverlayRequest(BaseModel):
     description: str | None = Field(None, max_length=120)
     public_control: bool | None = Field(None, description="Toggle no-login username+oid control")
+    is_favorite: bool | None = Field(None, description="Pin or unpin this overlay in the owner's list")

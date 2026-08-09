@@ -1379,7 +1379,7 @@ export interface paths {
         head?: never;
         /**
          * Update My Overlay
-         * @description Edit an overlay's description and no-login control toggle.
+         * @description Edit an overlay's display name, favorite state, and control toggle.
          *
          *     Only the fields present in the request body are changed (``exclude_unset``),
          *     so a partial PATCH never clobbers settings the caller didn't mention.
@@ -2351,12 +2351,18 @@ export interface components {
             control_url?: string | null;
             /**
              * Description
-             * @description Optional free-text description
+             * @description Optional friendly display name
              */
             description?: string | null;
             /**
+             * Is Favorite
+             * @description Pin this overlay to the top of the owner's list
+             * @default false
+             */
+            is_favorite: boolean;
+            /**
              * Oid
-             * @description Overlay identifier (unique per user) — the name
+             * @description Overlay identifier (unique per user)
              */
             oid: string;
             /**
@@ -2631,6 +2637,11 @@ export interface components {
         UpdateOverlayRequest: {
             /** Description */
             description?: string | null;
+            /**
+             * Is Favorite
+             * @description Pin or unpin this overlay in the owner's list
+             */
+            is_favorite?: boolean | null;
             /**
              * Public Control
              * @description Toggle no-login username+oid control

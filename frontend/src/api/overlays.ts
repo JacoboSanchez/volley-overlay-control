@@ -15,11 +15,13 @@ export interface OverlayPayload {
   control_url: string | null;
   public_control: boolean;
   public_control_url: string | null;
+  is_favorite: boolean;
 }
 
 export interface OverlaySettings {
   description?: string | null;
   public_control?: boolean;
+  is_favorite?: boolean;
 }
 
 type OverlayRow = Omit<OverlayPayload, 'name'>;
