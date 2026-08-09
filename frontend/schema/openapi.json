@@ -1534,11 +1534,17 @@
                 "type": "null"
               }
             ],
-            "description": "Optional free-text description",
+            "description": "Optional friendly display name",
             "title": "Description"
           },
+          "is_favorite": {
+            "default": false,
+            "description": "Pin this overlay to the top of the owner's list",
+            "title": "Is Favorite",
+            "type": "boolean"
+          },
           "oid": {
-            "description": "Overlay identifier (unique per user) \u2014 the name",
+            "description": "Overlay identifier (unique per user)",
             "title": "Oid",
             "type": "string"
           },
@@ -2186,6 +2192,18 @@
               }
             ],
             "title": "Description"
+          },
+          "is_favorite": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pin or unpin this overlay in the owner's list",
+            "title": "Is Favorite"
           },
           "public_control": {
             "anyOf": [
@@ -9919,7 +9937,7 @@
         ]
       },
       "patch": {
-        "description": "Edit an overlay's description and no-login control toggle.\n\nOnly the fields present in the request body are changed (``exclude_unset``),\nso a partial PATCH never clobbers settings the caller didn't mention.",
+        "description": "Edit an overlay's display name, favorite state, and control toggle.\n\nOnly the fields present in the request body are changed (``exclude_unset``),\nso a partial PATCH never clobbers settings the caller didn't mention.",
         "operationId": "update_my_overlay_api_v1_overlays__oid__patch",
         "parameters": [
           {

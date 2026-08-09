@@ -63,11 +63,14 @@ def _overlay_out(
         control_url=control_url,
         public_control=overlay.public_control,
         public_control_url=public_control_url,
+        is_favorite=overlay.is_favorite,
     )
 
 
 @router.get(
-    "/overlays", response_model=list[OverlayOut], responses=PAGINATED_RESPONSES,
+    "/overlays",
+    response_model=list[OverlayOut],
+    responses=PAGINATED_RESPONSES,
 )
 def list_my_overlays(
     request: Request,
@@ -81,7 +84,10 @@ def list_my_overlays(
     return [
         _overlay_out(request, o, username=user.username)
         for o in overlays_service.list_overlays(
-            db, user.id, limit=page.limit, offset=page.offset,
+            db,
+            user.id,
+            limit=page.limit,
+            offset=page.offset,
         )
     ]
 
@@ -111,7 +117,7 @@ def update_my_overlay(
     user: User = Depends(require_user),
     db: Session = Depends(get_db, scope="function"),
 ) -> OverlayOut:
-    """Edit an overlay's description and no-login control toggle.
+    """Edit an overlay's display name, favorite state, and control toggle.
 
     Only the fields present in the request body are changed (``exclude_unset``),
     so a partial PATCH never clobbers settings the caller didn't mention.

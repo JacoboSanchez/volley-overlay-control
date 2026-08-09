@@ -103,6 +103,7 @@ def update_overlay(
     *,
     description: object = _UNSET,
     public_control: object = _UNSET,
+    is_favorite: object = _UNSET,
 ) -> UserOverlay:
     """Update an overlay's editable settings. Only provided fields change."""
     overlay = get_overlay(db, user_id, oid)
@@ -112,6 +113,8 @@ def update_overlay(
         overlay.description = (str(description or "").strip()) or None
     if public_control is not _UNSET:
         overlay.public_control = bool(public_control)
+    if is_favorite is not _UNSET:
+        overlay.is_favorite = bool(is_favorite)
     db.flush()
     return overlay
 
@@ -119,7 +122,8 @@ def update_overlay(
 def get_overlay(db: Session, user_id: int, oid: str) -> UserOverlay | None:
     return db.execute(
         select(UserOverlay).where(
-            UserOverlay.user_id == user_id, UserOverlay.oid == oid,
+            UserOverlay.user_id == user_id,
+            UserOverlay.oid == oid,
         )
     ).scalar_one_or_none()
 
@@ -127,22 +131,20 @@ def get_overlay(db: Session, user_id: int, oid: str) -> UserOverlay | None:
 def get_by_public_token(db: Session, token: str) -> UserOverlay | None:
     if not token:
         return None
-    return db.execute(
-        select(UserOverlay).where(UserOverlay.public_token == token)
-    ).scalar_one_or_none()
+    return db.execute(select(UserOverlay).where(UserOverlay.public_token == token)).scalar_one_or_none()
 
 
 def get_by_control_token(db: Session, token: str) -> UserOverlay | None:
     """Resolve the overlay a shareable control link points at, or ``None``."""
     if not token:
         return None
-    return db.execute(
-        select(UserOverlay).where(UserOverlay.control_token == token)
-    ).scalar_one_or_none()
+    return db.execute(select(UserOverlay).where(UserOverlay.control_token == token)).scalar_one_or_none()
 
 
 def get_public_by_username_and_oid(
-    db: Session, username: str, oid: str,
+    db: Session,
+    username: str,
+    oid: str,
 ) -> UserOverlay | None:
     """Resolve the overlay behind a ``/board?u=<username>&oid=<oid>`` URL.
 
@@ -183,13 +185,13 @@ def regenerate_control_token(db: Session, user_id: int, oid: str) -> UserOverlay
 
 
 def list_overlays(
-    db: Session, user_id: int, *, limit: int | None = None, offset: int = 0,
+    db: Session,
+    user_id: int,
+    *,
+    limit: int | None = None,
+    offset: int = 0,
 ) -> list[UserOverlay]:
-    stmt = (
-        select(UserOverlay)
-        .where(UserOverlay.user_id == user_id)
-        .order_by(UserOverlay.oid)
-    )
+    stmt = select(UserOverlay).where(UserOverlay.user_id == user_id).order_by(UserOverlay.is_favorite.desc(), UserOverlay.oid)
     if offset:
         stmt = stmt.offset(offset)
     if limit is not None:
@@ -198,13 +200,7 @@ def list_overlays(
 
 
 def count_overlays(db: Session, user_id: int) -> int:
-    return int(
-        db.execute(
-            select(func.count())
-            .select_from(UserOverlay)
-            .where(UserOverlay.user_id == user_id)
-        ).scalar_one()
-    )
+    return int(db.execute(select(func.count()).select_from(UserOverlay).where(UserOverlay.user_id == user_id)).scalar_one())
 
 
 def delete_overlay(db: Session, user_id: int, oid: str) -> bool:

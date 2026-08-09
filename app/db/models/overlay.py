@@ -24,7 +24,9 @@ class UserOverlay(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     oid: Mapped[str] = mapped_column(String(64), nullable=False)
     # Opaque, globally-unique capability token for the public OBS output URL.
@@ -41,9 +43,20 @@ class UserOverlay(Base, TimestampMixin):
     # bookmark). That URL is *guessable* (username + oid), so it stays off by
     # default; the shareable, revocable control token is the private capability.
     public_control: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False, server_default="0",
+        Boolean,
+        default=False,
+        nullable=False,
+        server_default="0",
     )
-    # Optional free-text description shown under the overlay's id (its name)
-    # in the account UI. Not an alternative name — the ``oid`` is the name.
+    # User-controlled ordering hint for the account list. Kept on the owned
+    # row (rather than in browser storage) so it follows the account across
+    # devices and can never leak between users sharing a browser.
+    is_favorite: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        server_default="0",
+    )
+    # Optional friendly display name. The immutable ``oid`` remains visible as
+    # the technical identifier and continues to key every backend operation.
     description: Mapped[str | None] = mapped_column(String(120))
-
