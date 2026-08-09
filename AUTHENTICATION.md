@@ -261,7 +261,9 @@ board and cannot touch the owner's account.
 | `DELETE` | `/my/groups/{group_id}/teams/{team_id}` | Y | Remove one. |
 | `GET` / `POST` | `/customization/presets` | Y | The caller's saved theme presets. |
 | `DELETE` | `/customization/presets/{slug}` | Y | |
-| `GET` | `/matches` | Y | Lists only the caller's archived matches. |
+| `GET` | `/matches` | Y | Lists only the caller's archived matches; filtering, sorting and paging remain owner-scoped. |
+| `GET` | `/matches/days` | Y | Distinct local calendar days from only the caller's archived matches. |
+| `POST` | `/matches/bulk-delete` | Y | Owner-scoped transactional delete of up to 100 archived match ids; ids owned by another account are ignored. |
 | `GET` | `/matches/{id}` | Y | Owner-only (`404` otherwise). |
 | `DELETE` | `/matches/{id}` | Y | Owner-only delete (§8 / §7.1). |
 | `POST` | `/matches/{id}/sign-url` | Y | Owner mints an HMAC capability URL for the gated match report. Body: `{"ttl_seconds": int}`. Response embeds the time-bounded bearer capability `?exp=&sig=`; the signing key remains server-side in `MATCH_REPORT_SIGNING_SECRET`. |

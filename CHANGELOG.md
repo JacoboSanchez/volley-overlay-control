@@ -14,6 +14,26 @@ archive by hand.
 
 ## [Unreleased]
 
+### Added
+
+- **A usability, functionality and performance roadmap** now records the
+  post-7.0 delivery order, user outcomes and measurable completion criteria in
+  `docs/USABILITY_FUNCTIONALITY_PERFORMANCE_ROADMAP.md`.
+- **Owner-scoped match calendar and bulk-delete APIs.**
+  `GET /api/v1/matches/days` returns lightweight local calendar-day keys, and
+  `POST /api/v1/matches/bulk-delete` removes up to 100 selected reports in one
+  transaction without allowing ids from another account to cross the owner
+  boundary.
+
+### Changed
+
+- **Match-history browsing now stays bounded as archives grow.** The React
+  reports page sends its mode/day/sort/page filters to SQL instead of fetching
+  at most 500 matches and filtering them in memory. Summary queries omit the
+  potentially large `audit_log` JSON column, sort ties deterministically, and
+  the server-rendered history page uses the same filtered page queries. The
+  post-restart latest-report lookup is now a one-row scalar query.
+
 ## [7.0.0] - 2026-08-09
 
 ### Security

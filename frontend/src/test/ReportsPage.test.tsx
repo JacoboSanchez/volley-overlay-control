@@ -13,7 +13,9 @@ vi.mock('../api/overlays', () => ({
 }));
 vi.mock('../api/reports', () => ({
   listReports: vi.fn(),
+  listReportDays: vi.fn(),
   deleteMatch: vi.fn(),
+  deleteMatches: vi.fn(),
 }));
 
 import * as overlaysApi from '../api/overlays';
@@ -34,16 +36,36 @@ const match = (id: string, ended: number, dur: number) =>
     team_2_name: 'B',
   }) as reportsApi.MatchSummary;
 
+let reportRows: reportsApi.MatchSummary[] = [];
+
 describe('ReportsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(overlaysApi.getOverlays).mockResolvedValue([overlay('o1')]);
     // m1: newer (ended 2000), shorter (10 min); m2: older (1000), longer (20 min).
-    vi.mocked(reportsApi.listReports).mockResolvedValue({
-      count: 2,
-      matches: [match('m1', 2000, 600), match('m2', 1000, 1200)],
+    reportRows = [match('m1', 2000, 600), match('m2', 1000, 1200)];
+    vi.mocked(reportsApi.listReports).mockImplementation(async (params = {}) => {
+      let rows = [...reportRows];
+      if (params.mode) rows = rows.filter((row) => row.mode === params.mode);
+      const key = params.sort === 'duration' ? 'duration_s' : 'ended_at';
+      const sign = params.direction === 'asc' ? 1 : -1;
+      rows.sort((a, b) => sign * ((a[key] ?? 0) - (b[key] ?? 0)));
+      const offset = params.offset ?? 0;
+      const limit = params.limit ?? 20;
+      return {
+        count: rows.length,
+        matches: rows.slice(offset, offset + limit),
+        limit,
+        offset,
+        sort: params.sort ?? 'ended',
+        direction: params.direction ?? 'desc',
+      };
     });
-    vi.mocked(reportsApi.deleteMatch).mockResolvedValue(undefined);
+    vi.mocked(reportsApi.listReportDays).mockResolvedValue({ days: ['1970-01-01'] });
+    vi.mocked(reportsApi.deleteMatches).mockImplementation(async (ids) => ({
+      requested: ids.length,
+      deleted: ids.length,
+    }));
   });
 
   it('sorts by date descending by default (newest first)', async () => {
@@ -69,7 +91,7 @@ describe('ReportsPage', () => {
     await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(2));
     // First row is the newest match (m1) under the default sort.
     fireEvent.click(screen.getAllByRole('button', { name: 'Delete report' })[0]!);
-    await waitFor(() => expect(reportsApi.deleteMatch).toHaveBeenCalledWith('m1'));
+    await waitFor(() => expect(reportsApi.deleteMatches).toHaveBeenCalledWith(['m1']));
     confirmSpy.mockRestore();
   });
 
@@ -79,19 +101,16 @@ describe('ReportsPage', () => {
     await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(2));
     fireEvent.click(screen.getAllByLabelText('Select match')[0]!); // selects m1
     fireEvent.click(screen.getByRole('button', { name: /Delete selected \(1\)/ }));
-    await waitFor(() => expect(reportsApi.deleteMatch).toHaveBeenCalledWith('m1'));
-    expect(reportsApi.deleteMatch).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(reportsApi.deleteMatches).toHaveBeenCalledWith(['m1']));
+    expect(reportsApi.deleteMatches).toHaveBeenCalledTimes(1);
     confirmSpy.mockRestore();
   });
 
   it('filters reports by match type', async () => {
-    vi.mocked(reportsApi.listReports).mockResolvedValue({
-      count: 2,
-      matches: [
-        { ...match('m1', 2000, 600), mode: 'beach' },
-        { ...match('m2', 1000, 1200), mode: 'table_tennis' },
-      ],
-    });
+    reportRows = [
+      { ...match('m1', 2000, 600), mode: 'beach' },
+      { ...match('m2', 1000, 1200), mode: 'table_tennis' },
+    ];
     renderWithI18n(<ReportsPage />);
     await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(2));
     fireEvent.change(screen.getByTestId('reports-mode-filter'), { target: { value: 'beach' } });
@@ -102,7 +121,7 @@ describe('ReportsPage', () => {
 
   it('paginates when there are more than one page of matches', async () => {
     const many = Array.from({ length: 25 }, (_, i) => match(`m${i}`, 1000 + i, 600));
-    vi.mocked(reportsApi.listReports).mockResolvedValue({ count: 25, matches: many });
+    reportRows = many;
     renderWithI18n(<ReportsPage />);
     await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(20)); // PAGE_SIZE
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
@@ -115,20 +134,22 @@ describe('ReportsPage', () => {
     await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(2));
     fireEvent.click(screen.getByLabelText('Select all on this page'));
     fireEvent.click(screen.getByRole('button', { name: /Delete selected \(2\)/ }));
-    await waitFor(() => expect(reportsApi.deleteMatch).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(reportsApi.deleteMatches).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(reportsApi.deleteMatches).mock.calls[0]?.[0]).toHaveLength(2);
     confirmSpy.mockRestore();
   });
 
   it('select-all-on-page only selects the visible page, not every page', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const many = Array.from({ length: 25 }, (_, i) => match(`m${i}`, 1000 + i, 600));
-    vi.mocked(reportsApi.listReports).mockResolvedValue({ count: 25, matches: many });
+    reportRows = many;
     renderWithI18n(<ReportsPage />);
     await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(20)); // PAGE_SIZE
     fireEvent.click(screen.getByLabelText('Select all on this page'));
     // Only the 20 rows on this page are selected, not all 25.
     fireEvent.click(screen.getByRole('button', { name: /Delete selected \(20\)/ }));
-    await waitFor(() => expect(reportsApi.deleteMatch).toHaveBeenCalledTimes(20));
+    await waitFor(() => expect(reportsApi.deleteMatches).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(reportsApi.deleteMatches).mock.calls[0]?.[0]).toHaveLength(20);
     confirmSpy.mockRestore();
   });
 });

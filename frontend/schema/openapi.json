@@ -540,6 +540,42 @@
         "title": "Body_upload_my_icon_api_v1_icons_mine_post",
         "type": "object"
       },
+      "BulkDeleteMatchesRequest": {
+        "properties": {
+          "match_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Match Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "match_ids"
+        ],
+        "title": "BulkDeleteMatchesRequest",
+        "type": "object"
+      },
+      "BulkDeleteMatchesResponse": {
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "integer"
+          },
+          "requested": {
+            "title": "Requested",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requested",
+          "deleted"
+        ],
+        "title": "BulkDeleteMatchesResponse",
+        "type": "object"
+      },
       "ChangePasswordRequest": {
         "properties": {
           "current_password": {
@@ -8853,7 +8889,7 @@
     },
     "/api/v1/matches": {
       "get": {
-        "description": "Return a page of the caller's archived matches, newest first.\n\n``count`` is the total in scope (not the page length), so a client can\npage with ``offset``/``limit`` until it has everything.",
+        "description": "Return one filtered/sorted page of the caller's archived matches.\n\n``count`` is the total in scope (not the page length), so a client can\npage with ``offset``/``limit`` until it has everything.",
         "operationId": "list_matches_api_v1_matches_get",
         "parameters": [
           {
@@ -8875,14 +8911,105 @@
             }
           },
           {
+            "description": "Filter by match mode",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "indoor",
+                    "beach",
+                    "table_tennis"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by match mode",
+              "title": "Mode"
+            }
+          },
+          {
+            "description": "Inclusive Unix-seconds end time",
+            "in": "query",
+            "name": "ended_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Inclusive Unix-seconds end time",
+              "title": "Ended From"
+            }
+          },
+          {
+            "description": "Exclusive Unix-seconds end time",
+            "in": "query",
+            "name": "ended_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exclusive Unix-seconds end time",
+              "title": "Ended To"
+            }
+          },
+          {
+            "description": "Summary column to sort",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "ended",
+              "description": "Summary column to sort",
+              "enum": [
+                "ended",
+                "duration"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Sort direction",
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "Sort direction",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Direction",
+              "type": "string"
+            }
+          },
+          {
             "description": "Page size",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 100,
+              "default": 20,
               "description": "Page size",
-              "maximum": 500,
+              "maximum": 100,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
@@ -8943,6 +9070,175 @@
           }
         },
         "summary": "List the caller's archived matches",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/matches/bulk-delete": {
+      "post": {
+        "operationId": "bulk_delete_matches_api_v1_matches_bulk_delete_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteMatchesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkDeleteMatchesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete several of the caller's archived matches",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/matches/days": {
+      "get": {
+        "description": "Return distinct local ``YYYY-MM-DD`` keys without loading report JSON.\n\nThe browser sends its IANA timezone, so historical dates honour the offset\n(and daylight-saving rule) that applied when each match ended.",
+        "operationId": "list_match_days_api_v1_matches_days_get",
+        "parameters": [
+          {
+            "description": "Filter to a single overlay id",
+            "in": "query",
+            "name": "oid",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter to a single overlay id",
+              "title": "Oid"
+            }
+          },
+          {
+            "description": "Filter by match mode",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "indoor",
+                    "beach",
+                    "table_tennis"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by match mode",
+              "title": "Mode"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "default": "UTC",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Tz",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "title": "Response List Match Days Api V1 Matches Days Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List local calendar days containing matches",
         "tags": [
           "Scoreboard API v1"
         ]

@@ -18,7 +18,8 @@ from __future__ import annotations
 import calendar as _calmod
 import html
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from datetime import time as datetime_time
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -200,6 +201,14 @@ def _day_key(ended_at: object) -> str | None:
     if not isinstance(ended_at, (int, float)):
         return None
     return datetime.fromtimestamp(ended_at).strftime("%Y-%m-%d")
+
+
+def _day_bounds(day: str) -> tuple[float, float]:
+    """Server-local epoch bounds for one validated ``YYYY-MM-DD`` day."""
+    parsed = date.fromisoformat(day)
+    start = datetime.combine(parsed, datetime_time.min).timestamp()
+    end = datetime.combine(parsed + timedelta(days=1), datetime_time.min).timestamp()
+    return start, end
 
 
 def _fmt_duration(locale: str, duration_s: object) -> str:
@@ -452,21 +461,41 @@ def match_history(
     active_mode = mode if mode in _VALID_MODES else ""
     active_day = day if _DAY_RE.match(day or "") else ""
 
-    matches = match_archive.list_matches(oid=skey)
-    if active_mode:
-        matches = [m for m in matches if m.get("mode") == active_mode]
     # Days that actually have matches (for the current type filter) — the
     # day dropdown only offers these, like the account calendar dots them.
     available_days = sorted(
-        {d for m in matches if (d := _day_key(m.get("ended_at")))},
+        {
+            d
+            for ts in match_archive.list_match_times(
+                oid=skey,
+                mode=active_mode or None,
+            )
+            if (d := _day_key(ts))
+        },
         reverse=True,
     )
+    ended_from: float | None = None
+    ended_to: float | None = None
     if active_day:
-        matches = [m for m in matches if _day_key(m.get("ended_at")) == active_day]
-    matches = _sorted(matches, sort, direction)
-    pages = max(1, (len(matches) + PAGE_SIZE - 1) // PAGE_SIZE)
+        ended_from, ended_to = _day_bounds(active_day)
+    total = match_archive.count_matches(
+        oid=skey,
+        mode=active_mode or None,
+        ended_from=ended_from,
+        ended_to=ended_to,
+    )
+    pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
     page = min(page, pages)
-    rows = matches[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
+    rows = match_archive.list_matches(
+        oid=skey,
+        limit=PAGE_SIZE,
+        offset=(page - 1) * PAGE_SIZE,
+        sort=sort,
+        direction=direction,
+        mode=active_mode or None,
+        ended_from=ended_from,
+        ended_to=ended_to,
+    )
 
     active_cal = cal if _CAL_RE.match(cal or "") else ""
     return HTMLResponse(

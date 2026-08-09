@@ -90,8 +90,7 @@ class GameStatePresenter:
         try:
             from app.api import match_archive
 
-            summaries = match_archive.list_matches(oid=session.oid)
-            return summaries[0]["match_id"] if summaries else None
+            return match_archive.latest_match_id(session.oid)
         except Exception:  # pragma: no cover - defensive
             logger.warning(
                 "Could not resolve last match id for OID=%s",

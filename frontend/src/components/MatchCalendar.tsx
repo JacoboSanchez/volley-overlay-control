@@ -12,8 +12,8 @@ export function dayKey(ts: number): string {
 }
 
 export interface MatchCalendarProps {
-  /** ``ended_at`` (unix seconds) for every match currently listed. */
-  matchTimes: number[];
+  /** Local ``YYYY-MM-DD`` keys that contain at least one archived match. */
+  matchDays: string[];
   /** Selected day as ``YYYY-MM-DD``, or null for "all days". */
   selected: string | null;
   onSelect: (day: string | null) => void;
@@ -25,21 +25,19 @@ export interface MatchCalendarProps {
  * browser-native picker) so it looks the same everywhere and can highlight
  * which days actually have matches.
  */
-export default function MatchCalendar({ matchTimes, selected, onSelect }: MatchCalendarProps) {
+export default function MatchCalendar({ matchDays, selected, onSelect }: MatchCalendarProps) {
   const { t, lang } = useI18n();
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
 
   const daysWithMatches = useMemo(() => {
-    const s = new Set<string>();
-    for (const ts of matchTimes) if (ts != null) s.add(dayKey(ts));
-    return s;
-  }, [matchTimes]);
+    return new Set(matchDays);
+  }, [matchDays]);
 
   // Month on screen; defaults to the most recent match (list is newest-first).
   const [view, setView] = useState(() => {
-    const recent = matchTimes.filter((x) => x != null);
-    const base = recent.length ? new Date(Math.max(...recent) * 1000) : new Date();
+    const mostRecent = [...matchDays].sort().at(-1);
+    const base = mostRecent ? new Date(`${mostRecent}T12:00:00`) : new Date();
     return { year: base.getFullYear(), month: base.getMonth() };
   });
 

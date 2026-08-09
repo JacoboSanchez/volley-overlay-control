@@ -1160,12 +1160,52 @@ export interface paths {
         };
         /**
          * List the caller's archived matches
-         * @description Return a page of the caller's archived matches, newest first.
+         * @description Return one filtered/sorted page of the caller's archived matches.
          *
          *     ``count`` is the total in scope (not the page length), so a client can
          *     page with ``offset``/``limit`` until it has everything.
          */
         get: operations["list_matches_api_v1_matches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/matches/bulk-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Delete several of the caller's archived matches */
+        post: operations["bulk_delete_matches_api_v1_matches_bulk_delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/matches/days": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List local calendar days containing matches
+         * @description Return distinct local ``YYYY-MM-DD`` keys without loading report JSON.
+         *
+         *     The browser sends its IANA timezone, so historical dates honour the offset
+         *     (and daylight-saving rule) that applied when each match ended.
+         */
+        get: operations["list_match_days_api_v1_matches_days_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2005,6 +2045,18 @@ export interface components {
             file: string;
             /** Name */
             name: string;
+        };
+        /** BulkDeleteMatchesRequest */
+        BulkDeleteMatchesRequest: {
+            /** Match Ids */
+            match_ids: string[];
+        };
+        /** BulkDeleteMatchesResponse */
+        BulkDeleteMatchesResponse: {
+            /** Deleted */
+            deleted: number;
+            /** Requested */
+            requested: number;
         };
         /** ChangePasswordRequest */
         ChangePasswordRequest: {
@@ -5524,6 +5576,16 @@ export interface operations {
             query?: {
                 /** @description Filter to a single overlay id */
                 oid?: string | null;
+                /** @description Filter by match mode */
+                mode?: ("indoor" | "beach" | "table_tennis") | null;
+                /** @description Inclusive Unix-seconds end time */
+                ended_from?: number | null;
+                /** @description Exclusive Unix-seconds end time */
+                ended_to?: number | null;
+                /** @description Summary column to sort */
+                sort?: "ended" | "duration";
+                /** @description Sort direction */
+                direction?: "asc" | "desc";
                 /** @description Page size */
                 limit?: number;
                 /** @description Rows to skip (newest first) */
@@ -5545,6 +5607,80 @@ export interface operations {
                 content: {
                     "application/json": {
                         [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_delete_matches_api_v1_matches_bulk_delete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkDeleteMatchesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkDeleteMatchesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_match_days_api_v1_matches_days_get: {
+        parameters: {
+            query?: {
+                /** @description Filter to a single overlay id */
+                oid?: string | null;
+                /** @description Filter by match mode */
+                mode?: ("indoor" | "beach" | "table_tennis") | null;
+                tz?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string[];
                     };
                 };
             };
