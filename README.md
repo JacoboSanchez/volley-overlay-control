@@ -310,7 +310,9 @@ Configure the application using the following environment variables:
 | `MATCH_GAME_POINTS_LAST_SET` | Points needed to win the last set. | `15` |
 | `MATCH_SETS` | Total sets in the match (best of N). | `5` |
 | `STALE_SET_THRESHOLD_MINUTES` | Minutes a single set may run before the control-UI "match looks abandoned" prompt fires on the next page load. `0` disables the prompt entirely (useful for long all-day tournaments). Negative values clamp to `0`; non-numeric values fall back to the default. | `60` |
-| `ENABLE_MULTITHREAD` | If `true`, overlay API calls run in a thread pool. | `true` |
+| `ENABLE_MULTITHREAD` | If `true`, overlay state preparation and broadcasts run in the shared background executor. | `true` |
+| `OVERLAY_EXECUTOR_MAX_WORKERS` | Maximum worker threads in the process-wide overlay executor. Work for one overlay stays ordered even when several workers are available. | `8` |
+| `OVERLAY_EXECUTOR_MAX_QUEUE` | Additional overlay tasks accepted beyond the active worker count; callers apply backpressure when this bounded capacity is full. | `256` |
 | `LOGGING_LEVEL` | Log level (`debug`, `info`, `warning`, `error`). | `warning` |
 | `LOG_FORMAT` | Log output format: `text` (ANSI-coloured, for dev) or `json` (one JSON object per line, for log aggregators). | `text` |
 | `LOG_FILE` | *(Optional)* Path to a rotating log file. When set, a file handler is attached alongside stdout; when unset, logs go to stdout only. | |

@@ -23,6 +23,7 @@ Cardinality budget:
 * ``ws_clients_total`` and ``ws_oids_active`` — unlabelled gauges so
   a tournament with thousands of OIDs cannot blow up the metric set.
 * ``active_sessions`` — unlabelled gauge.
+* overlay-executor depth and latency — unlabelled, process-wide metrics.
 * ``rate_limit_blocked_buckets`` — labels one of two bounded limiter surfaces.
 * ``webhook_dead_letter_size`` — unlabelled persistent queue-depth gauge.
 
@@ -140,6 +141,23 @@ active_sessions = Gauge(
     "Number of live GameSession instances tracked by SessionManager.",
 )
 
+overlay_executor_queue_depth = Gauge(
+    "voc_overlay_executor_queue_depth",
+    "Overlay background tasks waiting behind an active task for the same key.",
+)
+
+overlay_executor_wait_seconds = Histogram(
+    "voc_overlay_executor_wait_seconds",
+    "Time an overlay background task spends waiting before execution.",
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+)
+
+overlay_executor_run_seconds = Histogram(
+    "voc_overlay_executor_run_seconds",
+    "Execution time for one overlay background task.",
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+)
+
 webhook_dead_letter_size = Gauge(
     "voc_webhook_dead_letter_size",
     "Records currently parked in data/webhooks_dead_letter.jsonl.",
@@ -187,6 +205,18 @@ def set_ws_gauges(total_clients: int, oid_count: int) -> None:
 
 def set_active_sessions(count: int) -> None:
     active_sessions.set(count)
+
+
+def set_overlay_executor_queue_depth(count: int) -> None:
+    overlay_executor_queue_depth.set(count)
+
+
+def record_overlay_executor_wait(seconds: float) -> None:
+    overlay_executor_wait_seconds.observe(seconds)
+
+
+def record_overlay_executor_run(seconds: float) -> None:
+    overlay_executor_run_seconds.observe(seconds)
 
 
 def set_dead_letter_size(count: int) -> None:

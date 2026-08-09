@@ -319,9 +319,10 @@ class SessionManager:
 
         Backend and GameSession construction happen inside the global lock
         only after a session-exists re-check: two racing callers on the
-        same OID cannot both allocate a ``Backend`` (``ThreadPoolExecutor``
-        + ``requests.Session``). Lock contention is bounded because the
-        fast path (existing session) never enters the construction block.
+        same OID cannot both allocate a ``Backend``. Lock contention is
+        bounded because the fast path (existing session) never enters the
+        construction block. Backends share the process-wide overlay executor,
+        so creating a session does not allocate its own worker pool.
         """
         def _apply_limits(session: GameSession) -> None:
             changed = False

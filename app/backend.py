@@ -2,7 +2,6 @@ import copy
 import logging
 import time
 from collections.abc import Callable, Iterator
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from typing import Any
 
@@ -17,6 +16,7 @@ from app.overlay_backends import (
     OverlayKind,
     resolve_overlay_kind,
 )
+from app.overlay_executor import get_overlay_executor
 from app.overlay_payload import build_overlay_payload
 from app.state import State
 
@@ -50,7 +50,7 @@ class Backend:
 
     def __init__(self, config: Conf) -> None:
         self.conf = config
-        self.executor = ThreadPoolExecutor(max_workers=5)
+        self.executor = get_overlay_executor()
         self._customization_cache = CustomizationCache(
             _CUSTOMIZATION_CACHE_TTL_SECONDS
         )
@@ -122,10 +122,10 @@ class Backend:
 
     def shutdown(self) -> None:
         self._overlay.shutdown()
-        executor = getattr(self, "executor", None)
-        if executor is None:
-            return
-        executor.shutdown(wait=True, cancel_futures=False)
+
+    def _executor_key(self) -> str:
+        """Return the per-user ordering key for background overlay work."""
+        return self.conf.skey or self.conf.oid or "__unscoped__"
 
     @property
     def ws_connected(self) -> bool:
@@ -187,7 +187,7 @@ class Backend:
                 )
 
         if self.conf.multithread:
-            self.executor.submit(_push)
+            self.executor.submit(self._executor_key(), _push)
         else:
             _push()
 
@@ -211,6 +211,7 @@ class Backend:
 
         if self.conf.multithread:
             self.executor.submit(
+                self._executor_key(),
                 self._overlay.on_customization_saved,
                 get_model,
                 to_save,

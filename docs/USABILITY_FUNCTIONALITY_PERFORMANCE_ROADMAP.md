@@ -56,8 +56,8 @@ accumulate far more worker threads than useful concurrent work.
 
 ### Proposal
 
-- Use one process-wide, bounded executor for local overlay persistence and
-  broadcast preparation.
+- Use one process-wide, bounded executor for overlay broadcast preparation and
+  delivery.
 - Keep each overlay's mutation order deterministic.
 - Shut the shared executor down once at application shutdown, not once per
   game session.

@@ -27,6 +27,13 @@ archive by hand.
 
 ### Changed
 
+- **Overlay background work now uses one bounded, process-wide executor.**
+  Creating or evicting a game session no longer creates or shuts down a
+  private five-thread pool. Tasks remain FIFO within each per-user overlay
+  key, different overlays can progress concurrently, and the bounded queue
+  applies backpressure instead of retaining unlimited pending payloads.
+  Unlabelled Prometheus metrics expose queue depth plus wait and run latency;
+  worker and queue limits are operator-configurable.
 - **Match-history browsing now stays bounded as archives grow.** The React
   reports page sends its mode/day/sort/page filters to SQL instead of fetching
   at most 500 matches and filtering them in memory. Summary queries omit the
