@@ -14,6 +14,21 @@ archive by hand.
 
 ## [Unreleased]
 
+### Dependencies
+
+- **Backend runtime:** `starlette` `>=1.3.1` → `>=1.6.0` (adds
+  `max_body_size` on `Starlette` and the route classes, several
+  `GZipMiddleware` fixes, and stricter `FileResponse` range handling) and
+  `alembic` `>=1.18.5` → `>=1.19.1` (fixes check-constraint autogenerate
+  detection for column-bound constraints). Both moved a pin in
+  `requirements.lock` (`1.3.1` → `1.6.0` and `1.18.5` → `1.19.1`). The
+  `starlette` floor now sits above the `1.3.1` CVE fix it was originally
+  raised for. Dependabot only edits the range in `requirements.txt`, so
+  each PR needed its lock regenerated to clear the
+  lockfile-satisfies-`requirements.txt` gate.
+  [#496](https://github.com/JacoboSanchez/volley-overlay-control/pull/496),
+  [#497](https://github.com/JacoboSanchez/volley-overlay-control/pull/497)
+
 ## [7.0.0] - 2026-08-09
 
 ### Security
