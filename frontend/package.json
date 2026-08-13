@@ -44,7 +44,7 @@
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
-    "globals": "^17.7.0",
+    "globals": "^17.9.0",
     "jsdom": "^30.0.1",
     "material-icons": "^1.13.14",
     "openapi-typescript": "^7.13.0",
