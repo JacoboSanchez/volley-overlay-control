@@ -179,6 +179,42 @@ describe('useGameState', () => {
     expect(result.current.controllerCount).toBe(2);
   });
 
+  it('preserves a newer presence update across an equal-revision HTTP response', async () => {
+    const wsState = { ...mockState, revision: 4, controller_count: 1 } as unknown as GameState;
+    const httpState = { ...wsState, controller_count: 1 } as unknown as GameState;
+    let resolveAction: (value: { success: true; state: GameState }) => void = () => {};
+    vi.mocked(api.addPoint).mockReturnValue(
+      new Promise((resolve) => {
+        resolveAction = resolve;
+      }),
+    );
+
+    const { result } = renderHook(() => useGameState('ws-oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+    const handlers = vi.mocked(ws.createWebSocket).mock.calls.at(-1)![1];
+
+    let actionPromise: Promise<unknown> = Promise.resolve();
+    act(() => {
+      actionPromise = result.current.actions.addPoint(1);
+      handlers.onStateUpdate?.(wsState);
+      handlers.onPresenceUpdate?.(2, [
+        { client_id: 'tab-main-a', label: null },
+        { client_id: 'tab-main-b', label: null },
+      ]);
+    });
+    expect(result.current.controllerCount).toBe(2);
+
+    await act(async () => {
+      resolveAction({ success: true, state: httpState });
+      await actionPromise;
+    });
+
+    expect(result.current.state?.revision).toBe(4);
+    expect(result.current.controllerCount).toBe(2);
+  });
+
   it('accepts a lower revision when switching to a different board', async () => {
     const high = { ...mockState, revision: 20 } as unknown as GameState;
     const low = { ...mockState, revision: 1 } as unknown as GameState;

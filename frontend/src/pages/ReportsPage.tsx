@@ -197,8 +197,10 @@ export default function ReportsPage() {
     } catch {
       toast(t('acc.reports.errorDelete'), 'error');
       // A large selection is sent in chunks, so a failure can still leave
-      // earlier chunks deleted — never leave the list showing rows that
-      // are already gone.
+      // earlier chunks deleted. The client cannot safely distinguish a
+      // rejected chunk from a committed chunk whose response was lost, so
+      // discard the whole selection rather than retaining stale ids.
+      sel.clear();
       await refreshStillActiveScopes();
     } finally {
       setDeleting(false);

@@ -155,6 +155,24 @@ describe('ReportsPage', () => {
     confirmSpy.mockRestore();
   });
 
+  it('clears selected ids after a partially failed bulk delete', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(reportsApi.deleteMatches).mockRejectedValueOnce(
+      new Error('a later chunk failed after earlier chunks committed'),
+    );
+    renderWithI18n(<ReportsPage />);
+    await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(2));
+
+    fireEvent.click(screen.getAllByLabelText('Select match')[0]!);
+    fireEvent.click(screen.getByRole('button', { name: /Delete selected \(1\)/ }));
+
+    await waitFor(() => expect(reportsApi.deleteMatches).toHaveBeenCalledWith(['m1']));
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /Delete selected/ })).toBeNull(),
+    );
+    confirmSpy.mockRestore();
+  });
+
   it('filters reports by match type', async () => {
     reportRows = [
       { ...match('m1', 2000, 600), mode: 'beach' },

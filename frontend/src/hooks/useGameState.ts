@@ -191,6 +191,11 @@ export function useGameState(
   const reconnectAttempts = useRef<number>(0);
   const abortRef = useRef<AbortController | null>(null);
   const activeOidRef = useRef<string | null>(null);
+  // Once the dedicated presence stream has spoken, its count is newer than
+  // the incidental snapshot embedded in any state response. Presence is
+  // deliberately excluded from the state revision, so equal-revision HTTP
+  // acknowledgements cannot otherwise be ordered against WS joins/leaves.
+  const presenceStreamActiveRef = useRef(false);
   const mutationQueueRef = useRef<QueuedMutation[]>([]);
   const mutationRunningRef = useRef(false);
   // Mirror of `state` used by handleAction so it can synchronously snapshot
@@ -214,7 +219,7 @@ export function useGameState(
     }
     stateRef.current = next;
     setState(next);
-    if (next && typeof next.controller_count === 'number') {
+    if (!presenceStreamActiveRef.current && next && typeof next.controller_count === 'number') {
       setControllerCount(next.controller_count);
     }
     // ``confirmedState`` deliberately excludes optimistic writes so cache
@@ -258,12 +263,16 @@ export function useGameState(
   const connectWs = useCallback(() => {
     if (!oid) return;
     closeWs();
+    presenceStreamActiveRef.current = false;
     wsRef.current = createWebSocket(oid, {
       onStateUpdate: (newState) => applyState(newState),
       onCustomizationUpdate: (newCust) => setCustomization(newCust),
       onAuditAppend,
       onAuditInvalidate,
-      onPresenceUpdate: (count) => setControllerCount(count),
+      onPresenceUpdate: (count) => {
+        presenceStreamActiveRef.current = true;
+        setControllerCount(count);
+      },
       onOpen: () => {
         // Successful handshake: reset the backoff so the next outage
         // starts retrying quickly again.
@@ -282,6 +291,7 @@ export function useGameState(
       },
       onClose: (event) => {
         setConnected(false);
+        presenceStreamActiveRef.current = false;
         setControllerCount(0);
         // Application-level close codes (4xxx) are terminal: bad request
         // (4400), invalid/revoked credentials (4003) or no session (4004).
@@ -308,6 +318,7 @@ export function useGameState(
   const initialize = useCallback(async () => {
     if (!oid) {
       activeOidRef.current = null;
+      presenceStreamActiveRef.current = false;
       applyState(null);
       setCustomization(null);
       setConnected(false);
@@ -320,6 +331,7 @@ export function useGameState(
     // stale and therefore be discarded by ``applyState``.
     if (activeOidRef.current !== oid) {
       activeOidRef.current = oid;
+      presenceStreamActiveRef.current = false;
       applyState(null);
       setConfirmedState(null);
       setCustomization(null);
@@ -365,6 +377,7 @@ export function useGameState(
   useEffect(() => {
     return () => {
       activeOidRef.current = null;
+      presenceStreamActiveRef.current = false;
       closeWs();
       if (abortRef.current) {
         abortRef.current.abort();
