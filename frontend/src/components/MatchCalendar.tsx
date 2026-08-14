@@ -19,6 +19,15 @@ export interface MatchCalendarProps {
   onSelect: (day: string | null) => void;
 }
 
+function mostRecentMonth(matchDays: string[]) {
+  const mostRecent = matchDays.reduce(
+    (latest, candidate) => (candidate > latest ? candidate : latest),
+    '',
+  );
+  const base = mostRecent ? new Date(`${mostRecent}T12:00:00`) : new Date();
+  return { year: base.getFullYear(), month: base.getMonth() };
+}
+
 /**
  * Month calendar that marks the days with archived matches and filters the
  * reports list to a single day on click. Self-contained (no date library, no
@@ -35,11 +44,18 @@ export default function MatchCalendar({ matchDays, selected, onSelect }: MatchCa
   }, [matchDays]);
 
   // Month on screen; defaults to the most recent match (list is newest-first).
-  const [view, setView] = useState(() => {
-    const mostRecent = [...matchDays].sort().at(-1);
-    const base = mostRecent ? new Date(`${mostRecent}T12:00:00`) : new Date();
-    return { year: base.getFullYear(), month: base.getMonth() };
-  });
+  const [view, setView] = useState(() => mostRecentMonth(matchDays));
+  const initializedFromMatches = useRef(matchDays.length > 0);
+  const manuallyNavigated = useRef(false);
+
+  useEffect(() => {
+    if (initializedFromMatches.current || matchDays.length === 0) return;
+    initializedFromMatches.current = true;
+    // The days query commonly finishes after the table, so the component can
+    // mount empty. Move to the newest report month once that first real data
+    // arrives, unless the operator already chose a month manually.
+    if (!manuallyNavigated.current) setView(mostRecentMonth(matchDays));
+  }, [matchDays]);
 
   useEffect(() => {
     if (!open) return;
@@ -73,11 +89,13 @@ export default function MatchCalendar({ matchDays, selected, onSelect }: MatchCa
     ];
   }, [view]);
 
-  const shift = (delta: number) =>
+  const shift = (delta: number) => {
+    manuallyNavigated.current = true;
     setView((v) => {
       const d = new Date(v.year, v.month + delta, 1);
       return { year: d.getFullYear(), month: d.getMonth() };
     });
+  };
 
   const triggerLabel = selected
     ? new Date(`${selected}T00:00:00`).toLocaleDateString(lang, {

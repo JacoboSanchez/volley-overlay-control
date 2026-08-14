@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithI18n } from './helpers';
 import ReportsPage from '../pages/ReportsPage';
 
@@ -202,6 +202,48 @@ describe('ReportsPage', () => {
     await waitFor(() =>
       expect(vi.mocked(reportsApi.listReportDays).mock.calls.length).toBeGreaterThan(before),
     );
+    confirmSpy.mockRestore();
+  });
+
+  it('does not refresh an obsolete overlay after an in-flight deletion', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(overlaysApi.getOverlays).mockResolvedValue([overlay('o1'), overlay('o2')]);
+    let finishDelete: ((result: { requested: number; deleted: number }) => void) | undefined;
+    vi.mocked(reportsApi.deleteMatches).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishDelete = resolve;
+        }),
+    );
+
+    renderWithI18n(<ReportsPage />);
+    await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(2));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete report' })[0]!);
+    await waitFor(() => expect(reportsApi.deleteMatches).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByLabelText('Scoreboard'), { target: { value: 'o2' } });
+    await waitFor(() =>
+      expect(
+        vi.mocked(reportsApi.listReports).mock.calls.some(([params]) => params?.oid === 'o2'),
+      ).toBe(true),
+    );
+
+    await act(async () => {
+      finishDelete?.({ requested: 1, deleted: 1 });
+    });
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Delete report' })[0]).toBeEnabled(),
+    );
+
+    // The o2 effects already refreshed the active table/calendar. The old
+    // deletion callback must not start newer o1 requests and win the sequence
+    // guards merely because it completed later.
+    expect(
+      vi.mocked(reportsApi.listReports).mock.calls.filter(([params]) => params?.oid === 'o1'),
+    ).toHaveLength(1);
+    expect(
+      vi.mocked(reportsApi.listReportDays).mock.calls.filter(([params]) => params?.oid === 'o1'),
+    ).toHaveLength(1);
     confirmSpy.mockRestore();
   });
 

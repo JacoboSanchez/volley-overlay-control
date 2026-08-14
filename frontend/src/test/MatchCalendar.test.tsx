@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithI18n } from './helpers';
 import MatchCalendar, { dayKey } from '../components/MatchCalendar';
 
@@ -20,6 +20,23 @@ describe('MatchCalendar', () => {
     expect(screen.getByRole('button', { name: '15' })).toBeEnabled();
     expect(screen.getByRole('button', { name: '20' })).toBeEnabled();
     expect(screen.getByRole('button', { name: '10' })).toBeDisabled();
+  });
+
+  it('moves to the latest month when asynchronously loaded days first arrive', async () => {
+    const { rerender } = renderWithI18n(
+      <MatchCalendar matchDays={[]} selected={null} onSelect={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /filter by day/i }));
+
+    rerender(<MatchCalendar matchDays={['2024-03-15']} selected={null} onSelect={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText(/March 2024/i)).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: '15' })).toBeEnabled();
+
+    // Later refreshes must not undo a month the operator navigated to.
+    fireEvent.click(screen.getByRole('button', { name: /next month/i }));
+    expect(screen.getByText(/April 2024/i)).toBeInTheDocument();
+    rerender(<MatchCalendar matchDays={['2025-06-10']} selected={null} onSelect={vi.fn()} />);
+    expect(screen.getByText(/April 2024/i)).toBeInTheDocument();
   });
 
   it('emits the picked day and closes the popover', () => {

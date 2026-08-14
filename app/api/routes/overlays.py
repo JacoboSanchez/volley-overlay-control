@@ -31,12 +31,21 @@ def _delete_overlay_runtime(skey: str) -> None:
     """Remove non-database state after the overlay row is durably deleted."""
     from app.api.session_manager import SessionManager
     from app.overlay import overlay_state_store
+    from app.overlay_executor import get_overlay_executor
 
+    # Closing the session first prevents its backend from accepting any more
+    # background work. Run deletion as the next item in the same keyed FIFO,
+    # after every already-accepted push. A queued stale push can no longer run
+    # after deletion and recreate the overlay state it just removed.
     SessionManager.remove(skey)
-    overlay_state_store.delete_overlay(skey)
-    # Reports key on the user (FK), not the overlay, so remove this overlay's
-    # archived matches explicitly.
-    match_archive.delete_for_oid(skey)
+
+    def _delete_persisted_runtime() -> None:
+        overlay_state_store.delete_overlay(skey)
+        # Reports key on the user (FK), not the overlay, so remove this
+        # overlay's archived matches explicitly.
+        match_archive.delete_for_oid(skey)
+
+    get_overlay_executor().run_after_pending(skey, _delete_persisted_runtime)
 
 
 def _overlay_out(

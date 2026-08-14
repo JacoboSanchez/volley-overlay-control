@@ -184,3 +184,53 @@ def test_failed_task_does_not_block_later_work_for_same_key() -> None:
         raise AssertionError("failed task unexpectedly succeeded")
     assert later.result(timeout=2) == "recovered"
     executor.shutdown()
+
+
+def test_run_after_pending_is_a_keyed_cleanup_barrier() -> None:
+    executor = OverlayTaskExecutor(max_workers=2, max_queue=4)
+    release_first = threading.Event()
+    first_started = threading.Event()
+    cleanup_finished = threading.Event()
+    events: list[str] = []
+
+    def first() -> None:
+        first_started.set()
+        assert release_first.wait(timeout=2)
+        events.append("push")
+
+    executor.submit("1:scoreboard", first)
+    assert first_started.wait(timeout=2)
+
+    def run_cleanup() -> None:
+        executor.run_after_pending(
+            "1:scoreboard",
+            lambda: events.append("delete"),
+        )
+        cleanup_finished.set()
+
+    cleanup_thread = threading.Thread(target=run_cleanup)
+    cleanup_thread.start()
+    time.sleep(0.05)
+    assert not cleanup_finished.is_set()
+
+    release_first.set()
+    assert cleanup_finished.wait(timeout=2)
+    cleanup_thread.join(timeout=2)
+    executor.shutdown()
+
+    assert events == ["push", "delete"]
+
+
+def test_shutdown_backend_ignores_late_state_writes() -> None:
+    from app.overlay import overlay_state_store
+    from app.state import State
+
+    conf = Conf()
+    conf.oid = "deleted"
+    conf.skey = "1:deleted"
+    backend = Backend(conf)
+
+    backend.shutdown()
+    backend.save_model(State().get_reset_model(), simple=False)
+
+    assert not overlay_state_store.overlay_exists(conf.skey)

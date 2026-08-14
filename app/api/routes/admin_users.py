@@ -36,10 +36,15 @@ def _cleanup_user_runtime(skeys: list[str], icon_files: list[str]) -> None:
     from app import icons_service
     from app.api.session_manager import SessionManager
     from app.overlay import overlay_state_store
+    from app.overlay_executor import get_overlay_executor
 
     for skey in skeys:
         SessionManager.remove(skey)
-        overlay_state_store.delete_overlay(skey)
+        get_overlay_executor().run_after_pending(
+            skey,
+            overlay_state_store.delete_overlay,
+            skey,
+        )
     icons_service.unlink_files(icon_files)
 
 

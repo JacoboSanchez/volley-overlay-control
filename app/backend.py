@@ -1,5 +1,6 @@
 import copy
 import logging
+import threading
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -53,6 +54,12 @@ class Backend:
         self._customization_cache = CustomizationCache(
             _CUSTOMIZATION_CACHE_TTL_SECONDS
         )
+        # Coordinates session teardown with mutations that are about to
+        # persist/queue overlay work. Once closed, an in-flight request that
+        # retained the removed GameSession cannot enqueue stale work behind
+        # the deletion barrier and recreate the overlay afterward.
+        self._lifecycle_lock = threading.Lock()
+        self._shutdown = False
         self._rule_overrides_getter: Callable[[], dict[str, Any]] | None = None
         self._overlay = self._create_overlay_backend()
 
@@ -131,7 +138,11 @@ class Backend:
         self._overlay.close_ws_client()
 
     def shutdown(self) -> None:
-        self._overlay.shutdown()
+        with self._lifecycle_lock:
+            if self._shutdown:
+                return
+            self._shutdown = True
+            self._overlay.shutdown()
 
     def _executor_key(self) -> str:
         """Return the per-user ordering key for background overlay work."""
@@ -179,27 +190,30 @@ class Backend:
         current_model: dict[str, Any],
         simple: bool,
     ) -> None:
-        Backend.logger.debug("saving model...")
-        self._ensure_overlay_backend()
-        with _timed("save_model.model", Backend.logger):
-            self._overlay.save_model(current_model)
+        with self._lifecycle_lock:
+            if self._shutdown:
+                return
+            Backend.logger.debug("saving model...")
+            self._ensure_overlay_backend()
+            with _timed("save_model.model", Backend.logger):
+                self._overlay.save_model(current_model)
 
-        to_save = copy.copy(current_model)
-        if simple:
-            to_save = State.simplify_model(to_save)
+            to_save = copy.copy(current_model)
+            if simple:
+                to_save = State.simplify_model(to_save)
 
-        def _push() -> None:
-            with _timed("save_model.push", Backend.logger):
-                self._overlay.push_model_update(
-                    current_model,
-                    to_save,
-                    show_only_current_set=simple,
-                )
+            def _push() -> None:
+                with _timed("save_model.push", Backend.logger):
+                    self._overlay.push_model_update(
+                        current_model,
+                        to_save,
+                        show_only_current_set=simple,
+                    )
 
-        if self.conf.multithread:
-            self.executor.submit(self._executor_key(), _push)
-        else:
-            _push()
+            if self.conf.multithread:
+                self.executor.submit(self._executor_key(), _push)
+            else:
+                _push()
 
     def reduce_games_to_one(self) -> None:
         self._ensure_overlay_backend()
@@ -211,31 +225,37 @@ class Backend:
         self._overlay.send_json_model(to_save)
 
     def save_json_customization(self, to_save: dict[str, Any]) -> None:
-        Backend.logger.debug("saving JSON customization...")
-        self._ensure_overlay_backend()
-        self._remember_customization(to_save)
-        self._overlay.save_customization(to_save)
+        with self._lifecycle_lock:
+            if self._shutdown:
+                return
+            Backend.logger.debug("saving JSON customization...")
+            self._ensure_overlay_backend()
+            self._remember_customization(to_save)
+            self._overlay.save_customization(to_save)
 
-        def get_model() -> dict[str, Any] | None:
-            return self.get_current_model(self.conf.oid)
+            def get_model() -> dict[str, Any] | None:
+                return self.get_current_model(self.conf.oid)
 
-        if self.conf.multithread:
-            self.executor.submit(
-                self._executor_key(),
-                self._overlay.on_customization_saved,
-                get_model,
-                to_save,
-            )
-        else:
-            self._overlay.on_customization_saved(get_model, to_save)
+            if self.conf.multithread:
+                self.executor.submit(
+                    self._executor_key(),
+                    self._overlay.on_customization_saved,
+                    get_model,
+                    to_save,
+                )
+            else:
+                self._overlay.on_customization_saved(get_model, to_save)
 
     def change_overlay_visibility(self, show: bool) -> None:
-        Backend.logger.debug("changing overlay visibility, show: %s", show)
-        self._ensure_overlay_backend()
-        self._overlay.change_visibility_with_fallback(
-            show,
-            lambda: self.get_current_model(self.conf.oid),
-        )
+        with self._lifecycle_lock:
+            if self._shutdown:
+                return
+            Backend.logger.debug("changing overlay visibility, show: %s", show)
+            self._ensure_overlay_backend()
+            self._overlay.change_visibility_with_fallback(
+                show,
+                lambda: self.get_current_model(self.conf.oid),
+            )
 
     # -- Model/customization retrieval ------------------------------------
 

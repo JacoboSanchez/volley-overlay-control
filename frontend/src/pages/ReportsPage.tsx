@@ -39,6 +39,16 @@ export default function ReportsPage() {
   const [overlaysLoaded, setOverlaysLoaded] = useState(false);
   const [error, setError] = useState('');
 
+  // Delete handlers can outlive the render that created them. Keep the
+  // currently displayed query scopes in refs so a completed deletion never
+  // invokes an old ``load`` closure after the operator changed controls.
+  const listScope = [oid, modeFilter, day ?? '', sortKey, sortDir, page].join('\u0000');
+  const daysScope = [oid, modeFilter].join('\u0000');
+  const listScopeRef = useRef(listScope);
+  const daysScopeRef = useRef(daysScope);
+  listScopeRef.current = listScope;
+  daysScopeRef.current = daysScope;
+
   useEffect(() => {
     void (async () => {
       try {
@@ -163,13 +173,25 @@ export default function ReportsPage() {
   const somePageSelected = sel.someSelected(pageIds);
 
   async function deleteIds(ids: string[]) {
+    const startedListScope = listScope;
+    const startedDaysScope = daysScope;
+
+    async function refreshStillActiveScopes() {
+      if (listScopeRef.current === startedListScope) {
+        if (page !== 0) setPage(0);
+        else await load();
+      }
+      // ``load`` can remain in flight while the operator changes overlay or
+      // mode, so validate the calendar scope again immediately before using
+      // this render's ``loadDays`` closure.
+      if (daysScopeRef.current === startedDaysScope) await loadDays();
+    }
+
     setDeleting(true);
     try {
       const result = await deleteMatches(ids);
       sel.clear();
-      if (page !== 0) setPage(0);
-      else await load();
-      await loadDays();
+      await refreshStillActiveScopes();
       if (result.deleted > 0) toast(t('acc.reports.toastDeleted', { n: result.deleted }));
       if (result.deleted < result.requested) toast(t('acc.reports.errorDelete'), 'error');
     } catch {
@@ -177,8 +199,7 @@ export default function ReportsPage() {
       // A large selection is sent in chunks, so a failure can still leave
       // earlier chunks deleted — never leave the list showing rows that
       // are already gone.
-      await load();
-      await loadDays();
+      await refreshStillActiveScopes();
     } finally {
       setDeleting(false);
     }

@@ -206,6 +206,31 @@ class OverlayTaskExecutor:
             if self._unfinished_count == 0:
                 self._condition.notify_all()
 
+    def run_after_pending(
+        self,
+        key: str,
+        function: Callable[..., Any],
+        /,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any:
+        """Run *function* after earlier work for *key* and wait for it.
+
+        The cleanup itself is part of the keyed FIFO rather than happening
+        after a separate ``drain`` call. New work accepted concurrently is
+        therefore ordered either before or after the cleanup and can never
+        slip into the drain/delete gap.
+
+        This is a synchronous barrier for blocking lifecycle paths. Calling
+        it from an asyncio event-loop thread would park that loop while prior
+        overlay work finishes, so reject that misuse explicitly.
+        """
+        if _on_event_loop_thread():
+            raise RuntimeError(
+                "run_after_pending must be called from a worker thread"
+            )
+        return self.submit(key, function, *args, **kwargs).result()
+
     def shutdown(self, *, wait: bool = True, cancel_futures: bool = False) -> None:
         """Reject new work, optionally cancel queued work, and stop workers."""
         if not wait and not cancel_futures:
