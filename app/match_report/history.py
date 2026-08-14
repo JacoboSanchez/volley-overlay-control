@@ -186,6 +186,23 @@ def _sorted(matches: list[dict], sort: str, direction: str) -> list[dict]:
 _DAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
+def _valid_day(day: str | None) -> str:
+    """Return *day* when it is a real calendar date, otherwise ``""``.
+
+    The shape check alone accepts impossible dates (``2026-02-30``), which
+    ``date.fromisoformat`` in :func:`_day_bounds` then rejects — turning a
+    hand-typed query string into a 500. Unparseable input is treated as "no
+    day filter", matching how an unknown ``mode`` or ``sort`` degrades.
+    """
+    if not day or not _DAY_RE.match(day):
+        return ""
+    try:
+        date.fromisoformat(day)
+    except ValueError:
+        return ""
+    return day
+
+
 def _fmt_date(ended_at: object) -> str:
     if not isinstance(ended_at, (int, float)):
         return "—"
@@ -459,7 +476,7 @@ def match_history(
     sort = "duration" if sort == "duration" else "ended"
     direction = "asc" if dir == "asc" else "desc"
     active_mode = mode if mode in _VALID_MODES else ""
-    active_day = day if _DAY_RE.match(day or "") else ""
+    active_day = _valid_day(day)
 
     # Days that actually have matches (for the current type filter) — the
     # day dropdown only offers these, like the account calendar dots them.

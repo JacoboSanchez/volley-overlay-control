@@ -2,6 +2,13 @@
 
 const ID_KEY = 'volley_client_id';
 const LABEL_KEY = 'volley_client_label';
+// Set while a live tab is using the stored id. Duplicating a tab (or opening
+// one from a same-origin link) copies sessionStorage wholesale, so the copy
+// would otherwise reuse the opener's id — and ``WSHub.presence()``
+// deduplicates by ``client_id``, reporting two real controllers as one and
+// attributing both tabs' audit rows to the same identity. The claim is
+// released on ``pagehide`` so a plain reload still keeps its id.
+const CLAIM_KEY = 'volley_client_id_live';
 
 let memoryId: string | null = null;
 let memoryLabel: string | null = null;
@@ -25,21 +32,40 @@ function mintId(): string {
   return `tab-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
 }
 
+/** Free the stored id when this page goes away, so the next load of *this*
+ *  tab (a reload) may take it back while a duplicate cannot. */
+function releaseClaimOnUnload(): void {
+  if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+  window.addEventListener('pagehide', () => {
+    try {
+      sessionStorage.removeItem(CLAIM_KEY);
+    } catch {
+      /* nothing to release */
+    }
+  });
+}
+
 export function getClientId(): string {
   if (memoryId) return memoryId;
+  let stored: string | null = null;
+  let claimed = false;
   try {
-    const stored = sessionStorage.getItem(ID_KEY);
-    if (stored && VALID_ID.test(stored)) return (memoryId = stored);
+    stored = sessionStorage.getItem(ID_KEY);
+    // A tab that was duplicated inherits the claim of the tab it came from;
+    // one that was reloaded finds it released by the handler below.
+    claimed = sessionStorage.getItem(CLAIM_KEY) === '1';
   } catch {
     // Sandboxed/private browsers may deny sessionStorage; memory still keeps
     // the id stable for this loaded tab.
   }
-  memoryId = mintId();
+  memoryId = stored && VALID_ID.test(stored) && !claimed ? stored : mintId();
   try {
     sessionStorage.setItem(ID_KEY, memoryId);
+    sessionStorage.setItem(CLAIM_KEY, '1');
   } catch {
     /* memory fallback is sufficient */
   }
+  releaseClaimOnUnload();
   return memoryId;
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getOverlays } from '../api/overlays';
 import type { OverlayPayload } from '../api/overlays';
 import { deleteMatches, listReportDays, listReports } from '../api/reports';
@@ -60,7 +60,15 @@ export default function ReportsPage() {
     })();
   }, [t]);
 
+  // Overlay/mode/day/sort/page are server-side filters now, so changing one
+  // starts a fresh request while the previous may still be in flight. Only
+  // the newest may write state: a slower earlier response landing last would
+  // otherwise repopulate the table with rows for controls the operator has
+  // already moved on from.
+  const loadSeq = useRef(0);
+
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     if (!oid) {
       setMatches([]);
       setTotal(0);
@@ -78,12 +86,16 @@ export default function ReportsPage() {
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
       });
+      if (seq !== loadSeq.current) return;
       setMatches(res.matches);
       setTotal(res.count);
     } catch {
+      if (seq !== loadSeq.current) return;
       setError(t('acc.reports.errorReports'));
     } finally {
-      setLoading(false);
+      // The newest request owns the spinner; a superseded one must not
+      // clear it while its replacement is still running.
+      if (seq === loadSeq.current) setLoading(false);
     }
   }, [day, modeFilter, oid, page, sortDir, sortKey, t]);
 
@@ -95,14 +107,21 @@ export default function ReportsPage() {
   // overlay or mode changes, never on page/sort/day changes — plus after a
   // deletion, which can empty a day the calendar would otherwise keep
   // offering until the operator switched overlay or mode.
+  const daysSeq = useRef(0);
   const loadDays = useCallback(() => {
+    const seq = ++daysSeq.current;
     if (!oid) {
       setMatchDays([]);
       return Promise.resolve();
     }
     return listReportDays({ oid, ...(modeFilter ? { mode: modeFilter } : {}) })
-      .then((res) => setMatchDays(res.days))
-      .catch(() => setMatchDays([]));
+      .then((res) => {
+        // Same ordering guard as ``load``.
+        if (seq === daysSeq.current) setMatchDays(res.days);
+      })
+      .catch(() => {
+        if (seq === daysSeq.current) setMatchDays([]);
+      });
   }, [modeFilter, oid]);
 
   useEffect(() => {

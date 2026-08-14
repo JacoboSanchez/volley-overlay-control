@@ -85,6 +85,55 @@ describe('ReportsPage', () => {
     });
   });
 
+  it('ignores a stale report response that resolves after a newer one', async () => {
+    // Filtering/sorting/paging are server-side now, so switching one starts a
+    // request while the previous is still open. The slower earlier response
+    // must not repopulate the table the operator has already moved past.
+    vi.mocked(overlaysApi.getOverlays).mockResolvedValue([
+      overlay('o1'),
+      overlay('o2'),
+      overlay('o3'),
+    ]);
+    renderWithI18n(<ReportsPage />);
+    await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(2));
+
+    // From here on every request hangs until the test answers it.
+    const pending: Array<(rows: reportsApi.MatchSummary[]) => void> = [];
+    vi.mocked(reportsApi.listReports).mockImplementation(
+      (params = {}) =>
+        new Promise((resolve) => {
+          pending.push((rows) =>
+            resolve({
+              count: rows.length,
+              matches: rows,
+              limit: 20,
+              offset: 0,
+              sort: params.sort ?? 'ended',
+              direction: params.direction ?? 'desc',
+            }),
+          );
+        }),
+    );
+
+    // The scoreboard picker stays usable while the table loads, so two
+    // switches in a row leave two requests open.
+    const picker = screen.getByLabelText('Scoreboard');
+    fireEvent.change(picker, { target: { value: 'o2' } });
+    await waitFor(() => expect(pending.length).toBe(1));
+    fireEvent.change(picker, { target: { value: 'o3' } });
+    await waitFor(() => expect(pending.length).toBe(2));
+
+    // Newest request answers first…
+    pending[1]!([match('new', 3000, 900)]);
+    await waitFor(() => expect(screen.getByText('15 min')).toBeInTheDocument());
+    // …then the superseded one finally lands.
+    pending[0]!([match('stale', 1000, 1200)]);
+
+    await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(1));
+    expect(screen.getByText('15 min')).toBeInTheDocument();
+    expect(screen.queryByText('20 min')).toBeNull();
+  });
+
   it('deletes a single report after confirmation', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderWithI18n(<ReportsPage />);

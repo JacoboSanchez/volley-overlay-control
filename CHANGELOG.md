@@ -22,10 +22,12 @@ archive by hand.
   rendered revision; stale writes return `409 state_revision_conflict` and the
   UI reloads authoritative state instead of silently overwriting another
   operator. Browser tabs use ephemeral ids for an aggregate connected-
-  controller indicator and optional audit attribution. Presence and audit
-  metadata never disclose the overlay owner's account identity, while clients
-  that omit the new headers remain backward compatible. Background writes —
-  the overlay locale sync that follows the operator's UI language — go
+  controller indicator and optional audit attribution. A tab duplicated from
+  a live one claims a fresh id instead of inheriting its opener's, so two
+  real controllers are never counted (or attributed) as one. Presence and
+  audit metadata never disclose the overlay owner's account identity, while
+  clients that omit the new headers remain backward compatible. Background
+  writes — the overlay locale sync that follows the operator's UI language — go
   through the same serialized mutation queue as scoring actions, so they can
   no longer send a stale revision alongside a point and lose one of the two
   to a conflict. The match-rule controls (mode, limits, auto side switch)
@@ -40,7 +42,10 @@ archive by hand.
   transaction without allowing ids from another account to cross the owner
   boundary. Selections survive paging, so the reports page splits a larger
   selection into requests the endpoint accepts, and refreshes the calendar
-  after a deletion empties a day.
+  after a deletion empties a day. Switching overlay, filter, sort or page
+  while a list request is still open no longer lets the older response
+  repopulate the table, and the shared history page treats an impossible
+  date (`?day=2026-02-30`) as no filter instead of failing the request.
 
 ### Changed
 
