@@ -1,6 +1,16 @@
-"""POST /game/* — game actions (points, sets, timeouts, serve, reset)."""
+"""POST /game/* — game actions (points, sets, timeouts, serve, reset).
+
+Every handler hands ``GameService`` to ``run_in_threadpool``: the action
+path writes the overlay state to disk, persists session meta and submits
+background work to the bounded overlay executor, whose backpressure
+blocks until a slot frees. None of that may run on the event-loop
+thread — see ``app/overlay_executor.py`` and the "Do not block the event
+loop" pitfall in AGENTS.md. ``get_mutation_session`` still holds the
+board's asyncio lock across the hop, so mutations stay serialized.
+"""
 
 from fastapi import APIRouter, Depends
+from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencies import get_mutation_session
 from app.api.game_service import GameService
@@ -23,7 +33,8 @@ router = APIRouter()
 )
 async def add_point(req: AddPointRequest,
                     session: GameSession = Depends(get_mutation_session)) -> ActionResponse:
-    return GameService.add_point(
+    return await run_in_threadpool(
+        GameService.add_point,
         session, req.team, req.undo,
         point_type=req.point_type, error_type=req.error_type,
     )
@@ -35,7 +46,7 @@ async def add_point(req: AddPointRequest,
 )
 async def add_set(req: TeamActionRequest,
                   session: GameSession = Depends(get_mutation_session)) -> ActionResponse:
-    return GameService.add_set(session, req.team, req.undo)
+    return await run_in_threadpool(GameService.add_set, session, req.team, req.undo)
 
 
 @router.post(
@@ -44,7 +55,7 @@ async def add_set(req: TeamActionRequest,
 )
 async def add_timeout(req: TeamActionRequest,
                       session: GameSession = Depends(get_mutation_session)) -> ActionResponse:
-    return GameService.add_timeout(session, req.team, req.undo)
+    return await run_in_threadpool(GameService.add_timeout, session, req.team, req.undo)
 
 
 @router.post(
@@ -53,7 +64,7 @@ async def add_timeout(req: TeamActionRequest,
 )
 async def change_serve(req: ServeRequest,
                        session: GameSession = Depends(get_mutation_session)) -> ActionResponse:
-    return GameService.change_serve(session, req.team)
+    return await run_in_threadpool(GameService.change_serve, session, req.team)
 
 
 @router.post(
@@ -62,7 +73,9 @@ async def change_serve(req: ServeRequest,
 )
 async def set_score(req: SetScoreRequest,
                     session: GameSession = Depends(get_mutation_session)) -> ActionResponse:
-    return GameService.set_score(session, req.team, req.set_number, req.value)
+    return await run_in_threadpool(
+        GameService.set_score, session, req.team, req.set_number, req.value,
+    )
 
 
 @router.post(
@@ -71,7 +84,7 @@ async def set_score(req: SetScoreRequest,
 )
 async def set_sets(req: SetSetsRequest,
                    session: GameSession = Depends(get_mutation_session)) -> ActionResponse:
-    return GameService.set_sets_value(session, req.team, req.value)
+    return await run_in_threadpool(GameService.set_sets_value, session, req.team, req.value)
 
 
 @router.post(
@@ -79,7 +92,7 @@ async def set_sets(req: SetSetsRequest,
     response_model=ActionResponse,
 )
 async def reset_game(session: GameSession = Depends(get_mutation_session)) -> ActionResponse:
-    return GameService.reset(session)
+    return await run_in_threadpool(GameService.reset, session)
 
 
 @router.post(
@@ -93,7 +106,7 @@ async def start_match(session: GameSession = Depends(get_mutation_session)) -> A
     original anchor in place. The HUD timer / report duration / undo
     flow all read this field downstream.
     """
-    return GameService.start_match(session)
+    return await run_in_threadpool(GameService.start_match, session)
 
 
 @router.post(
@@ -107,4 +120,4 @@ async def undo_last(session: GameSession = Depends(get_mutation_session)) -> Act
     ``undo=True``. Returns ``success=false`` with message
     ``"Nothing to undo."`` when the log has no eligible entry.
     """
-    return GameService.undo_last(session)
+    return await run_in_threadpool(GameService.undo_last, session)

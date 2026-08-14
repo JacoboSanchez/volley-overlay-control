@@ -155,7 +155,7 @@ export default function App({
     oid,
     lang,
     customization,
-    expectedRevision: state?.revision,
+    syncLocale: actions.syncOverlayLocale,
     refreshCustomization,
   });
 

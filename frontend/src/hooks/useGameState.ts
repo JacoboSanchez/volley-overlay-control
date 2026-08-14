@@ -23,6 +23,20 @@ interface QueuedMutation {
   reject: (error: unknown) => void;
 }
 
+interface HandleActionOptions {
+  /**
+   * How many times to replay the mutation against the freshly loaded
+   * revision after a ``state_revision_conflict``. Zero (the default) is
+   * right for operator gestures — the board changed under them, so
+   * repeating is their call. Background writes that carry no operator
+   * intent opt in so a remote controller's point cannot silently drop
+   * them.
+   */
+  conflictRetries?: number;
+  /** Keep failures out of the shared error banner (background writes). */
+  quiet?: boolean;
+}
+
 // Optimistic prediction of the next state after a successful addPoint. The
 // scoring team gains one point and takes the serve; the server later sends the
 // authoritative state via HTTP response and WebSocket broadcast. Undo actions
@@ -84,6 +98,15 @@ export interface GameActions {
    * automatically too.
    */
   startMatch: () => Promise<ActionResponse>;
+  /**
+   * Write the operator's UI language onto the overlay customization so
+   * OBS-embedded overlays follow it live. Runs through the same
+   * serialized mutation queue as every scoring action — a background
+   * write racing a point would otherwise send both with the same
+   * revision and lose one of them to a 409. Failures stay off the error
+   * banner; see ``useOverlayLocaleSync``.
+   */
+  syncOverlayLocale: (locale: string) => Promise<ActionResponse>;
 }
 
 export interface UseGameStateOptions {
@@ -357,12 +380,23 @@ export function useGameState(
     (
       actionFn: (oid: string, expectedRevision?: number) => Promise<ActionResponse>,
       optimisticUpdater?: (prev: GameState) => GameState,
+      { conflictRetries = 0, quiet = false }: HandleActionOptions = {},
     ): Promise<ActionResponse> => {
       if (!oid) {
         return Promise.resolve({ success: false, message: 'No overlay session' });
       }
       const actionOid = oid;
-      const run = async (): Promise<ActionResponse> => {
+      const fail = (message: string, status: number | null): ActionResponse => {
+        // Background syncs report through their own caller; surfacing them in
+        // the shared banner would blame the operator's next action for a
+        // failure they never triggered.
+        if (!quiet) {
+          setError(message);
+          setErrorStatus(status);
+        }
+        return { success: false, message };
+      };
+      const attempt = async (retriesLeft: number): Promise<ActionResponse> => {
         // A board switch cancels work still queued for the previous board. An
         // already in-flight response is likewise ignored below.
         if (activeOidRef.current !== actionOid) {
@@ -397,27 +431,34 @@ export function useGameState(
             try {
               const latest = await api.getState(actionOid);
               if (activeOidRef.current === actionOid) applyState(latest);
+              // Operator gestures stop here on purpose: the board moved under
+              // them, so the decision to repeat the action is theirs. Callers
+              // that opt in (background syncs carrying no operator intent)
+              // replay against the revision just loaded instead.
+              if (retriesLeft > 0) return attempt(retriesLeft - 1);
               return {
                 success: false,
                 state: latest,
                 message: 'Another controller changed the scoreboard. Latest state loaded.',
               };
             } catch (refreshError) {
-              const message = apiErrorMessage(
-                refreshError,
-                refreshError instanceof Error ? refreshError.message : String(refreshError),
+              return fail(
+                apiErrorMessage(
+                  refreshError,
+                  refreshError instanceof Error ? refreshError.message : String(refreshError),
+                ),
+                refreshError instanceof ApiError ? refreshError.status : null,
               );
-              setError(message);
-              setErrorStatus(refreshError instanceof ApiError ? refreshError.status : null);
-              return { success: false, message };
             }
           }
-          const message = apiErrorMessage(e, e instanceof Error ? e.message : String(e));
-          setError(message);
-          setErrorStatus(e instanceof ApiError ? e.status : null);
-          return { success: false, message };
+          return fail(
+            apiErrorMessage(e, e instanceof Error ? e.message : String(e)),
+            e instanceof ApiError ? e.status : null,
+          );
         }
       };
+
+      const run = (): Promise<ActionResponse> => attempt(conflictRetries);
 
       return new Promise<ActionResponse>((resolve, reject) => {
         mutationQueueRef.current.push({ run, resolve, reject });
@@ -456,6 +497,12 @@ export function useGameState(
         handleAction((id, revision) => api.setSetSummaryStyle(id, style, revision)),
       undoLast: () => handleAction((id, revision) => api.undoLast(id, revision)),
       startMatch: () => handleAction((id, revision) => api.startMatch(id, revision)),
+      syncOverlayLocale: (locale) =>
+        handleAction(
+          (id, revision) => api.updateCustomization(id, { locale }, revision),
+          undefined,
+          { conflictRetries: 1, quiet: true },
+        ),
     }),
     [handleAction],
   );

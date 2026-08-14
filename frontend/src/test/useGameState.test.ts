@@ -36,6 +36,7 @@ vi.mock('../api/board', () => ({
   setSwapSides: vi.fn(),
   setSetSummary: vi.fn(),
   setSetSummaryStyle: vi.fn(),
+  updateCustomization: vi.fn(),
 }));
 
 vi.mock('../api/websocket', () => ({
@@ -375,6 +376,79 @@ describe('useGameState', () => {
     expect(api.getState).toHaveBeenCalledWith('oid');
     expect(result.current.state).toEqual(latest);
     expect(result.current.error).toBeNull();
+  });
+
+  it('sends the overlay locale sync behind in-flight mutations, not beside them', async () => {
+    const afterPoint = { ...mockState, revision: 4 } as unknown as GameState;
+    let resolvePoint: (value: { success: true; state: GameState }) => void = () => {};
+    vi.mocked(api.addPoint).mockReturnValue(
+      new Promise((resolve) => {
+        resolvePoint = resolve;
+      }),
+    );
+    vi.mocked(api.updateCustomization).mockResolvedValue({ success: true });
+
+    const { result } = renderHook(() => useGameState('oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    let pointPromise: Promise<unknown> = Promise.resolve();
+    let localePromise: Promise<unknown> = Promise.resolve();
+    act(() => {
+      pointPromise = result.current.actions.addPoint(1);
+      localePromise = result.current.actions.syncOverlayLocale('es');
+    });
+    // Still queued: sending it now would reuse the point's revision and
+    // one of the two would come back 409.
+    expect(api.updateCustomization).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolvePoint({ success: true, state: afterPoint });
+      await pointPromise;
+      await localePromise;
+    });
+
+    expect(api.updateCustomization).toHaveBeenCalledWith('oid', { locale: 'es' }, 4);
+  });
+
+  it('replays the locale sync against the fresh revision after a remote conflict', async () => {
+    const latest = { ...mockState, revision: 9 } as unknown as GameState;
+    vi.mocked(api.updateCustomization)
+      .mockRejectedValueOnce(new ApiError(409, 'conflict', 'state_revision_conflict'))
+      .mockResolvedValueOnce({ success: true });
+    vi.mocked(api.getState).mockResolvedValue(latest);
+
+    const { result } = renderHook(() => useGameState('oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    await act(async () => {
+      const res = await result.current.actions.syncOverlayLocale('es');
+      expect(res.success).toBe(true);
+    });
+
+    expect(api.updateCustomization).toHaveBeenNthCalledWith(1, 'oid', { locale: 'es' }, 3);
+    expect(api.updateCustomization).toHaveBeenNthCalledWith(2, 'oid', { locale: 'es' }, 9);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('keeps a failed background locale sync out of the operator error banner', async () => {
+    vi.mocked(api.updateCustomization).mockRejectedValue(new Error('overlay unreachable'));
+
+    const { result } = renderHook(() => useGameState('oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    await act(async () => {
+      const res = await result.current.actions.syncOverlayLocale('es');
+      expect(res.success).toBe(false);
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.errorStatus).toBeNull();
   });
 
   it('does not let an older HTTP acknowledgement overwrite a newer WS state', async () => {

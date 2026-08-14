@@ -17,6 +17,7 @@ not inherit a shut-down pool.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 import time
@@ -37,6 +38,27 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_MAX_WORKERS = 8
 _DEFAULT_MAX_QUEUE = 256
+
+
+class OverlayExecutorSaturated(RuntimeError):
+    """Submission would have parked the asyncio thread on backpressure.
+
+    Blocking until a slot frees is the intended behaviour for worker
+    threads, but the same wait on the event-loop thread stalls *every*
+    request and WebSocket broadcast until capacity is released. Callers
+    reached from an ``async def`` handler must therefore hop to a worker
+    thread first (``run_in_threadpool``), which is what every mutating
+    route does.
+    """
+
+
+def _on_event_loop_thread() -> bool:
+    """Return True when the caller runs on a thread driving an asyncio loop."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return False
+    return True
 
 
 @dataclass(slots=True)
@@ -91,12 +113,16 @@ class OverlayTaskExecutor:
         *args: Any,
         **kwargs: Any,
     ) -> Future[Any]:
-        """Queue *function* under *key*, blocking while capacity is full."""
+        """Queue *function* under *key*, blocking while capacity is full.
+
+        Raises :class:`OverlayExecutorSaturated` instead of blocking when the
+        caller is on the event-loop thread and no slot is free.
+        """
         # Deliberately acquire before allocating/copying the item so overload
         # cannot retain one payload per blocked caller outside the bounded
         # queue as well as those already accepted into it.
         queued_at = time.perf_counter()
-        self._capacity.acquire()
+        self._acquire_capacity()
         item = _WorkItem(
             future=Future(),
             function=function,
@@ -117,6 +143,24 @@ class OverlayTaskExecutor:
                 self._ready_key_set.add(key)
             self._dispatch_ready_locked()
         return item.future
+
+    def _acquire_capacity(self) -> None:
+        """Reserve one slot, never parking a thread that drives the loop.
+
+        Backpressure is the point of the bound, so a worker thread waits.
+        The event-loop thread must not: a burst past ``max_workers +
+        max_queue`` — or one slow overlay task — would otherwise freeze
+        every HTTP request and WebSocket broadcast in the process until a
+        slot frees.
+        """
+        if self._capacity.acquire(blocking=False):
+            return
+        if _on_event_loop_thread():
+            raise OverlayExecutorSaturated(
+                "overlay executor is saturated; submit from a worker thread "
+                "instead of the event loop"
+            )
+        self._capacity.acquire()
 
     def _dispatch_ready_locked(self) -> None:
         """Assign ready keys to free workers while the condition is held."""

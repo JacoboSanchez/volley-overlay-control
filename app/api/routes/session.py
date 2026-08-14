@@ -122,7 +122,8 @@ async def set_rules(
     in the same call still win, so the UI can switch modes and
     keep one custom limit in a single request.
     """
-    return GameService.set_rules(
+    return await run_in_threadpool(
+        GameService.set_rules,
         session,
         mode=req.mode,
         points_limit=req.points_limit,

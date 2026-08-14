@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
 import threading
 import time
 
+import pytest
+
 from app.backend import Backend
 from app.conf import Conf
-from app.overlay_executor import OverlayTaskExecutor, shutdown_overlay_executor
+from app.overlay_executor import (
+    OverlayExecutorSaturated,
+    OverlayTaskExecutor,
+    shutdown_overlay_executor,
+)
 
 
 def test_same_key_tasks_run_in_submission_order() -> None:
@@ -87,6 +94,48 @@ def test_capacity_applies_backpressure_to_submitters() -> None:
     first.result(timeout=2)
     second.result(timeout=2)
     submitter.join(timeout=2)
+    executor.shutdown()
+
+
+def test_saturated_submit_refuses_to_park_the_event_loop() -> None:
+    """A full pool must never block the asyncio thread — it would freeze
+    every HTTP request and WebSocket broadcast in the process."""
+    executor = OverlayTaskExecutor(max_workers=1, max_queue=1)
+    release_first = threading.Event()
+    first_started = threading.Event()
+
+    def block() -> None:
+        first_started.set()
+        assert release_first.wait(timeout=2)
+
+    first = executor.submit("same", block)
+    assert first_started.wait(timeout=2)
+    second = executor.submit("same", lambda: None)
+
+    async def submit_from_loop() -> None:
+        with pytest.raises(OverlayExecutorSaturated):
+            executor.submit("same", lambda: None)
+
+    started = time.perf_counter()
+    asyncio.run(submit_from_loop())
+    # Rejected, not queued behind the blocked task.
+    assert time.perf_counter() - started < 1
+
+    release_first.set()
+    first.result(timeout=2)
+    second.result(timeout=2)
+    executor.shutdown()
+
+
+def test_submit_from_event_loop_succeeds_while_capacity_remains() -> None:
+    executor = OverlayTaskExecutor(max_workers=2, max_queue=4)
+    ran = threading.Event()
+
+    async def submit_from_loop() -> None:
+        executor.submit("same", ran.set).result(timeout=2)
+
+    asyncio.run(submit_from_loop())
+    assert ran.is_set()
     executor.shutdown()
 
 

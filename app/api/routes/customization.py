@@ -59,7 +59,7 @@ async def update_customization(
     session: GameSession = Depends(get_mutation_session),
 ) -> ActionResponse:
     logger.debug("Customization updated (%d keys)", len(data.root))
-    return GameService.update_customization(session, data.root)
+    return await run_in_threadpool(GameService.update_customization, session, data.root)
 
 
 # ---------------------------------------------------------------------------

@@ -4,11 +4,13 @@ Covers the HTTP and WebSocket surface end-to-end: session lifecycle, game
 actions, session-not-found errors, and WSHub broadcast across multiple
 clients. Backend HTTP dependencies are patched so no network traffic occurs.
 """
+import asyncio
 from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api.game_service import GameService
 from app.api.session_manager import SessionManager
 from app.bootstrap import create_app
 from app.overlay_key import make_skey
@@ -109,6 +111,28 @@ class TestGameRoutes:
             json={"team": 1},
         )
         assert r.status_code == 404
+
+    def test_mutation_runs_off_the_event_loop(self, client, fake_backend_cls):
+        """The action path writes to disk and submits to the bounded overlay
+        executor, whose backpressure blocks — so it must never run on the
+        asyncio thread."""
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        observed = {}
+        original = GameService.add_point.__func__
+
+        def spy(cls, *args, **kwargs):
+            try:
+                asyncio.get_running_loop()
+                observed["on_loop"] = True
+            except RuntimeError:
+                observed["on_loop"] = False
+            return original(cls, *args, **kwargs)
+
+        with patch.object(GameService, "add_point", classmethod(spy)):
+            r = client.post("/api/v1/game/add-point?oid=abc", json={"team": 1})
+
+        assert r.status_code == 200
+        assert observed == {"on_loop": False}
 
     def test_add_point_with_session(self, client, fake_backend_cls):
         initial = client.post("/api/v1/session/init", json={"oid": "abc"}).json()["state"]

@@ -24,7 +24,11 @@ archive by hand.
   operator. Browser tabs use ephemeral ids for an aggregate connected-
   controller indicator and optional audit attribution. Presence and audit
   metadata never disclose the overlay owner's account identity, while clients
-  that omit the new headers remain backward compatible.
+  that omit the new headers remain backward compatible. Background writes —
+  the overlay locale sync that follows the operator's UI language — go
+  through the same serialized mutation queue as scoring actions, so they can
+  no longer send a stale revision alongside a point and lose one of the two
+  to a conflict.
 - **A usability, functionality and performance roadmap** now records the
   post-7.0 delivery order, user outcomes and measurable completion criteria in
   `docs/USABILITY_FUNCTIONALITY_PERFORMANCE_ROADMAP.md`.
@@ -48,7 +52,10 @@ archive by hand.
   key, different overlays can progress concurrently, and the bounded queue
   applies backpressure instead of retaining unlimited pending payloads.
   Unlabelled Prometheus metrics expose queue depth plus wait and run latency;
-  worker and queue limits are operator-configurable.
+  worker and queue limits are operator-configurable. Scoring, display and
+  customization endpoints run their work on a worker thread, so a saturated
+  pool applies backpressure to that request alone instead of stalling every
+  other request and live overlay update in the process.
 - **Match-history browsing now stays bounded as archives grow.** The React
   reports page sends its mode/day/sort/page filters to SQL instead of fetching
   at most 500 matches and filtering them in memory. Summary queries omit the
