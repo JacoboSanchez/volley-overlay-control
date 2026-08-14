@@ -42,6 +42,8 @@ vi.mock('../api/presets', () => ({
 const defaultProps = {
   oid: 'test-oid',
   customization: mockCustomization,
+  setRules: vi.fn().mockResolvedValue({ success: true }),
+  setAutoSwapSides: vi.fn().mockResolvedValue({ success: true }),
   onBack: vi.fn(),
   onLogout: vi.fn(),
   onCustomizationSaved: vi.fn(),

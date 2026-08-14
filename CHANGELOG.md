@@ -28,7 +28,9 @@ archive by hand.
   the overlay locale sync that follows the operator's UI language — go
   through the same serialized mutation queue as scoring actions, so they can
   no longer send a stale revision alongside a point and lose one of the two
-  to a conflict.
+  to a conflict. The match-rule controls (mode, limits, auto side switch)
+  use that queue too, and a rule change rejected by a conflict now says so
+  instead of silently snapping back.
 - **A usability, functionality and performance roadmap** now records the
   post-7.0 delivery order, user outcomes and measurable completion criteria in
   `docs/USABILITY_FUNCTIONALITY_PERFORMANCE_ROADMAP.md`.
@@ -36,7 +38,9 @@ archive by hand.
   `GET /api/v1/matches/days` returns lightweight local calendar-day keys, and
   `POST /api/v1/matches/bulk-delete` removes up to 100 selected reports in one
   transaction without allowing ids from another account to cross the owner
-  boundary.
+  boundary. Selections survive paging, so the reports page splits a larger
+  selection into requests the endpoint accepts, and refreshes the calendar
+  after a deletion empties a day.
 
 ### Changed
 
@@ -55,7 +59,10 @@ archive by hand.
   worker and queue limits are operator-configurable. Scoring, display and
   customization endpoints run their work on a worker thread, so a saturated
   pool applies backpressure to that request alone instead of stalling every
-  other request and live overlay update in the process.
+  other request and live overlay update in the process. The WebSocket
+  registry is lock-guarded for those cross-thread reads: a tab connecting
+  while a mutation builds its response can no longer fail the request that
+  was already applied.
 - **Match-history browsing now stays bounded as archives grow.** The React
   reports page sends its mode/day/sort/page filters to SQL instead of fetching
   at most 500 matches and filtering them in memory. Summary queries omit the

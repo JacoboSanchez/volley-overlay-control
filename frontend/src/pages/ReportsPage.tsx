@@ -92,16 +92,22 @@ export default function ReportsPage() {
   }, [load]);
 
   // Calendar dots are a separate scalar-only query. Re-read them when the
-  // overlay or mode changes, never on page/sort/day changes.
-  useEffect(() => {
+  // overlay or mode changes, never on page/sort/day changes — plus after a
+  // deletion, which can empty a day the calendar would otherwise keep
+  // offering until the operator switched overlay or mode.
+  const loadDays = useCallback(() => {
     if (!oid) {
       setMatchDays([]);
-      return;
+      return Promise.resolve();
     }
-    void listReportDays({ oid, ...(modeFilter ? { mode: modeFilter } : {}) })
+    return listReportDays({ oid, ...(modeFilter ? { mode: modeFilter } : {}) })
       .then((res) => setMatchDays(res.days))
       .catch(() => setMatchDays([]));
   }, [modeFilter, oid]);
+
+  useEffect(() => {
+    void loadDays();
+  }, [loadDays]);
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -144,10 +150,16 @@ export default function ReportsPage() {
       sel.clear();
       if (page !== 0) setPage(0);
       else await load();
+      await loadDays();
       if (result.deleted > 0) toast(t('acc.reports.toastDeleted', { n: result.deleted }));
       if (result.deleted < result.requested) toast(t('acc.reports.errorDelete'), 'error');
     } catch {
       toast(t('acc.reports.errorDelete'), 'error');
+      // A large selection is sent in chunks, so a failure can still leave
+      // earlier chunks deleted — never leave the list showing rows that
+      // are already gone.
+      await load();
+      await loadDays();
     } finally {
       setDeleting(false);
     }

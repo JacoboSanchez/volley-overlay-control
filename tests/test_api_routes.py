@@ -439,6 +439,61 @@ class TestWSHubResilience:
             WSHub._loop = None
             WSHub.clear()
 
+    def test_presence_read_blocks_a_concurrent_connect(self):
+        """A mutation response reads ``controller_count`` from a worker
+        thread (routes hand ``GameService`` to ``run_in_threadpool``) while
+        a tab connects on the event loop. Without the registry lock that
+        iteration raises ``RuntimeError: Set changed size during
+        iteration`` — a 500 for an action the server already committed.
+
+        Deterministic by construction: hashing the first socket kicks off a
+        real ``connect`` on another thread and waits for it. Holding the
+        lock, that thread parks until the read finishes; without the lock it
+        registers mid-iteration and the read blows up.
+        """
+        import threading as _threading
+
+        from app.api.ws_hub import WSHub
+
+        joiner: list[_threading.Thread] = []
+
+        armed = _threading.Event()
+
+        class _FakeWS:
+            async def accept(self, subprotocol=None):
+                return None
+
+            def __hash__(self):
+                # Fires once, on whichever socket the registry walks first.
+                if armed.is_set() and not joiner:
+                    thread = _threading.Thread(
+                        target=lambda: asyncio.run(
+                            WSHub.connect(_FakeWS(), "oid-race"),
+                        ),
+                    )
+                    joiner.append(thread)
+                    thread.start()
+                    # Returns with the thread still alive while the lock is
+                    # held — that is the behaviour under test.
+                    thread.join(timeout=0.25)
+                return id(self)
+
+        WSHub.clear()
+
+        async def seed():
+            for _ in range(4):
+                await WSHub.connect(_FakeWS(), "oid-race")
+
+        asyncio.run(seed())
+        armed.set()
+        try:
+            WSHub.controller_count("oid-race")
+        finally:
+            armed.clear()
+            for thread in joiner:
+                thread.join(timeout=5)
+            WSHub.clear()
+
     def test_broadcast_preserves_reconnected_oid(self):
         """If a new client installs a fresh set under the same OID while
         broadcast was awaiting, the final cleanup must not pop that new set."""

@@ -139,6 +139,23 @@ describe('ReportsPage', () => {
     confirmSpy.mockRestore();
   });
 
+  it('refreshes the calendar days after a deletion', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderWithI18n(<ReportsPage />);
+    await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(2));
+    const before = vi.mocked(reportsApi.listReportDays).mock.calls.length;
+
+    fireEvent.click(screen.getByLabelText('Select all on this page'));
+    fireEvent.click(screen.getByRole('button', { name: /Delete selected \(2\)/ }));
+
+    // Deleting the last report of a day must drop its dot; neither oid nor
+    // mode changed, so the day query only reruns if the delete asks it to.
+    await waitFor(() =>
+      expect(vi.mocked(reportsApi.listReportDays).mock.calls.length).toBeGreaterThan(before),
+    );
+    confirmSpy.mockRestore();
+  });
+
   it('select-all-on-page only selects the visible page, not every page', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const many = Array.from({ length: 25 }, (_, i) => match(`m${i}`, 1000 + i, 600));

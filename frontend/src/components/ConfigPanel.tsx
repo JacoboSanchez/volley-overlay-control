@@ -4,7 +4,7 @@ import { useSettings, type ThemePreference } from '../hooks/useSettings';
 import { useOrientation } from '../hooks/useOrientation';
 import { useAsyncAction } from '../hooks/useAsyncAction';
 import { updateCustomization } from '../api/board';
-import type { SetSummaryStyle } from '../api/board';
+import type { ActionResponse, SetRulesPayload, SetSummaryStyle } from '../api/board';
 import { ApiError } from '../api/http';
 import ConfirmDialog from './ConfirmDialog';
 import ConfigBottomBar from './config/ConfigBottomBar';
@@ -31,6 +31,9 @@ export interface ConfigPanelProps {
   gameConfig?: Record<string, unknown> | null;
   /** Live ``state.auto_swap_sides`` — drives the rules-section toggle. */
   autoSwapSides?: boolean | null;
+  /** Queued rule writes from ``useGameState`` — see MatchRulesSection. */
+  setRules: (payload: SetRulesPayload) => Promise<ActionResponse>;
+  setAutoSwapSides: (enabled: boolean) => Promise<ActionResponse>;
   onBack: () => void;
   onLogout: () => void;
   /** Operator (shareable-link) mode: hide the owner-only Sign out control,
@@ -82,6 +85,8 @@ export default function ConfigPanel({
   stateRevision,
   gameConfig,
   autoSwapSides = null,
+  setRules,
+  setAutoSwapSides,
   onBack,
   onLogout,
   operator = false,
@@ -158,32 +163,32 @@ export default function ConfigPanel({
     (section: SectionId | null) => (
       <ConfigSectionBody
         section={section}
-        oid={oid}
         model={model}
         updateField={updateField}
         onApplyPatch={applyPatch}
         options={options}
         settings={settings}
         setSetting={setSetting}
-        stateRevision={stateRevision}
         gameConfig={gameConfig}
         autoSwapSides={autoSwapSides}
+        setRules={setRules}
+        setAutoSwapSides={setAutoSwapSides}
         onShowShortcuts={onShowShortcuts}
         setSummaryStyle={setSummaryStyle}
         onChangeSetSummaryStyle={onChangeSetSummaryStyle}
       />
     ),
     [
-      oid,
       model,
       updateField,
       applyPatch,
       options,
       settings,
       setSetting,
-      stateRevision,
       gameConfig,
       autoSwapSides,
+      setRules,
+      setAutoSwapSides,
       onShowShortcuts,
       setSummaryStyle,
       onChangeSetSummaryStyle,

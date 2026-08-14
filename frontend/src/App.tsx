@@ -560,6 +560,8 @@ export default function App({
             stateRevision={state?.revision}
             gameConfig={state?.config ?? null}
             autoSwapSides={state?.auto_swap_sides ?? null}
+            setRules={actions.setRules}
+            setAutoSwapSides={actions.setAutoSwapSides}
             onBack={() => setActiveTab('scoreboard')}
             onLogout={handleLogout}
             operator={isCapabilityMode}

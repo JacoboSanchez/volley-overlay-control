@@ -107,6 +107,14 @@ export interface GameActions {
    * banner; see ``useOverlayLocaleSync``.
    */
   syncOverlayLocale: (locale: string) => Promise<ActionResponse>;
+  /** Toggle automatic side swapping (set changes + mid-set points). */
+  setAutoSwapSides: (enabled: boolean) => Promise<ActionResponse>;
+  /**
+   * Update the match-rule preset (mode, points, sets). Queued like every
+   * other mutation so a mode switch and an auto-swap toggle fired back to
+   * back cannot send the same revision and lose the second to a 409.
+   */
+  setRules: (payload: api.SetRulesPayload) => Promise<ActionResponse>;
 }
 
 export interface UseGameStateOptions {
@@ -497,6 +505,9 @@ export function useGameState(
         handleAction((id, revision) => api.setSetSummaryStyle(id, style, revision)),
       undoLast: () => handleAction((id, revision) => api.undoLast(id, revision)),
       startMatch: () => handleAction((id, revision) => api.startMatch(id, revision)),
+      setAutoSwapSides: (enabled) =>
+        handleAction((id, revision) => api.setAutoSwapSides(id, enabled, revision)),
+      setRules: (payload) => handleAction((id, revision) => api.setRules(id, payload, revision)),
       syncOverlayLocale: (locale) =>
         handleAction(
           (id, revision) => api.updateCustomization(id, { locale }, revision),

@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import secrets
+import threading
 import time
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
@@ -53,6 +54,17 @@ class WSHub:
     the session they are subscribed to.
     """
 
+    # Guards every structural read of / write to the three registries below.
+    # They are touched from two threads: the event loop (connect, disconnect,
+    # broadcasts, heartbeat) and worker threads (``GameService`` under
+    # ``run_in_threadpool`` asking for ``controller_count`` while building a
+    # mutation response). Without it, a tab connecting mid-response raises
+    # ``RuntimeError: Set changed size during iteration`` *after* the mutation
+    # was committed — a 500 for an action the server already applied.
+    # Reentrant because the locked bookkeeping paths call ``_refresh_gauges``
+    # and ``controller_count`` calls ``presence``. Never held across an
+    # ``await``: async paths take a snapshot, release, then send.
+    _registry_lock = threading.RLock()
     # {oid: set[WebSocket]}
     _connections: dict[str, set[WebSocket]] = {}
     # Strong references to in-flight fire-and-forget broadcast tasks. Without
@@ -101,7 +113,8 @@ class WSHub:
         with a protocol-mismatch error. Callers that authenticated
         via subprotocol must pass the same value here.
         """
-        existing = len(cls._connections.get(oid, ()))
+        with cls._registry_lock:
+            existing = len(cls._connections.get(oid, ()))
         if existing >= cls._MAX_CLIENTS_PER_OID:
             logger.warning(
                 "Rejecting WS connect for OID=%s: %d/%d clients (cap reached)",
@@ -112,34 +125,38 @@ class WSHub:
             await ws.accept(subprotocol=subprotocol)
         else:
             await ws.accept()
-        cls._connections.setdefault(oid, set()).add(ws)
-        cls._last_seen[ws] = time.monotonic()
-        cls._presence[ws] = ControllerPresence(
-            client_id=client_id or f"legacy-{secrets.token_urlsafe(9)}",
-            label=client_label or None,
-        )
-        cls._refresh_gauges()
+        with cls._registry_lock:
+            cls._connections.setdefault(oid, set()).add(ws)
+            cls._last_seen[ws] = time.monotonic()
+            cls._presence[ws] = ControllerPresence(
+                client_id=client_id or f"legacy-{secrets.token_urlsafe(9)}",
+                label=client_label or None,
+            )
+            cls._refresh_gauges()
+            total = len(cls._connections[oid])
         logger.debug(
             "WS client connected for OID=%s (total=%d)",
-            oid, len(cls._connections[oid]))
+            oid, total)
 
     @classmethod
     def connection_count(cls, oid: str) -> int:
         """Return the number of frontend WS clients subscribed to *oid*."""
-        return len(cls._connections.get(oid, ()))
+        with cls._registry_lock:
+            return len(cls._connections.get(oid, ()))
 
     @classmethod
     def presence(cls, oid: str) -> list[ControllerPresence]:
         """Distinct browser tabs connected to *oid*, sorted for stable frames."""
         distinct: dict[str, ControllerPresence] = {}
-        for ws in cls._connections.get(oid, ()):
-            item = cls._presence.get(ws)
-            if item is None:
-                item = ControllerPresence(
-                    client_id=f"legacy-{secrets.token_urlsafe(9)}",
-                )
-                cls._presence[ws] = item
-            distinct[item.client_id] = item
+        with cls._registry_lock:
+            for ws in cls._connections.get(oid, ()):
+                item = cls._presence.get(ws)
+                if item is None:
+                    item = ControllerPresence(
+                        client_id=f"legacy-{secrets.token_urlsafe(9)}",
+                    )
+                    cls._presence[ws] = item
+                distinct[item.client_id] = item
         return sorted(distinct.values(), key=lambda item: item.client_id)
 
     @classmethod
@@ -154,8 +171,9 @@ class WSHub:
         the heartbeat loop can distinguish a zombie (no traffic for
         ``WSHUB_CLIENT_TIMEOUT_SECONDS``) from an idle-but-healthy tab.
         """
-        if ws in cls._last_seen:
-            cls._last_seen[ws] = time.monotonic()
+        with cls._registry_lock:
+            if ws in cls._last_seen:
+                cls._last_seen[ws] = time.monotonic()
 
     @classmethod
     def _refresh_gauges(cls) -> None:
@@ -164,20 +182,26 @@ class WSHub:
         Cheap (one ``sum`` over a small dict). Centralises the metric
         update so the cardinality story stays in one place — neither
         gauge takes per-OID labels by design.
+
+        Callers hold ``_registry_lock`` (reentrant, so the locked
+        bookkeeping paths can call this directly).
         """
-        total = sum(len(s) for s in cls._connections.values())
-        set_ws_gauges(total, len(cls._connections))
+        with cls._registry_lock:
+            total = sum(len(s) for s in cls._connections.values())
+            oid_count = len(cls._connections)
+        set_ws_gauges(total, oid_count)
 
     @classmethod
     def disconnect(cls, ws: WebSocket, oid: str) -> None:
-        conns = cls._connections.get(oid)
-        if conns:
-            conns.discard(ws)
-            if not conns:
-                del cls._connections[oid]
-        cls._last_seen.pop(ws, None)
-        cls._presence.pop(ws, None)
-        cls._refresh_gauges()
+        with cls._registry_lock:
+            conns = cls._connections.get(oid)
+            if conns:
+                conns.discard(ws)
+                if not conns:
+                    del cls._connections[oid]
+            cls._last_seen.pop(ws, None)
+            cls._presence.pop(ws, None)
+            cls._refresh_gauges()
         logger.debug("WS client disconnected for OID=%s", oid)
 
     # Per-socket send timeout. A slow/hung client must not stall broadcasts
@@ -200,11 +224,14 @@ class WSHub:
         client cannot delay updates to the rest or leak memory by keeping
         a dead socket in the registry.
         """
-        conns = cls._connections.get(oid)
-        if not conns:
-            return
-
-        targets = [ws for ws in conns if ws is not exclude]
+        # Snapshot under the lock — the sends below await, and holding a
+        # threading lock across an await would let another task on this
+        # loop deadlock behind it.
+        with cls._registry_lock:
+            conns = cls._connections.get(oid)
+            if not conns:
+                return
+            targets = [ws for ws in conns if ws is not exclude]
         if not targets:
             return
 
@@ -224,23 +251,25 @@ class WSHub:
         )
 
         evicted_any = False
-        for ws in results:
-            if ws is not None:
-                conns.discard(ws)
-                cls._last_seen.pop(ws, None)
-                cls._presence.pop(ws, None)
+        with cls._registry_lock:
+            for ws in results:
+                if ws is not None:
+                    conns.discard(ws)
+                    cls._last_seen.pop(ws, None)
+                    cls._presence.pop(ws, None)
+                    evicted_any = True
+            # Only drop the OID entry if the registry still holds *our* set.
+            # A concurrent ``disconnect`` could have removed it and a
+            # concurrent ``connect`` could have installed a new set in the
+            # meantime; popping in that case would silently lose the new
+            # client.
+            if not conns and cls._connections.get(oid) is conns:
+                cls._connections.pop(oid, None)
                 evicted_any = True
-        # Only drop the OID entry if the registry still holds *our* set.
-        # A concurrent ``disconnect`` could have removed it and a concurrent
-        # ``connect`` could have installed a new set in the meantime; popping
-        # in that case would silently lose the new client.
-        if not conns and cls._connections.get(oid) is conns:
-            cls._connections.pop(oid, None)
-            evicted_any = True
-        if evicted_any:
-            cls._refresh_gauges()
-            if notify_presence:
-                await cls.broadcast_presence(oid)
+            if evicted_any:
+                cls._refresh_gauges()
+        if evicted_any and notify_presence:
+            await cls.broadcast_presence(oid)
 
     @classmethod
     async def broadcast(
@@ -390,10 +419,11 @@ class WSHub:
     @classmethod
     def clear(cls) -> None:
         """Remove all connections (for testing)."""
-        cls._connections.clear()
-        cls._last_seen.clear()
-        cls._presence.clear()
-        cls._refresh_gauges()
+        with cls._registry_lock:
+            cls._connections.clear()
+            cls._last_seen.clear()
+            cls._presence.clear()
+            cls._refresh_gauges()
 
     # ----- Heartbeat (opt-in via WSHUB_HEARTBEAT_INTERVAL_SECONDS > 0) ---
 
@@ -426,22 +456,25 @@ class WSHub:
            conditions rather than mid-iteration.
         """
         now = time.monotonic()
-        # Snapshot to avoid mutating the registry mid-iteration.
-        targets: list[tuple[str, WebSocket]] = []
-        for oid, conns in list(cls._connections.items()):
-            for ws in list(conns):
-                targets.append((oid, ws))
-        if not targets:
-            return
-
+        # Snapshot to avoid mutating the registry mid-iteration — and under
+        # the lock, so a worker thread reading presence cannot see it change
+        # underneath either.
         zombies: list[tuple[str, WebSocket]] = []
         healthy: list[tuple[str, WebSocket]] = []
-        for oid, ws in targets:
-            last_seen = cls._last_seen.get(ws, now)
-            if (now - last_seen) > WSHUB_CLIENT_TIMEOUT_SECONDS:
-                zombies.append((oid, ws))
-            else:
-                healthy.append((oid, ws))
+        with cls._registry_lock:
+            targets = [
+                (oid, ws)
+                for oid, conns in cls._connections.items()
+                for ws in conns
+            ]
+            if not targets:
+                return
+            for oid, ws in targets:
+                last_seen = cls._last_seen.get(ws, now)
+                if (now - last_seen) > WSHUB_CLIENT_TIMEOUT_SECONDS:
+                    zombies.append((oid, ws))
+                else:
+                    healthy.append((oid, ws))
 
         ping_msg = '{"type":"ping"}'
 

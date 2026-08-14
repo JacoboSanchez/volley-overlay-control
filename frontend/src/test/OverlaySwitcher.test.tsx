@@ -161,6 +161,8 @@ describe('OverlaySwitcher (in ConfigPanel)', () => {
     oid: 'court-a',
     customization: mockCustomization,
     actions: {},
+    setRules: vi.fn().mockResolvedValue({ success: true }),
+    setAutoSwapSides: vi.fn().mockResolvedValue({ success: true }),
     onBack: vi.fn(),
     onLogout: vi.fn(),
     onCustomizationSaved: vi.fn(),
