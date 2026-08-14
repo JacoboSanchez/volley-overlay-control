@@ -72,7 +72,8 @@ async def init_session(
             )
             await run_in_threadpool(GameService.refresh_customization, session)
             logger.debug("Session reused for skey=%s", redact_oid(skey))
-            return ActionResponse(success=True, state=GameService.get_state(session))
+            state = await run_in_threadpool(GameService.get_state, session)
+            return ActionResponse(success=True, state=state)
 
         # Make sure the per-user overlay state exists so the Backend resolves
         # it as a local overlay.
@@ -101,7 +102,8 @@ async def init_session(
             req.points_limit, req.points_limit_last_set, req.sets_limit,
         )
         logger.info("Session created for skey=%s", redact_oid(skey))
-    return ActionResponse(success=True, state=GameService.get_state(session))
+    state = await run_in_threadpool(GameService.get_state, session)
+    return ActionResponse(success=True, state=state)
 
 
 @router.post(

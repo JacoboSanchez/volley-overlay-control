@@ -69,6 +69,27 @@ class TestSessionInit:
         # The second init should NOT re-validate the OID (short-circuit path).
         fake_backend_cls.validate_and_store_model_for_oid.assert_not_called()
 
+    def test_reused_session_state_runs_off_the_event_loop(
+        self, client, fake_backend_cls,
+    ):
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        observed = {}
+        original = GameService.get_state.__func__
+
+        def spy(cls, *args, **kwargs):
+            try:
+                asyncio.get_running_loop()
+                observed["on_loop"] = True
+            except RuntimeError:
+                observed["on_loop"] = False
+            return original(cls, *args, **kwargs)
+
+        with patch.object(GameService, "get_state", classmethod(spy)):
+            response = client.post("/api/v1/session/init", json={"oid": "abc"})
+
+        assert response.status_code == 200
+        assert observed == {"on_loop": False}
+
     def test_state_revision_does_not_go_backwards_after_session_rebuild(
         self, client, fake_backend_cls,
     ):
@@ -132,6 +153,26 @@ class TestGameRoutes:
             r = client.post("/api/v1/game/add-point?oid=abc", json={"team": 1})
 
         assert r.status_code == 200
+        assert observed == {"on_loop": False}
+
+    def test_state_read_runs_off_the_event_loop(self, client, fake_backend_cls):
+        """State presentation may persist a changed revision fingerprint."""
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        observed = {}
+        original = GameService.get_state.__func__
+
+        def spy(cls, *args, **kwargs):
+            try:
+                asyncio.get_running_loop()
+                observed["on_loop"] = True
+            except RuntimeError:
+                observed["on_loop"] = False
+            return original(cls, *args, **kwargs)
+
+        with patch.object(GameService, "get_state", classmethod(spy)):
+            response = client.get("/api/v1/state?oid=abc")
+
+        assert response.status_code == 200
         assert observed == {"on_loop": False}
 
     def test_add_point_with_session(self, client, fake_backend_cls):
@@ -303,6 +344,27 @@ class TestWebSocketRoute:
             assert msg["data"]["current_set"] == 1
             assert msg["data"]["revision"] == 0
             assert msg["data"]["controller_count"] == 1
+
+    def test_ws_initial_state_runs_off_the_event_loop(self, client, fake_backend_cls):
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        observed = {}
+        original = GameService.get_state.__func__
+
+        def spy(cls, *args, **kwargs):
+            try:
+                asyncio.get_running_loop()
+                observed["on_loop"] = True
+            except RuntimeError:
+                observed["on_loop"] = False
+            return original(cls, *args, **kwargs)
+
+        with (
+            patch.object(GameService, "get_state", classmethod(spy)),
+            client.websocket_connect("/api/v1/ws?oid=abc") as ws,
+        ):
+            assert ws.receive_json()["type"] == "state_update"
+
+        assert observed == {"on_loop": False}
 
     def test_ws_broadcasts_aggregate_presence(self, client, fake_backend_cls):
         client.post("/api/v1/session/init", json={"oid": "abc"})

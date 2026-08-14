@@ -100,7 +100,8 @@ async def websocket_endpoint(
         await ws.close(code=1013, reason="Too many clients for this OID.")
         return
     try:
-        state_data = GameService.get_state(session).model_dump()
+        state = await run_in_threadpool(GameService.get_state, session)
+        state_data = state.model_dump()
         await ws.send_json({"type": "state_update", "data": state_data})
         # The new tab already has the aggregate in its initial state. Notify
         # only the older tabs so their unobtrusive presence indicator updates
