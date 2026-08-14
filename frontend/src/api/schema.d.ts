@@ -2731,6 +2731,8 @@ export interface components {
             must_change_password: boolean;
             /** Role */
             role: string;
+            /** Storage Namespace */
+            storage_namespace: string;
             /** Username */
             username: string;
         };

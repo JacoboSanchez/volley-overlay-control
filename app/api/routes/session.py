@@ -15,11 +15,45 @@ from app.api.state_snapshot import get_state_snapshot
 from app.backend import Backend
 from app.conf import Conf
 from app.logging_utils import redact_oid
-from app.overlay_key import split_skey
+from app.overlay_key import is_valid_skey, make_skey, split_skey
+from app.overlay_lifecycle import overlay_lifecycle_gate, release_after_transaction
 from app.state import State
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _resolve_init_skey(req_oid: str, access: BoardAccess) -> str:
+    """Resolve one init target while claiming its transaction lifecycle.
+
+    Owner mode can derive the prospective storage key before its overlay row
+    exists, so it claims first. Capability modes resolve first, then claim;
+    if deletion began between those operations the fail-fast claim rejects
+    the request before it can recreate runtime state.
+    """
+    lifecycle_lease = None
+    if (
+        access.token is None
+        and access.public_user is None
+        and access.user is not None
+    ):
+        candidate = make_skey(access.user.id, (req_oid or "").strip())
+        if is_valid_skey(candidate):
+            lifecycle_lease = overlay_lifecycle_gate.begin_use(candidate)
+
+    try:
+        skey = access.resolve_skey(
+            req_oid,
+            ensure_owner_overlay=True,
+        )
+        if lifecycle_lease is None:
+            lifecycle_lease = overlay_lifecycle_gate.begin_use(skey)
+        release_after_transaction(access.db, lifecycle_lease)
+        return skey
+    except BaseException:
+        if lifecycle_lease is not None:
+            lifecycle_lease.release()
+        raise
 
 
 @router.post("/session/init", response_model=ActionResponse)
@@ -33,11 +67,7 @@ async def init_session(
     control token (``?c=``), or an opted-in public ``?u=&oid=`` bookmark — so a
     board can be bootstrapped after a server restart by whoever opens the link.
     """
-    skey = await run_in_threadpool(
-        access.resolve_skey,
-        req.oid,
-        ensure_owner_overlay=True,
-    )
+    skey = await run_in_threadpool(_resolve_init_skey, req.oid, access)
     owner_id, overlay_oid = split_skey(skey)
     overlay = await run_in_threadpool(
         overlays_service.get_overlay,

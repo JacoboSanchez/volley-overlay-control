@@ -24,6 +24,7 @@ const AUTHED: api.AuthContext = {
   authenticated: true,
   user: {
     id: 1,
+    storage_namespace: 'account-alice',
     username: 'alice',
     display_name: null,
     email: null,

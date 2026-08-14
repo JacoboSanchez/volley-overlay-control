@@ -2337,6 +2337,10 @@
             "title": "Role",
             "type": "string"
           },
+          "storage_namespace": {
+            "title": "Storage Namespace",
+            "type": "string"
+          },
           "username": {
             "title": "Username",
             "type": "string"
@@ -2344,6 +2348,7 @@
         },
         "required": [
           "id",
+          "storage_namespace",
           "username",
           "display_name",
           "email",

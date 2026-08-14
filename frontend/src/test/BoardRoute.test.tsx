@@ -41,6 +41,7 @@ function loggedInAs(username: string) {
     authenticated: true,
     user: {
       id: 1,
+      storage_namespace: `account-${username}`,
       username,
       display_name: null,
       email: null,

@@ -75,7 +75,11 @@ def test_register_login_logout_cycle(client):
         json={"username": "alice", "password": "password123"},
     )
     assert reg.status_code == 200, reg.text
-    assert client.get("/api/v1/auth/me").json()["username"] == "alice"
+    registered_user = reg.json()["user"]
+    assert len(registered_user["storage_namespace"]) == 32
+    me = client.get("/api/v1/auth/me").json()
+    assert me["username"] == "alice"
+    assert me["storage_namespace"] == registered_user["storage_namespace"]
 
     client.post("/api/v1/auth/logout")
     assert client.get("/api/v1/auth/me").status_code == 401
@@ -91,6 +95,33 @@ def test_register_login_logout_cycle(client):
     )
     assert ok.status_code == 200
     assert client.get("/api/v1/auth/me").json()["username"] == "alice"
+
+
+def test_reused_integer_id_gets_a_fresh_browser_storage_namespace(db_session):
+    """SQLite may reuse a deleted highest ROWID; browser identity must not."""
+    from app.auth import service
+
+    first = service.create_user(
+        db_session,
+        username="deleted-account",
+        password="password123",
+    )
+    db_session.commit()
+    first_id = first.id
+    first_namespace = first.storage_namespace
+
+    service.delete_user(db_session, first)
+    db_session.commit()
+    replacement = service.create_user(
+        db_session,
+        username="replacement-account",
+        password="password123",
+    )
+    db_session.commit()
+
+    assert replacement.id == first_id
+    assert replacement.storage_namespace != first_namespace
+    assert len(replacement.storage_namespace) == 32
 
 
 def test_claim_admin_auto_closes_registration(client, db_session):

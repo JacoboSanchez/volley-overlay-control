@@ -48,6 +48,7 @@ describe('account-scoped browser storage', () => {
     const token = 'secret-control-token';
     const scope = resolveRouteStorageScope('/board', `?c=${token}&oid=court`, {
       id: 7,
+      storage_namespace: 'account-seven',
       username: 'owner',
     });
 
@@ -56,10 +57,24 @@ describe('account-scoped browser storage', () => {
   });
 
   it('uses account scope for owner boards and guest scope for another public bookmark', () => {
-    const owner = { id: 7, username: 'owner' };
-    expect(resolveRouteStorageScope('/board', '?oid=court', owner)).toBe('user:7');
-    expect(resolveRouteStorageScope('/board', '?u=OWNER&oid=court', owner)).toBe('user:7');
+    const owner = { id: 7, storage_namespace: 'account-seven', username: 'owner' };
+    expect(resolveRouteStorageScope('/board', '?oid=court', owner)).toBe('user:account-seven');
+    expect(resolveRouteStorageScope('/board', '?u=OWNER&oid=court', owner)).toBe(
+      'user:account-seven',
+    );
     expect(resolveRouteStorageScope('/board', '?u=other&oid=court', owner)).toBe('guest');
+  });
+
+  it('does not reuse storage when a database id is assigned to a new account', () => {
+    const deleted = { id: 7, storage_namespace: 'deleted-account', username: 'old' };
+    const replacement = { id: 7, storage_namespace: 'replacement-account', username: 'new' };
+
+    const deletedScope = resolveRouteStorageScope('/', '', deleted);
+    const replacementScope = resolveRouteStorageScope('/', '', replacement);
+    setScopedItem(deletedScope, 'lang', 'es');
+
+    expect(replacementScope).not.toBe(deletedScope);
+    expect(getScopedItem(replacementScope, 'lang')).toBeNull();
   });
 });
 

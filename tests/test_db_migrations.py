@@ -176,10 +176,15 @@ def test_upgrade_to_0004_copies_roster_globals_into_my_teams_group(tmp_path, mon
             "SELECT user_id, team_id, sort_order FROM user_group_teams "
             "ORDER BY user_id, sort_order"
         )).fetchall()
+        namespaces = conn.execute(text(
+            "SELECT storage_namespace FROM users ORDER BY id"
+        )).scalars().all()
     engine.dispose()
 
     # Bob had no group, so one was created for him.
     assert {g[1] for g in groups} == {1, 2}
+    assert len(namespaces) == len(set(namespaces)) == 2
+    assert all(len(value) == 32 for value in namespaces)
 
     # Alice keeps her existing member at sort_order 0 and gains only the global
     # she was missing — appended, so her curated order survives. Her custom
@@ -246,8 +251,10 @@ def test_downgrade_from_0004_rebuilds_the_roster_from_groups(tmp_path, monkeypat
     with engine.begin() as conn:
         conn.execute(text(
             "INSERT INTO users "
-            "(id, username, password_hash, role, is_active, must_change_password) "
-            "VALUES (1, 'alice', 'x', 'user', 1, 0), (2, 'bob', 'x', 'user', 1, 0)"
+            "(id, storage_namespace, username, password_hash, role, is_active, "
+            "must_change_password) VALUES "
+            "(1, 'account-alice', 'alice', 'x', 'user', 1, 0), "
+            "(2, 'account-bob', 'bob', 'x', 'user', 1, 0)"
         ))
         # Two globals, plus one custom team each. Names are deliberately out of
         # id order so the sort_order assertion below means something.

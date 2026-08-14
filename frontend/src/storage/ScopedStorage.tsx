@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useLocation } from 'react-router';
 import { useAuth } from '../auth/AuthContext';
 
-export type StorageScope = 'guest' | `user:${number}`;
+export type StorageScope = 'guest' | `user:${string}`;
 
 export const GUEST_STORAGE_SCOPE: StorageScope = 'guest';
 
@@ -10,8 +10,8 @@ const LEGACY_PREFIX = 'volley_';
 const USER_PREFIX = 'volley:user:';
 const MIGRATION_MARKER = 'volley:account-storage-migration:v1';
 
-function userScope(userId: number): StorageScope {
-  return `user:${userId}`;
+function userScope(storageNamespace: string): StorageScope {
+  return `user:${storageNamespace}`;
 }
 
 export function storageKey(scope: StorageScope, name: string): string {
@@ -73,6 +73,7 @@ export function removeScopedItem(scope: StorageScope, name: string): void {
 
 export interface StorageRouteUser {
   id: number;
+  storage_namespace: string;
   username: string;
 }
 
@@ -90,7 +91,7 @@ export function resolveRouteStorageScope(
       return GUEST_STORAGE_SCOPE;
     }
   }
-  return user ? userScope(user.id) : GUEST_STORAGE_SCOPE;
+  return user ? userScope(user.storage_namespace) : GUEST_STORAGE_SCOPE;
 }
 
 const StorageScopeContext = createContext<StorageScope>(GUEST_STORAGE_SCOPE);

@@ -15,37 +15,55 @@ from app.api.dependencies import get_session
 from app.api.overlay_links_service import build_overlay_links
 from app.api.pagination import PAGINATED_RESPONSES, Page, PageDep, with_total
 from app.api.schemas import CreateOverlayRequest, OverlayOut, UpdateOverlayRequest
-from app.api.session_manager import GameSession
+from app.api.session_manager import GameSession, SessionManager
 from app.auth.dependencies import require_user
-from app.db.engine import after_commit, get_db
+from app.db.engine import after_commit, after_rollback, get_db
 from app.db.models.overlay import UserOverlay
 from app.db.models.user import User
 from app.env_vars_manager import EnvVarsManager
+from app.overlay_lifecycle import (
+    OverlayLifecycleLease,
+    overlay_lifecycle_gate,
+    release_after_transaction,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-def _delete_overlay_runtime(skey: str) -> None:
+def _delete_overlay_runtime(
+    skey: str,
+    lifecycle_lease: OverlayLifecycleLease | None = None,
+) -> None:
     """Remove non-database state after the overlay row is durably deleted."""
-    from app.api.session_manager import SessionManager
+    from app.api import session_persistence
     from app.overlay import overlay_state_store
     from app.overlay_executor import get_overlay_executor
 
-    # Closing the session first prevents its backend from accepting any more
-    # background work. Run deletion as the next item in the same keyed FIFO,
-    # after every already-accepted push. A queued stale push can no longer run
-    # after deletion and recreate the overlay state it just removed.
-    SessionManager.remove(skey)
+    try:
+        # Closing the session first prevents its backend from accepting any
+        # more background work. Run deletion as the next item in the same
+        # keyed FIFO, after every already-accepted push. The lifecycle claim
+        # rejects same-OID create/init work until this barrier has completed.
+        SessionManager.remove(skey)
 
-    def _delete_persisted_runtime() -> None:
-        overlay_state_store.delete_overlay(skey)
-        # Reports key on the user (FK), not the overlay, so remove this
-        # overlay's archived matches explicitly.
-        match_archive.delete_for_oid(skey)
+        def _delete_persisted_runtime() -> None:
+            # Reap once more at the lifecycle barrier. The first removal
+            # stops the known session before queued work drains; this second
+            # removal guarantees no session admitted by already-running work
+            # survives when the exclusive deletion claim is released.
+            SessionManager.remove(skey)
+            session_persistence.delete_session_meta(skey)
+            overlay_state_store.delete_overlay(skey)
+            # Reports key on the user (FK), not the overlay, so remove this
+            # overlay's archived matches explicitly.
+            match_archive.delete_for_oid(skey)
 
-    get_overlay_executor().run_after_pending(skey, _delete_persisted_runtime)
+        get_overlay_executor().run_after_pending(skey, _delete_persisted_runtime)
+    finally:
+        if lifecycle_lease is not None:
+            lifecycle_lease.release()
 
 
 def _overlay_out(
@@ -109,10 +127,17 @@ def create_my_overlay(
     db: Session = Depends(get_db, scope="function"),
 ) -> OverlayOut:
     """Register a new overlay for the caller (mints a public output token)."""
+    from app.overlay_key import make_skey
+
+    normalized_oid = overlays_service.normalize_oid(body.oid)
+    lifecycle_lease = overlay_lifecycle_gate.begin_use(
+        make_skey(user.id, normalized_oid),
+    )
+    release_after_transaction(db, lifecycle_lease)
     overlay = overlays_service.create_overlay(
         db,
         user.id,
-        body.oid,
+        normalized_oid,
         description=body.description,
     )
     return _overlay_out(request, overlay, username=user.username)
@@ -153,10 +178,18 @@ def delete_my_overlay(
     """
     from app.overlay_key import make_skey
 
+    skey = make_skey(user.id, oid)
+    lifecycle_lease = overlay_lifecycle_gate.begin_delete(skey)
+    # On rollback no runtime deletion runs, but the exclusive claim must still
+    # be released. The commit callback releases it only after queued work and
+    # persisted runtime cleanup have completed.
+    after_rollback(db, lifecycle_lease.release)
     if not overlays_service.delete_overlay(db, user.id, oid):
         raise HTTPException(status_code=404, detail="Overlay not found.")
-    skey = make_skey(user.id, oid)
-    after_commit(db, partial(_delete_overlay_runtime, skey))
+    after_commit(
+        db,
+        partial(_delete_overlay_runtime, skey, lifecycle_lease),
+    )
     return {"ok": True}
 
 
