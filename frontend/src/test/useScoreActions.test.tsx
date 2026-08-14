@@ -36,6 +36,7 @@ function mockActions(overrides: Partial<GameActions> = {}): GameActions {
     syncOverlayLocale: vi.fn(),
     setAutoSwapSides: vi.fn(),
     setRules: vi.fn(),
+    saveCustomization: vi.fn(),
     ...overrides,
   };
 }

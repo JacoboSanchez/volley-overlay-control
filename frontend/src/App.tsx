@@ -557,11 +557,11 @@ export default function App({
           <ConfigPanel
             oid={oid}
             customization={customization}
-            stateRevision={state?.revision}
             gameConfig={state?.config ?? null}
             autoSwapSides={state?.auto_swap_sides ?? null}
             setRules={actions.setRules}
             setAutoSwapSides={actions.setAutoSwapSides}
+            saveCustomization={actions.saveCustomization}
             onBack={() => setActiveTab('scoreboard')}
             onLogout={handleLogout}
             operator={isCapabilityMode}

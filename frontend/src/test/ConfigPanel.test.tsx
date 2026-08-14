@@ -39,11 +39,17 @@ vi.mock('../api/presets', () => ({
   deletePreset: vi.fn().mockResolvedValue(undefined),
 }));
 
+const saveCustomization = vi.fn().mockResolvedValue({ success: true });
+
 const defaultProps = {
   oid: 'test-oid',
   customization: mockCustomization,
   setRules: vi.fn().mockResolvedValue({ success: true }),
   setAutoSwapSides: vi.fn().mockResolvedValue({ success: true }),
+  // The panel persists through ``useGameState``'s mutation queue, not the
+  // raw API — a direct conditional PUT would share its revision with any
+  // display/rule action still in flight.
+  saveCustomization,
   onBack: vi.fn(),
   onLogout: vi.fn(),
   onCustomizationSaved: vi.fn(),
@@ -61,6 +67,7 @@ function openTeamsSection() {
 describe('ConfigPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    saveCustomization.mockResolvedValue({ success: true });
   });
 
   it('opens on the Presets section by default', async () => {
@@ -146,7 +153,7 @@ describe('ConfigPanel', () => {
   });
 
   it('stays in the panel after a successful save and shows a Saved status', async () => {
-    vi.mocked(boardApi.updateCustomization).mockResolvedValue({ success: true });
+    saveCustomization.mockResolvedValue({ success: true });
     window.confirm = vi.fn();
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     openTeamsSection();
@@ -158,7 +165,7 @@ describe('ConfigPanel', () => {
     });
     fireEvent.click(saveBtn);
     await waitFor(() => {
-      expect(boardApi.updateCustomization).toHaveBeenCalled();
+      expect(saveCustomization).toHaveBeenCalled();
       expect(screen.getByTestId('save-status-saved')).toBeInTheDocument();
     });
     // The operator keeps iterating: no auto-exit, Save disarms again.
@@ -178,7 +185,7 @@ describe('ConfigPanel', () => {
     // updated the ref there was a window where the panel looked clean but a
     // Back press still prompted. Dispatching popstate in the same tick the
     // save resolves lands squarely in that window.
-    vi.mocked(boardApi.updateCustomization).mockResolvedValue({ success: true });
+    saveCustomization.mockResolvedValue({ success: true });
     window.confirm = vi.fn();
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     openTeamsSection();
@@ -197,7 +204,7 @@ describe('ConfigPanel', () => {
   });
 
   it('clears the Saved status as soon as the panel goes dirty again', async () => {
-    vi.mocked(boardApi.updateCustomization).mockResolvedValue({ success: true });
+    saveCustomization.mockResolvedValue({ success: true });
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
@@ -283,7 +290,7 @@ describe('ConfigPanel', () => {
   });
 
   it('surfaces a retryable error banner when save fails', async () => {
-    vi.mocked(boardApi.updateCustomization).mockRejectedValueOnce(new Error('Server is on fire'));
+    saveCustomization.mockRejectedValueOnce(new Error('Server is on fire'));
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
@@ -299,15 +306,15 @@ describe('ConfigPanel', () => {
     const retryBtn = screen.getByTestId('save-error-retry');
     expect(retryBtn).toHaveTextContent('Retry');
 
-    vi.mocked(boardApi.updateCustomization).mockResolvedValueOnce({ success: true });
+    saveCustomization.mockResolvedValueOnce({ success: true });
     fireEvent.click(retryBtn);
     await waitFor(() => {
-      expect(boardApi.updateCustomization).toHaveBeenCalledTimes(2);
+      expect(saveCustomization).toHaveBeenCalledTimes(2);
     });
   });
 
   it('save-error banner can be dismissed without retrying', async () => {
-    vi.mocked(boardApi.updateCustomization).mockRejectedValueOnce(new Error('boom'));
+    saveCustomization.mockRejectedValueOnce(new Error('boom'));
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
@@ -320,7 +327,7 @@ describe('ConfigPanel', () => {
 
     fireEvent.click(screen.getByTestId('save-error-dismiss'));
     expect(screen.queryByTestId('save-error-banner')).not.toBeInTheDocument();
-    expect(boardApi.updateCustomization).toHaveBeenCalledTimes(1);
+    expect(saveCustomization).toHaveBeenCalledTimes(1);
   });
 
   it('never shows the (removed) gradient toggle', async () => {

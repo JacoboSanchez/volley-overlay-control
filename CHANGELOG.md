@@ -30,9 +30,9 @@ archive by hand.
   writes — the overlay locale sync that follows the operator's UI language — go
   through the same serialized mutation queue as scoring actions, so they can
   no longer send a stale revision alongside a point and lose one of the two
-  to a conflict. The match-rule controls (mode, limits, auto side switch)
-  use that queue too, and a rule change rejected by a conflict now says so
-  instead of silently snapping back.
+  to a conflict. The match-rule controls (mode, limits, auto side switch) and
+  the config panel's Save use that queue too, and a change rejected by a
+  conflict now says so instead of silently snapping back.
 - **A usability, functionality and performance roadmap** now records the
   post-7.0 delivery order, user outcomes and measurable completion criteria in
   `docs/USABILITY_FUNCTIONALITY_PERFORMANCE_ROADMAP.md`.

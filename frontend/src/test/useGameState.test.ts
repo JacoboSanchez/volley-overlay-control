@@ -451,6 +451,39 @@ describe('useGameState', () => {
     expect(result.current.errorStatus).toBeNull();
   });
 
+  it('queues a customization save behind an in-flight display action', async () => {
+    const afterToggle = { ...mockState, revision: 6, simple_mode: true } as unknown as GameState;
+    let resolveToggle: (value: { success: true; state: GameState }) => void = () => {};
+    vi.mocked(api.setSimpleMode).mockReturnValue(
+      new Promise((resolve) => {
+        resolveToggle = resolve;
+      }),
+    );
+    vi.mocked(api.updateCustomization).mockResolvedValue({ success: true });
+
+    const { result } = renderHook(() => useGameState('oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    let togglePromise: Promise<unknown> = Promise.resolve();
+    let savePromise: Promise<unknown> = Promise.resolve();
+    act(() => {
+      togglePromise = result.current.actions.setSimpleMode(true);
+      savePromise = result.current.actions.saveCustomization({ 'Team 1 Name': 'Home' });
+    });
+    expect(api.updateCustomization).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveToggle({ success: true, state: afterToggle });
+      await togglePromise;
+      await savePromise;
+    });
+
+    // Snapshotted after the toggle landed, so the two never share a revision.
+    expect(api.updateCustomization).toHaveBeenCalledWith('oid', { 'Team 1 Name': 'Home' }, 6);
+  });
+
   it('does not let an older HTTP acknowledgement overwrite a newer WS state', async () => {
     const httpState = { ...mockState, revision: 4 } as unknown as GameState;
     const wsState = {

@@ -115,6 +115,13 @@ export interface GameActions {
    * back cannot send the same revision and lose the second to a 409.
    */
   setRules: (payload: api.SetRulesPayload) => Promise<ActionResponse>;
+  /**
+   * Persist the config panel's staged customization. Queued for the same
+   * reason the rule writes are: saving while an auto-saved display or rule
+   * action is still in flight would send the panel's rendered revision
+   * twice and lose whichever reached the server second.
+   */
+  saveCustomization: (data: Customization) => Promise<ActionResponse>;
 }
 
 export interface UseGameStateOptions {
@@ -508,6 +515,8 @@ export function useGameState(
       setAutoSwapSides: (enabled) =>
         handleAction((id, revision) => api.setAutoSwapSides(id, enabled, revision)),
       setRules: (payload) => handleAction((id, revision) => api.setRules(id, payload, revision)),
+      saveCustomization: (data) =>
+        handleAction((id, revision) => api.updateCustomization(id, data, revision)),
       syncOverlayLocale: (locale) =>
         handleAction(
           (id, revision) => api.updateCustomization(id, { locale }, revision),
