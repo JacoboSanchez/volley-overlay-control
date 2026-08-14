@@ -4,11 +4,15 @@ Shared fixtures (``mock_conf``, ``api_backend``, ``api_session``,
 ``clean_sessions``) live in ``tests/conftest.py``.
 """
 
+import asyncio
+import threading
+
 import pytest
 
 from app.api.game_service import GameService
 from app.api.schemas import GameStateResponse
 from app.api.session_manager import GameSession, SessionManager
+from app.api.state_snapshot import get_state_snapshot
 from app.state import State
 
 # Apply clean_sessions to every test in this module.
@@ -77,6 +81,30 @@ class TestGameService:
         assert state.team_1.sets == 0
         assert state.team_2.sets == 0
         assert state.match_finished is False
+
+    @pytest.mark.asyncio
+    async def test_state_snapshot_waits_for_the_mutation_lock(
+        self, session, monkeypatch,
+    ):
+        called = threading.Event()
+        original = GameService.get_state.__func__
+
+        def spy(cls, current_session):
+            called.set()
+            return original(cls, current_session)
+
+        monkeypatch.setattr(GameService, "get_state", classmethod(spy))
+        await session.lock.acquire()
+        try:
+            pending = asyncio.create_task(get_state_snapshot(session))
+            await asyncio.sleep(0)
+            assert not called.is_set()
+        finally:
+            session.lock.release()
+
+        response = await pending
+        assert called.is_set()
+        assert isinstance(response, GameStateResponse)
 
     def test_get_state_on_air_and_report_fields(self, session):
         session.backend.obs_client_count = 0

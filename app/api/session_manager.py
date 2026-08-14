@@ -105,6 +105,11 @@ class GameSession:
         self.state_revision: int = 0
         self._state_fingerprint: str | None = None
         self._revision_lock = threading.Lock()
+        # Serialize the snapshot *and* atomic write. A metadata-only route can
+        # persist concurrently with a scoring mutation; taking the snapshot
+        # before this lock would let its older revision overwrite the newer
+        # mutation file after the mutation had already completed its write.
+        self._meta_persist_lock = threading.Lock()
         # Ephemeral caller metadata bound by the mutation dependency while it
         # owns ``self.lock``. Never derived from the owner account.
         self.mutation_client_id: str | None = None
@@ -305,7 +310,8 @@ class GameSession:
 
     def persist_meta(self) -> None:
         """Best-effort save of :meth:`to_meta_dict` to disk."""
-        save_session_meta(self.oid, self.to_meta_dict())
+        with self._meta_persist_lock:
+            save_session_meta(self.oid, self.to_meta_dict())
 
     def shutdown(self) -> None:
         """Clean up background resources to prevent leaks."""

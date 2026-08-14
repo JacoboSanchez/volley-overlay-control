@@ -13,8 +13,8 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
 
 from app import overlays_service
-from app.api.game_service import GameService
 from app.api.session_manager import SessionManager
+from app.api.state_snapshot import get_state_snapshot
 from app.api.ws_hub import WSHub, WSHubFull
 from app.auth import sessions
 from app.db.engine import session_scope
@@ -100,7 +100,7 @@ async def websocket_endpoint(
         await ws.close(code=1013, reason="Too many clients for this OID.")
         return
     try:
-        state = await run_in_threadpool(GameService.get_state, session)
+        state = await get_state_snapshot(session)
         state_data = state.model_dump()
         await ws.send_json({"type": "state_update", "data": state_data})
         # The new tab already has the aggregate in its initial state. Notify

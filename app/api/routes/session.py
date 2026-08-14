@@ -11,6 +11,7 @@ from app.api.game_service import GameService
 from app.api.routes.lifespan import get_init_lock
 from app.api.schemas import ActionResponse, InitRequest, SetRulesRequest
 from app.api.session_manager import GameSession, SessionManager
+from app.api.state_snapshot import get_state_snapshot
 from app.backend import Backend
 from app.conf import Conf
 from app.logging_utils import redact_oid
@@ -65,14 +66,18 @@ async def init_session(
     async with get_init_lock(skey):
         existing = SessionManager.get(skey)
         if existing is not None:
-            session = await run_in_threadpool(
-                SessionManager.get_or_create,
-                skey, conf, None,
-                req.points_limit, req.points_limit_last_set, req.sets_limit,
-            )
-            await run_in_threadpool(GameService.refresh_customization, session)
+            # Re-init may update explicit rule limits and refresh the
+            # customization fingerprint. Treat both as one mutation so a
+            # concurrent state read cannot observe the transition halfway.
+            async with existing.lock:
+                session = await run_in_threadpool(
+                    SessionManager.get_or_create,
+                    skey, conf, None,
+                    req.points_limit, req.points_limit_last_set, req.sets_limit,
+                )
+                await run_in_threadpool(GameService.refresh_customization, session)
             logger.debug("Session reused for skey=%s", redact_oid(skey))
-            state = await run_in_threadpool(GameService.get_state, session)
+            state = await get_state_snapshot(session)
             return ActionResponse(success=True, state=state)
 
         # Make sure the per-user overlay state exists so the Backend resolves
@@ -102,7 +107,7 @@ async def init_session(
             req.points_limit, req.points_limit_last_set, req.sets_limit,
         )
         logger.info("Session created for skey=%s", redact_oid(skey))
-    state = await run_in_threadpool(GameService.get_state, session)
+    state = await get_state_snapshot(session)
     return ActionResponse(success=True, state=state)
 
 

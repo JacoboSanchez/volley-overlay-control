@@ -1,12 +1,11 @@
 """GET /state, /config — read-only session queries."""
 
 from fastapi import APIRouter, Depends
-from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencies import get_session
-from app.api.game_service import GameService
 from app.api.schemas import GameStateResponse
 from app.api.session_manager import GameSession
+from app.api.state_snapshot import get_state_snapshot
 
 router = APIRouter()
 
@@ -18,7 +17,7 @@ router = APIRouter()
 async def get_state(
     session: GameSession = Depends(get_session),
 ) -> GameStateResponse:
-    return await run_in_threadpool(GameService.get_state, session)
+    return await get_state_snapshot(session)
 
 
 @router.get("/config")

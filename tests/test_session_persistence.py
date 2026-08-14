@@ -1,6 +1,7 @@
 """Tests for app/api/session_persistence.py and the rehydrate path in
 SessionManager.get_or_create.
 """
+import threading
 from unittest.mock import MagicMock
 
 import pytest
@@ -127,6 +128,38 @@ class TestGameSessionMeta:
         session.apply_meta(None)
         session.apply_meta("garbage")
         assert session.simple == original
+
+    def test_persist_meta_cannot_write_an_older_revision_last(
+        self, mock_conf, monkeypatch,
+    ):
+        session = GameSession("oid", mock_conf, _backend_for())
+        first_started = threading.Event()
+        release_first = threading.Event()
+        writes: list[int] = []
+
+        def delayed_save(_oid: str, meta: dict) -> None:
+            revision = int(meta["state_revision"])
+            if revision == 1:
+                first_started.set()
+                release_first.wait(timeout=2)
+            writes.append(revision)
+
+        monkeypatch.setattr("app.api.session_manager.save_session_meta", delayed_save)
+        session.state_revision = 1
+        first = threading.Thread(target=session.persist_meta)
+        first.start()
+        assert first_started.wait(timeout=1)
+
+        session.state_revision = 2
+        second = threading.Thread(target=session.persist_meta)
+        second.start()
+        release_first.set()
+        first.join(timeout=2)
+        second.join(timeout=2)
+
+        assert not first.is_alive()
+        assert not second.is_alive()
+        assert writes == [1, 2]
 
 
 # ---------------------------------------------------------------------------
