@@ -195,6 +195,37 @@ class TestMatchArchive:
                 row.ended_at = 1000
         assert match_archive.latest_match_id(skey) == second
 
+    def test_latest_match_id_ignores_undated_rows(self, db_session):
+        """An undated row must never take the newest position."""
+        _uid, skey = _user_skey(db_session, "oid-undated")
+        dated = match_archive.archive_match(oid=skey, final_state={}, winning_team=1)
+        undated = match_archive.archive_match(oid=skey, final_state={}, winning_team=2)
+        assert dated and undated
+        from app.db.engine import session_scope
+        from app.db.models.report import MatchReport
+        with session_scope() as db:
+            for row in db.query(MatchReport).filter(
+                MatchReport.match_id.in_([dated, undated]),
+            ):
+                # The undated row is also the newer id, so it would win on
+                # the tie-breaker alone if the timestamp order let it through.
+                row.ended_at = 1000 if row.match_id == dated else None
+        assert match_archive.latest_match_id(skey) == dated
+
+    def test_latest_match_query_sorts_nulls_last_on_postgres(self, db_session):
+        """SQLite already sorts nulls last under DESC; PostgreSQL does not.
+
+        The behavioural test above therefore cannot catch a regression on the
+        supported PostgreSQL backend, so assert the emitted ordering directly.
+        """
+        from sqlalchemy.dialects import postgresql
+
+        _uid, skey = _user_skey(db_session, "oid-nulls")
+        stmt = match_archive._latest_match_stmt(skey)
+        assert stmt is not None
+        sql = str(stmt.compile(dialect=postgresql.dialect()))
+        assert "ended_at DESC NULLS LAST" in sql
+
     def test_bulk_delete_is_owner_scoped_and_deduplicated(self, db_session):
         owner_id, owner_skey = _user_skey(db_session, "bulk", username="bulk-owner")
         _other_id, other_skey = _user_skey(db_session, "bulk", username="bulk-other")

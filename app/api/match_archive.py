@@ -28,7 +28,7 @@ import re
 from typing import Any
 
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import func, select
+from sqlalchemy import func, nullslast, select
 from sqlalchemy.orm import load_only
 from sqlalchemy.sql import Select
 
@@ -323,15 +323,31 @@ def list_match_times(
         return [float(ts) for ts in db.execute(stmt).scalars().all()]
 
 
+def _latest_match_stmt(oid: str) -> Select[Any] | None:
+    """Build the newest-match query, or ``None`` when the key matches nothing.
+
+    ``ended_at`` is nullable, and PostgreSQL sorts nulls *first* under
+    ``DESC``. Without ``nullslast`` an undated row — an import, or a
+    historical row predating the timestamp — would outrank every real match
+    and be served as the latest report. ``list_matches`` already gets the
+    same guarantee from its ``coalesce`` ordering; both answer "which match
+    is newest?" and must agree.
+    """
+    stmt = _scope_predicates(select(MatchReport.match_id), oid, None)
+    if stmt is None:
+        return None
+    return stmt.order_by(
+        nullslast(MatchReport.ended_at.desc()), MatchReport.id.desc(),
+    ).limit(1)
+
+
 def latest_match_id(oid: str) -> str | None:
     """Return the newest match id for one storage key with a scalar query."""
+    stmt = _latest_match_stmt(oid)
+    if stmt is None:
+        return None
     with session_scope() as db:
-        stmt = _scope_predicates(select(MatchReport.match_id), oid, None)
-        if stmt is None:
-            return None
-        return db.execute(
-            stmt.order_by(MatchReport.ended_at.desc(), MatchReport.id.desc()).limit(1),
-        ).scalars().first()
+        return db.execute(stmt).scalars().first()
 
 
 def owner_user_id(match_id: str) -> int | None:
