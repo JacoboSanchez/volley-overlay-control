@@ -100,8 +100,12 @@ class GameSession:
         self.last_match_id: str | None = None
         # Monotonic version of the control state. It is persisted so a process
         # restart cannot make a freshly reconnected client observe a lower
-        # revision than it held before the restart. ``_state_fingerprint`` is
-        # process-local and established by the first presenter pass.
+        # revision than it held before the restart. The fingerprint is
+        # persisted with it: a crash between a durable ``GameManager.save()``
+        # and the presenter's revision write would otherwise restore the old
+        # revision with no fingerprint, and the first snapshot would adopt the
+        # already-changed state without advancing the revision — letting a
+        # retry of the mutation whose response was lost apply twice.
         self.state_revision: int = 0
         self._state_fingerprint: str | None = None
         self._revision_lock = threading.Lock()
@@ -235,6 +239,10 @@ class GameSession:
                 if self.selected_team_group_id is not None else None
             ),
             "state_revision": int(self.state_revision),
+            "state_fingerprint": (
+                str(self._state_fingerprint)
+                if self._state_fingerprint is not None else None
+            ),
         }
 
     def apply_meta(self, meta: dict[str, Any]) -> None:
@@ -284,12 +292,25 @@ class GameSession:
                     self.selected_team_group_id = int(raw)
                 except (TypeError, ValueError):
                     pass
+        self._restore_revision(meta)
+
+    def _restore_revision(self, meta: dict[str, Any]) -> None:
+        """Restore the persisted revision together with its fingerprint.
+
+        The two belong to each other. Restoring the revision alone leaves the
+        first snapshot after a restart adopting an already-changed state
+        without advancing, so a retry of the mutation whose response was lost
+        still matches the stored revision and applies a second time.
+        """
         revision = meta.get("state_revision")
         if revision is not None:
             try:
                 self.state_revision = max(0, int(revision))
             except (TypeError, ValueError):
                 pass
+        fingerprint = meta.get("state_fingerprint")
+        if isinstance(fingerprint, str) and fingerprint:
+            self._state_fingerprint = fingerprint
 
     def _restore_optional_float(self, meta: dict[str, Any], key: str) -> None:
         """Restore an optional ``float | None`` attribute from *meta*.

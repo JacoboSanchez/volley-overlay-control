@@ -99,7 +99,38 @@ class TestGameSessionMeta:
             "first_server": session.first_server,
             "selected_team_group_id": None,
             "state_revision": 0,
+            "state_fingerprint": None,
         }
+
+    def test_restored_fingerprint_advances_the_revision_after_a_restart(
+        self, mock_conf,
+    ):
+        """A crash between a durable save and the revision write must not
+        leave the changed state reachable at its pre-mutation revision.
+
+        Otherwise a client retrying the mutation whose response was lost
+        presents the old expected revision, the conditional check passes, and
+        the action applies a second time.
+        """
+        from app.api.game_service import GameService
+
+        session = GameSession("oid", mock_conf, _backend_for())
+        GameService.get_state(session)
+        # What the meta file holds before the mutation lands.
+        pre_crash = session.to_meta_dict()
+        assert pre_crash["state_fingerprint"]
+
+        # Restart: meta comes off disk pre-mutation, while the point itself
+        # was already written durably to the game state the session rebuilds
+        # from. Set the score directly so nothing else about the session
+        # differs — apply_meta would restore fields like match_started_at.
+        restarted = GameSession("oid", mock_conf, _backend_for())
+        restarted.apply_meta(pre_crash)
+        restarted.game_manager.get_current_state().set_game(1, 1, 1)
+        assert restarted.state_revision == pre_crash["state_revision"]
+
+        GameService.get_state(restarted)
+        assert restarted.state_revision == pre_crash["state_revision"] + 1
 
     def test_apply_meta_restores_fields(self, mock_conf):
         session = GameSession("oid", mock_conf, _backend_for())
