@@ -261,14 +261,20 @@ describe('App', () => {
   it("syncs the operator's UI locale onto the overlay customization", async () => {
     // ``mockCustomization`` has no ``locale`` key; the test renders
     // under the default I18nProvider so the resolved lang is ``en``.
+    // The write goes through the shared mutation queue, which snapshots
+    // the revision when the queued write runs. Here it runs before the
+    // first state has landed, so it goes out unconditional — a later
+    // point can no longer collide with it over a shared revision.
     renderWithI18n(<App />);
     const input = screen.getByPlaceholderText('my-overlay');
     fireEvent.change(input, { target: { value: 'locale-sync-oid' } });
     fireEvent.submit(input.closest('form')!);
     await waitFor(() => {
-      expect(boardApi.updateCustomization).toHaveBeenCalledWith('locale-sync-oid', {
-        locale: 'en',
-      });
+      expect(boardApi.updateCustomization).toHaveBeenCalledWith(
+        'locale-sync-oid',
+        { locale: 'en' },
+        undefined,
+      );
     });
   });
 

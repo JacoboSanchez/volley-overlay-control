@@ -395,7 +395,7 @@ Use `app/oid_utils.py` for `extract_oid()` and `compose_output()` — do not imp
 
 ## Common Pitfalls
 
-- **Do not block the event loop** — long-running I/O must use the `ThreadPoolExecutor` in `Backend`.
+- **Do not block the event loop** — long-running I/O must use the `ThreadPoolExecutor` in `Backend`. An `async def` route that calls `GameService` (or anything else reaching `Backend.save_model` / `save_json_customization`) must wrap it in `run_in_threadpool`: the shared overlay executor blocks the submitter once its bounded queue is full, and `OverlayTaskExecutor.submit()` raises `OverlayExecutorSaturated` rather than parking the loop thread.
 - **Do not skip `GameManager.save()`** — after any mutation, save must be called.
 - **Overlay detection:** `Backend.is_custom_overlay()` calls `resolve_overlay_kind()` (in `app/overlay_backends/utils.py`), which returns `OverlayKind.CUSTOM` only if the local overlay store has a file for that id. The legacy `C-` prefix is still accepted (and stripped) but never auto-creates a missing overlay.
 - **Do not bypass `run_security_bootstrap`.** `bootstrap.create_app` calls it before any router is registered so `SESSION_SECRET` and `MATCH_REPORT_SIGNING_SECRET` are generated / loaded before auth and report signing read them. Tests that build a real app via `create_app()` rely on the autouse `isolate_security_bootstrap` fixture in `tests/conftest.py` to redirect secret persistence to a per-test temp dir; do not call either bootstrap helper directly without that isolation.

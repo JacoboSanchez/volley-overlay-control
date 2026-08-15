@@ -38,6 +38,9 @@ class TestMetricsEndpoint:
         assert "voc_ws_clients_total" in body
         assert "voc_ws_oids_active" in body
         assert "voc_active_sessions" in body
+        assert "voc_overlay_executor_queue_depth" in body
+        assert "voc_overlay_executor_wait_seconds" in body
+        assert "voc_overlay_executor_run_seconds" in body
         assert "voc_webhook_dead_letter_size" in body
         assert "voc_rate_limit_blocks_total" in body
         assert "voc_rate_limit_blocked_buckets" in body

@@ -13,13 +13,14 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
 
 from app import overlays_service
-from app.api.game_service import GameService
 from app.api.session_manager import SessionManager
+from app.api.state_snapshot import get_state_snapshot
 from app.api.ws_hub import WSHub, WSHubFull
 from app.auth import sessions
 from app.db.engine import session_scope
 from app.logging_utils import redact_oid
 from app.overlay_key import make_skey
+from app.overlay_lifecycle import OverlayLifecycleBusy, overlay_lifecycle_gate
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,19 @@ async def websocket_endpoint(
     control: str | None = Query(None, description="Alias of `oid` for backward compatibility"),
     c: str | None = Query(None, description="Control capability token (shareable board link)"),
     u: str | None = Query(None, description="Username for a public ?u=&oid= board URL"),
+    client_id: str | None = Query(
+        None,
+        min_length=8,
+        max_length=64,
+        pattern=r"^[A-Za-z0-9._:-]+$",
+        description="Ephemeral browser-tab id used only for presence.",
+    ),
+    client_label: str | None = Query(
+        None,
+        max_length=40,
+        pattern=r"^[^\x00-\x1f\x7f]*$",
+        description="Optional operator-supplied presence label.",
+    ),
 ) -> None:
     resolved = oid or control
     if not resolved and not c:
@@ -65,25 +79,53 @@ async def websocket_endpoint(
         await ws.close(code=4003, reason="Authentication required.")
         return
 
-    session = SessionManager.get(skey)
-    if session is None:
-        await ws.close(code=4004, reason="No active session for this OID.")
+    # The initial snapshot can persist a newly observed state revision. Keep
+    # that short-lived work on the shared side of the overlay lifecycle gate
+    # so deletion cannot remove runtime files halfway through the handshake.
+    try:
+        lifecycle_lease = overlay_lifecycle_gate.begin_use(skey)
+    except OverlayLifecycleBusy:
+        await ws.close(code=1013, reason="Board lifecycle transition in progress.")
         return
 
+    connected = False
     try:
-        await WSHub.connect(ws, skey)
-    except WSHubFull as exc:
-        # 1013 = Try Again Later. Reason stays generic so a probing client
-        # cannot use the close text to enumerate which sessions are at cap.
-        logger.warning(
-            "Refused WS connect for %s — at cap %d",
-            redact_oid(skey), exc.cap,
-        )
-        await ws.close(code=1013, reason="Too many clients for this OID.")
-        return
-    try:
-        state_data = GameService.get_state(session).model_dump()
-        await ws.send_json({"type": "state_update", "data": state_data})
+        session = SessionManager.get(skey)
+        if session is None:
+            await ws.close(code=4004, reason="No active session for this OID.")
+            return
+
+        try:
+            await WSHub.connect(
+                ws,
+                skey,
+                client_id=client_id,
+                client_label=client_label.strip() if client_label else None,
+            )
+        except WSHubFull as exc:
+            # 1013 = Try Again Later. Reason stays generic so a probing client
+            # cannot use the close text to enumerate which sessions are at cap.
+            logger.warning(
+                "Refused WS connect for %s — at cap %d",
+                redact_oid(skey), exc.cap,
+            )
+            await ws.close(code=1013, reason="Too many clients for this OID.")
+            return
+        connected = True
+
+        try:
+            state = await get_state_snapshot(session)
+            state_data = state.model_dump()
+            await ws.send_json({"type": "state_update", "data": state_data})
+            # The new tab already has the aggregate in its initial state.
+            # Notify only the older tabs so their unobtrusive presence
+            # indicator updates without putting a redundant frame in front of
+            # the new tab's pong.
+            await WSHub.broadcast_presence(skey, exclude=ws)
+        finally:
+            # Presence/ping handling below does not persist overlay runtime,
+            # so it must not keep deletion busy for the whole WebSocket life.
+            lifecycle_lease.release()
 
         while True:
             data = await ws.receive_text()
@@ -96,4 +138,9 @@ async def websocket_endpoint(
     except Exception:
         logger.exception("WebSocket error for %s", redact_oid(skey))
     finally:
-        WSHub.disconnect(ws, skey)
+        # Idempotent: this also covers failures before the initial-snapshot
+        # block reaches its short-lived release point.
+        lifecycle_lease.release()
+        if connected:
+            WSHub.disconnect(ws, skey)
+            await WSHub.broadcast_presence(skey)

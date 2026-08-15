@@ -39,6 +39,21 @@ export type TeamState = Schemas['TeamState'];
 
 export type InitOptions = Omit<InitRequest, 'oid'>;
 
+function mutationHeaders(expectedRevision?: number): Record<string, string> | undefined {
+  return typeof expectedRevision === 'number'
+    ? { 'X-Expected-State-Revision': String(expectedRevision) }
+    : undefined;
+}
+
+function mutate<T>(
+  method: 'POST' | 'PUT',
+  path: string,
+  body: unknown,
+  expectedRevision?: number,
+): Promise<T> {
+  return request<T>(method, path, body, undefined, mutationHeaders(expectedRevision));
+}
+
 // Session
 export function initSession(oid: string, opts: InitOptions = {}): Promise<ActionResponse> {
   // Owner mode carries the oid in the body (+ cookie); a capability mode needs
@@ -73,25 +88,55 @@ export function addPoint(
   undo = false,
   pointType?: PointType,
   errorType?: ErrorType,
+  expectedRevision?: number,
 ): Promise<ActionResponse> {
   const body: Record<string, unknown> = { team, undo };
   // Scouting tags are optional; only send them when set so an untyped
   // point posts the same minimal body as before.
   if (pointType) body.point_type = pointType;
   if (errorType) body.error_type = errorType;
-  return request<ActionResponse>('POST', `/game/add-point${withOid(oid)}`, body);
+  return mutate<ActionResponse>('POST', `/game/add-point${withOid(oid)}`, body, expectedRevision);
 }
 
-export function addSet(oid: string, team: Team, undo = false): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/game/add-set${withOid(oid)}`, { team, undo });
+export function addSet(
+  oid: string,
+  team: Team,
+  undo = false,
+  expectedRevision?: number,
+): Promise<ActionResponse> {
+  return mutate<ActionResponse>(
+    'POST',
+    `/game/add-set${withOid(oid)}`,
+    { team, undo },
+    expectedRevision,
+  );
 }
 
-export function addTimeout(oid: string, team: Team, undo = false): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/game/add-timeout${withOid(oid)}`, { team, undo });
+export function addTimeout(
+  oid: string,
+  team: Team,
+  undo = false,
+  expectedRevision?: number,
+): Promise<ActionResponse> {
+  return mutate<ActionResponse>(
+    'POST',
+    `/game/add-timeout${withOid(oid)}`,
+    { team, undo },
+    expectedRevision,
+  );
 }
 
-export function changeServe(oid: string, team: Team): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/game/change-serve${withOid(oid)}`, { team });
+export function changeServe(
+  oid: string,
+  team: Team,
+  expectedRevision?: number,
+): Promise<ActionResponse> {
+  return mutate<ActionResponse>(
+    'POST',
+    `/game/change-serve${withOid(oid)}`,
+    { team },
+    expectedRevision,
+  );
 }
 
 export function setScore(
@@ -99,37 +144,71 @@ export function setScore(
   team: Team,
   setNumber: number,
   value: number,
+  expectedRevision?: number,
 ): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/game/set-score${withOid(oid)}`, {
-    team,
-    set_number: setNumber,
-    value,
-  });
+  return mutate<ActionResponse>(
+    'POST',
+    `/game/set-score${withOid(oid)}`,
+    {
+      team,
+      set_number: setNumber,
+      value,
+    },
+    expectedRevision,
+  );
 }
 
-export function setSets(oid: string, team: Team, value: number): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/game/set-sets${withOid(oid)}`, { team, value });
+export function setSets(
+  oid: string,
+  team: Team,
+  value: number,
+  expectedRevision?: number,
+): Promise<ActionResponse> {
+  return mutate<ActionResponse>(
+    'POST',
+    `/game/set-sets${withOid(oid)}`,
+    { team, value },
+    expectedRevision,
+  );
 }
 
-export function undoLast(oid: string): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/game/undo${withOid(oid)}`);
+export function undoLast(oid: string, expectedRevision?: number): Promise<ActionResponse> {
+  return mutate<ActionResponse>('POST', `/game/undo${withOid(oid)}`, null, expectedRevision);
 }
 
-export function resetGame(oid: string): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/game/reset${withOid(oid)}`);
+export function resetGame(oid: string, expectedRevision?: number): Promise<ActionResponse> {
+  return mutate<ActionResponse>('POST', `/game/reset${withOid(oid)}`, null, expectedRevision);
 }
 
-export function startMatch(oid: string): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/game/start-match${withOid(oid)}`);
+export function startMatch(oid: string, expectedRevision?: number): Promise<ActionResponse> {
+  return mutate<ActionResponse>('POST', `/game/start-match${withOid(oid)}`, null, expectedRevision);
 }
 
 // Display controls
-export function setVisibility(oid: string, visible: boolean): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/display/visibility${withOid(oid)}`, { visible });
+export function setVisibility(
+  oid: string,
+  visible: boolean,
+  expectedRevision?: number,
+): Promise<ActionResponse> {
+  return mutate<ActionResponse>(
+    'POST',
+    `/display/visibility${withOid(oid)}`,
+    { visible },
+    expectedRevision,
+  );
 }
 
-export function setSimpleMode(oid: string, enabled: boolean): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/display/simple-mode${withOid(oid)}`, { enabled });
+export function setSimpleMode(
+  oid: string,
+  enabled: boolean,
+  expectedRevision?: number,
+): Promise<ActionResponse> {
+  return mutate<ActionResponse>(
+    'POST',
+    `/display/simple-mode${withOid(oid)}`,
+    { enabled },
+    expectedRevision,
+  );
 }
 
 export const SET_SUMMARY_STYLES = [
@@ -142,20 +221,56 @@ export const SET_SUMMARY_STYLES = [
 ] as const;
 export type SetSummaryStyle = (typeof SET_SUMMARY_STYLES)[number];
 
-export function setSwapSides(oid: string, swapped: boolean): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/display/swap-sides${withOid(oid)}`, { swapped });
+export function setSwapSides(
+  oid: string,
+  swapped: boolean,
+  expectedRevision?: number,
+): Promise<ActionResponse> {
+  return mutate<ActionResponse>(
+    'POST',
+    `/display/swap-sides${withOid(oid)}`,
+    { swapped },
+    expectedRevision,
+  );
 }
 
-export function setAutoSwapSides(oid: string, enabled: boolean): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/display/auto-swap-sides${withOid(oid)}`, { enabled });
+export function setAutoSwapSides(
+  oid: string,
+  enabled: boolean,
+  expectedRevision?: number,
+): Promise<ActionResponse> {
+  return mutate<ActionResponse>(
+    'POST',
+    `/display/auto-swap-sides${withOid(oid)}`,
+    { enabled },
+    expectedRevision,
+  );
 }
 
-export function setSetSummary(oid: string, enabled: boolean): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/display/set-summary${withOid(oid)}`, { enabled });
+export function setSetSummary(
+  oid: string,
+  enabled: boolean,
+  expectedRevision?: number,
+): Promise<ActionResponse> {
+  return mutate<ActionResponse>(
+    'POST',
+    `/display/set-summary${withOid(oid)}`,
+    { enabled },
+    expectedRevision,
+  );
 }
 
-export function setSetSummaryStyle(oid: string, style: SetSummaryStyle): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/display/set-summary-style${withOid(oid)}`, { style });
+export function setSetSummaryStyle(
+  oid: string,
+  style: SetSummaryStyle,
+  expectedRevision?: number,
+): Promise<ActionResponse> {
+  return mutate<ActionResponse>(
+    'POST',
+    `/display/set-summary-style${withOid(oid)}`,
+    { style },
+    expectedRevision,
+  );
 }
 
 export type MatchMode = 'indoor' | 'beach' | 'table_tennis';
@@ -168,16 +283,21 @@ export interface SetRulesPayload {
   reset_to_defaults?: boolean;
 }
 
-export function setRules(oid: string, payload: SetRulesPayload): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/session/rules${withOid(oid)}`, payload);
+export function setRules(
+  oid: string,
+  payload: SetRulesPayload,
+  expectedRevision?: number,
+): Promise<ActionResponse> {
+  return mutate<ActionResponse>('POST', `/session/rules${withOid(oid)}`, payload, expectedRevision);
 }
 
 // Customization
 export function updateCustomization(
   oid: string,
   data: Record<string, unknown>,
+  expectedRevision?: number,
 ): Promise<ActionResponse> {
-  return request<ActionResponse>('PUT', `/customization${withOid(oid)}`, data);
+  return mutate<ActionResponse>('PUT', `/customization${withOid(oid)}`, data, expectedRevision);
 }
 
 // ---- Board team-group picker ----------------------------------------------

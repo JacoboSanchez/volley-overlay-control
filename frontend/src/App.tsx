@@ -40,6 +40,7 @@ import AppDialogs from './components/AppDialogs';
 import PointTypePicker from './components/PointTypePicker';
 import ErrorBoundary from './components/ErrorBoundary';
 import { asString } from './utils/coerce';
+import { setScopedItem, useStorageScope } from './storage/ScopedStorage';
 
 // Stable identity so the momentum strip's memo doesn't churn while the
 // preview is showing and the strip is not rendered at all.
@@ -63,12 +64,14 @@ export default function App({
   const { toast } = useToast();
   const appConfig = useAppConfig();
   const { settings, setSetting } = useSettings();
+  const storageScope = useStorageScope();
   const { isPortrait, buttonSize, hasRoomForPersistentControls } = useOrientation();
 
   const [activeTab, setActiveTab] = useState<'scoreboard' | 'config'>('scoreboard');
   const { oid, setOid, oidInput, setOidInput, handleInit, handleLogout } = useOidSession({
     onLogout: useCallback(() => setActiveTab('scoreboard'), []),
     initialOid: controlToken,
+    storageScope,
   });
 
   // In-place board switch (owner mode, from the config panel's
@@ -120,6 +123,7 @@ export default function App({
     confirmedState,
     customization,
     connected,
+    controllerCount,
     error,
     errorStatus,
     initialize,
@@ -138,16 +142,22 @@ export default function App({
       // hijack a later owner visit to /board.
       if (!isCapabilityMode) {
         try {
-          localStorage.setItem('volley_oid', oid);
+          setScopedItem(storageScope, 'oid', oid);
         } catch (e) {
           console.warn('Failed to save OID:', e);
         }
       }
       initialize();
     }
-  }, [oid, initialize, isCapabilityMode]);
+  }, [oid, initialize, isCapabilityMode, storageScope]);
 
-  useOverlayLocaleSync({ oid, lang, customization, refreshCustomization });
+  useOverlayLocaleSync({
+    oid,
+    lang,
+    customization,
+    syncLocale: actions.syncOverlayLocale,
+    refreshCustomization,
+  });
 
   // The operator just pressed Save in the config panel, so a failed
   // read-back is worth interrupting for: the panel would otherwise keep
@@ -520,7 +530,7 @@ export default function App({
   if (!state || !boardState) {
     return (
       <div className="app-container">
-        <ConnectionStatus connected={connected} />
+        <ConnectionStatus connected={connected} controllerCount={controllerCount} />
         <ScoreboardSkeleton isPortrait={isPortrait} />
       </div>
     );
@@ -528,7 +538,7 @@ export default function App({
 
   return (
     <div className="app-container" {...swipeHandlers}>
-      <ConnectionStatus connected={connected} />
+      <ConnectionStatus connected={connected} controllerCount={controllerCount} />
       {activeTab === 'scoreboard' && (
         <ErrorBoundary>
           <BoardContextProvider
@@ -549,6 +559,9 @@ export default function App({
             customization={customization}
             gameConfig={state?.config ?? null}
             autoSwapSides={state?.auto_swap_sides ?? null}
+            setRules={actions.setRules}
+            setAutoSwapSides={actions.setAutoSwapSides}
+            saveCustomization={actions.saveCustomization}
             onBack={() => setActiveTab('scoreboard')}
             onLogout={handleLogout}
             operator={isCapabilityMode}

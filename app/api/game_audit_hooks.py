@@ -88,7 +88,12 @@ def audit(
             },
             "serve": serve.value if hasattr(serve, "value") else str(serve),
         }
-        written = action_log.append(session.oid, action, params, result)
+        attributed_params = dict(params)
+        if session.mutation_client_id:
+            attributed_params["client_id"] = session.mutation_client_id
+        if session.mutation_client_label:
+            attributed_params["client_label"] = session.mutation_client_label
+        written = action_log.append(session.oid, action, attributed_params, result)
     except Exception as exc:
         logger.warning("Audit append failed: %s", exc)
         return None

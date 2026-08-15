@@ -39,6 +39,7 @@ class UpdateProfileRequest(BaseModel):
 
 class UserOut(BaseModel):
     id: int
+    storage_namespace: str
     username: str
     display_name: str | None
     email: str | None
@@ -50,6 +51,7 @@ class UserOut(BaseModel):
     def from_user(cls, user: User) -> UserOut:
         return cls(
             id=user.id,
+            storage_namespace=user.storage_namespace,
             username=user.username,
             display_name=user.display_name,
             email=user.email,

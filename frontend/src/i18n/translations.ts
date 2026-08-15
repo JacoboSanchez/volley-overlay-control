@@ -49,6 +49,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Connection status
     'conn.online': 'Live updates connected',
+    'conn.controllers': '{count} controllers connected',
     'conn.reconnecting': 'Reconnecting…',
 
     // Confirmation dialogs
@@ -133,6 +134,7 @@ export const translations: Record<string, TranslationDict> = {
     'position.resetDefaults': 'Reset to defaults',
     'position.unitsHint': 'Values are a percentage of the overlay canvas',
     'rules.invalidPoints': 'Enter a whole number greater than 0',
+    'rules.updateFailed': 'Could not update the match rules.',
     'config.saveCustomization': 'Save customization',
     'config.failedToSave': 'Failed to save customization',
     'config.refreshFailed': 'Saved, but the panel could not be refreshed',
@@ -941,6 +943,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Connection status
     'conn.online': 'Sincronización en directo',
+    'conn.controllers': '{count} operadores conectados',
     'conn.reconnecting': 'Reconectando…',
 
     // Confirmation dialogs
@@ -1026,6 +1029,7 @@ export const translations: Record<string, TranslationDict> = {
     'position.resetDefaults': 'Restablecer valores',
     'position.unitsHint': 'Los valores son un porcentaje del lienzo del overlay',
     'rules.invalidPoints': 'Introduce un número entero mayor que 0',
+    'rules.updateFailed': 'No se han podido actualizar las reglas del partido.',
     'config.saveCustomization': 'Guardar personalización',
     'config.failedToSave': 'Error al guardar la personalización',
     'config.refreshFailed': 'Guardado, pero no se pudo actualizar el panel',
@@ -1843,6 +1847,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Connection status
     'conn.online': 'Sincronização em direto',
+    'conn.controllers': '{count} operadores ligados',
     'conn.reconnecting': 'A reconectar…',
 
     // Confirmation dialogs
@@ -1928,6 +1933,7 @@ export const translations: Record<string, TranslationDict> = {
     'position.resetDefaults': 'Repor predefinições',
     'position.unitsHint': 'Os valores são uma percentagem da tela do overlay',
     'rules.invalidPoints': 'Introduza um número inteiro maior que 0',
+    'rules.updateFailed': 'Não foi possível atualizar as regras do jogo.',
     'config.saveCustomization': 'Guardar personalização',
     'config.failedToSave': 'Falha ao guardar a personalização',
     'config.refreshFailed': 'Guardado, mas não foi possível atualizar o painel',
@@ -2737,6 +2743,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Connection status
     'conn.online': 'Sincronizzazione in diretta',
+    'conn.controllers': '{count} operatori connessi',
     'conn.reconnecting': 'Riconnessione…',
 
     // Confirmation dialogs
@@ -2822,6 +2829,7 @@ export const translations: Record<string, TranslationDict> = {
     'position.resetDefaults': 'Ripristina predefiniti',
     'position.unitsHint': "I valori sono una percentuale del canvas dell'overlay",
     'rules.invalidPoints': 'Inserisci un numero intero maggiore di 0',
+    'rules.updateFailed': 'Impossibile aggiornare le regole della partita.',
     'config.saveCustomization': 'Salva personalizzazione',
     'config.failedToSave': 'Errore nel salvataggio della personalizzazione',
     'config.refreshFailed': 'Salvato, ma non è stato possibile aggiornare il pannello',
@@ -3630,6 +3638,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Connection status
     'conn.online': 'Synchronisation en direct',
+    'conn.controllers': '{count} opérateurs connectés',
     'conn.reconnecting': 'Reconnexion…',
 
     // Confirmation dialogs
@@ -3715,6 +3724,7 @@ export const translations: Record<string, TranslationDict> = {
     'position.resetDefaults': 'Réinitialiser',
     'position.unitsHint': 'Les valeurs sont un pourcentage du canevas de l’overlay',
     'rules.invalidPoints': 'Saisissez un nombre entier supérieur à 0',
+    'rules.updateFailed': 'Impossible de mettre à jour les règles du match.',
     'config.saveCustomization': 'Enregistrer la personnalisation',
     'config.failedToSave': 'Échec de l’enregistrement de la personnalisation',
     'config.refreshFailed': 'Enregistré, mais le panneau n’a pas pu être actualisé',
@@ -4531,6 +4541,7 @@ export const translations: Record<string, TranslationDict> = {
 
     // Connection status
     'conn.online': 'Live-Synchronisation aktiv',
+    'conn.controllers': '{count} Bediener verbunden',
     'conn.reconnecting': 'Verbindung wird wiederhergestellt…',
 
     // Confirmation dialogs
@@ -4616,6 +4627,7 @@ export const translations: Record<string, TranslationDict> = {
     'position.resetDefaults': 'Auf Standard zurücksetzen',
     'position.unitsHint': 'Werte sind ein Prozentsatz der Overlay-Fläche',
     'rules.invalidPoints': 'Geben Sie eine ganze Zahl größer als 0 ein',
+    'rules.updateFailed': 'Die Spielregeln konnten nicht aktualisiert werden.',
     'config.saveCustomization': 'Anpassung speichern',
     'config.failedToSave': 'Anpassung konnte nicht gespeichert werden',
     'config.refreshFailed': 'Gespeichert, aber das Panel konnte nicht aktualisiert werden',

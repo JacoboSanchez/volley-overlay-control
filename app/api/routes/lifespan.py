@@ -12,6 +12,7 @@ from app.api.session_manager import SessionManager
 from app.api.webhooks import webhook_dispatcher
 from app.api.ws_hub import WSHub
 from app.constants import AUTH_SESSION_SWEEP_INTERVAL_SECONDS
+from app.overlay_executor import shutdown_overlay_executor
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +107,9 @@ async def router_lifespan(app: FastAPI) -> AsyncIterator[None]:
         _auth_sweep_task = None
     WSHub.stop_heartbeat()
     SessionManager.clear()
+    # Backends share one bounded pool. Individual session eviction must not
+    # stop workers used by another overlay, so drain it exactly once here.
+    shutdown_overlay_executor()
     # Drain in-flight deliveries with cancel_futures=True so a hung
     # outbound webhook can't keep the process alive past shutdown.
     webhook_dispatcher.shutdown()

@@ -4,11 +4,18 @@ Shared fixtures (``mock_conf``, ``api_backend``, ``api_session``,
 ``clean_sessions``) live in ``tests/conftest.py``.
 """
 
+import asyncio
+import threading
+
 import pytest
+from starlette.concurrency import run_in_threadpool
 
 from app.api.game_service import GameService
+from app.api.routes.customization import get_customization
+from app.api.routes.state import get_config
 from app.api.schemas import GameStateResponse
 from app.api.session_manager import GameSession, SessionManager
+from app.api.state_snapshot import get_state_snapshot
 from app.state import State
 
 # Apply clean_sessions to every test in this module.
@@ -77,6 +84,74 @@ class TestGameService:
         assert state.team_1.sets == 0
         assert state.team_2.sets == 0
         assert state.match_finished is False
+
+    @pytest.mark.asyncio
+    async def test_state_snapshot_waits_for_the_mutation_lock(
+        self, session, monkeypatch,
+    ):
+        called = threading.Event()
+        original = GameService.get_state.__func__
+
+        def spy(cls, current_session):
+            called.set()
+            return original(cls, current_session)
+
+        monkeypatch.setattr(GameService, "get_state", classmethod(spy))
+        await session.lock.acquire()
+        try:
+            pending = asyncio.create_task(get_state_snapshot(session))
+            await asyncio.sleep(0)
+            assert not called.is_set()
+        finally:
+            session.lock.release()
+
+        response = await pending
+        assert called.is_set()
+        assert isinstance(response, GameStateResponse)
+
+    @pytest.mark.asyncio
+    async def test_config_snapshot_serializes_with_rules_update(self, session):
+        """/config must never expose a half-applied rule preset."""
+        session.mode = "indoor"
+        session.points_limit = 25
+        session.points_limit_last_set = 15
+        session.sets_limit = 5
+
+        mid_update = threading.Event()
+        release_update = threading.Event()
+
+        def slow_set_rules():
+            # Mirrors GameService.set_rules: the beach preset lands one field
+            # at a time, so an unlocked reader can catch a mixed pair.
+            session.mode = "beach"
+            session.points_limit = 21
+            mid_update.set()
+            assert release_update.wait(timeout=5)
+            session.points_limit_last_set = 15
+            session.sets_limit = 3
+
+        async def update():
+            # Mirrors get_mutation_session: the mutation owns the session
+            # lock for the whole worker-thread call.
+            async with session.lock:
+                await run_in_threadpool(slow_set_rules)
+
+        writer = asyncio.create_task(update())
+        try:
+            assert await asyncio.to_thread(mid_update.wait, 3)
+            reader = asyncio.create_task(get_config(session))
+            await asyncio.sleep(0.2)
+            assert not reader.done()
+        finally:
+            release_update.set()
+
+        await writer
+        # Never the torn mix of a 21-point beach set with 5 indoor sets.
+        assert await reader == {
+            "points_limit": 21,
+            "points_limit_last_set": 15,
+            "sets_limit": 3,
+        }
 
     def test_get_state_on_air_and_report_fields(self, session):
         session.backend.obs_client_count = 0
@@ -361,6 +436,44 @@ class TestGameService:
         session.backend.get_current_customization.reset_mock()
         GameService.refresh_customization(session)
         session.backend.get_current_customization.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_customization_refresh_serializes_with_update(self, session):
+        """A slow stale refresh must not overwrite a newer partial update."""
+        session._last_customization_fetch = None
+        refresh_started = threading.Event()
+        release_refresh = threading.Event()
+
+        def stale_refresh():
+            refresh_started.set()
+            assert release_refresh.wait(timeout=5)
+            return {"Team 1 Name": "Stale"}
+
+        session.backend.get_current_customization.side_effect = stale_refresh
+        reader = asyncio.create_task(get_customization(session))
+        try:
+            assert await asyncio.to_thread(refresh_started.wait, 3)
+
+            async def update():
+                # Mirrors get_mutation_session: the update owns the same
+                # session lock for the whole worker-thread mutation.
+                async with session.lock:
+                    return await run_in_threadpool(
+                        GameService.update_customization,
+                        session,
+                        {"Team 1 Name": "Fresh"},
+                    )
+
+            writer = asyncio.create_task(update())
+            await asyncio.sleep(0.2)
+            assert not writer.done()
+        finally:
+            release_refresh.set()
+
+        await reader
+        write_response = await writer
+        assert write_response.success is True
+        assert session.customization.get_model()["Team 1 Name"] == "Fresh"
 
 
 # ---------------------------------------------------------------------------

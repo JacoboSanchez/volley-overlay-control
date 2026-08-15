@@ -14,6 +14,67 @@ archive by hand.
 
 ## [Unreleased]
 
+### Added
+
+- **Revision-safe multi-operator control and privacy-preserving presence.**
+  Every control-state response and WebSocket broadcast now carries a persisted
+  monotonic revision. Bundled-client mutations conditionally send their last
+  rendered revision; stale writes return `409 state_revision_conflict` and the
+  UI reloads authoritative state instead of silently overwriting another
+  operator. Browser tabs use ephemeral ids for an aggregate connected-
+  controller indicator and optional audit attribution. A tab duplicated from
+  a live one claims a fresh id instead of inheriting its opener's, so two
+  real controllers are never counted (or attributed) as one. Presence and
+  audit metadata never disclose the overlay owner's account identity, while
+  clients that omit the new headers remain backward compatible. Background
+  writes — the overlay locale sync that follows the operator's UI language — go
+  through the same serialized mutation queue as scoring actions, so they can
+  no longer send a stale revision alongside a point and lose one of the two
+  to a conflict. The match-rule controls (mode, limits, auto side switch) and
+  the config panel's Save use that queue too, and a change rejected by a
+  conflict now says so instead of silently snapping back.
+- **A usability, functionality and performance roadmap** now records the
+  post-7.0 delivery order, user outcomes and measurable completion criteria in
+  `docs/USABILITY_FUNCTIONALITY_PERFORMANCE_ROADMAP.md`.
+- **Owner-scoped match calendar and bulk-delete APIs.**
+  `GET /api/v1/matches/days` returns lightweight local calendar-day keys, and
+  `POST /api/v1/matches/bulk-delete` removes up to 100 selected reports in one
+  transaction without allowing ids from another account to cross the owner
+  boundary. Selections survive paging, so the reports page splits a larger
+  selection into requests the endpoint accepts, and refreshes the calendar
+  after a deletion empties a day. Switching overlay, filter, sort or page
+  while a list request is still open no longer lets the older response
+  repopulate the table, and the shared history page treats an impossible
+  date (`?day=2026-02-30`) as no filter instead of failing the request.
+
+### Changed
+
+- **Browser preferences and the recent overlay are isolated by account.**
+  Language, board workflow settings, recent colours and the last owner OID now
+  use the authenticated user id as their local-storage namespace. Existing
+  unscoped values migrate once to the first account that reads them; later
+  accounts start independently. Control links and public bookmarks use a
+  separate guest namespace and no storage key contains their credential.
+- **Overlay background work now uses one bounded, process-wide executor.**
+  Creating or evicting a game session no longer creates or shuts down a
+  private five-thread pool. Tasks remain FIFO within each per-user overlay
+  key, different overlays can progress concurrently, and the bounded queue
+  applies backpressure instead of retaining unlimited pending payloads.
+  Unlabelled Prometheus metrics expose queue depth plus wait and run latency;
+  worker and queue limits are operator-configurable. Scoring, display and
+  customization endpoints run their work on a worker thread, so a saturated
+  pool applies backpressure to that request alone instead of stalling every
+  other request and live overlay update in the process. The WebSocket
+  registry is lock-guarded for those cross-thread reads: a tab connecting
+  while a mutation builds its response can no longer fail the request that
+  was already applied.
+- **Match-history browsing now stays bounded as archives grow.** The React
+  reports page sends its mode/day/sort/page filters to SQL instead of fetching
+  at most 500 matches and filtering them in memory. Summary queries omit the
+  potentially large `audit_log` JSON column, sort ties deterministically, and
+  the server-rendered history page uses the same filtered page queries. The
+  post-restart latest-report lookup is now a one-row scalar query.
+
 ### Removed
 
 - **Python 3.11 support. The minimum supported interpreter is now 3.14.**

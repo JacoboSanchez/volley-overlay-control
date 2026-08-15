@@ -176,10 +176,15 @@ def test_upgrade_to_0004_copies_roster_globals_into_my_teams_group(tmp_path, mon
             "SELECT user_id, team_id, sort_order FROM user_group_teams "
             "ORDER BY user_id, sort_order"
         )).fetchall()
+        namespaces = conn.execute(text(
+            "SELECT storage_namespace FROM users ORDER BY id"
+        )).scalars().all()
     engine.dispose()
 
     # Bob had no group, so one was created for him.
     assert {g[1] for g in groups} == {1, 2}
+    assert len(namespaces) == len(set(namespaces)) == 2
+    assert all(len(value) == 32 for value in namespaces)
 
     # Alice keeps her existing member at sort_order 0 and gains only the global
     # she was missing — appended, so her curated order survives. Her custom
@@ -246,8 +251,10 @@ def test_downgrade_from_0004_rebuilds_the_roster_from_groups(tmp_path, monkeypat
     with engine.begin() as conn:
         conn.execute(text(
             "INSERT INTO users "
-            "(id, username, password_hash, role, is_active, must_change_password) "
-            "VALUES (1, 'alice', 'x', 'user', 1, 0), (2, 'bob', 'x', 'user', 1, 0)"
+            "(id, storage_namespace, username, password_hash, role, is_active, "
+            "must_change_password) VALUES "
+            "(1, 'account-alice', 'alice', 'x', 'user', 1, 0), "
+            "(2, 'account-bob', 'bob', 'x', 'user', 1, 0)"
         ))
         # Two globals, plus one custom team each. Names are deliberately out of
         # id order so the sort_order assertion below means something.
@@ -282,6 +289,64 @@ def test_downgrade_from_0004_rebuilds_the_roster_from_groups(tmp_path, monkeypat
     # Bob is in no group, but owning a custom team is enough to be rostered —
     # that is the row the pre-0004 ``create_user_team`` would have written.
     assert [tuple(r) for r in rows if r[0] == 2] == [(2, 13, 0)]
+
+
+def test_0007_users_rebuild_keeps_rows_that_reference_users(tmp_path, monkeypatch):
+    """The 0007 users rebuild must not cascade-delete dependent rows.
+
+    SQLite implements the new UNIQUE constraint by copying ``users`` into a
+    replacement table and dropping the original. Every per-user table
+    references ``users.id`` with ``ON DELETE CASCADE``, so that drop would
+    empty an operator's database during the automatic startup upgrade if
+    foreign keys were still enforced — hence the migration's
+    ``PRAGMA foreign_keys=OFF``.
+
+    That pragma is a silent no-op inside an open SQLite transaction, so the
+    protection rests on Alembic treating SQLite DDL as non-transactional
+    (``SQLiteImpl.transactional_ddl`` is False). This pins the outcome rather
+    than that mechanism, so a change in it fails here instead of in the field.
+    """
+    db_file = tmp_path / "cascade.db"
+    url = f"sqlite:///{db_file}"
+    monkeypatch.setenv("DATABASE_URL", url)
+    cfg = _alembic_config(url)
+    command.upgrade(cfg, "0006_overlay_favorites")
+
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        conn.execute(text(
+            "INSERT INTO users "
+            "(id, username, password_hash, role, is_active, must_change_password) "
+            "VALUES (1, 'alice', 'x', 'user', 1, 0)"
+        ))
+        conn.execute(text(
+            "INSERT INTO user_overlays (id, user_id, oid, public_token) "
+            "VALUES (1, 1, 'oid-a', 'tok-a')"
+        ))
+        conn.execute(text(
+            "INSERT INTO teams (id, name, is_global, owner_user_id) "
+            "VALUES (10, 'Alice Club', 0, 1)"
+        ))
+        conn.execute(text(
+            "INSERT INTO match_reports "
+            "(id, match_id, user_id, oid, final_state, customization, audit_log) "
+            "VALUES (1, 'match_abc_1', 1, 'oid-a', '{}', '{}', '[]')"
+        ))
+
+    command.upgrade(cfg, "head")
+
+    with engine.begin() as conn:
+        users = conn.execute(text("SELECT COUNT(*) FROM users")).scalar()
+        overlays = conn.execute(text("SELECT COUNT(*) FROM user_overlays")).scalar()
+        teams = conn.execute(text("SELECT COUNT(*) FROM teams")).scalar()
+        reports = conn.execute(text("SELECT COUNT(*) FROM match_reports")).scalar()
+        namespace = conn.execute(
+            text("SELECT storage_namespace FROM users WHERE id = 1")
+        ).scalar()
+    engine.dispose()
+
+    assert (users, overlays, teams, reports) == (1, 1, 1, 1)
+    assert namespace and len(namespace) == 32
 
 
 def test_two_users_can_share_an_oid_but_one_user_cannot(db_session):

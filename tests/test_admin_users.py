@@ -12,6 +12,45 @@ def _admin(db_session):
     return login_client(TestClient(create_app()), db_session, "root", role="admin")
 
 
+def test_deleting_a_user_removes_per_overlay_runtime_files(db_session):
+    """Account deletion must reap the same per-overlay files an overlay
+    deletion does, not just the overlay state.
+
+    ``session_meta`` and the audit log are keyed per storage key and live
+    outside the database, so the user-row cascade cannot remove them. Left
+    behind, they are also what an overlapping mutation would rewrite after
+    cleanup.
+    """
+    from app.api import action_log, session_persistence
+    from app.overlay import overlay_state_store
+    from app.overlay_key import make_skey
+
+    admin = _admin(db_session)
+    user = login_client(TestClient(create_app()), db_session, "doomed")
+    oid = "board-1"
+    assert user.post("/api/v1/overlays", json={"oid": oid}).status_code == 201
+    skey = make_skey(user.test_user_id, oid)
+
+    assert user.post(
+        "/api/v1/session/init", json={"oid": oid},
+    ).status_code == 200
+    assert user.post(
+        f"/api/v1/game/add-point?oid={oid}", json={"team": 1},
+    ).status_code == 200
+    # Both files must exist before the delete, or the assertions below pass
+    # for the wrong reason.
+    assert session_persistence.load_session_meta(skey) is not None
+    assert action_log.read_all(skey)
+
+    assert admin.delete(
+        f"/api/v1/admin/users/{user.test_user_id}",
+    ).status_code == 200
+
+    assert session_persistence.load_session_meta(skey) is None
+    assert action_log.read_all(skey) == []
+    assert not overlay_state_store.overlay_exists(skey)
+
+
 def test_user_management_requires_admin(db_session):
     user = login_client(TestClient(create_app()), db_session, "alice")
     assert user.get("/api/v1/admin/users").status_code == 403

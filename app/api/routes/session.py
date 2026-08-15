@@ -6,19 +6,54 @@ from fastapi import APIRouter, Depends
 from starlette.concurrency import run_in_threadpool
 
 from app import overlays_service
-from app.api.dependencies import BoardAccess, board_access, get_session
+from app.api.dependencies import BoardAccess, board_access, get_mutation_session
 from app.api.game_service import GameService
 from app.api.routes.lifespan import get_init_lock
 from app.api.schemas import ActionResponse, InitRequest, SetRulesRequest
 from app.api.session_manager import GameSession, SessionManager
+from app.api.state_snapshot import get_state_snapshot
 from app.backend import Backend
 from app.conf import Conf
 from app.logging_utils import redact_oid
-from app.overlay_key import split_skey
+from app.overlay_key import is_valid_skey, make_skey, split_skey
+from app.overlay_lifecycle import overlay_lifecycle_gate, release_after_transaction
 from app.state import State
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _resolve_init_skey(req_oid: str, access: BoardAccess) -> str:
+    """Resolve one init target while claiming its transaction lifecycle.
+
+    Owner mode can derive the prospective storage key before its overlay row
+    exists, so it claims first. Capability modes resolve first, then claim;
+    if deletion began between those operations the fail-fast claim rejects
+    the request before it can recreate runtime state.
+    """
+    lifecycle_lease = None
+    if (
+        access.token is None
+        and access.public_user is None
+        and access.user is not None
+    ):
+        candidate = make_skey(access.user.id, (req_oid or "").strip())
+        if is_valid_skey(candidate):
+            lifecycle_lease = overlay_lifecycle_gate.begin_use(candidate)
+
+    try:
+        skey = access.resolve_skey(
+            req_oid,
+            ensure_owner_overlay=True,
+        )
+        if lifecycle_lease is None:
+            lifecycle_lease = overlay_lifecycle_gate.begin_use(skey)
+        release_after_transaction(access.db, lifecycle_lease)
+        return skey
+    except BaseException:
+        if lifecycle_lease is not None:
+            lifecycle_lease.release()
+        raise
 
 
 @router.post("/session/init", response_model=ActionResponse)
@@ -32,11 +67,7 @@ async def init_session(
     control token (``?c=``), or an opted-in public ``?u=&oid=`` bookmark — so a
     board can be bootstrapped after a server restart by whoever opens the link.
     """
-    skey = await run_in_threadpool(
-        access.resolve_skey,
-        req.oid,
-        ensure_owner_overlay=True,
-    )
+    skey = await run_in_threadpool(_resolve_init_skey, req.oid, access)
     owner_id, overlay_oid = split_skey(skey)
     overlay = await run_in_threadpool(
         overlays_service.get_overlay,
@@ -65,14 +96,19 @@ async def init_session(
     async with get_init_lock(skey):
         existing = SessionManager.get(skey)
         if existing is not None:
-            session = await run_in_threadpool(
-                SessionManager.get_or_create,
-                skey, conf, None,
-                req.points_limit, req.points_limit_last_set, req.sets_limit,
-            )
-            await run_in_threadpool(GameService.refresh_customization, session)
+            # Re-init may update explicit rule limits and refresh the
+            # customization fingerprint. Treat both as one mutation so a
+            # concurrent state read cannot observe the transition halfway.
+            async with existing.lock:
+                session = await run_in_threadpool(
+                    SessionManager.get_or_create,
+                    skey, conf, None,
+                    req.points_limit, req.points_limit_last_set, req.sets_limit,
+                )
+                await run_in_threadpool(GameService.refresh_customization, session)
             logger.debug("Session reused for skey=%s", redact_oid(skey))
-            return ActionResponse(success=True, state=GameService.get_state(session))
+            state = await get_state_snapshot(session)
+            return ActionResponse(success=True, state=state)
 
         # Make sure the per-user overlay state exists so the Backend resolves
         # it as a local overlay.
@@ -101,7 +137,8 @@ async def init_session(
             req.points_limit, req.points_limit_last_set, req.sets_limit,
         )
         logger.info("Session created for skey=%s", redact_oid(skey))
-    return ActionResponse(success=True, state=GameService.get_state(session))
+    state = await get_state_snapshot(session)
+    return ActionResponse(success=True, state=state)
 
 
 @router.post(
@@ -111,7 +148,7 @@ async def init_session(
 )
 async def set_rules(
     req: SetRulesRequest,
-    session: GameSession = Depends(get_session),
+    session: GameSession = Depends(get_mutation_session),
 ) -> ActionResponse:
     """Update match-rule preset for the session.
 
@@ -122,12 +159,12 @@ async def set_rules(
     in the same call still win, so the UI can switch modes and
     keep one custom limit in a single request.
     """
-    async with session.lock:
-        return GameService.set_rules(
-            session,
-            mode=req.mode,
-            points_limit=req.points_limit,
-            points_limit_last_set=req.points_limit_last_set,
-            sets_limit=req.sets_limit,
-            reset_to_defaults=req.reset_to_defaults,
-        )
+    return await run_in_threadpool(
+        GameService.set_rules,
+        session,
+        mode=req.mode,
+        points_limit=req.points_limit,
+        points_limit_last_set=req.points_limit_last_set,
+        sets_limit=req.sets_limit,
+        reset_to_defaults=req.reset_to_defaults,
+    )

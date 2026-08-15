@@ -28,7 +28,8 @@ import re
 from typing import Any
 
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import func, select
+from sqlalchemy import func, nullslast, select
+from sqlalchemy.orm import load_only
 from sqlalchemy.sql import Select
 
 from app.api import action_log
@@ -43,6 +44,22 @@ logger = logging.getLogger(__name__)
 _FILENAME_HASH_LEN = DEFAULT_HASH_LEN
 # ``match_<20-hex>_<UTC-ISO>`` (no ``.json`` now — it is an id, not a file).
 _MATCH_ID_RE = re.compile(r"^match_[0-9a-f]{20}_\d{8}T\d{6}_\d{6}Z$")
+
+# Listing a report needs these columns and no others. In particular,
+# ``audit_log`` can be several hundred JSON records per match; selecting the
+# whole ORM entity made a 20-row account page deserialize 20 complete match
+# transcripts just to render dates, names and scores.
+_SUMMARY_COLUMNS = (
+    MatchReport.id,
+    MatchReport.match_id,
+    MatchReport.user_id,
+    MatchReport.oid,
+    MatchReport.ended_at,
+    MatchReport.duration_s,
+    MatchReport.winning_team,
+    MatchReport.final_state,
+    MatchReport.customization,
+)
 
 
 def _data_dir() -> str:
@@ -186,26 +203,76 @@ def _scope_predicates(
     return stmt
 
 
+def _summary_filters(
+    stmt: Select[Any],
+    *,
+    mode: str | None = None,
+    ended_from: float | None = None,
+    ended_to: float | None = None,
+) -> Select[Any]:
+    """Apply filters shared by summary, count, and calendar-time queries.
+
+    ``JSON.as_string`` compiles to the native JSON scalar extraction for both
+    supported databases (SQLite and PostgreSQL), so old rows can be filtered
+    by the mode captured in ``final_state.config`` without a schema migration.
+    The end bound is exclusive, which makes adjacent local-day ranges meet
+    without double-counting a match exactly at midnight.
+    """
+    if mode:
+        stmt = stmt.where(
+            MatchReport.final_state["config"]["mode"].as_string() == mode,
+        )
+    if ended_from is not None:
+        stmt = stmt.where(MatchReport.ended_at >= ended_from)
+    if ended_to is not None:
+        stmt = stmt.where(MatchReport.ended_at < ended_to)
+    return stmt
+
+
 def list_matches(
     oid: str | None = None,
     *,
     user_id: int | None = None,
     limit: int | None = None,
     offset: int = 0,
+    mode: str | None = None,
+    ended_from: float | None = None,
+    ended_to: float | None = None,
+    sort: str = "ended",
+    direction: str = "desc",
 ) -> list[dict]:
-    """Return newest-first match summaries.
+    """Return filtered, deterministically ordered match summaries.
 
     Scope with either a full storage key (*oid* = ``"<user_id>:<oid>"``) for a
     single overlay, or *user_id* for all of one user's matches — both push a
     ``WHERE`` predicate into SQL so a per-user listing never falls back to the
     full-table scan. *limit*/*offset* page the result in SQL; ``limit=None``
-    keeps the full listing for internal callers.
+    keeps the full listing for internal callers. ``sort`` accepts ``ended`` or
+    ``duration``; every order ends in the unique row id so offset pages cannot
+    duplicate/drop tied rows.
     """
     with session_scope() as db:
-        stmt = _scope_predicates(select(MatchReport), oid, user_id)
+        stmt = _scope_predicates(
+            select(MatchReport).options(load_only(*_SUMMARY_COLUMNS)),
+            oid,
+            user_id,
+        )
         if stmt is None:
             return []
-        stmt = stmt.order_by(MatchReport.ended_at.desc().nullslast())
+        stmt = _summary_filters(
+            stmt,
+            mode=mode,
+            ended_from=ended_from,
+            ended_to=ended_to,
+        )
+        order_col = MatchReport.duration_s if sort == "duration" else MatchReport.ended_at
+        # Preserve the previous UI's treatment of missing values as zero while
+        # making ties stable across page requests.
+        order_value = func.coalesce(order_col, 0.0)
+        if direction == "asc":
+            stmt = stmt.order_by(order_value.asc(), MatchReport.id.asc())
+        else:
+            stmt = stmt.order_by(order_value.desc(), MatchReport.id.desc())
         if offset:
             stmt = stmt.offset(offset)
         if limit is not None:
@@ -213,7 +280,14 @@ def list_matches(
         return [_summary(r) for r in db.execute(stmt).scalars().all()]
 
 
-def count_matches(oid: str | None = None, *, user_id: int | None = None) -> int:
+def count_matches(
+    oid: str | None = None,
+    *,
+    user_id: int | None = None,
+    mode: str | None = None,
+    ended_from: float | None = None,
+    ended_to: float | None = None,
+) -> int:
     """Total matches in the same scope ``list_matches`` would use."""
     with session_scope() as db:
         stmt = _scope_predicates(
@@ -221,7 +295,59 @@ def count_matches(oid: str | None = None, *, user_id: int | None = None) -> int:
         )
         if stmt is None:
             return 0
+        stmt = _summary_filters(
+            stmt,
+            mode=mode,
+            ended_from=ended_from,
+            ended_to=ended_to,
+        )
         return int(db.execute(stmt).scalar_one())
+
+
+def list_match_times(
+    oid: str | None = None,
+    *,
+    user_id: int | None = None,
+    mode: str | None = None,
+) -> list[float]:
+    """Return only non-null end timestamps for calendar highlighting.
+
+    This intentionally has its own scalar projection. Calendar dots need the
+    complete set of days but not a single state/customization/audit JSON value.
+    """
+    with session_scope() as db:
+        stmt = _scope_predicates(select(MatchReport.ended_at), oid, user_id)
+        if stmt is None:
+            return []
+        stmt = _summary_filters(stmt, mode=mode).where(MatchReport.ended_at.is_not(None))
+        return [float(ts) for ts in db.execute(stmt).scalars().all()]
+
+
+def _latest_match_stmt(oid: str) -> Select[Any] | None:
+    """Build the newest-match query, or ``None`` when the key matches nothing.
+
+    ``ended_at`` is nullable, and PostgreSQL sorts nulls *first* under
+    ``DESC``. Without ``nullslast`` an undated row — an import, or a
+    historical row predating the timestamp — would outrank every real match
+    and be served as the latest report. ``list_matches`` already gets the
+    same guarantee from its ``coalesce`` ordering; both answer "which match
+    is newest?" and must agree.
+    """
+    stmt = _scope_predicates(select(MatchReport.match_id), oid, None)
+    if stmt is None:
+        return None
+    return stmt.order_by(
+        nullslast(MatchReport.ended_at.desc()), MatchReport.id.desc(),
+    ).limit(1)
+
+
+def latest_match_id(oid: str) -> str | None:
+    """Return the newest match id for one storage key with a scalar query."""
+    stmt = _latest_match_stmt(oid)
+    if stmt is None:
+        return None
+    with session_scope() as db:
+        return db.execute(stmt).scalars().first()
 
 
 def owner_user_id(match_id: str) -> int | None:
@@ -263,6 +389,29 @@ def delete_match(match_id: str) -> bool:
             return False
         db.delete(row)
         return True
+
+
+def delete_matches_for_user(user_id: int, match_ids: list[str]) -> int:
+    """Delete a bounded set of one user's matches in one transaction.
+
+    Ownership is part of the ``DELETE`` predicate, so a mixed list cannot
+    reveal or remove another account's rows. Duplicate/malformed ids are
+    ignored and therefore cannot inflate the returned affected-row count.
+    """
+    valid_ids = list(dict.fromkeys(
+        mid for mid in match_ids
+        if isinstance(mid, str) and _MATCH_ID_RE.match(mid) is not None
+    ))
+    if not valid_ids:
+        return 0
+    with session_scope() as db:
+        result = db.execute(
+            sa_delete(MatchReport).where(
+                MatchReport.user_id == user_id,
+                MatchReport.match_id.in_(valid_ids),
+            )
+        )
+        return int(getattr(result, "rowcount", 0) or 0)
 
 
 def delete_for_oid(oid: str) -> int:

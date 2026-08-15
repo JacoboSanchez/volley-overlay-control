@@ -2,27 +2,25 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { renderWithI18n } from './helpers';
 import MatchRulesSection from '../components/config/MatchRulesSection';
-import * as api from '../api/board';
 
-vi.mock('../api/board', async () => {
-  const actual = await vi.importActual<typeof import('../api/board')>('../api/board');
-  return {
-    ...actual,
-    setRules: vi.fn().mockResolvedValue({ success: true, state: null }),
-  };
-});
-
-const mockedSetRules = vi.mocked(api.setRules);
+// The section writes through ``useGameState``'s serialized mutation queue
+// (which owns the conditional revision), never through the raw API — two
+// rule writes fired back to back would otherwise share a revision and the
+// server would reject the second with a 409.
+const mockedSetRules = vi.fn().mockResolvedValue({ success: true, state: null });
+const mockedSetAutoSwap = vi.fn().mockResolvedValue({ success: true, state: null });
 
 beforeEach(() => {
-  mockedSetRules.mockClear();
+  mockedSetRules.mockClear().mockResolvedValue({ success: true, state: null });
+  mockedSetAutoSwap.mockClear().mockResolvedValue({ success: true, state: null });
 });
 
 describe('MatchRulesSection', () => {
   it('shows a loading placeholder until live config arrives', () => {
     renderWithI18n(
       <MatchRulesSection
-        oid="oid"
+        setRules={mockedSetRules}
+        setAutoSwapSides={mockedSetAutoSwap}
         mode={null}
         pointsLimit={null}
         pointsLimitLastSet={null}
@@ -35,7 +33,8 @@ describe('MatchRulesSection', () => {
   it('marks the active mode as checked', () => {
     renderWithI18n(
       <MatchRulesSection
-        oid="oid"
+        setRules={mockedSetRules}
+        setAutoSwapSides={mockedSetAutoSwap}
         mode="beach"
         pointsLimit={21}
         pointsLimitLastSet={15}
@@ -51,7 +50,8 @@ describe('MatchRulesSection', () => {
   it('changing mode posts reset_to_defaults=true', async () => {
     renderWithI18n(
       <MatchRulesSection
-        oid="my-oid"
+        setRules={mockedSetRules}
+        setAutoSwapSides={mockedSetAutoSwap}
         mode="indoor"
         pointsLimit={25}
         pointsLimitLastSet={15}
@@ -60,16 +60,57 @@ describe('MatchRulesSection', () => {
     );
     fireEvent.click(screen.getByTestId('rules-mode-beach'));
     await waitFor(() => expect(mockedSetRules).toHaveBeenCalled());
-    expect(mockedSetRules).toHaveBeenCalledWith('my-oid', {
+    expect(mockedSetRules).toHaveBeenCalledWith({
       mode: 'beach',
       reset_to_defaults: true,
     });
   });
 
+  it('tells the operator when a rules change lost a revision conflict', async () => {
+    mockedSetRules.mockResolvedValue({
+      success: false,
+      message: 'Another controller changed the scoreboard. Latest state loaded.',
+    });
+    renderWithI18n(
+      <MatchRulesSection
+        setRules={mockedSetRules}
+        setAutoSwapSides={mockedSetAutoSwap}
+        mode="indoor"
+        pointsLimit={25}
+        pointsLimitLastSet={15}
+        setsLimit={5}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('rules-mode-beach'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Another controller changed the scoreboard. Latest state loaded.'),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('routes the auto-swap toggle through the mutation queue', async () => {
+    renderWithI18n(
+      <MatchRulesSection
+        setRules={mockedSetRules}
+        setAutoSwapSides={mockedSetAutoSwap}
+        mode="indoor"
+        autoSwapSides={false}
+        pointsLimit={25}
+        pointsLimitLastSet={15}
+        setsLimit={5}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('rules-auto-swap-sides'));
+    await waitFor(() => expect(mockedSetAutoSwap).toHaveBeenCalledWith(true));
+  });
+
   it('changing the sets selector posts only sets_limit', async () => {
     renderWithI18n(
       <MatchRulesSection
-        oid="my-oid"
+        setRules={mockedSetRules}
+        setAutoSwapSides={mockedSetAutoSwap}
         mode="indoor"
         pointsLimit={25}
         pointsLimitLastSet={15}
@@ -79,13 +120,14 @@ describe('MatchRulesSection', () => {
     const sel = screen.getByTestId('rules-sets-select') as HTMLSelectElement;
     fireEvent.change(sel, { target: { value: '3' } });
     await waitFor(() => expect(mockedSetRules).toHaveBeenCalled());
-    expect(mockedSetRules).toHaveBeenCalledWith('my-oid', { sets_limit: 3 });
+    expect(mockedSetRules).toHaveBeenCalledWith({ sets_limit: 3 });
   });
 
   it('committing the points input posts points_limit on blur', async () => {
     renderWithI18n(
       <MatchRulesSection
-        oid="my-oid"
+        setRules={mockedSetRules}
+        setAutoSwapSides={mockedSetAutoSwap}
         mode="indoor"
         pointsLimit={25}
         pointsLimitLastSet={15}
@@ -96,13 +138,14 @@ describe('MatchRulesSection', () => {
     fireEvent.change(input, { target: { value: '27' } });
     fireEvent.blur(input);
     await waitFor(() => expect(mockedSetRules).toHaveBeenCalled());
-    expect(mockedSetRules).toHaveBeenCalledWith('my-oid', { points_limit: 27 });
+    expect(mockedSetRules).toHaveBeenCalledWith({ points_limit: 27 });
   });
 
   it('reset-to-defaults button is disabled when already at preset', () => {
     renderWithI18n(
       <MatchRulesSection
-        oid="my-oid"
+        setRules={mockedSetRules}
+        setAutoSwapSides={mockedSetAutoSwap}
         mode="indoor"
         pointsLimit={25}
         pointsLimitLastSet={15}
@@ -116,7 +159,8 @@ describe('MatchRulesSection', () => {
   it('hides the "Points / final set" input when best-of-1', () => {
     renderWithI18n(
       <MatchRulesSection
-        oid="my-oid"
+        setRules={mockedSetRules}
+        setAutoSwapSides={mockedSetAutoSwap}
         mode="indoor"
         pointsLimit={15}
         pointsLimitLastSet={15}
@@ -133,7 +177,8 @@ describe('MatchRulesSection', () => {
   it('best-of-1: input edits dispatch BOTH points_limit and points_limit_last_set', async () => {
     renderWithI18n(
       <MatchRulesSection
-        oid="my-oid"
+        setRules={mockedSetRules}
+        setAutoSwapSides={mockedSetAutoSwap}
         mode="indoor"
         pointsLimit={15}
         pointsLimitLastSet={15}
@@ -146,7 +191,7 @@ describe('MatchRulesSection', () => {
     await waitFor(() => expect(mockedSetRules).toHaveBeenCalled());
     // Mirror the value to both fields so the backend stays
     // consistent regardless of which one the rule engine reads.
-    expect(mockedSetRules).toHaveBeenCalledWith('my-oid', {
+    expect(mockedSetRules).toHaveBeenCalledWith({
       points_limit: 21,
       points_limit_last_set: 21,
     });
@@ -155,7 +200,8 @@ describe('MatchRulesSection', () => {
   it('best-of-1: shows the active value (points_limit_last_set), not points_limit', () => {
     renderWithI18n(
       <MatchRulesSection
-        oid="my-oid"
+        setRules={mockedSetRules}
+        setAutoSwapSides={mockedSetAutoSwap}
         mode="indoor"
         pointsLimit={25}
         pointsLimitLastSet={11}
@@ -172,7 +218,8 @@ describe('MatchRulesSection', () => {
   it('offers table tennis as a selectable mode', async () => {
     renderWithI18n(
       <MatchRulesSection
-        oid="my-oid"
+        setRules={mockedSetRules}
+        setAutoSwapSides={mockedSetAutoSwap}
         mode="indoor"
         pointsLimit={25}
         pointsLimitLastSet={15}
@@ -183,7 +230,7 @@ describe('MatchRulesSection', () => {
     expect(tt).toBeInTheDocument();
     fireEvent.click(tt);
     await waitFor(() => expect(mockedSetRules).toHaveBeenCalled());
-    expect(mockedSetRules).toHaveBeenCalledWith('my-oid', {
+    expect(mockedSetRules).toHaveBeenCalledWith({
       mode: 'table_tennis',
       reset_to_defaults: true,
     });
@@ -192,7 +239,8 @@ describe('MatchRulesSection', () => {
   it('offers best-of-7 in the sets selector', async () => {
     renderWithI18n(
       <MatchRulesSection
-        oid="my-oid"
+        setRules={mockedSetRules}
+        setAutoSwapSides={mockedSetAutoSwap}
         mode="table_tennis"
         pointsLimit={11}
         pointsLimitLastSet={11}
@@ -203,13 +251,14 @@ describe('MatchRulesSection', () => {
     expect(Array.from(sel.options).map((o) => o.value)).toEqual(['1', '3', '5', '7']);
     fireEvent.change(sel, { target: { value: '7' } });
     await waitFor(() => expect(mockedSetRules).toHaveBeenCalled());
-    expect(mockedSetRules).toHaveBeenCalledWith('my-oid', { sets_limit: 7 });
+    expect(mockedSetRules).toHaveBeenCalledWith({ sets_limit: 7 });
   });
 
   it('reset-to-defaults posts mode + reset flag when limits diverge', async () => {
     renderWithI18n(
       <MatchRulesSection
-        oid="my-oid"
+        setRules={mockedSetRules}
+        setAutoSwapSides={mockedSetAutoSwap}
         mode="indoor"
         pointsLimit={27}
         pointsLimitLastSet={15}
@@ -219,7 +268,7 @@ describe('MatchRulesSection', () => {
     const btn = screen.getByTestId('rules-reset-defaults');
     fireEvent.click(btn);
     await waitFor(() => expect(mockedSetRules).toHaveBeenCalled());
-    expect(mockedSetRules).toHaveBeenCalledWith('my-oid', {
+    expect(mockedSetRules).toHaveBeenCalledWith({
       mode: 'indoor',
       reset_to_defaults: true,
     });

@@ -98,6 +98,26 @@ class GameSession:
         # match is finished, so the control board can link straight to the
         # report. In-memory only — falls back to a DB lookup after a restart.
         self.last_match_id: str | None = None
+        # Monotonic version of the control state. It is persisted so a process
+        # restart cannot make a freshly reconnected client observe a lower
+        # revision than it held before the restart. The fingerprint is
+        # persisted with it: a crash between a durable ``GameManager.save()``
+        # and the presenter's revision write would otherwise restore the old
+        # revision with no fingerprint, and the first snapshot would adopt the
+        # already-changed state without advancing the revision — letting a
+        # retry of the mutation whose response was lost apply twice.
+        self.state_revision: int = 0
+        self._state_fingerprint: str | None = None
+        self._revision_lock = threading.Lock()
+        # Serialize the snapshot *and* atomic write. A metadata-only route can
+        # persist concurrently with a scoring mutation; taking the snapshot
+        # before this lock would let its older revision overwrite the newer
+        # mutation file after the mutation had already completed its write.
+        self._meta_persist_lock = threading.Lock()
+        # Ephemeral caller metadata bound by the mutation dependency while it
+        # owns ``self.lock``. Never derived from the owner account.
+        self.mutation_client_id: str | None = None
+        self.mutation_client_label: str | None = None
         # Match-rule preset (``'indoor'`` or ``'beach'``). Persisted in
         # session_meta. Drives the beach side-switch indicator and the
         # "reset to defaults" affordance in the new MatchRulesSection.
@@ -218,6 +238,11 @@ class GameSession:
                 int(self.selected_team_group_id)
                 if self.selected_team_group_id is not None else None
             ),
+            "state_revision": int(self.state_revision),
+            "state_fingerprint": (
+                str(self._state_fingerprint)
+                if self._state_fingerprint is not None else None
+            ),
         }
 
     def apply_meta(self, meta: dict[str, Any]) -> None:
@@ -267,6 +292,25 @@ class GameSession:
                     self.selected_team_group_id = int(raw)
                 except (TypeError, ValueError):
                     pass
+        self._restore_revision(meta)
+
+    def _restore_revision(self, meta: dict[str, Any]) -> None:
+        """Restore the persisted revision together with its fingerprint.
+
+        The two belong to each other. Restoring the revision alone leaves the
+        first snapshot after a restart adopting an already-changed state
+        without advancing, so a retry of the mutation whose response was lost
+        still matches the stored revision and applies a second time.
+        """
+        revision = meta.get("state_revision")
+        if revision is not None:
+            try:
+                self.state_revision = max(0, int(revision))
+            except (TypeError, ValueError):
+                pass
+        fingerprint = meta.get("state_fingerprint")
+        if isinstance(fingerprint, str) and fingerprint:
+            self._state_fingerprint = fingerprint
 
     def _restore_optional_float(self, meta: dict[str, Any], key: str) -> None:
         """Restore an optional ``float | None`` attribute from *meta*.
@@ -287,7 +331,8 @@ class GameSession:
 
     def persist_meta(self) -> None:
         """Best-effort save of :meth:`to_meta_dict` to disk."""
-        save_session_meta(self.oid, self.to_meta_dict())
+        with self._meta_persist_lock:
+            save_session_meta(self.oid, self.to_meta_dict())
 
     def shutdown(self) -> None:
         """Clean up background resources to prevent leaks."""
@@ -319,9 +364,10 @@ class SessionManager:
 
         Backend and GameSession construction happen inside the global lock
         only after a session-exists re-check: two racing callers on the
-        same OID cannot both allocate a ``Backend`` (``ThreadPoolExecutor``
-        + ``requests.Session``). Lock contention is bounded because the
-        fast path (existing session) never enters the construction block.
+        same OID cannot both allocate a ``Backend``. Lock contention is
+        bounded because the fast path (existing session) never enters the
+        construction block. Backends share the process-wide overlay executor,
+        so creating a session does not allocate its own worker pool.
         """
         def _apply_limits(session: GameSession) -> None:
             changed = False

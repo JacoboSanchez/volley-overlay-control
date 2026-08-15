@@ -107,5 +107,78 @@ def test_matches_listing_is_paginated(auth_client, db_session):
 
     # Bounds are enforced.
     assert auth_client.get("/api/v1/matches?limit=0").status_code == 422
+    assert auth_client.get("/api/v1/matches?limit=101").status_code == 422
     assert auth_client.get("/api/v1/matches?limit=501").status_code == 422
     assert auth_client.get("/api/v1/matches?offset=-1").status_code == 422
+
+
+def test_matches_listing_filters_and_sorts_on_server(auth_client, db_session):
+    skey = make_skey(auth_client.test_user_id, "filtered")
+    indoor = match_archive.archive_match(
+        oid=skey,
+        final_state={"config": {"mode": "indoor"}},
+        winning_team=1,
+    )
+    beach = match_archive.archive_match(
+        oid=skey,
+        final_state={"config": {"mode": "beach"}},
+        winning_team=2,
+    )
+    assert indoor and beach
+    from app.db.engine import session_scope
+    from app.db.models.report import MatchReport
+    with session_scope() as db:
+        by_id = {
+            row.match_id: row
+            for row in db.query(MatchReport).filter(MatchReport.match_id.in_([indoor, beach]))
+        }
+        by_id[indoor].ended_at = 1000
+        by_id[indoor].duration_s = 120
+        by_id[beach].ended_at = 2000
+        by_id[beach].duration_s = 60
+
+    response = auth_client.get(
+        "/api/v1/matches?oid=filtered&mode=beach&ended_from=1500&ended_to=2500"
+        "&sort=duration&direction=asc&limit=20",
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["count"] == 1
+    assert [row["match_id"] for row in payload["matches"]] == [beach]
+    assert payload["sort"] == "duration"
+    assert payload["direction"] == "asc"
+
+
+def test_match_days_use_requested_timezone(auth_client, db_session):
+    match_id = _archive(auth_client.test_user_id, oid="days")
+    from app.db.engine import session_scope
+    from app.db.models.report import MatchReport
+    with session_scope() as db:
+        row = db.query(MatchReport).filter_by(match_id=match_id).one()
+        # 2026-01-01 00:30 UTC is still 2025-12-31 in New York.
+        row.ended_at = 1767227400.0
+
+    response = auth_client.get("/api/v1/matches/days?oid=days&tz=America%2FNew_York")
+    assert response.status_code == 200, response.text
+    assert response.json() == {"days": ["2025-12-31"]}
+    assert auth_client.get("/api/v1/matches/days?tz=Not%2FA_Zone").status_code == 422
+
+
+def test_bulk_delete_is_one_owner_scoped_operation(db_session):
+    owner = TestClient(create_app())
+    login_client(owner, db_session, username="bulk-owner")
+    own_a = _archive(owner.test_user_id, oid="bulk")
+    own_b = _archive(owner.test_user_id, oid="bulk")
+    intruder = TestClient(create_app())
+    login_client(intruder, db_session, username="bulk-intruder")
+    foreign = _archive(intruder.test_user_id, oid="bulk")
+
+    response = owner.post(
+        "/api/v1/matches/bulk-delete",
+        json={"match_ids": [own_a, own_b, foreign]},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == {"requested": 3, "deleted": 2}
+    assert match_archive.load_match(own_a) is None
+    assert match_archive.load_match(own_b) is None
+    assert match_archive.load_match(foreign) is not None

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 from datetime import datetime
 
 from sqlalchemy import Boolean, ForeignKey, String
@@ -19,6 +20,12 @@ class User(Base, TimestampMixin):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Public, non-secret identity used only to isolate browser-local settings.
+    # Unlike SQLite integer primary keys, this value is never reused after an
+    # account is deleted.
+    storage_namespace: Mapped[str] = mapped_column(
+        String(32), unique=True, nullable=False, default=lambda: secrets.token_hex(16),
+    )
     # Lowercased, URL-safe (validated against app.id_validation charset) so it
     # can appear in routes/keys without escaping.
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)

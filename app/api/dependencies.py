@@ -20,6 +20,7 @@ action pays a second identical token lookup.
 """
 
 import logging
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from functools import partial
 
@@ -32,6 +33,7 @@ from app.auth.dependencies import PASSWORD_CHANGE_REQUIRED, current_user
 from app.db.engine import after_rollback, get_db
 from app.db.models.user import User
 from app.overlay_key import make_skey
+from app.overlay_lifecycle import overlay_lifecycle_gate
 
 logger = logging.getLogger(__name__)
 
@@ -155,21 +157,70 @@ def board_skey(
     return access.resolve_skey(oid or control)
 
 
-def get_session(
+async def get_session(
     skey: str = Depends(board_skey),
-) -> GameSession:
+) -> AsyncIterator[GameSession]:
     """Retrieve the board's previously-initialised ``GameSession``.
 
     The storage key comes from the control token (operator), the opted-in
     ``username``+``oid`` bookmark, or the cookie user + ``oid`` (owner), so a
-    caller only ever reaches the board their credential authorizes. Returns 404
-    when no session exists (call ``POST /api/v1/session/init`` first).
-    Sync ``def`` on purpose — the DB lookup runs in the threadpool.
+    caller only ever reaches the board their credential authorizes. The shared
+    lifecycle claim starts before the session lookup and remains held through
+    the route, so deletion cannot remove the session between dependency
+    resolution and request completion. Returns 404 when no session exists
+    (call ``POST /api/v1/session/init`` first).
     """
-    session = SessionManager.get(skey)
-    if session is None:
-        raise HTTPException(
-            status_code=404,
-            detail="No active session for this board. Call POST /api/v1/session/init first.",
-        )
-    return session
+    lifecycle_lease = overlay_lifecycle_gate.begin_use(skey)
+    try:
+        session = SessionManager.get(skey)
+        if session is None:
+            raise HTTPException(
+                status_code=404,
+                detail="No active session for this board. Call POST /api/v1/session/init first.",
+            )
+        yield session
+    finally:
+        lifecycle_lease.release()
+
+
+async def get_mutation_session(
+    session: GameSession = Depends(get_session),
+    expected_revision: int | None = Header(
+        None,
+        alias="X-Expected-State-Revision",
+        ge=0,
+        description="Apply only when the current game-state revision matches.",
+    ),
+    client_id: str | None = Header(
+        None,
+        alias="X-Client-ID",
+        min_length=8,
+        max_length=64,
+        pattern=r"^[A-Za-z0-9._:-]+$",
+        description="Ephemeral browser-tab id for audit attribution.",
+    ),
+    client_label: str | None = Header(
+        None,
+        alias="X-Client-Label",
+        max_length=40,
+        pattern=r"^[^\x00-\x1f\x7f]*$",
+        description="Optional operator-supplied display label; never account identity.",
+    ),
+) -> AsyncIterator[GameSession]:
+    """Lock one lifecycle-pinned mutation, then bind its caller metadata."""
+    async with session.lock:
+        if expected_revision is not None and expected_revision != session.state_revision:
+            raise HTTPException(
+                status_code=409,
+                detail="state_revision_conflict",
+                headers={"X-State-Revision": str(session.state_revision)},
+            )
+        previous_id = session.mutation_client_id
+        previous_label = session.mutation_client_label
+        session.mutation_client_id = client_id
+        session.mutation_client_label = client_label.strip() if client_label else None
+        try:
+            yield session
+        finally:
+            session.mutation_client_id = previous_id
+            session.mutation_client_label = previous_label

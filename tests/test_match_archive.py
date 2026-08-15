@@ -2,6 +2,7 @@
 import time
 
 import pytest
+from sqlalchemy import event
 
 from app.api import action_log, match_archive
 from app.api.game_service import GameService
@@ -113,6 +114,130 @@ class TestMatchArchive:
         matches = match_archive.list_matches(oid=skey)
         assert matches[0]["winning_team"] == 1
         assert matches[1]["winning_team"] == 2
+
+    def test_summary_listing_does_not_select_audit_log(self, db_session):
+        """The lightweight listing must not deserialize full transcripts."""
+        _uid, skey = _user_skey(db_session, "oid-summary-projection")
+        action_log.append(skey, "add_point", {"team": 1}, {"score": 1})
+        match_archive.archive_match(
+            oid=skey,
+            final_state={"team_1": {"sets": 1}, "config": {"mode": "indoor"}},
+            customization={"Team 1 Name": "Home"},
+            winning_team=1,
+        )
+        statements: list[str] = []
+        engine = db_session.get_bind()
+
+        def capture(_conn, _cursor, statement, _parameters, _context, _executemany):
+            if statement.lstrip().upper().startswith("SELECT"):
+                statements.append(statement)
+
+        event.listen(engine, "before_cursor_execute", capture)
+        try:
+            rows = match_archive.list_matches(oid=skey, limit=20)
+        finally:
+            event.remove(engine, "before_cursor_execute", capture)
+
+        assert len(rows) == 1
+        assert len(statements) == 1
+        selected = statements[0].lower().split(" from ", 1)[0]
+        assert "audit_log" not in selected
+
+    def test_summary_filters_sort_and_count_run_in_database(self, db_session):
+        _uid, skey = _user_skey(db_session, "oid-filtered")
+        indoor = match_archive.archive_match(
+            oid=skey,
+            final_state={"config": {"mode": "indoor"}},
+            started_at=900,
+            winning_team=1,
+        )
+        beach = match_archive.archive_match(
+            oid=skey,
+            final_state={"config": {"mode": "beach"}},
+            started_at=1800,
+            winning_team=2,
+        )
+        assert indoor and beach
+        from app.db.engine import session_scope
+        from app.db.models.report import MatchReport
+        with session_scope() as db:
+            rows = db.query(MatchReport).filter(MatchReport.match_id.in_([indoor, beach])).all()
+            by_id = {row.match_id: row for row in rows}
+            by_id[indoor].ended_at = 1000
+            by_id[indoor].duration_s = 100
+            by_id[beach].ended_at = 2000
+            by_id[beach].duration_s = 50
+
+        filtered = match_archive.list_matches(
+            oid=skey,
+            mode="beach",
+            ended_from=1500,
+            ended_to=2500,
+        )
+        assert [row["match_id"] for row in filtered] == [beach]
+        assert match_archive.count_matches(
+            oid=skey, mode="beach", ended_from=1500, ended_to=2500,
+        ) == 1
+        by_duration = match_archive.list_matches(
+            oid=skey, sort="duration", direction="asc",
+        )
+        assert [row["match_id"] for row in by_duration] == [beach, indoor]
+
+    def test_latest_match_id_uses_newest_tie_breaker(self, db_session):
+        _uid, skey = _user_skey(db_session, "oid-latest")
+        first = match_archive.archive_match(oid=skey, final_state={}, winning_team=1)
+        second = match_archive.archive_match(oid=skey, final_state={}, winning_team=2)
+        assert first and second
+        from app.db.engine import session_scope
+        from app.db.models.report import MatchReport
+        with session_scope() as db:
+            for row in db.query(MatchReport).filter(MatchReport.match_id.in_([first, second])):
+                row.ended_at = 1000
+        assert match_archive.latest_match_id(skey) == second
+
+    def test_latest_match_id_ignores_undated_rows(self, db_session):
+        """An undated row must never take the newest position."""
+        _uid, skey = _user_skey(db_session, "oid-undated")
+        dated = match_archive.archive_match(oid=skey, final_state={}, winning_team=1)
+        undated = match_archive.archive_match(oid=skey, final_state={}, winning_team=2)
+        assert dated and undated
+        from app.db.engine import session_scope
+        from app.db.models.report import MatchReport
+        with session_scope() as db:
+            for row in db.query(MatchReport).filter(
+                MatchReport.match_id.in_([dated, undated]),
+            ):
+                # The undated row is also the newer id, so it would win on
+                # the tie-breaker alone if the timestamp order let it through.
+                row.ended_at = 1000 if row.match_id == dated else None
+        assert match_archive.latest_match_id(skey) == dated
+
+    def test_latest_match_query_sorts_nulls_last_on_postgres(self, db_session):
+        """SQLite already sorts nulls last under DESC; PostgreSQL does not.
+
+        The behavioural test above therefore cannot catch a regression on the
+        supported PostgreSQL backend, so assert the emitted ordering directly.
+        """
+        from sqlalchemy.dialects import postgresql
+
+        _uid, skey = _user_skey(db_session, "oid-nulls")
+        stmt = match_archive._latest_match_stmt(skey)
+        assert stmt is not None
+        sql = str(stmt.compile(dialect=postgresql.dialect()))
+        assert "ended_at DESC NULLS LAST" in sql
+
+    def test_bulk_delete_is_owner_scoped_and_deduplicated(self, db_session):
+        owner_id, owner_skey = _user_skey(db_session, "bulk", username="bulk-owner")
+        _other_id, other_skey = _user_skey(db_session, "bulk", username="bulk-other")
+        own = match_archive.archive_match(oid=owner_skey, final_state={}, winning_team=1)
+        other = match_archive.archive_match(oid=other_skey, final_state={}, winning_team=2)
+        assert own and other
+        deleted = match_archive.delete_matches_for_user(
+            owner_id, [own, own, other, "malformed"],
+        )
+        assert deleted == 1
+        assert match_archive.load_match(own) is None
+        assert match_archive.load_match(other) is not None
 
     def test_load_match_rejects_malformed_id(self, db_session):
         assert match_archive.load_match("../etc/passwd") is None

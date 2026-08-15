@@ -1,11 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useI18n } from '../../i18n';
-import * as api from '../../api/board';
+import type * as api from '../../api/board';
 import { useAsyncAction } from '../../hooks/useAsyncAction';
 import { InstantHint } from './fields';
 
 export interface MatchRulesSectionProps {
-  oid: string;
+  /**
+   * Rule writes from ``useGameState``'s serialized mutation queue. They
+   * must not be raw API calls: two conditional writes fired back to back
+   * (toggle auto-swap, then change the mode) would carry the same
+   * revision and the server would reject the second with a 409. The queue
+   * snapshots the revision per mutation, after the previous one landed.
+   */
+  setRules: (payload: api.SetRulesPayload) => Promise<api.ActionResponse>;
+  setAutoSwapSides: (enabled: boolean) => Promise<api.ActionResponse>;
   /**
    * Live values pulled from ``state.config``. The component renders
    * controlled inputs around them, so it always reflects what the
@@ -44,7 +52,8 @@ const MODE_ICONS: Record<api.MatchMode, string> = {
 };
 
 export default function MatchRulesSection({
-  oid,
+  setRules,
+  setAutoSwapSides,
   mode,
   pointsLimit,
   pointsLimitLastSet,
@@ -69,7 +78,21 @@ export default function MatchRulesSection({
     pending,
     error,
   } = useAsyncAction<[api.SetRulesPayload]>(async (payload) => {
-    await api.setRules(oid, payload);
+    const res = await setRules(payload);
+    // The queue resolves conflicts by reloading authoritative state and
+    // reporting ``success: false``. Raise so the operator sees why the
+    // gesture did not stick instead of watching the control snap back.
+    if (!res.success) throw new Error(res.message || t('rules.updateFailed'));
+    onChanged?.();
+  });
+
+  const {
+    run: toggleAutoSwap,
+    pending: autoSwapPending,
+    error: autoSwapError,
+  } = useAsyncAction<[boolean]>(async (enabled) => {
+    const res = await setAutoSwapSides(enabled);
+    if (!res.success) throw new Error(res.message || t('rules.updateFailed'));
     onChanged?.();
   });
 
@@ -151,16 +174,9 @@ export default function MatchRulesSection({
         <input
           type="checkbox"
           checked={autoSwapSides ?? false}
-          disabled={autoSwapSides === null || pending}
+          disabled={autoSwapSides === null || pending || autoSwapPending}
           onChange={(e) => {
-            void (async () => {
-              try {
-                await api.setAutoSwapSides(oid, e.target.checked);
-                onChanged?.();
-              } catch {
-                /* surfaced by the next state poll */
-              }
-            })();
+            void toggleAutoSwap(e.target.checked);
           }}
           data-testid="rules-auto-swap-sides"
         />
@@ -307,9 +323,9 @@ export default function MatchRulesSection({
         {t('rules.resetDefaults')}
       </button>
 
-      {error && (
+      {(error || autoSwapError) && (
         <p className="config-save-error" style={{ position: 'static', marginTop: '0.5rem' }}>
-          {error}
+          {error || autoSwapError}
         </p>
       )}
     </div>

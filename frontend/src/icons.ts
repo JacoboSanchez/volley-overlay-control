@@ -48,6 +48,7 @@ export const LITERAL_ICONS = [
   'fullscreen',
   'fullscreen_exit',
   'grid_on',
+  'group',
   'history',
   'hourglass_top',
   'image',

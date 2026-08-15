@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import type { MatchMode } from '../../api/board';
+import type { ActionResponse, MatchMode, SetRulesPayload } from '../../api/board';
 import type { SetSummaryStyle } from '../../api/board';
 import type { Settings, SetSetting } from '../../hooks/useSettings';
 import { asString } from '../../utils/coerce';
@@ -21,7 +21,6 @@ const PresetPicker = lazy(() => import('../PresetPicker'));
 
 export interface ConfigSectionBodyProps {
   section: SectionId | null;
-  oid: string;
   model: ConfigModel;
   updateField: (key: string, value: unknown) => void;
   onApplyPatch: (patch: ConfigModel) => void;
@@ -31,6 +30,9 @@ export interface ConfigSectionBodyProps {
   /** Live ``state.config`` from useGameState; ``null`` while connecting. */
   gameConfig?: Record<string, unknown> | null | undefined;
   autoSwapSides?: boolean | null | undefined;
+  /** Queued rule writes from ``useGameState`` — see MatchRulesSection. */
+  setRules: (payload: SetRulesPayload) => Promise<ActionResponse>;
+  setAutoSwapSides: (enabled: boolean) => Promise<ActionResponse>;
   onShowShortcuts?: (() => void) | undefined;
   setSummaryStyle?: SetSummaryStyle | undefined;
   onChangeSetSummaryStyle?: ((style: SetSummaryStyle) => void) | undefined;
@@ -40,7 +42,6 @@ export interface ConfigSectionBodyProps {
  *  chunk, so the panel only downloads what the operator actually opens. */
 export default function ConfigSectionBody({
   section,
-  oid,
   model,
   updateField,
   onApplyPatch,
@@ -49,6 +50,8 @@ export default function ConfigSectionBody({
   setSetting,
   gameConfig,
   autoSwapSides = null,
+  setRules,
+  setAutoSwapSides,
   onShowShortcuts,
   setSummaryStyle,
   onChangeSetSummaryStyle,
@@ -109,7 +112,8 @@ export default function ConfigSectionBody({
     case 'rules':
       return (
         <MatchRulesSection
-          oid={oid}
+          setRules={setRules}
+          setAutoSwapSides={setAutoSwapSides}
           autoSwapSides={autoSwapSides}
           mode={(gameConfig?.mode as MatchMode | undefined) ?? null}
           pointsLimit={(gameConfig?.points_limit as number | undefined) ?? null}

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import * as api from '../api/board';
+import type { ActionResponse } from '../api/board';
 import { asString } from '../utils/coerce';
 
 type Customization = Record<string, unknown>;
@@ -13,16 +13,25 @@ type Customization = Record<string, unknown>;
  * language). Invariant: the control WS broadcasts ``state_update``
  * only, never ``customization_update`` — so a second operator's
  * PUT cannot bounce this effect into a ping-pong.
+ *
+ * The write goes through ``syncLocale`` (``useGameState``'s serialized
+ * mutation queue) rather than calling the API directly: an unqueued
+ * conditional PUT would carry the same revision as an in-flight point,
+ * and whichever request reached the server's lock second would be
+ * rejected with a 409 — dropping either the point or, because the pin
+ * below is already set, this sync for good.
  */
 export function useOverlayLocaleSync({
   oid,
   lang,
   customization,
+  syncLocale,
   refreshCustomization,
 }: {
   oid: string;
   lang: string;
   customization: Customization | null;
+  syncLocale: (locale: string) => Promise<ActionResponse>;
   refreshCustomization: () => void;
 }): void {
   const lastAttemptedLocaleRef = useRef<string | null>(null);
@@ -33,11 +42,13 @@ export function useOverlayLocaleSync({
     if (customizationLocale === lang) return;
     if (lastAttemptedLocaleRef.current === attemptKey) return;
     lastAttemptedLocaleRef.current = attemptKey;
-    api
-      .updateCustomization(oid, { locale: lang })
-      .then(() => refreshCustomization())
+    syncLocale(lang)
+      .then((res) => {
+        if (res.success) refreshCustomization();
+        else console.warn('Failed to sync overlay locale:', res.message);
+      })
       .catch((e) => {
         console.warn('Failed to sync overlay locale:', e);
       });
-  }, [oid, lang, customizationLocale, refreshCustomization]);
+  }, [oid, lang, customizationLocale, syncLocale, refreshCustomization]);
 }

@@ -18,7 +18,8 @@ from __future__ import annotations
 import calendar as _calmod
 import html
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from datetime import time as datetime_time
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -185,6 +186,23 @@ def _sorted(matches: list[dict], sort: str, direction: str) -> list[dict]:
 _DAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
+def _valid_day(day: str | None) -> str:
+    """Return *day* when it is a real calendar date, otherwise ``""``.
+
+    The shape check alone accepts impossible dates (``2026-02-30``), which
+    ``date.fromisoformat`` in :func:`_day_bounds` then rejects — turning a
+    hand-typed query string into a 500. Unparseable input is treated as "no
+    day filter", matching how an unknown ``mode`` or ``sort`` degrades.
+    """
+    if not day or not _DAY_RE.match(day):
+        return ""
+    try:
+        date.fromisoformat(day)
+    except ValueError:
+        return ""
+    return day
+
+
 def _fmt_date(ended_at: object) -> str:
     if not isinstance(ended_at, (int, float)):
         return "—"
@@ -200,6 +218,14 @@ def _day_key(ended_at: object) -> str | None:
     if not isinstance(ended_at, (int, float)):
         return None
     return datetime.fromtimestamp(ended_at).strftime("%Y-%m-%d")
+
+
+def _day_bounds(day: str) -> tuple[float, float]:
+    """Server-local epoch bounds for one validated ``YYYY-MM-DD`` day."""
+    parsed = date.fromisoformat(day)
+    start = datetime.combine(parsed, datetime_time.min).timestamp()
+    end = datetime.combine(parsed + timedelta(days=1), datetime_time.min).timestamp()
+    return start, end
 
 
 def _fmt_duration(locale: str, duration_s: object) -> str:
@@ -450,23 +476,43 @@ def match_history(
     sort = "duration" if sort == "duration" else "ended"
     direction = "asc" if dir == "asc" else "desc"
     active_mode = mode if mode in _VALID_MODES else ""
-    active_day = day if _DAY_RE.match(day or "") else ""
+    active_day = _valid_day(day)
 
-    matches = match_archive.list_matches(oid=skey)
-    if active_mode:
-        matches = [m for m in matches if m.get("mode") == active_mode]
     # Days that actually have matches (for the current type filter) — the
     # day dropdown only offers these, like the account calendar dots them.
     available_days = sorted(
-        {d for m in matches if (d := _day_key(m.get("ended_at")))},
+        {
+            d
+            for ts in match_archive.list_match_times(
+                oid=skey,
+                mode=active_mode or None,
+            )
+            if (d := _day_key(ts))
+        },
         reverse=True,
     )
+    ended_from: float | None = None
+    ended_to: float | None = None
     if active_day:
-        matches = [m for m in matches if _day_key(m.get("ended_at")) == active_day]
-    matches = _sorted(matches, sort, direction)
-    pages = max(1, (len(matches) + PAGE_SIZE - 1) // PAGE_SIZE)
+        ended_from, ended_to = _day_bounds(active_day)
+    total = match_archive.count_matches(
+        oid=skey,
+        mode=active_mode or None,
+        ended_from=ended_from,
+        ended_to=ended_to,
+    )
+    pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
     page = min(page, pages)
-    rows = matches[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
+    rows = match_archive.list_matches(
+        oid=skey,
+        limit=PAGE_SIZE,
+        offset=(page - 1) * PAGE_SIZE,
+        sort=sort,
+        direction=direction,
+        mode=active_mode or None,
+        ended_from=ended_from,
+        ended_to=ended_to,
+    )
 
     active_cal = cal if _CAL_RE.match(cal or "") else ""
     return HTMLResponse(

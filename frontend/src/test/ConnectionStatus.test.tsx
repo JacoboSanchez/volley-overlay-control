@@ -18,6 +18,13 @@ describe('ConnectionStatus', () => {
     expect(screen.queryByTestId('connection-status')).toBeNull();
   });
 
+  it('shows a quiet aggregate indicator when another controller joins', () => {
+    renderWithI18n(<ConnectionStatus connected={true} controllerCount={2} />);
+    const pill = screen.getByTestId('controller-presence');
+    expect(pill).toHaveTextContent('2 controllers connected');
+    expect(pill).not.toHaveTextContent(/owner|user/i);
+  });
+
   it('keeps the offline pill hidden during the grace window', () => {
     renderWithI18n(<ConnectionStatus connected={false} graceMs={500} />);
     expect(screen.queryByTestId('connection-status')).toBeNull();

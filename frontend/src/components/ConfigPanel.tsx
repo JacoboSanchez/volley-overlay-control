@@ -3,9 +3,7 @@ import { useI18n } from '../i18n';
 import { useSettings, type ThemePreference } from '../hooks/useSettings';
 import { useOrientation } from '../hooks/useOrientation';
 import { useAsyncAction } from '../hooks/useAsyncAction';
-import { updateCustomization } from '../api/board';
-import type { SetSummaryStyle } from '../api/board';
-import { ApiError } from '../api/http';
+import type { ActionResponse, SetRulesPayload, SetSummaryStyle } from '../api/board';
 import ConfirmDialog from './ConfirmDialog';
 import ConfigBottomBar from './config/ConfigBottomBar';
 import ConfigErrorBanner from './config/ConfigErrorBanner';
@@ -29,6 +27,15 @@ export interface ConfigPanelProps {
   gameConfig?: Record<string, unknown> | null;
   /** Live ``state.auto_swap_sides`` — drives the rules-section toggle. */
   autoSwapSides?: boolean | null;
+  /** Queued rule writes from ``useGameState`` — see MatchRulesSection. */
+  setRules: (payload: SetRulesPayload) => Promise<ActionResponse>;
+  setAutoSwapSides: (enabled: boolean) => Promise<ActionResponse>;
+  /**
+   * Persist the staged customization through ``useGameState``'s mutation
+   * queue. A direct conditional PUT would share its revision with any
+   * display/rule action still in flight and lose one of them to a 409.
+   */
+  saveCustomization: (data: ConfigModel) => Promise<ActionResponse>;
   onBack: () => void;
   onLogout: () => void;
   /** Operator (shareable-link) mode: hide the owner-only Sign out control,
@@ -79,6 +86,9 @@ export default function ConfigPanel({
   customization,
   gameConfig,
   autoSwapSides = null,
+  setRules,
+  setAutoSwapSides,
+  saveCustomization,
   onBack,
   onLogout,
   operator = false,
@@ -132,7 +142,11 @@ export default function ConfigPanel({
     clearError: clearSaveError,
   } = useAsyncAction(
     async () => {
-      await updateCustomization(oid, model);
+      const res = await saveCustomization(model);
+      // The queue reports a rejected conditional write instead of throwing;
+      // surface it rather than marking the panel clean on a save the server
+      // never applied.
+      if (!res.success) throw new Error(res.message || t('config.failedToSave'));
       // Before awaiting the refresh below: the panel must commit clean as
       // early as possible so an immediate Back press doesn't prompt.
       // Staying in the panel is deliberate — the "Saved ✓" status is the
@@ -141,12 +155,7 @@ export default function ConfigPanel({
       if (onCustomizationSaved) await onCustomizationSaved();
     },
     {
-      formatError: (e) =>
-        e instanceof ApiError
-          ? e.detail
-          : e instanceof Error
-            ? e.message
-            : t('config.failedToSave'),
+      formatError: (e) => (e instanceof Error ? e.message : t('config.failedToSave')),
     },
   );
 
@@ -154,7 +163,6 @@ export default function ConfigPanel({
     (section: SectionId | null) => (
       <ConfigSectionBody
         section={section}
-        oid={oid}
         model={model}
         updateField={updateField}
         onApplyPatch={applyPatch}
@@ -163,13 +171,14 @@ export default function ConfigPanel({
         setSetting={setSetting}
         gameConfig={gameConfig}
         autoSwapSides={autoSwapSides}
+        setRules={setRules}
+        setAutoSwapSides={setAutoSwapSides}
         onShowShortcuts={onShowShortcuts}
         setSummaryStyle={setSummaryStyle}
         onChangeSetSummaryStyle={onChangeSetSummaryStyle}
       />
     ),
     [
-      oid,
       model,
       updateField,
       applyPatch,
@@ -178,6 +187,8 @@ export default function ConfigPanel({
       setSetting,
       gameConfig,
       autoSwapSides,
+      setRules,
+      setAutoSwapSides,
       onShowShortcuts,
       setSummaryStyle,
       onChangeSetSummaryStyle,
