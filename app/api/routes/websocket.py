@@ -20,6 +20,7 @@ from app.auth import sessions
 from app.db.engine import session_scope
 from app.logging_utils import redact_oid
 from app.overlay_key import make_skey
+from app.overlay_lifecycle import OverlayLifecycleBusy, overlay_lifecycle_gate
 
 logger = logging.getLogger(__name__)
 
@@ -78,35 +79,53 @@ async def websocket_endpoint(
         await ws.close(code=4003, reason="Authentication required.")
         return
 
-    session = SessionManager.get(skey)
-    if session is None:
-        await ws.close(code=4004, reason="No active session for this OID.")
+    # The initial snapshot can persist a newly observed state revision. Keep
+    # that short-lived work on the shared side of the overlay lifecycle gate
+    # so deletion cannot remove runtime files halfway through the handshake.
+    try:
+        lifecycle_lease = overlay_lifecycle_gate.begin_use(skey)
+    except OverlayLifecycleBusy:
+        await ws.close(code=1013, reason="Board lifecycle transition in progress.")
         return
 
+    connected = False
     try:
-        await WSHub.connect(
-            ws,
-            skey,
-            client_id=client_id,
-            client_label=client_label.strip() if client_label else None,
-        )
-    except WSHubFull as exc:
-        # 1013 = Try Again Later. Reason stays generic so a probing client
-        # cannot use the close text to enumerate which sessions are at cap.
-        logger.warning(
-            "Refused WS connect for %s — at cap %d",
-            redact_oid(skey), exc.cap,
-        )
-        await ws.close(code=1013, reason="Too many clients for this OID.")
-        return
-    try:
-        state = await get_state_snapshot(session)
-        state_data = state.model_dump()
-        await ws.send_json({"type": "state_update", "data": state_data})
-        # The new tab already has the aggregate in its initial state. Notify
-        # only the older tabs so their unobtrusive presence indicator updates
-        # without putting a redundant frame in front of the new tab's pong.
-        await WSHub.broadcast_presence(skey, exclude=ws)
+        session = SessionManager.get(skey)
+        if session is None:
+            await ws.close(code=4004, reason="No active session for this OID.")
+            return
+
+        try:
+            await WSHub.connect(
+                ws,
+                skey,
+                client_id=client_id,
+                client_label=client_label.strip() if client_label else None,
+            )
+        except WSHubFull as exc:
+            # 1013 = Try Again Later. Reason stays generic so a probing client
+            # cannot use the close text to enumerate which sessions are at cap.
+            logger.warning(
+                "Refused WS connect for %s — at cap %d",
+                redact_oid(skey), exc.cap,
+            )
+            await ws.close(code=1013, reason="Too many clients for this OID.")
+            return
+        connected = True
+
+        try:
+            state = await get_state_snapshot(session)
+            state_data = state.model_dump()
+            await ws.send_json({"type": "state_update", "data": state_data})
+            # The new tab already has the aggregate in its initial state.
+            # Notify only the older tabs so their unobtrusive presence
+            # indicator updates without putting a redundant frame in front of
+            # the new tab's pong.
+            await WSHub.broadcast_presence(skey, exclude=ws)
+        finally:
+            # Presence/ping handling below does not persist overlay runtime,
+            # so it must not keep deletion busy for the whole WebSocket life.
+            lifecycle_lease.release()
 
         while True:
             data = await ws.receive_text()
@@ -119,5 +138,9 @@ async def websocket_endpoint(
     except Exception:
         logger.exception("WebSocket error for %s", redact_oid(skey))
     finally:
-        WSHub.disconnect(ws, skey)
-        await WSHub.broadcast_presence(skey)
+        # Idempotent: this also covers failures before the initial-snapshot
+        # block reaches its short-lived release point.
+        lifecycle_lease.release()
+        if connected:
+            WSHub.disconnect(ws, skey)
+            await WSHub.broadcast_presence(skey)

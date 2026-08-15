@@ -10,7 +10,8 @@ import threading
 
 from fastapi.testclient import TestClient
 
-from app.api import match_archive
+from app.api import action_log, match_archive, session_persistence
+from app.api.game_service import GameService
 from app.api.session_manager import SessionManager
 from app.bootstrap import create_app
 from app.overlay import overlay_state_store
@@ -140,3 +141,63 @@ def test_delete_blocks_same_oid_recreation_until_runtime_cleanup(db_session):
     recreated = owner.post("/api/v1/session/init", json={"oid": "race"})
     assert recreated.status_code == 200
     assert recreated.json()["state"]["team_1"]["scores"].get("set_1", 0) == 0
+
+
+def test_delete_rejects_inflight_mutation_then_removes_all_runtime(
+    db_session, monkeypatch,
+):
+    app = create_app()
+    owner = TestClient(app)
+    login_client(owner, db_session, username="mutation-owner")
+    operator = TestClient(app)
+    assert operator.post(
+        "/api/v1/auth/login",
+        json={"username": "mutation-owner", "password": "password123"},
+    ).status_code == 200
+    assert owner.post("/api/v1/session/init", json={"oid": "mutation-race"}).status_code == 200
+    skey = make_skey(owner.test_user_id, "mutation-race")
+    _archive(owner.test_user_id, "mutation-race")
+
+    mutation_started = threading.Event()
+    release_mutation = threading.Event()
+    mutation_status: list[int] = []
+    original_add_point = GameService.add_point.__func__
+
+    def blocked_add_point(cls, session, *args, **kwargs):
+        mutation_started.set()
+        assert release_mutation.wait(timeout=5)
+        return original_add_point(cls, session, *args, **kwargs)
+
+    monkeypatch.setattr(GameService, "add_point", classmethod(blocked_add_point))
+
+    def mutate() -> None:
+        mutation_status.append(
+            operator.post(
+                "/api/v1/game/add-point?oid=mutation-race",
+                json={"team": 1},
+            ).status_code,
+        )
+
+    mutator = threading.Thread(target=mutate)
+    mutator.start()
+    try:
+        assert mutation_started.wait(timeout=3)
+        # The mutation owns a shared request-lifecycle claim, so deletion
+        # fails without touching the row or runtime instead of racing cleanup.
+        assert owner.delete("/api/v1/overlays/mutation-race").status_code == 409
+    finally:
+        release_mutation.set()
+
+    mutator.join(timeout=5)
+    assert not mutator.is_alive()
+    assert mutation_status == [200]
+    assert action_log.read_all(skey)
+    assert session_persistence.load_session_meta(skey) is not None
+    assert match_archive.list_matches(oid=skey)
+
+    assert owner.delete("/api/v1/overlays/mutation-race").status_code == 200
+    assert SessionManager.peek(skey) is None
+    assert action_log.read_all(skey) == []
+    assert session_persistence.load_session_meta(skey) is None
+    assert match_archive.list_matches(oid=skey) == []
+    assert not overlay_state_store.overlay_exists(skey)

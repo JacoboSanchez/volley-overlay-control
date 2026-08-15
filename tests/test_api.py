@@ -8,8 +8,10 @@ import asyncio
 import threading
 
 import pytest
+from starlette.concurrency import run_in_threadpool
 
 from app.api.game_service import GameService
+from app.api.routes.customization import get_customization
 from app.api.schemas import GameStateResponse
 from app.api.session_manager import GameSession, SessionManager
 from app.api.state_snapshot import get_state_snapshot
@@ -389,6 +391,44 @@ class TestGameService:
         session.backend.get_current_customization.reset_mock()
         GameService.refresh_customization(session)
         session.backend.get_current_customization.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_customization_refresh_serializes_with_update(self, session):
+        """A slow stale refresh must not overwrite a newer partial update."""
+        session._last_customization_fetch = None
+        refresh_started = threading.Event()
+        release_refresh = threading.Event()
+
+        def stale_refresh():
+            refresh_started.set()
+            assert release_refresh.wait(timeout=5)
+            return {"Team 1 Name": "Stale"}
+
+        session.backend.get_current_customization.side_effect = stale_refresh
+        reader = asyncio.create_task(get_customization(session))
+        try:
+            assert await asyncio.to_thread(refresh_started.wait, 3)
+
+            async def update():
+                # Mirrors get_mutation_session: the update owns the same
+                # session lock for the whole worker-thread mutation.
+                async with session.lock:
+                    return await run_in_threadpool(
+                        GameService.update_customization,
+                        session,
+                        {"Team 1 Name": "Fresh"},
+                    )
+
+            writer = asyncio.create_task(update())
+            await asyncio.sleep(0.2)
+            assert not writer.done()
+        finally:
+            release_refresh.set()
+
+        await reader
+        write_response = await writer
+        assert write_response.success is True
+        assert session.customization.get_model()["Team 1 Name"] == "Fresh"
 
 
 # ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app import overlays_service
-from app.api import match_archive
+from app.api import action_log, match_archive
 from app.api.dependencies import get_session
 from app.api.overlay_links_service import build_overlay_links
 from app.api.pagination import PAGINATED_RESPONSES, Page, PageDep, with_total
@@ -55,6 +55,7 @@ def _delete_overlay_runtime(
             # survives when the exclusive deletion claim is released.
             SessionManager.remove(skey)
             session_persistence.delete_session_meta(skey)
+            action_log.delete(skey)
             overlay_state_store.delete_overlay(skey)
             # Reports key on the user (FK), not the overlay, so remove this
             # overlay's archived matches explicitly.

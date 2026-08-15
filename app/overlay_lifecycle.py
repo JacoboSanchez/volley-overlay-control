@@ -1,10 +1,11 @@
 """Coordinate overlay creation, initialisation, and durable deletion.
 
-Database transactions and keyed executor work end at different times.  A
-delete therefore needs an in-process claim that starts before its row is
-removed and remains active until stale queued work has drained and persisted
-runtime files are gone.  Create/init paths take a shared-use claim for the
-same interval and fail fast while deletion owns the key.
+Database transactions, request-scoped session work and keyed executor work end
+at different times. A delete therefore needs an in-process claim that starts
+before its row is removed and remains active until stale queued work has
+drained and persisted runtime files are gone. Create/init and active session
+requests take a shared-use claim for their whole lifetime and fail fast while
+deletion owns the key.
 """
 
 from __future__ import annotations
@@ -74,7 +75,7 @@ class OverlayLifecycleGate:
             state = self._states.setdefault(skey, _LifecycleState())
             if state.deleting or state.users:
                 raise OverlayLifecycleBusy(
-                    "This overlay is busy; retry deletion after initialisation completes."
+                    "This overlay is busy; retry deletion after active requests complete."
                 )
             state.deleting = True
         return OverlayLifecycleLease(self, skey, deletion=True)

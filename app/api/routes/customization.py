@@ -47,7 +47,8 @@ router = APIRouter()
 async def get_customization(
     session: GameSession = Depends(get_session),
 ) -> dict[str, Any]:
-    return await run_in_threadpool(GameService.refresh_customization, session)
+    async with session.lock:
+        return await run_in_threadpool(GameService.refresh_customization, session)
 
 
 @router.put(
