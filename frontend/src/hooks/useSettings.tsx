@@ -9,8 +9,13 @@ import {
 } from 'react';
 import { TEAM_A_COLOR, TEAM_B_COLOR } from '../theme';
 import { defaultKeyboardShortcutsEnabled } from './useKeyboardShortcuts';
-
-const LS_PREFIX = 'volley_';
+import {
+  getScopedItem,
+  setScopedItem,
+  storagePrefix,
+  useStorageScope,
+  type StorageScope,
+} from '../storage/ScopedStorage';
 
 /**
  * Theme preference. ``'auto'`` follows the OS ``prefers-color-scheme``
@@ -159,11 +164,11 @@ export function resolveDarkMode(pref: ThemePreference): boolean {
   return pref;
 }
 
-function readAll(): Settings {
+function readAll(scope: StorageScope): Settings {
   const result: Settings = { ...DEFAULTS };
   for (const key of Object.keys(DEFAULTS) as Array<keyof Settings>) {
     try {
-      const v = localStorage.getItem(LS_PREFIX + key);
+      const v = getScopedItem(scope, key);
       // JSON.parse returns ``any``; we route through Object.assign rather
       // than a mutating index assignment so we avoid the ``as unknown as``
       // double-cast the previous version needed to bypass keyof Settings's
@@ -186,29 +191,37 @@ export interface SettingsContextValue {
 const SettingsContext = createContext<SettingsContextValue | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<Settings>(readAll);
+  const storageScope = useStorageScope();
+  const [settings, setSettings] = useState<Settings>(() => readAll(storageScope));
 
-  const setSetting = useCallback<SetSetting>((key, value) => {
-    setSettings((prev) => {
-      if (prev[key] === value) return prev;
-      try {
-        localStorage.setItem(LS_PREFIX + key, JSON.stringify(value));
-      } catch (e) {
-        console.warn('Failed to save setting ' + String(key) + ':', e);
-      }
-      return { ...prev, [key]: value };
-    });
-  }, []);
+  const setSetting = useCallback<SetSetting>(
+    (key, value) => {
+      setSettings((prev) => {
+        if (prev[key] === value) return prev;
+        try {
+          setScopedItem(storageScope, key, JSON.stringify(value));
+        } catch (e) {
+          console.warn('Failed to save setting ' + String(key) + ':', e);
+        }
+        return { ...prev, [key]: value };
+      });
+    },
+    [storageScope],
+  );
+
+  useEffect(() => {
+    setSettings(readAll(storageScope));
+  }, [storageScope]);
 
   useEffect(() => {
     function onStorage(e: StorageEvent) {
-      if (e.key === null || e.key.startsWith(LS_PREFIX)) {
-        setSettings(readAll());
+      if (e.key === null || e.key.startsWith(storagePrefix(storageScope))) {
+        setSettings(readAll(storageScope));
       }
     }
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
-  }, []);
+  }, [storageScope]);
 
   useEffect(() => {
     const apply = () => {

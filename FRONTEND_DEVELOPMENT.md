@@ -226,6 +226,23 @@ when the board was opened from a control link. It exposes an `ApiError` class
 a `401` routes the user back to `/login`, while a `403` on a board route means
 the control link is invalid or was revoked.
 
+### Concurrency-safe board mutations
+
+Every game-state response includes a monotonic `revision`. The bundled client
+sends the last revision it rendered in `X-Expected-State-Revision` when it
+calls a game, display, rules, or customization mutation. If another controller
+has already advanced the board, the server rejects the stale request with
+`409`, `{"detail":"state_revision_conflict"}`, and the current revision in
+`X-State-Revision`; re-read `GET /api/v1/state` before offering the action
+again. A client that omits the expected-revision header keeps the legacy
+last-write-wins behaviour.
+
+The SPA also supplies a tab-scoped `X-Client-ID` (8–64 safe characters) and an
+optional `X-Client-Label` (up to 40 characters). Audited actions copy this
+non-sensitive attribution into `record.params`. These headers are not
+credentials, never grant access, and are never derived from the owner's
+account identity.
+
 Related endpoints used by the SPA's auth screens:
 
 - `GET /api/v1/auth/context` — bootstrap call on app load; reports
@@ -607,7 +624,10 @@ Connect to `ws://localhost:8080/api/v1/ws?oid=<OID>` to receive live state updat
 ### Connection
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8080/api/v1/ws?oid=my-overlay');
+const clientId = `tab-${crypto.randomUUID()}`;
+const ws = new WebSocket(
+  `ws://localhost:8080/api/v1/ws?oid=my-overlay&client_id=${encodeURIComponent(clientId)}`,
+);
 
 ws.onopen = () => {
   console.log('Connected! Initial state will arrive automatically.');
@@ -648,6 +668,7 @@ All messages from the server are JSON with a `type` field:
 {
   "type": "state_update",
   "data": {
+    "revision": 12,
     "current_set": 1,
     "visible": true,
     "simple_mode": false,
@@ -655,10 +676,34 @@ All messages from the server are JSON with a `type` field:
     "team_1": { "sets": 0, "timeouts": 0, "timeouts_by_set": {...}, "scores": {...}, "serving": true },
     "team_2": { "sets": 0, "timeouts": 0, "timeouts_by_set": {...}, "scores": {...}, "serving": false },
     "serve": "A",
-    "config": { "points_limit": 25, "points_limit_last_set": 15, "sets_limit": 5 }
+    "config": { "points_limit": 25, "points_limit_last_set": 15, "sets_limit": 5 },
+    "controller_count": 2
   }
 }
 ```
+
+Clients may add `client_id` and an optional `client_label` to the WebSocket
+query. They identify a browser tab for presence only and do not participate in
+authentication. If omitted, the server assigns a connection-local anonymous
+id.
+
+When controllers join, leave, or expire through the heartbeat, existing
+clients receive an aggregate presence frame:
+
+```json
+{
+  "type": "presence_update",
+  "data": {
+    "controller_count": 2,
+    "clients": [
+      { "client_id": "tab-…", "label": null },
+      { "client_id": "tab-…", "label": "Mesa auxiliar" }
+    ]
+  }
+}
+```
+
+Presence never contains usernames, user ids, or owner-account profile data.
 
 `customization_update` carries the same shape as
 `GET /api/v1/customization` and is pushed when team names, colours or layout
@@ -731,6 +776,7 @@ This is the shape exposed by `/api/v1/state` and the WebSocket stream. It is **n
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `revision` | int | Monotonic board-state revision for conditional mutations |
 | `current_set` | int (1–5) | Currently active set number |
 | `visible` | bool | Whether the overlay is shown on output |
 | `simple_mode` | bool | Whether only current set scores are shown |
@@ -739,6 +785,7 @@ This is the shape exposed by `/api/v1/state` and the WebSocket stream. It is **n
 | `team_2` | TeamState | Away team state |
 | `serve` | string | `"A"` (team 1), `"B"` (team 2), or `"None"` |
 | `config` | object | Match rules configuration |
+| `controller_count` | int | Distinct control tabs currently connected |
 
 ### TeamState
 

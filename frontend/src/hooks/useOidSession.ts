@@ -1,11 +1,12 @@
 import { useState, useCallback, type FormEvent } from 'react';
+import { getScopedItem, removeScopedItem, type StorageScope } from '../storage/ScopedStorage';
 
-function getInitialOid(): string {
+function getInitialOid(storageScope: StorageScope): string {
   const params = new URLSearchParams(window.location.search);
   const urlOid = params.get('oid') || params.get('control');
   if (urlOid) return urlOid;
   try {
-    return localStorage.getItem('volley_oid') || '';
+    return getScopedItem(storageScope, 'oid') || '';
   } catch {
     return '';
   }
@@ -30,13 +31,15 @@ export interface UseOidSessionResult {
 export function useOidSession({
   onLogout,
   initialOid,
+  storageScope,
 }: {
   onLogout?: (() => void) | undefined;
   initialOid?: string | undefined;
-} = {}): UseOidSessionResult {
+  storageScope: StorageScope;
+}): UseOidSessionResult {
   // Operator (shareable-link) mode seeds the session handle from the control
   // token so the board never shows the owner-only OID picker.
-  const [oid, setOid] = useState<string>(() => initialOid || getInitialOid());
+  const [oid, setOid] = useState<string>(() => initialOid || getInitialOid(storageScope));
   const [oidInput, setOidInput] = useState<string>(oid);
 
   const handleInit = useCallback(
@@ -51,14 +54,14 @@ export function useOidSession({
 
   const handleLogout = useCallback(() => {
     try {
-      localStorage.removeItem('volley_oid');
+      removeScopedItem(storageScope, 'oid');
     } catch (e) {
       console.warn('Failed to remove OID:', e);
     }
     setOid('');
     setOidInput('');
     onLogout?.();
-  }, [onLogout]);
+  }, [onLogout, storageScope]);
 
   return { oid, setOid, oidInput, setOidInput, handleInit, handleLogout };
 }

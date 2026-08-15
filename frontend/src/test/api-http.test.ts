@@ -75,6 +75,16 @@ describe('api transport', () => {
     );
   });
 
+  it('sends conditional revision and ephemeral client attribution on mutations', async () => {
+    mockFetchOk({ success: true });
+    await addPoint('oid', 1, false, undefined, undefined, 7);
+    const headers = fetchMock().mock.calls[0]![1].headers as Record<string, string>;
+
+    expect(headers['X-Expected-State-Revision']).toBe('7');
+    expect(headers['X-Client-ID']).toMatch(/^tab-/);
+    expect(headers['X-Client-ID']).not.toContain('oid');
+  });
+
   it('addPoint omits classification tags when not provided', async () => {
     mockFetchOk({ success: true });
     await addPoint('oid', 1);

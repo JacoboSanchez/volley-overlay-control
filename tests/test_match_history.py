@@ -153,6 +153,12 @@ class TestMatchHistoryPage:
         assert client.get(
             f"/matches/{token}?day=not-a-date"
         ).text.count("/report?lang=") == 1
+        # Well-shaped but impossible dates take the same path — parsing them
+        # only in the bounds helper turned a hand-typed query into a 500.
+        for impossible in ("2026-02-30", "2026-13-01", "2026-00-10"):
+            response = client.get(f"/matches/{token}?day={impossible}")
+            assert response.status_code == 200
+            assert response.text.count("/report?lang=") == 1
         # The page renders a month calendar; today's cell links to the filter.
         page = client.get(f"/matches/{token}").text
         assert "<div class='cal'>" in page

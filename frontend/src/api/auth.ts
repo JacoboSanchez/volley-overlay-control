@@ -4,6 +4,7 @@ import { request } from './http';
 
 export interface UserOut {
   id: number;
+  storage_namespace: string;
   username: string;
   display_name: string | null;
   email: string | null;

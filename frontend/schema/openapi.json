@@ -540,6 +540,42 @@
         "title": "Body_upload_my_icon_api_v1_icons_mine_post",
         "type": "object"
       },
+      "BulkDeleteMatchesRequest": {
+        "properties": {
+          "match_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Match Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "match_ids"
+        ],
+        "title": "BulkDeleteMatchesRequest",
+        "type": "object"
+      },
+      "BulkDeleteMatchesResponse": {
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "integer"
+          },
+          "requested": {
+            "title": "Requested",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requested",
+          "deleted"
+        ],
+        "title": "BulkDeleteMatchesResponse",
+        "type": "object"
+      },
       "ChangePasswordRequest": {
         "properties": {
           "current_password": {
@@ -883,6 +919,11 @@
             "title": "Config",
             "type": "object"
           },
+          "controller_count": {
+            "default": 0,
+            "title": "Controller Count",
+            "type": "integer"
+          },
           "current_set": {
             "title": "Current Set",
             "type": "integer"
@@ -948,6 +989,11 @@
           "obs_clients": {
             "default": 0,
             "title": "Obs Clients",
+            "type": "integer"
+          },
+          "revision": {
+            "default": 0,
+            "title": "Revision",
             "type": "integer"
           },
           "serve": {
@@ -2291,6 +2337,10 @@
             "title": "Role",
             "type": "string"
           },
+          "storage_namespace": {
+            "title": "Storage Namespace",
+            "type": "string"
+          },
           "username": {
             "title": "Username",
             "type": "string"
@@ -2298,6 +2348,7 @@
         },
         "required": [
           "id",
+          "storage_namespace",
           "username",
           "display_name",
           "email",
@@ -5842,6 +5893,66 @@
             }
           },
           {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
+            }
+          },
+          {
             "description": "Control capability token (alternative to ?c=)",
             "in": "header",
             "name": "x-control-token",
@@ -6188,6 +6299,66 @@
             }
           },
           {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
+            }
+          },
+          {
             "description": "Control capability token (alternative to ?c=)",
             "in": "header",
             "name": "x-control-token",
@@ -6335,6 +6506,66 @@
               ],
               "description": "Control capability token (shareable board link)",
               "title": "C"
+            }
+          },
+          {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
             }
           },
           {
@@ -6488,6 +6719,66 @@
             }
           },
           {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
+            }
+          },
+          {
             "description": "Control capability token (alternative to ?c=)",
             "in": "header",
             "name": "x-control-token",
@@ -6634,6 +6925,66 @@
               ],
               "description": "Control capability token (shareable board link)",
               "title": "C"
+            }
+          },
+          {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
             }
           },
           {
@@ -6787,6 +7138,66 @@
             }
           },
           {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
+            }
+          },
+          {
             "description": "Control capability token (alternative to ?c=)",
             "in": "header",
             "name": "x-control-token",
@@ -6933,6 +7344,66 @@
               ],
               "description": "Control capability token (shareable board link)",
               "title": "C"
+            }
+          },
+          {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
             }
           },
           {
@@ -7085,6 +7556,66 @@
             }
           },
           {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
+            }
+          },
+          {
             "description": "Control capability token (alternative to ?c=)",
             "in": "header",
             "name": "x-control-token",
@@ -7231,6 +7762,66 @@
               ],
               "description": "Control capability token (shareable board link)",
               "title": "C"
+            }
+          },
+          {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
             }
           },
           {
@@ -7383,6 +7974,66 @@
             }
           },
           {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
+            }
+          },
+          {
             "description": "Control capability token (alternative to ?c=)",
             "in": "header",
             "name": "x-control-token",
@@ -7529,6 +8180,66 @@
               ],
               "description": "Control capability token (shareable board link)",
               "title": "C"
+            }
+          },
+          {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
             }
           },
           {
@@ -7681,6 +8392,66 @@
             }
           },
           {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
+            }
+          },
+          {
             "description": "Control capability token (alternative to ?c=)",
             "in": "header",
             "name": "x-control-token",
@@ -7817,6 +8588,66 @@
               ],
               "description": "Control capability token (shareable board link)",
               "title": "C"
+            }
+          },
+          {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
             }
           },
           {
@@ -7966,6 +8797,66 @@
               ],
               "description": "Control capability token (shareable board link)",
               "title": "C"
+            }
+          },
+          {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
             }
           },
           {
@@ -8119,6 +9010,66 @@
             }
           },
           {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
+            }
+          },
+          {
             "description": "Control capability token (alternative to ?c=)",
             "in": "header",
             "name": "x-control-token",
@@ -8256,6 +9207,66 @@
               ],
               "description": "Control capability token (shareable board link)",
               "title": "C"
+            }
+          },
+          {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
             }
           },
           {
@@ -8853,7 +9864,7 @@
     },
     "/api/v1/matches": {
       "get": {
-        "description": "Return a page of the caller's archived matches, newest first.\n\n``count`` is the total in scope (not the page length), so a client can\npage with ``offset``/``limit`` until it has everything.",
+        "description": "Return one filtered/sorted page of the caller's archived matches.\n\n``count`` is the total in scope (not the page length), so a client can\npage with ``offset``/``limit`` until it has everything.",
         "operationId": "list_matches_api_v1_matches_get",
         "parameters": [
           {
@@ -8875,14 +9886,105 @@
             }
           },
           {
+            "description": "Filter by match mode",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "indoor",
+                    "beach",
+                    "table_tennis"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by match mode",
+              "title": "Mode"
+            }
+          },
+          {
+            "description": "Inclusive Unix-seconds end time",
+            "in": "query",
+            "name": "ended_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Inclusive Unix-seconds end time",
+              "title": "Ended From"
+            }
+          },
+          {
+            "description": "Exclusive Unix-seconds end time",
+            "in": "query",
+            "name": "ended_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exclusive Unix-seconds end time",
+              "title": "Ended To"
+            }
+          },
+          {
+            "description": "Summary column to sort",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "ended",
+              "description": "Summary column to sort",
+              "enum": [
+                "ended",
+                "duration"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Sort direction",
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "description": "Sort direction",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Direction",
+              "type": "string"
+            }
+          },
+          {
             "description": "Page size",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 100,
+              "default": 20,
               "description": "Page size",
-              "maximum": 500,
+              "maximum": 100,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
@@ -8943,6 +10045,175 @@
           }
         },
         "summary": "List the caller's archived matches",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/matches/bulk-delete": {
+      "post": {
+        "operationId": "bulk_delete_matches_api_v1_matches_bulk_delete_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteMatchesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkDeleteMatchesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete several of the caller's archived matches",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/matches/days": {
+      "get": {
+        "description": "Return distinct local ``YYYY-MM-DD`` keys without loading report JSON.\n\nThe browser sends its IANA timezone, so historical dates honour the offset\n(and daylight-saving rule) that applied when each match ended.",
+        "operationId": "list_match_days_api_v1_matches_days_get",
+        "parameters": [
+          {
+            "description": "Filter to a single overlay id",
+            "in": "query",
+            "name": "oid",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter to a single overlay id",
+              "title": "Oid"
+            }
+          },
+          {
+            "description": "Filter by match mode",
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "indoor",
+                    "beach",
+                    "table_tennis"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by match mode",
+              "title": "Mode"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "default": "UTC",
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Tz",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "title": "Response List Match Days Api V1 Matches Days Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List local calendar days containing matches",
         "tags": [
           "Scoreboard API v1"
         ]
@@ -10252,6 +11523,66 @@
               ],
               "description": "Control capability token (shareable board link)",
               "title": "C"
+            }
+          },
+          {
+            "description": "Apply only when the current game-state revision matches.",
+            "in": "header",
+            "name": "X-Expected-State-Revision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apply only when the current game-state revision matches.",
+              "title": "X-Expected-State-Revision"
+            }
+          },
+          {
+            "description": "Ephemeral browser-tab id for audit attribution.",
+            "in": "header",
+            "name": "X-Client-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 8,
+                  "pattern": "^[A-Za-z0-9._:-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Ephemeral browser-tab id for audit attribution.",
+              "title": "X-Client-Id"
+            }
+          },
+          {
+            "description": "Optional operator-supplied display label; never account identity.",
+            "in": "header",
+            "name": "X-Client-Label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional operator-supplied display label; never account identity.",
+              "title": "X-Client-Label"
             }
           },
           {

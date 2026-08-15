@@ -8,6 +8,12 @@ import {
 } from 'react';
 import { HexColorPicker } from 'react-colorful';
 import { useI18n } from '../i18n';
+import {
+  getScopedItem,
+  setScopedItem,
+  useStorageScope,
+  type StorageScope,
+} from '../storage/ScopedStorage';
 
 const PRESET_COLORS = [
   '#ffffff',
@@ -24,12 +30,12 @@ const PRESET_COLORS = [
   '#546e7a',
 ];
 
-const LS_KEY = 'volley_recentColors';
+const STORAGE_NAME = 'recentColors';
 const MAX_RECENT = 8;
 
-function getRecentColors(): string[] {
+function getRecentColors(storageScope: StorageScope): string[] {
   try {
-    const raw = localStorage.getItem(LS_KEY);
+    const raw = getScopedItem(storageScope, STORAGE_NAME);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) return parsed.filter((c): c is string => typeof c === 'string');
@@ -40,12 +46,12 @@ function getRecentColors(): string[] {
   return [];
 }
 
-function saveRecentColor(color: string) {
+function saveRecentColor(storageScope: StorageScope, color: string) {
   const normalized = color.toLowerCase();
   try {
-    const recent = getRecentColors().filter((c) => c !== normalized);
+    const recent = getRecentColors(storageScope).filter((c) => c !== normalized);
     recent.unshift(normalized);
-    localStorage.setItem(LS_KEY, JSON.stringify(recent.slice(0, MAX_RECENT)));
+    setScopedItem(storageScope, STORAGE_NAME, JSON.stringify(recent.slice(0, MAX_RECENT)));
   } catch {
     /* ignore */
   }
@@ -75,6 +81,7 @@ export default function ColorPicker({
   'aria-label': ariaLabel,
 }: ColorPickerProps) {
   const { t } = useI18n();
+  const storageScope = useStorageScope();
   const [open, setOpen] = useState(false);
   const [hex, setHex] = useState(color ?? '#000000');
   const [recentColors, setRecentColors] = useState<string[]>([]);
@@ -83,8 +90,8 @@ export default function ColorPicker({
   const swatch = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (open) setRecentColors(getRecentColors());
-  }, [open]);
+    if (open) setRecentColors(getRecentColors(storageScope));
+  }, [open, storageScope]);
 
   useEffect(() => {
     if (!open) {
@@ -157,10 +164,10 @@ export default function ColorPicker({
     (newColor: string) => {
       setHex(newColor);
       onChange(newColor);
-      saveRecentColor(newColor);
-      setRecentColors(getRecentColors());
+      saveRecentColor(storageScope, newColor);
+      setRecentColors(getRecentColors(storageScope));
     },
-    [onChange],
+    [onChange, storageScope],
   );
 
   const handlePickerChange = useCallback(
@@ -171,10 +178,13 @@ export default function ColorPicker({
     [onChange],
   );
 
-  const handlePickerChangeEnd = useCallback((newColor: string) => {
-    saveRecentColor(newColor);
-    setRecentColors(getRecentColors());
-  }, []);
+  const handlePickerChangeEnd = useCallback(
+    (newColor: string) => {
+      saveRecentColor(storageScope, newColor);
+      setRecentColors(getRecentColors(storageScope));
+    },
+    [storageScope],
+  );
 
   const handleHexInput = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
@@ -189,10 +199,10 @@ export default function ColorPicker({
 
   const handleHexBlur = useCallback(() => {
     if (/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(hex)) {
-      saveRecentColor(hex);
-      setRecentColors(getRecentColors());
+      saveRecentColor(storageScope, hex);
+      setRecentColors(getRecentColors(storageScope));
     }
-  }, [hex]);
+  }, [hex, storageScope]);
 
   return (
     <div className="color-picker-wrapper">

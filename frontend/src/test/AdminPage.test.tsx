@@ -43,6 +43,7 @@ vi.mock('../api/admin', () => ({
 
 const ROOT: UserOut = {
   id: 1,
+  storage_namespace: 'account-root',
   username: 'root',
   role: 'admin',
   is_active: true,
@@ -52,6 +53,7 @@ const ROOT: UserOut = {
 } as unknown as UserOut;
 const OTHER_ADMIN: UserOut = {
   id: 2,
+  storage_namespace: 'account-backup',
   username: 'backup',
   role: 'admin',
   is_active: true,
@@ -61,6 +63,7 @@ const OTHER_ADMIN: UserOut = {
 } as unknown as UserOut;
 const PLAIN: UserOut = {
   id: 3,
+  storage_namespace: 'account-scorer',
   username: 'scorer',
   role: 'user',
   is_active: true,

@@ -225,6 +225,16 @@ def isolate_webhook_dispatcher():
     webhooks.webhook_dispatcher.shutdown()
 
 
+@pytest.fixture(autouse=True)
+def isolate_overlay_executor():
+    """Give every test a fresh lazy process-wide overlay worker pool."""
+    from app.overlay_executor import shutdown_overlay_executor
+
+    shutdown_overlay_executor(wait=True, cancel_futures=True)
+    yield
+    shutdown_overlay_executor(wait=True, cancel_futures=True)
+
+
 def load_fixture(name):
     """Auxiliary function to load a JSON file from the fixtures folder."""
     path = os.path.join(os.path.dirname(__file__), 'fixtures', f'{name}.json')

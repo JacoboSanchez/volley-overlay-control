@@ -34,12 +34,31 @@ class RegistrationSetting(BaseModel):
 def _cleanup_user_runtime(skeys: list[str], icon_files: list[str]) -> None:
     """Remove a deleted user's non-database state after commit."""
     from app import icons_service
+    from app.api import action_log, session_persistence
     from app.api.session_manager import SessionManager
     from app.overlay import overlay_state_store
+    from app.overlay_executor import get_overlay_executor
 
     for skey in skeys:
+        # Closing the session first stops its backend accepting more
+        # background work; the barrier then runs as the next item in the same
+        # keyed FIFO, after every already-accepted push. Mirrors
+        # ``_delete_overlay_runtime``.
         SessionManager.remove(skey)
-        overlay_state_store.delete_overlay(skey)
+
+        # Bind the loop variable: the barrier runs long after this iteration.
+        def _delete_persisted_runtime(skey: str = skey) -> None:
+            # Reap once more at the barrier. The first removal stops the known
+            # session before queued work drains; this one covers a session
+            # admitted by work that was already running. Unlike the overlay
+            # path there is no ``match_archive.delete_for_oid`` — reports key
+            # on the user FK, so the cascade already removed them.
+            SessionManager.remove(skey)
+            session_persistence.delete_session_meta(skey)
+            action_log.delete(skey)
+            overlay_state_store.delete_overlay(skey)
+
+        get_overlay_executor().run_after_pending(skey, _delete_persisted_runtime)
     icons_service.unlink_files(icon_files)
 
 

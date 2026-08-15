@@ -3,6 +3,7 @@ import { useLocation } from 'react-router';
 import { useAuth } from '../auth/AuthContext';
 import RequireAuth, { RouteLoading } from '../auth/RequireAuth';
 import { SettingsProvider } from '../hooks/useSettings';
+import { useStorageScope } from '../storage/ScopedStorage';
 
 const App = lazy(() => import('../App'));
 
@@ -19,6 +20,7 @@ export default function BoardPage() {
   const publicUser = params.get('u')?.trim() || null;
   const oid = params.get('oid');
   const { loading, ctx } = useAuth();
+  const storageScope = useStorageScope();
 
   // A ?u=<username>&oid= bookmark opened by its signed-in owner is really an
   // owner visit: the cookie authorizes every board they own, so they get the
@@ -57,7 +59,7 @@ export default function BoardPage() {
   if (publicUser && !controlToken && (loading || !ctx)) return <RouteLoading />;
 
   const board = (
-    <SettingsProvider>
+    <SettingsProvider key={storageScope}>
       <Suspense fallback={<RouteLoading />}>
         <App
           controlToken={controlToken ?? undefined}

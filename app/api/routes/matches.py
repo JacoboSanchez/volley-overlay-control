@@ -5,10 +5,13 @@ scope every listing/lookup to the authenticated user and present the
 human-facing ``oid`` (never the internal storage key) in responses.
 """
 
+import datetime
 import time
-from typing import Any
+from typing import Any, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 
 from app.api import match_archive
 from app.auth.dependencies import require_user
@@ -17,6 +20,19 @@ from app.match_report.signing import make_signed_query
 from app.overlay_key import is_valid_skey, make_skey, split_skey
 
 router = APIRouter()
+
+MatchMode = Literal["indoor", "beach", "table_tennis"]
+MatchSort = Literal["ended", "duration"]
+SortDirection = Literal["asc", "desc"]
+
+
+class BulkDeleteMatchesRequest(BaseModel):
+    match_ids: list[str] = Field(min_length=1, max_length=100)
+
+
+class BulkDeleteMatchesResponse(BaseModel):
+    requested: int
+    deleted: int
 
 
 def _present(summary: dict[str, Any]) -> dict[str, Any]:
@@ -46,11 +62,16 @@ def _require_owned(match_id: str, user: User) -> None:
 @router.get("/matches", summary="List the caller's archived matches")
 def list_matches(
     oid: str | None = Query(None, description="Filter to a single overlay id"),
-    limit: int = Query(100, ge=1, le=500, description="Page size"),
+    mode: MatchMode | None = Query(None, description="Filter by match mode"),
+    ended_from: float | None = Query(None, description="Inclusive Unix-seconds end time"),
+    ended_to: float | None = Query(None, description="Exclusive Unix-seconds end time"),
+    sort: MatchSort = Query("ended", description="Summary column to sort"),
+    direction: SortDirection = Query("desc", description="Sort direction"),
+    limit: int = Query(20, ge=1, le=100, description="Page size"),
     offset: int = Query(0, ge=0, description="Rows to skip (newest first)"),
     user: User = Depends(require_user),
 ) -> dict[str, Any]:
-    """Return a page of the caller's archived matches, newest first.
+    """Return one filtered/sorted page of the caller's archived matches.
 
     ``count`` is the total in scope (not the page length), so a client can
     page with ``offset``/``limit`` until it has everything.
@@ -62,21 +83,79 @@ def list_matches(
     # ``user_id`` predicate into SQL (defense-in-depth then narrows it).
     # Either way the caller only ever sees rows whose skey starts with
     # ``"<their id>:"``.
+    if ended_from is not None and ended_to is not None and ended_from >= ended_to:
+        raise HTTPException(status_code=422, detail="ended_from must be less than ended_to.")
+
     skey = make_skey(user.id, oid) if oid else None
     raw = match_archive.list_matches(
         oid=skey,
         user_id=None if oid else user.id,
+        mode=mode,
+        ended_from=ended_from,
+        ended_to=ended_to,
         limit=limit,
         offset=offset,
+        sort=sort,
+        direction=direction,
     )
-    total = match_archive.count_matches(oid=skey, user_id=None if oid else user.id)
+    total = match_archive.count_matches(
+        oid=skey,
+        user_id=None if oid else user.id,
+        mode=mode,
+        ended_from=ended_from,
+        ended_to=ended_to,
+    )
     summaries = [s for s in raw if _owns(s.get("oid"), user)]
     return {
         "count": total,
         "matches": [_present(s) for s in summaries],
         "limit": limit,
         "offset": offset,
+        "sort": sort,
+        "direction": direction,
     }
+
+
+@router.get("/matches/days", summary="List local calendar days containing matches")
+def list_match_days(
+    oid: str | None = Query(None, description="Filter to a single overlay id"),
+    mode: MatchMode | None = Query(None, description="Filter by match mode"),
+    timezone: str = Query("UTC", alias="tz", min_length=1, max_length=64),
+    user: User = Depends(require_user),
+) -> dict[str, list[str]]:
+    """Return distinct local ``YYYY-MM-DD`` keys without loading report JSON.
+
+    The browser sends its IANA timezone, so historical dates honour the offset
+    (and daylight-saving rule) that applied when each match ended.
+    """
+    try:
+        zone = ZoneInfo(timezone)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="Unknown timezone.") from exc
+    skey = make_skey(user.id, oid) if oid else None
+    times = match_archive.list_match_times(
+        oid=skey,
+        user_id=None if oid else user.id,
+        mode=mode,
+    )
+    days = sorted({
+        datetime.datetime.fromtimestamp(ts, zone).date().isoformat()
+        for ts in times
+    }, reverse=True)
+    return {"days": days}
+
+
+@router.post(
+    "/matches/bulk-delete",
+    response_model=BulkDeleteMatchesResponse,
+    summary="Delete several of the caller's archived matches",
+)
+def bulk_delete_matches(
+    body: BulkDeleteMatchesRequest,
+    user: User = Depends(require_user),
+) -> BulkDeleteMatchesResponse:
+    deleted = match_archive.delete_matches_for_user(user.id, body.match_ids)
+    return BulkDeleteMatchesResponse(requested=len(body.match_ids), deleted=deleted)
 
 
 @router.get("/matches/{match_id}", summary="Full archived match snapshot")

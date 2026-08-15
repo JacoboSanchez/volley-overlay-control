@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getOverlays } from '../api/overlays';
 import type { OverlayPayload } from '../api/overlays';
-import { deleteMatch, listReports } from '../api/reports';
+import { deleteMatches, listReportDays, listReports } from '../api/reports';
 import type { MatchSummary } from '../api/reports';
 import EmptyState from '../components/EmptyState';
-import MatchCalendar, { dayKey } from '../components/MatchCalendar';
+import MatchCalendar from '../components/MatchCalendar';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmProvider';
 import { useSelection } from '../hooks/useSelection';
@@ -23,6 +23,8 @@ export default function ReportsPage() {
   const [overlays, setOverlays] = useState<OverlayPayload[]>([]);
   const [oid, setOid] = useState('');
   const [matches, setMatches] = useState<MatchSummary[]>([]);
+  const [matchDays, setMatchDays] = useState<string[]>([]);
+  const [total, setTotal] = useState(0);
   const [day, setDay] = useState<string | null>(null);
   const [modeFilter, setModeFilter] = useState<string>('');
   const sel = useSelection<string>();
@@ -36,6 +38,16 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(false);
   const [overlaysLoaded, setOverlaysLoaded] = useState(false);
   const [error, setError] = useState('');
+
+  // Delete handlers can outlive the render that created them. Keep the
+  // currently displayed query scopes in refs so a completed deletion never
+  // invokes an old ``load`` closure after the operator changed controls.
+  const listScope = [oid, modeFilter, day ?? '', sortKey, sortDir, page].join('\u0000');
+  const daysScope = [oid, modeFilter].join('\u0000');
+  const listScopeRef = useRef(listScope);
+  const daysScopeRef = useRef(daysScope);
+  listScopeRef.current = listScope;
+  daysScopeRef.current = daysScope;
 
   useEffect(() => {
     void (async () => {
@@ -58,66 +70,84 @@ export default function ReportsPage() {
     })();
   }, [t]);
 
-  const load = useCallback(
-    async (id: string) => {
-      if (!id) {
-        setMatches([]);
-        return;
-      }
-      setLoading(true);
-      setError('');
-      try {
-        const res = await listReports(id);
-        setMatches(res.matches);
-      } catch {
-        setError(t('acc.reports.errorReports'));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [t],
-  );
+  // Overlay/mode/day/sort/page are server-side filters now, so changing one
+  // starts a fresh request while the previous may still be in flight. Only
+  // the newest may write state: a slower earlier response landing last would
+  // otherwise repopulate the table with rows for controls the operator has
+  // already moved on from.
+  const loadSeq = useRef(0);
+
+  const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
+    if (!oid) {
+      setMatches([]);
+      setTotal(0);
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await listReports({
+        oid,
+        ...(modeFilter ? { mode: modeFilter } : {}),
+        day,
+        sort: sortKey,
+        direction: sortDir,
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
+      });
+      if (seq !== loadSeq.current) return;
+      setMatches(res.matches);
+      setTotal(res.count);
+    } catch {
+      if (seq !== loadSeq.current) return;
+      setError(t('acc.reports.errorReports'));
+    } finally {
+      // The newest request owns the spinner; a superseded one must not
+      // clear it while its replacement is still running.
+      if (seq === loadSeq.current) setLoading(false);
+    }
+  }, [day, modeFilter, oid, page, sortDir, sortKey, t]);
 
   useEffect(() => {
-    // Switching overlays starts from "all days" / "all types" — the prior
-    // filters rarely map onto another overlay's matches. Selection resets too.
-    setDay(null);
-    setModeFilter('');
-    clearSelection();
-    void load(oid);
-  }, [oid, load, clearSelection]);
+    void load();
+  }, [load]);
 
-  // Match-type filter first (feeds the calendar so it only dots days with
-  // matches of the chosen type), then the day filter on top.
-  const modeFiltered = useMemo(
-    () => (modeFilter ? matches.filter((m) => (m.mode ?? '') === modeFilter) : matches),
-    [matches, modeFilter],
-  );
-  const filtered = useMemo(
-    () =>
-      day
-        ? modeFiltered.filter((m) => m.ended_at != null && dayKey(m.ended_at) === day)
-        : modeFiltered,
-    [modeFiltered, day],
-  );
+  // Calendar dots are a separate scalar-only query. Re-read them when the
+  // overlay or mode changes, never on page/sort/day changes — plus after a
+  // deletion, which can empty a day the calendar would otherwise keep
+  // offering until the operator switched overlay or mode.
+  const daysSeq = useRef(0);
+  const loadDays = useCallback(() => {
+    const seq = ++daysSeq.current;
+    if (!oid) {
+      setMatchDays([]);
+      return Promise.resolve();
+    }
+    return listReportDays({ oid, ...(modeFilter ? { mode: modeFilter } : {}) })
+      .then((res) => {
+        // Same ordering guard as ``load``.
+        if (seq === daysSeq.current) setMatchDays(res.days);
+      })
+      .catch(() => {
+        if (seq === daysSeq.current) setMatchDays([]);
+      });
+  }, [modeFilter, oid]);
 
-  const shown = useMemo(() => {
-    const sign = sortDir === 'asc' ? 1 : -1;
-    const val = (m: MatchSummary) => (sortKey === 'ended' ? m.ended_at : m.duration_s) ?? 0;
-    return [...filtered].sort((a, b) => sign * (val(a) - val(b)));
-  }, [filtered, sortKey, sortDir]);
-
-  // Reset to the first page whenever the visible set changes (filter, sort,
-  // overlay) so the operator never lands on a now-empty page.
   useEffect(() => {
-    setPage(0);
-  }, [oid, day, modeFilter, sortKey, sortDir]);
+    void loadDays();
+  }, [loadDays]);
 
-  const pageCount = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
-  const paged = shown.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+
+  useEffect(() => {
+    if (page !== safePage) setPage(safePage);
+  }, [page, safePage]);
 
   function toggleSort(key: SortKey) {
+    setPage(0);
+    clearSelection();
     if (key === sortKey) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     } else {
@@ -132,28 +162,46 @@ export default function ReportsPage() {
     return sortDir === 'asc' ? ' ▲' : ' ▼';
   }
 
-  const shownIds = shown.map((m) => m.match_id);
-  const someSelected = sel.someSelected(shownIds);
+  const someSelected = sel.size > 0;
+  const filtersActive = Boolean(modeFilter || day);
 
   // The header checkbox selects/clears just the rows on the *current page*,
   // adding to (or removing from) any selection made on other pages — so a
   // multi-page delete still works by paging and selecting each page in turn.
-  const pageIds = paged.map((m) => m.match_id);
+  const pageIds = matches.map((m) => m.match_id);
   const allPageSelected = sel.allSelected(pageIds);
   const somePageSelected = sel.someSelected(pageIds);
 
   async function deleteIds(ids: string[]) {
-    // The backend exposes a single-match delete; fan out and tolerate
-    // partial failures so one stale row can't block the rest.
+    const startedListScope = listScope;
+    const startedDaysScope = daysScope;
+
+    async function refreshStillActiveScopes() {
+      if (listScopeRef.current === startedListScope) {
+        if (page !== 0) setPage(0);
+        else await load();
+      }
+      // ``load`` can remain in flight while the operator changes overlay or
+      // mode, so validate the calendar scope again immediately before using
+      // this render's ``loadDays`` closure.
+      if (daysScopeRef.current === startedDaysScope) await loadDays();
+    }
+
     setDeleting(true);
     try {
-      const results = await Promise.allSettled(ids.map((id) => deleteMatch(id)));
-      const ok = results.filter((r) => r.status === 'fulfilled').length;
-      const failed = results.length - ok;
-      await load(oid);
+      const result = await deleteMatches(ids);
       sel.clear();
-      if (ok > 0) toast(t('acc.reports.toastDeleted', { n: ok }));
-      if (failed > 0) toast(t('acc.reports.errorDelete'), 'error');
+      await refreshStillActiveScopes();
+      if (result.deleted > 0) toast(t('acc.reports.toastDeleted', { n: result.deleted }));
+      if (result.deleted < result.requested) toast(t('acc.reports.errorDelete'), 'error');
+    } catch {
+      toast(t('acc.reports.errorDelete'), 'error');
+      // A large selection is sent in chunks, so a failure can still leave
+      // earlier chunks deleted. The client cannot safely distinguish a
+      // rejected chunk from a committed chunk whose response was lost, so
+      // discard the whole selection rather than retaining stale ids.
+      sel.clear();
+      await refreshStillActiveScopes();
     } finally {
       setDeleting(false);
     }
@@ -173,7 +221,7 @@ export default function ReportsPage() {
 
   async function onDeleteSelected() {
     if (deleting) return;
-    const ids = sel.selectedAmong(shownIds);
+    const ids = sel.ids;
     if (ids.length === 0) return;
     const ok = await confirm({
       title: t('acc.reports.confirmDeleteSelectedTitle'),
@@ -199,7 +247,17 @@ export default function ReportsPage() {
         <>
           <label className="acc-field" style={{ maxWidth: 320, marginTop: 12 }}>
             <span>{t('acc.reports.scoreboard')}</span>
-            <select className="acc-input" value={oid} onChange={(e) => setOid(e.target.value)}>
+            <select
+              className="acc-input"
+              value={oid}
+              onChange={(e) => {
+                setOid(e.target.value);
+                setDay(null);
+                setModeFilter('');
+                setPage(0);
+                clearSelection();
+              }}
+            >
               {overlays.map((o) => (
                 <option key={o.oid} value={o.oid}>
                   {o.description ? `${o.oid} — ${o.description}` : o.oid}
@@ -210,7 +268,7 @@ export default function ReportsPage() {
 
           {loading ? (
             <p className="acc-muted">{t('acc.common.loading')}</p>
-          ) : matches.length === 0 ? (
+          ) : total === 0 && !filtersActive ? (
             <EmptyState>{t('acc.reports.emptyNoMatches')}</EmptyState>
           ) : (
             <>
@@ -220,7 +278,12 @@ export default function ReportsPage() {
                   <select
                     className="acc-input acc-filter-select"
                     value={modeFilter}
-                    onChange={(e) => setModeFilter(e.target.value)}
+                    onChange={(e) => {
+                      setModeFilter(e.target.value);
+                      setDay(null);
+                      setPage(0);
+                      clearSelection();
+                    }}
                     data-testid="reports-mode-filter"
                   >
                     <option value="">{t('acc.reports.allTypes')}</option>
@@ -233,14 +296,16 @@ export default function ReportsPage() {
                 </label>
                 <MatchCalendar
                   key={oid + modeFilter}
-                  matchTimes={modeFiltered
-                    .map((m) => m.ended_at)
-                    .filter((x): x is number => x != null)}
+                  matchDays={matchDays}
                   selected={day}
-                  onSelect={setDay}
+                  onSelect={(value) => {
+                    setDay(value);
+                    setPage(0);
+                    clearSelection();
+                  }}
                 />
                 <span className="acc-muted">
-                  {t('acc.reports.showing', { shown: shown.length, total: matches.length })}
+                  {t('acc.reports.showing', { shown: matches.length, total })}
                 </span>
                 {someSelected && (
                   <button
@@ -250,12 +315,12 @@ export default function ReportsPage() {
                     onClick={onDeleteSelected}
                   >
                     {t('acc.reports.deleteSelected', {
-                      n: sel.selectedAmong(shownIds).length,
+                      n: sel.size,
                     })}
                   </button>
                 )}
               </div>
-              {shown.length === 0 ? (
+              {matches.length === 0 ? (
                 <EmptyState>
                   {day ? t('acc.reports.emptyNoMatchesDay') : t('acc.reports.emptyNoMatchesFilter')}
                 </EmptyState>
@@ -308,7 +373,7 @@ export default function ReportsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {paged.map((m) => (
+                    {matches.map((m) => (
                       <tr key={m.match_id}>
                         <td>
                           <input

@@ -51,13 +51,17 @@ function currentInstance(): MockWebSocket {
 describe('createWebSocket', () => {
   it('creates WebSocket with correct wss URL for https', () => {
     createWebSocket('abc123', {});
-    expect(currentInstance().url).toBe('wss://example.com/api/v1/ws?oid=abc123');
+    expect(currentInstance().url).toMatch(
+      /^wss:\/\/example\.com\/api\/v1\/ws\?oid=abc123&client_id=tab-/,
+    );
   });
 
   it('creates WebSocket with correct ws URL for http', () => {
     (window.location as unknown as { protocol: string }).protocol = 'http:';
     createWebSocket('abc123', {});
-    expect(currentInstance().url).toBe('ws://example.com/api/v1/ws?oid=abc123');
+    expect(currentInstance().url).toMatch(
+      /^ws:\/\/example\.com\/api\/v1\/ws\?oid=abc123&client_id=tab-/,
+    );
   });
 
   it('encodes oid in URL', () => {
@@ -202,6 +206,24 @@ describe('createWebSocket', () => {
 
     expect(onAuditAppend).toHaveBeenCalledWith(7, { ts: 1, action: 'add_point' });
     expect(onAuditInvalidate).toHaveBeenCalledWith(8);
+  });
+
+  it('routes aggregate presence without requiring account identity', () => {
+    const onPresenceUpdate = vi.fn();
+    createWebSocket('oid1', { onPresenceUpdate });
+    const clients = [
+      { client_id: 'tab-main-a', label: null },
+      { client_id: 'tab-main-b', label: 'Auxiliar' },
+    ];
+
+    currentInstance().onmessage!({
+      data: JSON.stringify({
+        type: 'presence_update',
+        data: { controller_count: 2, clients },
+      }),
+    });
+
+    expect(onPresenceUpdate).toHaveBeenCalledWith(2, clients);
   });
 
   it('returns the WebSocket instance', () => {

@@ -4,11 +4,13 @@ Covers the HTTP and WebSocket surface end-to-end: session lifecycle, game
 actions, session-not-found errors, and WSHub broadcast across multiple
 clients. Backend HTTP dependencies are patched so no network traffic occurs.
 """
+import asyncio
 from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api.game_service import GameService
 from app.api.session_manager import SessionManager
 from app.bootstrap import create_app
 from app.overlay_key import make_skey
@@ -67,6 +69,42 @@ class TestSessionInit:
         # The second init should NOT re-validate the OID (short-circuit path).
         fake_backend_cls.validate_and_store_model_for_oid.assert_not_called()
 
+    def test_reused_session_state_runs_off_the_event_loop(
+        self, client, fake_backend_cls,
+    ):
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        observed = {}
+        original = GameService.get_state.__func__
+
+        def spy(cls, *args, **kwargs):
+            try:
+                asyncio.get_running_loop()
+                observed["on_loop"] = True
+            except RuntimeError:
+                observed["on_loop"] = False
+            return original(cls, *args, **kwargs)
+
+        with patch.object(GameService, "get_state", classmethod(spy)):
+            response = client.post("/api/v1/session/init", json={"oid": "abc"})
+
+        assert response.status_code == 200
+        assert observed == {"on_loop": False}
+
+    def test_state_revision_does_not_go_backwards_after_session_rebuild(
+        self, client, fake_backend_cls,
+    ):
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        changed = client.post(
+            "/api/v1/game/add-point?oid=abc",
+            json={"team": 1},
+            headers={"X-Expected-State-Revision": "0"},
+        ).json()["state"]
+        SessionManager.remove(_skey(client, "abc"))
+
+        rebuilt = client.post("/api/v1/session/init", json={"oid": "abc"}).json()["state"]
+
+        assert rebuilt["revision"] >= changed["revision"]
+
     def test_init_invalid_oid_returns_error(self, client):
         with patch("app.api.routes.session.Backend") as backend_cls:
             inst = backend_cls.return_value
@@ -95,8 +133,51 @@ class TestGameRoutes:
         )
         assert r.status_code == 404
 
-    def test_add_point_with_session(self, client, fake_backend_cls):
+    def test_mutation_runs_off_the_event_loop(self, client, fake_backend_cls):
+        """The action path writes to disk and submits to the bounded overlay
+        executor, whose backpressure blocks — so it must never run on the
+        asyncio thread."""
         client.post("/api/v1/session/init", json={"oid": "abc"})
+        observed = {}
+        original = GameService.add_point.__func__
+
+        def spy(cls, *args, **kwargs):
+            try:
+                asyncio.get_running_loop()
+                observed["on_loop"] = True
+            except RuntimeError:
+                observed["on_loop"] = False
+            return original(cls, *args, **kwargs)
+
+        with patch.object(GameService, "add_point", classmethod(spy)):
+            r = client.post("/api/v1/game/add-point?oid=abc", json={"team": 1})
+
+        assert r.status_code == 200
+        assert observed == {"on_loop": False}
+
+    def test_state_read_runs_off_the_event_loop(self, client, fake_backend_cls):
+        """State presentation may persist a changed revision fingerprint."""
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        observed = {}
+        original = GameService.get_state.__func__
+
+        def spy(cls, *args, **kwargs):
+            try:
+                asyncio.get_running_loop()
+                observed["on_loop"] = True
+            except RuntimeError:
+                observed["on_loop"] = False
+            return original(cls, *args, **kwargs)
+
+        with patch.object(GameService, "get_state", classmethod(spy)):
+            response = client.get("/api/v1/state?oid=abc")
+
+        assert response.status_code == 200
+        assert observed == {"on_loop": False}
+
+    def test_add_point_with_session(self, client, fake_backend_cls):
+        initial = client.post("/api/v1/session/init", json={"oid": "abc"}).json()["state"]
+        assert initial["revision"] == 0
         r = client.post(
             "/api/v1/game/add-point?oid=abc",
             json={"team": 1},
@@ -105,6 +186,64 @@ class TestGameRoutes:
         body = r.json()
         assert body["success"] is True
         assert body["state"]["team_1"]["scores"]["set_1"] == 1
+        assert body["state"]["revision"] == 1
+
+    def test_stale_revision_is_rejected_without_mutating(self, client, fake_backend_cls):
+        initial = client.post("/api/v1/session/init", json={"oid": "abc"}).json()["state"]
+        headers = {
+            "X-Expected-State-Revision": str(initial["revision"]),
+            "X-Client-ID": "tab-score-table-a",
+        }
+
+        first = client.post(
+            "/api/v1/game/add-point?oid=abc",
+            json={"team": 1},
+            headers=headers,
+        )
+        assert first.status_code == 200
+        assert first.json()["state"]["revision"] == initial["revision"] + 1
+
+        stale = client.post(
+            "/api/v1/game/add-point?oid=abc",
+            json={"team": 1},
+            headers=headers,
+        )
+        assert stale.status_code == 409
+        assert stale.json()["detail"] == "state_revision_conflict"
+        assert stale.headers["X-State-Revision"] == str(initial["revision"] + 1)
+
+        current = client.get("/api/v1/state?oid=abc").json()
+        assert current["team_1"]["scores"]["set_1"] == 1
+        assert current["revision"] == initial["revision"] + 1
+
+    def test_mutation_without_revision_remains_backward_compatible(self, client, fake_backend_cls):
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        first = client.post("/api/v1/game/add-point?oid=abc", json={"team": 1})
+        second = client.post("/api/v1/game/add-point?oid=abc", json={"team": 1})
+
+        assert first.status_code == second.status_code == 200
+        assert second.json()["state"]["team_1"]["scores"]["set_1"] == 2
+
+    def test_audit_attributes_ephemeral_client_not_owner(self, client, fake_backend_cls):
+        from app.api import action_log
+
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        response = client.post(
+            "/api/v1/game/add-point?oid=abc",
+            json={"team": 1},
+            headers={
+                "X-Expected-State-Revision": "0",
+                "X-Client-ID": "tab-score-table-a",
+                "X-Client-Label": "Mesa principal",
+            },
+        )
+        assert response.status_code == 200
+
+        params = action_log.read_all(_skey(client, "abc"))[-1]["params"]
+        assert params["client_id"] == "tab-score-table-a"
+        assert params["client_label"] == "Mesa principal"
+        assert "username" not in params
+        assert "user_id" not in params
 
     def test_start_match_arms_timer(self, client, fake_backend_cls):
         client.post("/api/v1/session/init", json={"oid": "abc"})
@@ -118,6 +257,7 @@ class TestGameRoutes:
         # Idempotent: second call leaves the original anchor in place.
         r2 = client.post("/api/v1/game/start-match?oid=abc")
         assert r2.json()["state"]["match_started_at"] == anchor
+        assert r2.json()["state"]["revision"] == body["state"]["revision"]
 
     def test_add_point_records_point_type(self, client, fake_backend_cls):
         from app.api import action_log
@@ -198,10 +338,54 @@ class TestWebSocketRoute:
 
     def test_ws_receives_initial_state(self, client, fake_backend_cls):
         client.post("/api/v1/session/init", json={"oid": "abc"})
-        with client.websocket_connect("/api/v1/ws?oid=abc") as ws:
+        with client.websocket_connect("/api/v1/ws?oid=abc&client_id=tab-main-a") as ws:
             msg = ws.receive_json()
             assert msg["type"] == "state_update"
             assert msg["data"]["current_set"] == 1
+            assert msg["data"]["revision"] == 0
+            assert msg["data"]["controller_count"] == 1
+
+    def test_ws_initial_state_runs_off_the_event_loop(self, client, fake_backend_cls):
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        observed = {}
+        original = GameService.get_state.__func__
+
+        def spy(cls, *args, **kwargs):
+            try:
+                asyncio.get_running_loop()
+                observed["on_loop"] = True
+            except RuntimeError:
+                observed["on_loop"] = False
+            return original(cls, *args, **kwargs)
+
+        with (
+            patch.object(GameService, "get_state", classmethod(spy)),
+            client.websocket_connect("/api/v1/ws?oid=abc") as ws,
+        ):
+            assert ws.receive_json()["type"] == "state_update"
+
+        assert observed == {"on_loop": False}
+
+    def test_ws_broadcasts_aggregate_presence(self, client, fake_backend_cls):
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        with client.websocket_connect("/api/v1/ws?oid=abc&client_id=tab-main-a") as ws1:
+            ws1.receive_json()
+            with client.websocket_connect(
+                "/api/v1/ws?oid=abc&client_id=tab-main-b&client_label=Auxiliar",
+            ) as ws2:
+                initial_second = ws2.receive_json()
+                assert initial_second["data"]["controller_count"] == 2
+                joined = ws1.receive_json()
+                assert joined["type"] == "presence_update"
+                assert joined["data"]["controller_count"] == 2
+                assert {item["client_id"] for item in joined["data"]["clients"]} == {
+                    "tab-main-a",
+                    "tab-main-b",
+                }
+                assert all("username" not in item for item in joined["data"]["clients"])
+            left = ws1.receive_json()
+            assert left["type"] == "presence_update"
+            assert left["data"]["controller_count"] == 1
 
     def test_ws_pong(self, client, fake_backend_cls):
         client.post("/api/v1/session/init", json={"oid": "abc"})
@@ -230,6 +414,7 @@ class TestWSHubBroadcast:
                 client.websocket_connect("/api/v1/ws?oid=abc") as ws2:
             ws1.receive_json()  # initial
             ws2.receive_json()  # initial
+            ws1.receive_json()  # presence update after ws2 joined
 
             # Trigger a state change via HTTP → handler broadcasts via WSHub.
             r = client.post(
@@ -314,6 +499,61 @@ class TestWSHubResilience:
             assert client.send_text.await_count == 1
         finally:
             WSHub._loop = None
+            WSHub.clear()
+
+    def test_presence_read_blocks_a_concurrent_connect(self):
+        """A mutation response reads ``controller_count`` from a worker
+        thread (routes hand ``GameService`` to ``run_in_threadpool``) while
+        a tab connects on the event loop. Without the registry lock that
+        iteration raises ``RuntimeError: Set changed size during
+        iteration`` — a 500 for an action the server already committed.
+
+        Deterministic by construction: hashing the first socket kicks off a
+        real ``connect`` on another thread and waits for it. Holding the
+        lock, that thread parks until the read finishes; without the lock it
+        registers mid-iteration and the read blows up.
+        """
+        import threading as _threading
+
+        from app.api.ws_hub import WSHub
+
+        joiner: list[_threading.Thread] = []
+
+        armed = _threading.Event()
+
+        class _FakeWS:
+            async def accept(self, subprotocol=None):
+                return None
+
+            def __hash__(self):
+                # Fires once, on whichever socket the registry walks first.
+                if armed.is_set() and not joiner:
+                    thread = _threading.Thread(
+                        target=lambda: asyncio.run(
+                            WSHub.connect(_FakeWS(), "oid-race"),
+                        ),
+                    )
+                    joiner.append(thread)
+                    thread.start()
+                    # Returns with the thread still alive while the lock is
+                    # held — that is the behaviour under test.
+                    thread.join(timeout=0.25)
+                return id(self)
+
+        WSHub.clear()
+
+        async def seed():
+            for _ in range(4):
+                await WSHub.connect(_FakeWS(), "oid-race")
+
+        asyncio.run(seed())
+        armed.set()
+        try:
+            WSHub.controller_count("oid-race")
+        finally:
+            armed.clear()
+            for thread in joiner:
+                thread.join(timeout=5)
             WSHub.clear()
 
     def test_broadcast_preserves_reconnected_oid(self):
@@ -577,5 +817,9 @@ class TestWSHubHeartbeat:
         assert healthy in WSHub._connections["oid-mix"]
         assert zombie not in WSHub._connections["oid-mix"]
         zombie.close.assert_called_once()
-        healthy.send_text.assert_called_once_with('{"type":"ping"}')
+        assert healthy.send_text.await_args_list[0].args == ('{"type":"ping"}',)
+        assert any(
+            '"type":"presence_update"' in call.args[0]
+            for call in healthy.send_text.await_args_list[1:]
+        )
         WSHub.clear()

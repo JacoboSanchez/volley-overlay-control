@@ -25,6 +25,8 @@ services:
       - SESSION_TTL_HOURS=${SESSION_TTL_HOURS:-} #Optional: login session lifetime in hours (default 336 = 14 days)
       - OVERLAY_PUBLIC_URL=${OVERLAY_PUBLIC_URL:-} #Optional (public URL for overlay links behind a reverse proxy)
       - ENABLE_MULTITHREAD=${ENABLE_MULTITHREAD:-true}
+      - OVERLAY_EXECUTOR_MAX_WORKERS=${OVERLAY_EXECUTOR_MAX_WORKERS:-8}
+      - OVERLAY_EXECUTOR_MAX_QUEUE=${OVERLAY_EXECUTOR_MAX_QUEUE:-256}
       - CUSTOMIZATION_CACHE_TTL_SECONDS=${CUSTOMIZATION_CACHE_TTL_SECONDS:-} #Optional: single TTL override for both customization caches
       - REMOTE_CONFIG_URL=${REMOTE_CONFIG_URL:-} #Optional: remote JSON config fetched on startup
       - REMOTE_CONFIG_ALLOW_PRIVATE_IPS=${REMOTE_CONFIG_ALLOW_PRIVATE_IPS:-false} #Optional: allow a private/loopback REMOTE_CONFIG_URL (SSRF opt-out)
