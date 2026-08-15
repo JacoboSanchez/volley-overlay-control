@@ -2,11 +2,11 @@
 name = "volley-overlay-control"
 version = "0.0.0"
 description = "Self-hostable web application for controlling volleyball overlays."
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 
 [tool.ruff]
 line-length = 127
-target-version = "py311"
+target-version = "py314"
 extend-exclude = [
     "frontend",
     "overlay_static",
@@ -93,7 +93,7 @@ files = [
     "app",
     "main.py",
 ]
-python_version = "3.11"
+python_version = "3.14"
 follow_imports = "silent"
 ignore_missing_imports = true
 implicit_optional = false

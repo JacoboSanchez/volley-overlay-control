@@ -1,7 +1,7 @@
 # Volley Overlay Control
 
 [![License](https://img.shields.io/github/license/jacobosanchez/volley-overlay-control)](https://github.com/jacobosanchez/volley-overlay-control)
-![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)
+![Python](https://img.shields.io/badge/python-3.14%2B-blue.svg)
 [![CI](https://github.com/jacobosanchez/volley-overlay-control/actions/workflows/ci.yml/badge.svg)](https://github.com/jacobosanchez/volley-overlay-control/actions/workflows/ci.yml)
 ![Docker](https://img.shields.io/badge/docker-available-2496ED?logo=docker&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/built%20with-FastAPI-009688.svg)
@@ -138,7 +138,7 @@ For the full endpoint reference, request/response schemas, and WebSocket protoco
 
 ### Prerequisites
 
-*   **Python 3.11+**
+*   **Python 3.14+**
 *   **Node.js 22.22+** and **npm** (for building the frontend)
 
 ### Creating an Overlay

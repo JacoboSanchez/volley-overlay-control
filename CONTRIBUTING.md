@@ -10,7 +10,7 @@ version. The longer-form architecture, conventions, and pitfalls live in
 ## Quick start
 
 ```bash
-# Backend (Python 3.11+)
+# Backend (Python 3.14+)
 python -m venv .venv && source .venv/bin/activate
 pip install -U pip uv
 uv pip install -r requirements.lock -r requirements-dev.lock

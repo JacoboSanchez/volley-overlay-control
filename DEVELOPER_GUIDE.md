@@ -17,7 +17,7 @@ The React frontend lives in the `frontend/` directory and is built with Vite. In
 | **Frontend** | React 19, Vite, PWA (vite-plugin-pwa) |
 | **REST API** | FastAPI router at `/api/v1/` with WebSocket real-time updates |
 | **HTTP Server** | Uvicorn (ASGI) — serves both the API and the frontend SPA |
-| **Backend Logic** | Python 3.x |
+| **Backend Logic** | Python 3.14+ |
 | **Persistence** | SQLAlchemy 2.0 ORM + Alembic migrations (SQLite default, Postgres via `postgresql+psycopg://`); in-memory + JSON file persistence for live overlay rendering state |
 | **Auth** | HttpOnly cookie sessions (opaque token, hashed server-side) with `user`/`admin` roles |
 | **Overlay Templates** | Jinja2 HTML templates for OBS browser sources (16 styles) |

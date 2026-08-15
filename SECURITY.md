@@ -49,7 +49,7 @@ Out of scope:
 - Vulnerabilities that require an attacker who already has shell
   access to the host (the application runs as a non-root user inside
   the container; container-escape findings should go to the upstream
-  base images: `python:3.13-slim`, `node:25-alpine`).
+  base images: `python:3.14-slim`, `node:26-alpine`).
 - Issues that depend on a misconfiguration explicitly called out as
   insecure in [`AUTHENTICATION.md`](AUTHENTICATION.md) — e.g.
   `MATCH_REPORT_PUBLIC=true` with a guessable `match_id` (the IDs are
