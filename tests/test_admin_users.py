@@ -34,8 +34,13 @@ def test_deleting_a_user_removes_per_overlay_runtime_files(db_session):
     assert user.post(
         "/api/v1/session/init", json={"oid": oid},
     ).status_code == 200
-    user.post("/api/v1/point", json={"team": 1})
+    assert user.post(
+        f"/api/v1/game/add-point?oid={oid}", json={"team": 1},
+    ).status_code == 200
+    # Both files must exist before the delete, or the assertions below pass
+    # for the wrong reason.
     assert session_persistence.load_session_meta(skey) is not None
+    assert action_log.read_all(skey)
 
     assert admin.delete(
         f"/api/v1/admin/users/{user.test_user_id}",
