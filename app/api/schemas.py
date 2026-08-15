@@ -75,7 +75,7 @@ class AddPointRequest(TeamActionRequest):
     error_type: ErrorType | None = None
 
     @model_validator(mode="after")
-    def _error_type_requires_opp_error(self) -> "AddPointRequest":
+    def _error_type_requires_opp_error(self) -> AddPointRequest:
         if self.error_type is not None and self.point_type != "opp_error":
             raise ValueError("error_type is only valid when point_type == 'opp_error'.")
         return self
@@ -499,7 +499,7 @@ class TeamOut(BaseModel):
     is_global: bool
 
     @classmethod
-    def of(cls, t: Team) -> "TeamOut":
+    def of(cls, t: Team) -> TeamOut:
         return cls(
             id=t.id,
             name=t.name,
@@ -636,7 +636,7 @@ class PresetSummary(BaseModel):
     values: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
-    def of(cls, p: Preset) -> "PresetSummary":
+    def of(cls, p: Preset) -> PresetSummary:
         source: Literal["user", "global"] = "global" if p.scope == "global" else "user"
         return cls(
             slug=p.slug,

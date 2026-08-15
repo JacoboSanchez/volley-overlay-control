@@ -25,7 +25,7 @@ class CustomOidMixin:
     # ``LocalOverlayBackend.__init__`` assigns it. Declared here (annotation
     # only, no class attribute created) so the ``self.conf`` reads below
     # type-check instead of relying on unchecked function bodies.
-    conf: "Conf"
+    conf: Conf
 
     @staticmethod
     def get_overlay_id(oid: str | None) -> tuple[str, str | None]:

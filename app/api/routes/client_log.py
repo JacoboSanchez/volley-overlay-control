@@ -23,7 +23,7 @@ router = APIRouter()
 _MAX_PER_WINDOW = 30
 _WINDOW_SECONDS = 60.0
 _MAX_CLIENTS = 4096
-_clients: "OrderedDict[str, deque[float]]" = OrderedDict()
+_clients: OrderedDict[str, deque[float]] = OrderedDict()
 _clients_lock = asyncio.Lock()
 
 

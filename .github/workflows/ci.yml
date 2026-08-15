@@ -17,24 +17,19 @@ concurrency:
 
 jobs:
   test:
-    name: Run Pytest and Linters (py${{ matrix.python-version }})
+    name: Run Pytest and Linters
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
-    strategy:
-      fail-fast: false
-      matrix:
-        # 3.11 is the floor declared in pyproject.toml; 3.14 is what the
-        # Dockerfile actually ships, so it must be exercised here too.
-        python-version: ["3.11", "3.14"]
 
     steps:
     - uses: actions/checkout@v7
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python 3.14
       uses: actions/setup-python@v7
       with:
-        python-version: ${{ matrix.python-version }}
+        # 3.14 is both the floor declared in pyproject.toml and what the
+        # Dockerfile ships, so a single version covers the whole matrix.
+        python-version: "3.14"
         cache: 'pip' # caching pip dependencies
         
     - name: Install dependencies
@@ -129,9 +124,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v7
       with:
-        # Suffixed with the matrix version — artifact names must be unique
-        # across jobs in a run.
-        name: coverage-xml-py${{ matrix.python-version }}
+        name: coverage-xml
         path: coverage.xml
         if-no-files-found: ignore
 
@@ -143,10 +136,10 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    - name: Set up Python 3.11
+    - name: Set up Python 3.14
       uses: actions/setup-python@v7
       with:
-        python-version: "3.11"
+        python-version: "3.14"
         cache: 'pip'
 
     - name: Install Python dependencies
@@ -225,10 +218,10 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    - name: Set up Python 3.11
+    - name: Set up Python 3.14
       uses: actions/setup-python@v7
       with:
-        python-version: "3.11"
+        python-version: "3.14"
         cache: 'pip'
 
     - name: Install scanners

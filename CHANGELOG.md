@@ -75,6 +75,23 @@ archive by hand.
   the server-rendered history page uses the same filtered page queries. The
   post-restart latest-report lookup is now a one-row scalar query.
 
+### Removed
+
+- **Python 3.11 support. The minimum supported interpreter is now 3.14.**
+  `requires-python` moves to `>=3.14`, ruff targets `py314`, and mypy
+  type-checks against 3.14. CI drops the second interpreter with it: the
+  backend job is no longer a matrix (a single 3.14 job replaces the
+  `py3.11` / `py3.14` pair, so its coverage artifact is plain
+  `coverage-xml`), and the frontend and security-scanner jobs — plus the
+  release workflow, previously on 3.12 — now set up 3.14 as well.
+  The Docker image already builds on `python:3.14-slim`, so container
+  operators are unaffected; anyone running from source on 3.11
+  must upgrade their interpreter before taking this release. With the
+  floor raised, forward references that only existed to satisfy pre-3.14
+  annotation evaluation are plain annotations again (PEP 649 defers them),
+  and `SECURITY.md`'s out-of-scope note now names the base images the
+  Dockerfile actually builds on.
+
 ## [7.0.0] - 2026-08-09
 
 ### Security

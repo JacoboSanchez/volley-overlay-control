@@ -83,7 +83,7 @@ class WSHub:
     # (routes hand it to ``run_in_threadpool`` so its blocking I/O stays off
     # the loop). ``asyncio.get_running_loop()`` raises there, so without a
     # captured loop every broadcast from a game action would be dropped.
-    _loop: "asyncio.AbstractEventLoop | None" = None
+    _loop: asyncio.AbstractEventLoop | None = None
 
     # Runtime-tunable copy of the cap so tests can ``monkeypatch.setattr``
     # without reaching into ``app.constants``.

@@ -8,7 +8,7 @@ This document provides everything an AI coding agent needs to understand, naviga
 
 Volley Overlay Control is a self-hostable, **multi-user** application that bundles a React 19 control SPA, a Python/FastAPI backend, and an overlay serving engine into a single deployable service. Accounts log in (the login page is the front door); `/` is the SPA account dashboard and scoreboard control lives on the SPA route `/board?oid=<overlay>`. It manages per-user match state (scores, sets, timeouts, serve), renders overlay HTML templates for OBS browser sources, and serves every overlay **in-process** (the built-in `LocalOverlayBackend`) — there is no external overlay server or cloud (overlays.uno) integration.
 
-**Backend stack:** Python 3.x · FastAPI · Uvicorn · SQLAlchemy 2 · Alembic · Jinja2 · requests · python-dotenv · websocket-client · Docker
+**Backend stack:** Python 3.14+ · FastAPI · Uvicorn · SQLAlchemy 2 · Alembic · Jinja2 · requests · python-dotenv · websocket-client · Docker
 **Frontend stack:** React 19 · React Router · Vite · PWA (vite-plugin-pwa) · react-colorful
 **Test stack:** pytest · pytest-asyncio · pytest-cov · ruff · mypy (backend) · Vitest · React Testing Library (frontend)
 
