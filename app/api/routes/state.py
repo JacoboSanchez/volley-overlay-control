@@ -24,8 +24,15 @@ async def get_state(
 async def get_config(
     session: GameSession = Depends(get_session),
 ) -> dict[str, int]:
-    return {
-        "points_limit": session.points_limit,
-        "points_limit_last_set": session.points_limit_last_set,
-        "sets_limit": session.sets_limit,
-    }
+    # ``POST /session/rules`` applies a preset one field at a time from a
+    # worker thread while holding ``session.lock``. Reading the limits
+    # without that lock can interleave between those assignments and hand a
+    # legacy client a mixture of the old and new preset, so hold it for the
+    # whole snapshot. No docstring: FastAPI would publish it as the public
+    # endpoint description.
+    async with session.lock:
+        return {
+            "points_limit": session.points_limit,
+            "points_limit_last_set": session.points_limit_last_set,
+            "sets_limit": session.sets_limit,
+        }

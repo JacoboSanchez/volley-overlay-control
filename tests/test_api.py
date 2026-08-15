@@ -12,6 +12,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.api.game_service import GameService
 from app.api.routes.customization import get_customization
+from app.api.routes.state import get_config
 from app.api.schemas import GameStateResponse
 from app.api.session_manager import GameSession, SessionManager
 from app.api.state_snapshot import get_state_snapshot
@@ -107,6 +108,50 @@ class TestGameService:
         response = await pending
         assert called.is_set()
         assert isinstance(response, GameStateResponse)
+
+    @pytest.mark.asyncio
+    async def test_config_snapshot_serializes_with_rules_update(self, session):
+        """/config must never expose a half-applied rule preset."""
+        session.mode = "indoor"
+        session.points_limit = 25
+        session.points_limit_last_set = 15
+        session.sets_limit = 5
+
+        mid_update = threading.Event()
+        release_update = threading.Event()
+
+        def slow_set_rules():
+            # Mirrors GameService.set_rules: the beach preset lands one field
+            # at a time, so an unlocked reader can catch a mixed pair.
+            session.mode = "beach"
+            session.points_limit = 21
+            mid_update.set()
+            assert release_update.wait(timeout=5)
+            session.points_limit_last_set = 15
+            session.sets_limit = 3
+
+        async def update():
+            # Mirrors get_mutation_session: the mutation owns the session
+            # lock for the whole worker-thread call.
+            async with session.lock:
+                await run_in_threadpool(slow_set_rules)
+
+        writer = asyncio.create_task(update())
+        try:
+            assert await asyncio.to_thread(mid_update.wait, 3)
+            reader = asyncio.create_task(get_config(session))
+            await asyncio.sleep(0.2)
+            assert not reader.done()
+        finally:
+            release_update.set()
+
+        await writer
+        # Never the torn mix of a 21-point beach set with 5 indoor sets.
+        assert await reader == {
+            "points_limit": 21,
+            "points_limit_last_set": 15,
+            "sets_limit": 3,
+        }
 
     def test_get_state_on_air_and_report_fields(self, session):
         session.backend.obs_client_count = 0
