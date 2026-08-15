@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.1.0] - 2026-08-15
+
 ### Added
 
 - **Revision-safe multi-operator control and privacy-preserving presence.**
