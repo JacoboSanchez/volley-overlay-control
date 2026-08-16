@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.1.1] - 2026-08-16
+
 ### Changed
 
 - **The Config panel opens on Teams, and Presets moved below Position &
