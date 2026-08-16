@@ -510,12 +510,20 @@ async function captureConfigPanel(page) {
     if (el) { await el.click(); break; }
   }
   await page.waitForTimeout(800);
-  // The panel opens on Presets by default; this screenshot documents the
-  // Teams section (group picker + team cards), so navigate there first.
+  // Teams is the default-open section and the one this screenshot documents
+  // (group picker + team cards). Clicking it in portrait would collapse it,
+  // so only navigate when some other section is on screen.
   const teamsBtn = await page.$('button:has-text("Teams")');
   if (teamsBtn) {
-    await teamsBtn.click();
-    await page.waitForTimeout(500);
+    const onScreen = await teamsBtn.evaluate(
+      (el) =>
+        el.getAttribute('aria-current') === 'page' ||
+        el.getAttribute('aria-expanded') === 'true',
+    );
+    if (!onScreen) {
+      await teamsBtn.click();
+      await page.waitForTimeout(500);
+    }
   }
   await page.screenshot({ path: resolve(OUT_DIR, '04-config-panel.png'), fullPage: false });
 }
