@@ -59,23 +59,38 @@ const defaultProps = {
   onToggleFullscreen: vi.fn(),
 };
 
-/** The default-open section is Presets; team fields need explicit navigation. */
-function openTeamsSection() {
-  fireEvent.click(screen.getByText('Teams').closest('button')!);
-}
-
 describe('ConfigPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     saveCustomization.mockResolvedValue({ success: true });
   });
 
-  it('opens on the Presets section by default', async () => {
+  it('opens on the Teams section by default', async () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
+    expect(await screen.findByTestId('team-1-name-selector')).toBeInTheDocument();
+    // Presets is no longer the entry point, so its list is not fetched until
+    // the operator navigates there.
+    expect(presetsApi.listPresets).not.toHaveBeenCalled();
+  });
+
+  it('lists Presets after Position & Size in the section order', () => {
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    const labels = ['Teams', 'Overlay Style', 'Position & Size', 'Presets'];
+    const positions = labels.map((label) =>
+      Array.prototype.indexOf.call(
+        document.querySelectorAll('button'),
+        screen.getByText(label).closest('button')!,
+      ),
+    );
+    expect(positions).toStrictEqual([...positions].sort((a, b) => a - b));
+  });
+
+  it('loads the preset list once the Presets section is opened', async () => {
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    fireEvent.click(screen.getByText('Presets').closest('button')!);
     await waitFor(() => {
       expect(presetsApi.listPresets).toHaveBeenCalled();
     });
-    expect(screen.queryByTestId('team-1-name-selector')).not.toBeInTheDocument();
   });
 
   it('renders config title', () => {
@@ -106,7 +121,6 @@ describe('ConfigPanel', () => {
 
   it('enables the save button after a customization change', async () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     await waitFor(() => {
@@ -117,7 +131,6 @@ describe('ConfigPanel', () => {
   it('confirms before leaving when there are unsaved changes', async () => {
     window.confirm = vi.fn().mockReturnValue(false);
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     await waitFor(() => {
@@ -133,7 +146,6 @@ describe('ConfigPanel', () => {
   it('confirms when popstate fires (swipe back) with unsaved changes', async () => {
     window.confirm = vi.fn().mockReturnValue(false);
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     await waitFor(() => {
@@ -156,7 +168,6 @@ describe('ConfigPanel', () => {
     saveCustomization.mockResolvedValue({ success: true });
     window.confirm = vi.fn();
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     const saveBtn = screen.getByTestId('save-button');
@@ -188,7 +199,6 @@ describe('ConfigPanel', () => {
     saveCustomization.mockResolvedValue({ success: true });
     window.confirm = vi.fn();
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     const saveBtn = screen.getByTestId('save-button');
@@ -206,7 +216,6 @@ describe('ConfigPanel', () => {
   it('clears the Saved status as soon as the panel goes dirty again', async () => {
     saveCustomization.mockResolvedValue({ success: true });
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     await waitFor(() => {
@@ -292,7 +301,6 @@ describe('ConfigPanel', () => {
   it('surfaces a retryable error banner when save fails', async () => {
     saveCustomization.mockRejectedValueOnce(new Error('Server is on fire'));
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     const saveBtn = screen.getByTestId('save-button');
@@ -316,7 +324,6 @@ describe('ConfigPanel', () => {
   it('save-error banner can be dismissed without retrying', async () => {
     saveCustomization.mockRejectedValueOnce(new Error('boom'));
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     await waitFor(() => {
@@ -369,13 +376,13 @@ describe('ConfigPanel section navigation semantics', () => {
     const presets = screen.getByText('Presets').closest('button')!;
     const teams = screen.getByText('Teams').closest('button')!;
 
-    // Presets is the section the panel opens on.
-    expect(presets).toHaveAttribute('aria-current', 'page');
-    expect(teams).not.toHaveAttribute('aria-current');
-
-    fireEvent.click(teams);
-    await waitFor(() => expect(teams).toHaveAttribute('aria-current', 'page'));
+    // Teams is the section the panel opens on.
+    expect(teams).toHaveAttribute('aria-current', 'page');
     expect(presets).not.toHaveAttribute('aria-current');
+
+    fireEvent.click(presets);
+    await waitFor(() => expect(presets).toHaveAttribute('aria-current', 'page'));
+    expect(teams).not.toHaveAttribute('aria-current');
   });
 
   it('names the panel each portrait accordion header controls', async () => {
@@ -384,24 +391,24 @@ describe('ConfigPanel section navigation semantics', () => {
     const presets = screen.getByText('Presets').closest('button')!;
     const teams = screen.getByText('Teams').closest('button')!;
 
-    expect(presets).toHaveAttribute('aria-expanded', 'true');
-    expect(teams).toHaveAttribute('aria-expanded', 'false');
+    expect(teams).toHaveAttribute('aria-expanded', 'true');
+    expect(presets).toHaveAttribute('aria-expanded', 'false');
 
-    const panelId = presets.getAttribute('aria-controls')!;
+    const panelId = teams.getAttribute('aria-controls')!;
     expect(panelId).toBeTruthy();
     const panel = document.getElementById(panelId)!;
     expect(panel).toBeInTheDocument();
-    expect(panel.getAttribute('aria-labelledby')).toBe(presets.id);
+    expect(panel.getAttribute('aria-labelledby')).toBe(teams.id);
 
-    fireEvent.click(teams);
-    await waitFor(() => expect(teams).toHaveAttribute('aria-expanded', 'true'));
-    expect(presets).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(presets);
+    await waitFor(() => expect(presets).toHaveAttribute('aria-expanded', 'true'));
+    expect(teams).toHaveAttribute('aria-expanded', 'false');
     // Collapsing removes the region entirely, so nothing dangles.
     expect(document.getElementById(panelId)).toBeNull();
 
     // Portrait sections collapse: clicking the open one closes it.
-    fireEvent.click(teams);
-    await waitFor(() => expect(teams).toHaveAttribute('aria-expanded', 'false'));
+    fireEvent.click(presets);
+    await waitFor(() => expect(presets).toHaveAttribute('aria-expanded', 'false'));
   });
 });
 
@@ -449,7 +456,6 @@ describe('ConfigPanel option loading failures', () => {
     });
     vi.mocked(boardApi.setBoardSelectedGroup).mockRejectedValueOnce(new Error('offline'));
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    openTeamsSection();
 
     const picker = await screen.findByTestId('team-group-picker');
     fireEvent.change(picker, { target: { value: '4' } });
@@ -471,7 +477,6 @@ describe('ConfigPanel unsaved-changes prompt', () => {
   }
 
   async function dirtyThePanel() {
-    openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     await waitFor(() => expect(screen.getByTestId('save-button')).not.toBeDisabled());

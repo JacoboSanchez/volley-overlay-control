@@ -14,6 +14,17 @@ archive by hand.
 
 ## [Unreleased]
 
+### Changed
+
+- **The Config panel opens on Teams, and Presets moved below Position &
+  Size.** The section list now reads Teams → Overlay Style → Position & Size
+  → Presets → …, so the fields an operator touches before every match come
+  first and the saved-configuration entry point sits with the appearance
+  settings it restores. Teams is also the section the panel opens on, in both
+  the landscape sidebar and the portrait accordion; the preset list is now
+  fetched only once that section is opened. The config-panel README
+  screenshot was regenerated for the new section order.
+
 ## [7.1.0] - 2026-08-15
 
 ### Added

@@ -111,8 +111,8 @@ export default function ConfigPanel({
   const options = useConfigOptions(oid);
   const guardExit = useUnsavedChangesGuard(isDirty, onBack);
 
-  // ``presets`` matches the deliberate CONFIG_SECTIONS ordering — the saved-
-  // configuration entry point is what the operator should see first.
+  // ``teams`` matches the deliberate CONFIG_SECTIONS ordering — the team
+  // setup is what the operator should see first.
   const [activeSection, setActiveSection] = useState<SectionId | null>(CONFIG_SECTIONS[0].id);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
