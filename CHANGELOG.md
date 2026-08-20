@@ -14,6 +14,18 @@ archive by hand.
 
 ## [Unreleased]
 
+### Security
+
+- **The published image now applies Debian security updates at build time.**
+  The runtime stage inherited whatever OS packages `python:3.14-slim`
+  happened to ship, so a Debian fix published between base-image rebuilds
+  stayed unapplied — most recently the `util-linux` cluster
+  (CVE-2026-53613, CVE-2026-53614, CVE-2026-53615, fixed in
+  `2.41.5-0+deb13u1`), which turned the Trivy gate red on every pull
+  request. An `apt-get upgrade` in the runtime stage takes those fixes
+  instead of suppressing the finding, matching how the image already drops
+  `pip`/`setuptools` rather than allow-listing their advisories.
+
 ### Dependencies
 
 - **Backend runtime:** `uvicorn[standard]` `>=0.52.1` → `>=0.52.3`,

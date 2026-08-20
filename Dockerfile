@@ -17,6 +17,27 @@ RUN npm run build
 FROM python:3.14-slim AS runtime
 WORKDIR /app
 
+# Apply Debian security updates before anything else lands on top. The
+# ``python:3.14-slim`` tag is rebuilt on its own cadence, so between those
+# rebuilds a published Debian fix sits unapplied in the base layer and the
+# Trivy gate goes red on packages no application change can reach — that is
+# how the util-linux cluster (CVE-2026-53613 / -53614 / -53615, fixed in
+# 2.41.5-0+deb13u1) started failing every PR. The gate runs with
+# ``ignore-unfixed``, so anything it reports has a fix waiting in the
+# archive; upgrading here takes it, in the same spirit as dropping pip
+# below rather than suppressing the finding.
+#
+# Note for the next red scan: this layer is content-addressed by its command
+# string, so a warm ``type=gha`` build cache will replay it verbatim and keep
+# serving the packages from whenever it last ran. If a *new* OS CVE appears
+# while the base digest is unchanged, evict the ``docker-ci`` cache scope so
+# this RUN executes against the current archive.
+RUN export DEBIAN_FRONTEND=noninteractive \
+    && apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
