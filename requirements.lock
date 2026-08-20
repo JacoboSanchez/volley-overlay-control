@@ -53,7 +53,7 @@ pydantic==2.13.2
     # via fastapi
 pydantic-core==2.46.2
     # via pydantic
-python-dotenv==1.2.2
+python-dotenv==1.2.3
     # via
     #   -r requirements.txt
     #   uvicorn
@@ -63,9 +63,9 @@ pyyaml==6.0.3
     # via uvicorn
 requests==2.34.2
     # via -r requirements.txt
-sentry-sdk==2.66.1
+sentry-sdk==2.68.0
     # via -r requirements.txt
-sqlalchemy==2.0.51
+sqlalchemy==2.0.52
     # via
     #   -r requirements.txt
     #   alembic
@@ -93,7 +93,7 @@ urllib3==2.7.0
     #   -r requirements.txt
     #   requests
     #   sentry-sdk
-uvicorn==0.52.1
+uvicorn==0.52.4
     # via -r requirements.txt
 uvloop==0.22.1
     # via uvicorn

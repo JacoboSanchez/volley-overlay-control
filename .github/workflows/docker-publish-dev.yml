@@ -38,6 +38,11 @@ jobs:
         with:
           images: ${{ secrets.DOCKER_IMAGE }}:dev
 
+      - name: Compute the apt security-refresh key
+        # Same daily cadence as CI. See the APT_REFRESH note in the Dockerfile.
+        id: apt_refresh
+        run: echo "value=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
       - name: Build and push Docker image
         id: push
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
@@ -47,5 +52,7 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKER_HUB_TAG }}:dev
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APT_REFRESH=${{ steps.apt_refresh.outputs.value }}
           cache-from: type=gha,scope=docker-dev
           cache-to: type=gha,mode=max,scope=docker-dev

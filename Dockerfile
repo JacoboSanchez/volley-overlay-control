@@ -17,6 +17,33 @@ RUN npm run build
 FROM python:3.14-slim AS runtime
 WORKDIR /app
 
+# Apply Debian security updates before anything else lands on top. The
+# ``python:3.14-slim`` tag is rebuilt on its own cadence, so between those
+# rebuilds a published Debian fix sits unapplied in the base layer and the
+# Trivy gate goes red on packages no application change can reach — that is
+# how the util-linux cluster (CVE-2026-53613 / -53614 / -53615, fixed in
+# 2.41.5-0+deb13u1) started failing every PR. The gate runs with
+# ``ignore-unfixed``, so anything it reports has a fix waiting in the
+# archive; upgrading here takes it, in the same spirit as dropping pip
+# below rather than suppressing the finding.
+#
+# ``APT_REFRESH`` keeps that promise against a warm build cache. Every image
+# workflow imports a persistent ``type=gha`` cache, and BuildKit keys a layer
+# on its expanded command, so without a changing value this RUN would be
+# replayed verbatim and keep serving whatever packages it installed the first
+# time — exactly the stale-base problem it exists to fix, just moved into the
+# cache. CI and the dev image pass the UTC date, so the upgrade re-runs once
+# a day and hits the cache in between; the release workflow passes its run id
+# so a published image always resolves packages from the current archive. A
+# plain ``docker build`` keeps the default and stays fully cacheable.
+ARG APT_REFRESH=static
+RUN echo "apt security refresh: ${APT_REFRESH}" \
+    && export DEBIAN_FRONTEND=noninteractive \
+    && apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
