@@ -195,6 +195,10 @@ CI_GATES = {
 # artifact upload. Anything else that runs a command or invokes an action is a
 # gate and must be documented.
 NON_GATE_STEPS = {
+    # Writes a date into $GITHUB_OUTPUT so the image's apt upgrade layer is
+    # not replayed stale from the build cache; it asserts nothing about the
+    # code. The gate it feeds is the Trivy scan, which is in the table.
+    "Compute the apt security-refresh key",
     "Install dependencies",
     "Install Python dependencies",
     "Install frontend dependencies",
