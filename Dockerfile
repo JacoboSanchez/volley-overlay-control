@@ -27,12 +27,18 @@ WORKDIR /app
 # archive; upgrading here takes it, in the same spirit as dropping pip
 # below rather than suppressing the finding.
 #
-# Note for the next red scan: this layer is content-addressed by its command
-# string, so a warm ``type=gha`` build cache will replay it verbatim and keep
-# serving the packages from whenever it last ran. If a *new* OS CVE appears
-# while the base digest is unchanged, evict the ``docker-ci`` cache scope so
-# this RUN executes against the current archive.
-RUN export DEBIAN_FRONTEND=noninteractive \
+# ``APT_REFRESH`` keeps that promise against a warm build cache. Every image
+# workflow imports a persistent ``type=gha`` cache, and BuildKit keys a layer
+# on its expanded command, so without a changing value this RUN would be
+# replayed verbatim and keep serving whatever packages it installed the first
+# time — exactly the stale-base problem it exists to fix, just moved into the
+# cache. CI and the dev image pass the UTC date, so the upgrade re-runs once
+# a day and hits the cache in between; the release workflow passes its run id
+# so a published image always resolves packages from the current archive. A
+# plain ``docker build`` keeps the default and stays fully cacheable.
+ARG APT_REFRESH=static
+RUN echo "apt security refresh: ${APT_REFRESH}" \
+    && export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && apt-get upgrade -y --no-install-recommends \
     && apt-get clean \

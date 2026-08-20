@@ -24,7 +24,12 @@ archive by hand.
   `2.41.5-0+deb13u1`), which turned the Trivy gate red on every pull
   request. An `apt-get upgrade` in the runtime stage takes those fixes
   instead of suppressing the finding, matching how the image already drops
-  `pip`/`setuptools` rather than allow-listing their advisories.
+  `pip`/`setuptools` rather than allow-listing their advisories. An
+  `APT_REFRESH` build argument keeps that layer from being replayed stale
+  out of the persistent Buildx cache: CI and the dev image pass the UTC
+  date, so the upgrade re-runs once a day, and the release workflow passes
+  its run id so a published image always resolves packages from the
+  current archive.
 
 ### Dependencies
 
