@@ -14,6 +14,21 @@ archive by hand.
 
 ## [Unreleased]
 
+### Added
+
+- **Overlay design proposals document.** New
+  [`docs/OVERLAY_DESIGN_PROPOSALS.md`](docs/OVERLAY_DESIGN_PROPOSALS.md)
+  proposes ten new overlay designs: six additions to the existing stream
+  family (`momentum`, `courtmap`, `banner`, `portrait`, `flip`, `rally`)
+  and a new full-screen dashboard family (`arena`, `analyst`, `journey`,
+  `bench`) intended for venue screens, analyst monitors and bench tablets
+  rather than for compositing over a match feed. Each entry carries a
+  wireframe, the exact broadcast-payload bindings it needs, the `app.js`
+  DOM contract it reuses, the files it would add, and its risks; the
+  document also records the catalogue gaps it closes, the shared platform
+  work the dashboard family needs, and a suggested build order. Proposal
+  only — no overlay styles were added or changed.
+
 ## [7.1.1] - 2026-08-16
 
 ### Changed
