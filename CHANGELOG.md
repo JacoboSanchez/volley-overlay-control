@@ -14,6 +14,29 @@ archive by hand.
 
 ## [Unreleased]
 
+### Dependencies
+
+- **Backend runtime:** `uvicorn[standard]` `>=0.52.1` → `>=0.52.3`,
+  `sentry-sdk[fastapi]` `>=2.66.1` → `>=2.68.0`, `sqlalchemy` `>=2.0.51`
+  → `>=2.0.52` and `python-dotenv` `1.2.2` → `1.2.3`. Dependabot only
+  moves the declared ranges, so `requirements.lock` was recompiled in the
+  same change to keep the lock-satisfies-`requirements.txt` gate green;
+  it moves exactly those four pins (`uvicorn` resolves to `0.52.4`) with
+  no transitive churn.
+  [#502](https://github.com/JacoboSanchez/volley-overlay-control/pull/502),
+  [#503](https://github.com/JacoboSanchez/volley-overlay-control/pull/503),
+  [#504](https://github.com/JacoboSanchez/volley-overlay-control/pull/504),
+  [#505](https://github.com/JacoboSanchez/volley-overlay-control/pull/505)
+- **Frontend (dev-only):** `@vitejs/plugin-react` `6.0.4` → `6.0.5`
+  (restores a linear react-compiler preset filter after the 6.0.3
+  regression), `rollup-plugin-visualizer` `7.0.1` → `7.1.1` (drops the
+  deprecated `source-map` `0.8.0-beta.0` in favour of `0.8.0`) and
+  `@testing-library/user-event` `14.6.3` → `14.6.4` (keyboard event
+  `repeat` property fix).
+  [#506](https://github.com/JacoboSanchez/volley-overlay-control/pull/506),
+  [#507](https://github.com/JacoboSanchez/volley-overlay-control/pull/507),
+  [#508](https://github.com/JacoboSanchez/volley-overlay-control/pull/508)
+
 ## [7.1.1] - 2026-08-16
 
 ### Changed
