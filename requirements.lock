@@ -28,7 +28,7 @@ h11==0.16.0
     # via uvicorn
 httptools==0.8.0
     # via uvicorn
-idna==3.18
+idna==3.19
     # via
     #   -r requirements.txt
     #   anyio
