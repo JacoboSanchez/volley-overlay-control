@@ -44,6 +44,16 @@ archive by hand.
   [#503](https://github.com/JacoboSanchez/volley-overlay-control/pull/503),
   [#504](https://github.com/JacoboSanchez/volley-overlay-control/pull/504),
   [#505](https://github.com/JacoboSanchez/volley-overlay-control/pull/505)
+- **Backend runtime:** `idna` `>=3.18` → `>=3.19`. Dependabot only moves the
+  declared range, so both lockfiles were recompiled in the same change to
+  keep the lock-satisfies-`requirements.txt` gate green; the resolution
+  moves that one pin in `requirements.lock` and `requirements-dev.lock`
+  with no transitive churn. The release restores the `std3_rules` option
+  that had been inert since Unicode 16 — `_overlay_public_origin()` passes
+  it explicitly when normalising `OVERLAY_PUBLIC_URL` into the CSP frame
+  source, and the encoding is unchanged for every host the middleware
+  accepts or rejects.
+  [#510](https://github.com/JacoboSanchez/volley-overlay-control/pull/510)
 - **Frontend (dev-only):** `@vitejs/plugin-react` `6.0.4` → `6.0.5`
   (restores a linear react-compiler preset filter after the 6.0.3
   regression), `rollup-plugin-visualizer` `7.0.1` → `7.1.1` (drops the
