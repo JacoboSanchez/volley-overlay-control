@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.1.2] - 2026-08-28
+
 ### Security
 
 - **The published image now applies Debian security updates at build time.**
