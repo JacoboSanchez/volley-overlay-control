@@ -2073,6 +2073,290 @@
         "title": "TeamActionRequest",
         "type": "object"
       },
+      "TeamCatalogConflictOut": {
+        "properties": {
+          "existing_name": {
+            "title": "Existing Name",
+            "type": "string"
+          },
+          "existing_team_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Team Id"
+          },
+          "incoming_name": {
+            "title": "Incoming Name",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "catalog",
+              "file"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "incoming_name",
+          "existing_name",
+          "kind"
+        ],
+        "title": "TeamCatalogConflictOut",
+        "type": "object"
+      },
+      "TeamCatalogConflictResolution": {
+        "properties": {
+          "action": {
+            "enum": [
+              "replace",
+              "rename"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "expected_team_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Team Id"
+          },
+          "key": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "key",
+          "action"
+        ],
+        "title": "TeamCatalogConflictResolution",
+        "type": "object"
+      },
+      "TeamCatalogPreviewOut": {
+        "properties": {
+          "conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/TeamCatalogConflictOut"
+            },
+            "title": "Conflicts",
+            "type": "array"
+          },
+          "teams": {
+            "title": "Teams",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "teams",
+          "conflicts"
+        ],
+        "title": "TeamCatalogPreviewOut",
+        "type": "object"
+      },
+      "TeamCatalogTransferImportOut": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "imported": {
+            "title": "Imported",
+            "type": "integer"
+          },
+          "replaced": {
+            "title": "Replaced",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "imported",
+          "created",
+          "replaced"
+        ],
+        "title": "TeamCatalogTransferImportOut",
+        "type": "object"
+      },
+      "TeamCatalogTransferImportRequest": {
+        "properties": {
+          "catalog": {
+            "$ref": "#/components/schemas/TeamCatalogTransferPackage"
+          },
+          "resolutions": {
+            "items": {
+              "$ref": "#/components/schemas/TeamCatalogConflictResolution"
+            },
+            "maxItems": 10000,
+            "title": "Resolutions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "catalog"
+        ],
+        "title": "TeamCatalogTransferImportRequest",
+        "type": "object"
+      },
+      "TeamCatalogTransferLogo": {
+        "properties": {
+          "data": {
+            "maxLength": 6000000,
+            "minLength": 1,
+            "title": "Data",
+            "type": "string"
+          },
+          "mime": {
+            "const": "image/webp",
+            "default": "image/webp",
+            "title": "Mime",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "TeamCatalogTransferLogo",
+        "type": "object"
+      },
+      "TeamCatalogTransferPackage": {
+        "properties": {
+          "format": {
+            "const": "volley-overlay-team-catalog",
+            "title": "Format",
+            "type": "string"
+          },
+          "logos": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/TeamCatalogTransferLogo"
+            },
+            "maxProperties": 10000,
+            "title": "Logos",
+            "type": "object"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/TeamCatalogTransferTeam"
+            },
+            "maxItems": 10000,
+            "title": "Teams",
+            "type": "array"
+          },
+          "version": {
+            "const": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "format",
+          "version",
+          "teams"
+        ],
+        "title": "TeamCatalogTransferPackage",
+        "type": "object"
+      },
+      "TeamCatalogTransferTeam": {
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "key": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "Key",
+            "type": "string"
+          },
+          "logo_asset": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Asset"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "text_color": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Color"
+          }
+        },
+        "required": [
+          "name",
+          "key"
+        ],
+        "title": "TeamCatalogTransferTeam",
+        "type": "object"
+      },
       "TeamGroupOut": {
         "properties": {
           "id": {
@@ -3889,6 +4173,186 @@
           }
         },
         "summary": "Admin Import Teams",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/admin/teams/transfer/export": {
+      "get": {
+        "description": "Export a portable, versioned copy of the global team catalog.",
+        "operationId": "admin_export_team_catalog_api_v1_admin_teams_transfer_export_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_logos",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Logos",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamCatalogTransferPackage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Export Team Catalog",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/admin/teams/transfer/import": {
+      "post": {
+        "description": "Import a catalog after resolving each reported name conflict.",
+        "operationId": "admin_import_team_catalog_api_v1_admin_teams_transfer_import_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamCatalogTransferImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamCatalogTransferImportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Import Team Catalog",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/admin/teams/transfer/preview": {
+      "post": {
+        "description": "Validate a package and list every name conflict before importing it.",
+        "operationId": "admin_preview_team_catalog_import_api_v1_admin_teams_transfer_preview_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamCatalogTransferPackage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamCatalogPreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Preview Team Catalog Import",
         "tags": [
           "Scoreboard API v1"
         ]

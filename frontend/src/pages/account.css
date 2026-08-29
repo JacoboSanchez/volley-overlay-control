@@ -493,6 +493,40 @@
   padding-top: 18px;
 }
 
+.acc-team-transfer {
+  margin-top: 22px;
+  padding: 16px;
+  border: 1px solid #2b3240;
+  border-radius: 12px;
+  background: #151922;
+}
+.acc-team-transfer h4 {
+  margin: 0 0 6px;
+}
+.acc-team-transfer__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.acc-team-transfer__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-right: auto;
+}
+.acc-team-conflict {
+  width: min(520px, calc(100vw - 48px));
+}
+.acc-team-conflict h3 {
+  margin-top: 0;
+}
+.acc-team-conflict .acc-input {
+  width: 100%;
+  margin: 6px 0 14px;
+}
+
 .acc-subhead {
   margin-top: 22px;
   margin-bottom: 10px;

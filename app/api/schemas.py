@@ -569,6 +569,87 @@ class ImportTeamsRequest(BaseModel):
     replace: bool = False
 
 
+class TeamCatalogTransferLogo(BaseModel):
+    mime: Literal["image/webp"] = "image/webp"
+    data: str = Field(min_length=1, max_length=6_000_000)
+
+
+class TeamCatalogTransferTeam(TeamCreateRequest):
+    key: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    logo_asset: str | None = Field(default=None, max_length=64)
+
+
+class TeamCatalogTransferPackage(BaseModel):
+    format: Literal["volley-overlay-team-catalog"]
+    version: Literal[1]
+    teams: list[TeamCatalogTransferTeam] = Field(max_length=10_000)
+    logos: dict[str, TeamCatalogTransferLogo] = Field(
+        default_factory=dict, max_length=10_000,
+    )
+
+    @model_validator(mode="after")
+    def _validate_transfer_references(self) -> TeamCatalogTransferPackage:
+        keys = [team.key for team in self.teams]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Team transfer keys must be unique.")
+        missing = {
+            team.logo_asset
+            for team in self.teams
+            if team.logo_asset is not None and team.logo_asset not in self.logos
+        }
+        if missing:
+            raise ValueError("A team references a missing logo asset.")
+        return self
+
+
+class TeamCatalogConflictOut(BaseModel):
+    key: str
+    incoming_name: str
+    existing_team_id: int | None = None
+    existing_name: str
+    kind: Literal["catalog", "file"]
+
+
+class TeamCatalogPreviewOut(BaseModel):
+    teams: int
+    conflicts: list[TeamCatalogConflictOut]
+
+
+class TeamCatalogConflictResolution(BaseModel):
+    key: str = Field(min_length=1, max_length=64)
+    action: Literal["replace", "rename"]
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    expected_team_id: int | None = None
+
+    @model_validator(mode="after")
+    def _validate_rename(self) -> TeamCatalogConflictResolution:
+        if self.action == "rename" and not (self.name or "").strip():
+            raise ValueError("A new name is required when renaming a team.")
+        if self.action == "replace" and self.expected_team_id is None:
+            raise ValueError("The previewed team id is required when replacing a team.")
+        return self
+
+
+class TeamCatalogTransferImportRequest(BaseModel):
+    catalog: TeamCatalogTransferPackage
+    resolutions: list[TeamCatalogConflictResolution] = Field(
+        default_factory=list, max_length=10_000,
+    )
+
+    @model_validator(mode="after")
+    def _validate_resolution_keys(self) -> TeamCatalogTransferImportRequest:
+        keys = [resolution.key for resolution in self.resolutions]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Conflict resolution keys must be unique.")
+        return self
+
+
+class TeamCatalogTransferImportOut(BaseModel):
+    imported: int
+    created: int
+    replaced: int
+
+
 class CreateGroupRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
 
