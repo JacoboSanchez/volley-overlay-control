@@ -100,6 +100,61 @@ export function adminImportTeams(
   return request('POST', '/admin/teams/import', { teams, replace });
 }
 
+export interface TeamCatalogTransferLogo {
+  mime: 'image/webp';
+  data: string;
+}
+
+export interface TeamCatalogTransferTeam extends TeamFields {
+  key: string;
+  logo_asset: string | null;
+}
+
+export interface TeamCatalogTransferPackage {
+  format: 'volley-overlay-team-catalog';
+  version: 1;
+  teams: TeamCatalogTransferTeam[];
+  logos: Record<string, TeamCatalogTransferLogo>;
+}
+
+export interface TeamCatalogConflict {
+  key: string;
+  incoming_name: string;
+  existing_team_id: number | null;
+  existing_name: string;
+  kind: 'catalog' | 'file';
+}
+
+export interface TeamCatalogConflictResolution {
+  key: string;
+  action: 'replace' | 'rename';
+  name?: string;
+  expected_team_id?: number;
+}
+
+export function adminExportTeamCatalog(includeLogos: boolean): Promise<TeamCatalogTransferPackage> {
+  return request(
+    'GET',
+    `/admin/teams/transfer/export?include_logos=${includeLogos ? 'true' : 'false'}`,
+  );
+}
+
+export function adminPreviewTeamCatalogImport(
+  catalog: TeamCatalogTransferPackage,
+): Promise<{ teams: number; conflicts: TeamCatalogConflict[] }> {
+  return request('POST', '/admin/teams/transfer/preview', catalog);
+}
+
+export function adminImportTeamCatalog(
+  catalog: TeamCatalogTransferPackage,
+  resolutions: TeamCatalogConflictResolution[],
+): Promise<{ imported: number; created: number; replaced: number }> {
+  return request('POST', '/admin/teams/transfer/import', {
+    catalog,
+    resolutions,
+  });
+}
+
 export function adminCreateTeam(fields: TeamFields): Promise<TeamOut> {
   return request<TeamOut>('POST', '/admin/teams', fields);
 }

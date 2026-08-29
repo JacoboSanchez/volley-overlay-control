@@ -331,6 +331,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/teams/transfer/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Export Team Catalog
+         * @description Export a portable, versioned copy of the global team catalog.
+         */
+        get: operations["admin_export_team_catalog_api_v1_admin_teams_transfer_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/teams/transfer/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Import Team Catalog
+         * @description Import a catalog after resolving each reported name conflict.
+         */
+        post: operations["admin_import_team_catalog_api_v1_admin_teams_transfer_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/teams/transfer/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Preview Team Catalog Import
+         * @description Validate a package and list every name conflict before importing it.
+         */
+        post: operations["admin_preview_team_catalog_import_api_v1_admin_teams_transfer_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/teams/{team_id}": {
         parameters: {
             query?: never;
@@ -2638,6 +2698,103 @@ export interface components {
              */
             undo: boolean;
         };
+        /** TeamCatalogConflictOut */
+        TeamCatalogConflictOut: {
+            /** Existing Name */
+            existing_name: string;
+            /** Existing Team Id */
+            existing_team_id?: number | null;
+            /** Incoming Name */
+            incoming_name: string;
+            /** Key */
+            key: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "catalog" | "file";
+        };
+        /** TeamCatalogConflictResolution */
+        TeamCatalogConflictResolution: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "replace" | "rename";
+            /** Expected Team Id */
+            expected_team_id?: number | null;
+            /** Key */
+            key: string;
+            /** Name */
+            name?: string | null;
+        };
+        /** TeamCatalogPreviewOut */
+        TeamCatalogPreviewOut: {
+            /** Conflicts */
+            conflicts: components["schemas"]["TeamCatalogConflictOut"][];
+            /** Teams */
+            teams: number;
+        };
+        /** TeamCatalogTransferImportOut */
+        TeamCatalogTransferImportOut: {
+            /** Created */
+            created: number;
+            /** Imported */
+            imported: number;
+            /** Replaced */
+            replaced: number;
+        };
+        /** TeamCatalogTransferImportRequest */
+        TeamCatalogTransferImportRequest: {
+            catalog: components["schemas"]["TeamCatalogTransferPackage"];
+            /** Resolutions */
+            resolutions?: components["schemas"]["TeamCatalogConflictResolution"][];
+        };
+        /** TeamCatalogTransferLogo */
+        TeamCatalogTransferLogo: {
+            /** Data */
+            data: string;
+            /**
+             * Mime
+             * @default image/webp
+             * @constant
+             */
+            mime: "image/webp";
+        };
+        /** TeamCatalogTransferPackage */
+        TeamCatalogTransferPackage: {
+            /**
+             * Format
+             * @constant
+             */
+            format: "volley-overlay-team-catalog";
+            /** Logos */
+            logos?: {
+                [key: string]: components["schemas"]["TeamCatalogTransferLogo"];
+            };
+            /** Teams */
+            teams: components["schemas"]["TeamCatalogTransferTeam"][];
+            /**
+             * Version
+             * @constant
+             */
+            version: 1;
+        };
+        /** TeamCatalogTransferTeam */
+        TeamCatalogTransferTeam: {
+            /** Color */
+            color?: string | null;
+            /** Icon */
+            icon?: string | null;
+            /** Key */
+            key: string;
+            /** Logo Asset */
+            logo_asset?: string | null;
+            /** Name */
+            name: string;
+            /** Text Color */
+            text_color?: string | null;
+        };
         /** TeamGroupOut */
         TeamGroupOut: {
             /** Id */
@@ -3586,6 +3743,109 @@ export interface operations {
                     "application/json": {
                         [key: string]: number;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_export_team_catalog_api_v1_admin_teams_transfer_export_get: {
+        parameters: {
+            query?: {
+                include_logos?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamCatalogTransferPackage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_import_team_catalog_api_v1_admin_teams_transfer_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamCatalogTransferImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamCatalogTransferImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_preview_team_catalog_import_api_v1_admin_teams_transfer_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamCatalogTransferPackage"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamCatalogPreviewOut"];
                 };
             };
             /** @description Validation Error */

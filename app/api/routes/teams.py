@@ -17,12 +17,13 @@ deletes one outright. Ownership alone puts a team in the virtual "All" group.
 
 from __future__ import annotations
 
+from functools import partial
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
-from app import teams_service
+from app import icons_service, team_catalog_transfer, teams_service
 from app.api import team_groups_service
 from app.api.dependencies import board_skey, get_session
 from app.api.pagination import PAGINATED_RESPONSES, Page, PageDep, with_total
@@ -40,13 +41,17 @@ from app.api.schemas import (
     ImportTeamsRequest,
     RenameMyGroupRequest,
     SelectGroupRequest,
+    TeamCatalogPreviewOut,
+    TeamCatalogTransferImportOut,
+    TeamCatalogTransferImportRequest,
+    TeamCatalogTransferPackage,
     TeamGroupOut,
     TeamGroupSetActiveRequest,
     TeamOut,
 )
 from app.api.session_manager import GameSession
 from app.auth.dependencies import require_admin, require_user
-from app.db.engine import get_db
+from app.db.engine import after_rollback, get_db
 from app.db.models.team import Team
 from app.db.models.user import User
 from app.overlay_key import split_skey
@@ -213,6 +218,51 @@ def admin_import_teams(
     """Import an APP_TEAMS JSON map into the global catalog (upsert by name)."""
     count = teams_service.import_app_teams(db, body.teams, replace=body.replace)
     return {"imported": count}
+
+
+@router.get(
+    "/admin/teams/transfer/export", response_model=TeamCatalogTransferPackage,
+)
+def admin_export_team_catalog(
+    include_logos: bool = Query(False),
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db, scope="function"),
+) -> TeamCatalogTransferPackage:
+    """Export a portable, versioned copy of the global team catalog."""
+    return team_catalog_transfer.export_catalog(db, include_logos=include_logos)
+
+
+@router.post(
+    "/admin/teams/transfer/preview", response_model=TeamCatalogPreviewOut,
+)
+def admin_preview_team_catalog_import(
+    body: TeamCatalogTransferPackage,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db, scope="function"),
+) -> TeamCatalogPreviewOut:
+    """Validate a package and list every name conflict before importing it."""
+    return team_catalog_transfer.preview_import(db, body)
+
+
+@router.post(
+    "/admin/teams/transfer/import", response_model=TeamCatalogTransferImportOut,
+)
+def admin_import_team_catalog(
+    body: TeamCatalogTransferImportRequest,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db, scope="function"),
+) -> TeamCatalogTransferImportOut:
+    """Import a catalog after resolving each reported name conflict."""
+    result, created_files = team_catalog_transfer.import_catalog(
+        db,
+        body.catalog,
+        body.resolutions,
+    )
+    if created_files:
+        after_rollback(
+            db, partial(icons_service.unlink_files, created_files),
+        )
+    return result
 
 
 @router.get(

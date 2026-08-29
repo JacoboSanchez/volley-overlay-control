@@ -632,6 +632,11 @@ def test_exports_stay_complete_and_unpaginated(db_session):
     assert len(exported.json()) == 12
     assert "limit" not in exported.request.url.query.decode()
 
+    portable = admin.get("/api/v1/admin/teams/transfer/export")
+    assert portable.status_code == 200
+    assert len(portable.json()["teams"]) == 12
+    assert "limit" not in portable.request.url.query.decode()
+
 
 # ---- 5. ownership checks that do not load the payload -----------------------
 

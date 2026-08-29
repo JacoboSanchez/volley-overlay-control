@@ -279,6 +279,9 @@ board and cannot touch the owner's account.
 | `POST` | `/admin/teams` | A | Add to the global team catalog. There is no `GET` here — the catalog is read through `/teams/catalog`. |
 | `GET` | `/admin/teams/export` | A | Dump the catalog as JSON. |
 | `POST` | `/admin/teams/import` | A | Load a catalog JSON map. |
+| `GET` | `/admin/teams/transfer/export` | A | Export the versioned portable catalog, optionally with hosted logos. |
+| `POST` | `/admin/teams/transfer/preview` | A | Validate a portable catalog and report name conflicts. |
+| `POST` | `/admin/teams/transfer/import` | A | Apply a portable catalog with explicit conflict resolutions. |
 | `PATCH` / `DELETE` | `/admin/teams/{team_id}` | A | |
 | `GET` / `POST` | `/admin/team-groups` | A | Publishable team groups. |
 | `PATCH` / `DELETE` | `/admin/team-groups/{group_id}` | A | |

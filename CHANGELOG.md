@@ -14,6 +14,20 @@ archive by hand.
 
 ## [Unreleased]
 
+### Added
+
+- **The admin Team catalog can now be exported and imported as a portable,
+  versioned JSON file.** Exports can optionally embed app-hosted logos;
+  imports preview duplicate names and let the admin replace one, save it under
+  another name, or replace all remaining conflicts. Replacements preserve
+  team IDs and group memberships, embedded images pass through the existing
+  safe WebP pipeline, and stale conflict decisions are rejected.
+
+### Changed
+
+- **README screenshots were refreshed** after adding the catalog transfer
+  controls to the account UI.
+
 ## [7.1.2] - 2026-08-28
 
 ### Security

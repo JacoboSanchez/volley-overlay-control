@@ -6,8 +6,6 @@ import {
   adminCreateTeam,
   adminDeleteGroup,
   adminDeleteTeam,
-  adminExportTeams,
-  adminImportTeams,
   adminListGroups,
   adminRemoveGroupMember,
   adminSetGroupActive,
@@ -20,7 +18,6 @@ import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmProvider';
 import { useI18n } from '../i18n';
-import JsonImportExport from './JsonImportExport';
 import TeamRowCard from '../components/teams/TeamRowCard';
 import TeamListToolbar from '../components/teams/TeamListToolbar';
 import BulkActionBar from '../components/teams/BulkActionBar';
@@ -36,6 +33,7 @@ import {
   withPinnedEdit,
 } from '../components/teams/teamUtils';
 import { apiErrorMessage } from '../hooks/useAsyncAction';
+import TeamCatalogTransfer from '../components/teams/TeamCatalogTransfer';
 
 /** Admin-only authoring of the global team catalog and the published groups —
  *  split off from the user's own /teams roster so an operator managing 20-30
@@ -222,12 +220,7 @@ function AdminCatalog() {
         </>
       )}
 
-      <JsonImportExport
-        label={t('acc.teams.jsonLabel')}
-        exportFn={adminExportTeams}
-        importFn={adminImportTeams}
-        onImported={() => void load()}
-      />
+      <TeamCatalogTransfer existingNames={catalog.map((team) => team.name)} onImported={load} />
 
       <IconLibrarySection scope="global" teams={catalog} onTeamsChanged={() => void load()} />
     </div>

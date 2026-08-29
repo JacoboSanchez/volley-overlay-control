@@ -321,8 +321,9 @@ Two endpoint-specific notes:
   plus the caller's own custom teams) and reports its own `X-Total-Count`.
   `scope=global` (the default) is the admin catalog alone.
 
-The export endpoints `GET /admin/teams/export` and `GET /admin/presets/export`
-are intentionally **not** paged: they are backup/round-trip surfaces where a
+The export endpoints `GET /admin/teams/export`,
+`GET /admin/teams/transfer/export`, and `GET /admin/presets/export` are
+intentionally **not** paged: they are backup/round-trip surfaces where a
 silently truncated page would lose data on the next import.
 
 ### Session Management
@@ -614,6 +615,34 @@ redirected away client-side, and the backend enforces the role on every route.
   team catalog and groups (including JSON import/export).
 - `/api/v1/admin/presets*` — manage global customization presets (active flag,
   JSON import/export).
+
+#### Portable team catalog transfer
+
+The legacy `GET /api/v1/admin/teams/export` and
+`POST /api/v1/admin/teams/import` endpoints retain the `APP_TEAMS` map contract.
+The Team catalog page uses the versioned transfer endpoints instead:
+
+- `GET /api/v1/admin/teams/transfer/export?include_logos=false` returns
+  `{"format":"volley-overlay-team-catalog","version":1,"teams":[],"logos":{}}`.
+  Every team has an export-local `key`; when `include_logos=true`, hosted global
+  WebP files are base64 assets referenced by `logo_asset`. External logo URLs
+  remain in `icon` and are not downloaded by this endpoint.
+- `POST /api/v1/admin/teams/transfer/preview` accepts that package and returns
+  `{"teams":N,"conflicts":[...]}`. A conflict identifies its package `key`,
+  incoming/existing names, `kind` (`catalog` or `file`), and the existing team
+  ID for catalog conflicts.
+- `POST /api/v1/admin/teams/transfer/import` accepts
+  `{"catalog":package,"resolutions":[...]}`. A resolution is either
+  `{"key":"...","action":"rename","name":"..."}` or
+  `{"key":"...","action":"replace","expected_team_id":123}`. The ID pins
+  the previewed target against concurrent catalog changes. The response reports
+  `imported`, `created`, and `replaced` counts.
+
+Replacement updates the existing row in place, preserving its group
+memberships. Embedded logos pass through the normal image validation, resize,
+and WebP storage pipeline. The whole import is transactional; unsupported
+versions, missing assets, unsafe icon URLs, stale resolutions, and packages too
+large for the request limit are rejected.
 
 ---
 
