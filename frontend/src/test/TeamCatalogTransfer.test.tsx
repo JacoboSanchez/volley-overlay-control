@@ -50,6 +50,20 @@ function jsonFile(value: unknown): File {
   return file;
 }
 
+async function gzipFile(value: unknown): Promise<File> {
+  const compression = new CompressionStream('gzip');
+  const compressed = new Response(compression.readable).arrayBuffer();
+  const writer = compression.writable.getWriter();
+  await writer.write(new TextEncoder().encode(JSON.stringify(value)));
+  await writer.close();
+  const bytes = await compressed;
+  const file = new File([bytes], 'catalog.json.gz', { type: 'application/gzip' });
+  Object.defineProperty(file, 'arrayBuffer', {
+    value: vi.fn().mockResolvedValue(bytes),
+  });
+  return file;
+}
+
 describe('TeamCatalogTransfer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -64,13 +78,21 @@ describe('TeamCatalogTransfer', () => {
     vi.mocked(api.adminExportTeamCatalog).mockResolvedValue(catalog);
     const createObjectURL = vi.fn().mockReturnValue('blob:catalog');
     const revokeObjectURL = vi.fn();
+    const downloads: string[] = [];
     Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true });
     Object.defineProperty(URL, 'revokeObjectURL', { value: revokeObjectURL, configurable: true });
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      downloads.push(this.download);
+    });
 
     renderWithI18n(<TeamCatalogTransfer existingNames={[]} onImported={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Export catalog' }));
     await waitFor(() => expect(api.adminExportTeamCatalog).toHaveBeenCalledWith(true));
+    await waitFor(() => expect(createObjectURL).toHaveBeenCalled());
+    expect(createObjectURL.mock.calls[0]?.[0]).toMatchObject({ type: 'application/gzip' });
+    expect(downloads[0]).toBe('team-catalog.json.gz');
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Include hosted logos in the file' }));
     fireEvent.click(screen.getByRole('button', { name: 'Export catalog' }));
@@ -90,6 +112,21 @@ describe('TeamCatalogTransfer', () => {
     });
     await waitFor(() => expect(api.adminImportTeamCatalog).toHaveBeenCalledWith(catalog, []));
     await waitFor(() => expect(onImported).toHaveBeenCalled());
+  });
+
+  it('imports a compressed catalog file', async () => {
+    vi.mocked(api.adminPreviewTeamCatalogImport).mockResolvedValue({
+      teams: 2,
+      conflicts: [],
+    });
+    renderWithI18n(<TeamCatalogTransfer existingNames={[]} onImported={vi.fn()} />);
+
+    fireEvent.change(screen.getByTestId('team-catalog-file-input'), {
+      target: { files: [await gzipFile(catalog)] },
+    });
+
+    await waitFor(() => expect(api.adminPreviewTeamCatalogImport).toHaveBeenCalledWith(catalog));
+    await waitFor(() => expect(api.adminImportTeamCatalog).toHaveBeenCalledWith(catalog, []));
   });
 
   it('rejects an oversized file before reading or uploading it', async () => {

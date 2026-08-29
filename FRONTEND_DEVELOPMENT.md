@@ -644,6 +644,11 @@ and WebP storage pipeline. The whole import is transactional; unsupported
 versions, missing assets, unsafe icon URLs, stale resolutions, and packages too
 large for the request limit are rejected.
 
+The SPA downloads this JSON package as `team-catalog.json.gz` using gzip. It
+accepts that compressed file or an uncompressed `.json` during import,
+decompresses it with an 8 MiB output cap, and then sends the unchanged JSON
+package to the preview/import endpoints above.
+
 ---
 
 ## WebSocket — Real-Time Updates

@@ -19,6 +19,55 @@ interface Props {
 
 const MAX_CATALOG_FILE_BYTES = 8 * 1024 * 1024;
 
+class CatalogFileTooLargeError extends Error {}
+
+async function readStreamLimited(
+  stream: ReadableStream<Uint8Array>,
+  maxBytes: number,
+): Promise<Uint8Array> {
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new CatalogFileTooLargeError();
+    }
+    chunks.push(value);
+  }
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return result;
+}
+
+async function gzipJson(value: unknown): Promise<Blob> {
+  const compression = new CompressionStream('gzip');
+  const compressed = readStreamLimited(compression.readable, MAX_CATALOG_FILE_BYTES);
+  const writer = compression.writable.getWriter();
+  await writer.write(new TextEncoder().encode(JSON.stringify(value)));
+  await writer.close();
+  return new Blob([new Uint8Array(await compressed).buffer], { type: 'application/gzip' });
+}
+
+async function readCatalogFile(file: File): Promise<string> {
+  const gzip = file.name.toLowerCase().endsWith('.gz') || file.type === 'application/gzip';
+  if (!gzip) return file.text();
+
+  const decompression = new DecompressionStream('gzip');
+  const decompressed = readStreamLimited(decompression.readable, MAX_CATALOG_FILE_BYTES);
+  const writer = decompression.writable.getWriter();
+  await writer.write(new Uint8Array(await file.arrayBuffer()));
+  await writer.close();
+  return new TextDecoder().decode(await decompressed);
+}
+
 function nextName(name: string, occupied: Set<string>): string {
   for (let suffix = 2; suffix < 1000; suffix += 1) {
     const marker = ` (${suffix})`;
@@ -95,7 +144,17 @@ export default function TeamCatalogTransfer({ existingNames, onImported }: Props
     }
     setBusy(true);
     try {
-      const parsed = JSON.parse(await file.text()) as TeamCatalogTransferPackage;
+      let parsed: TeamCatalogTransferPackage;
+      try {
+        parsed = JSON.parse(await readCatalogFile(file)) as TeamCatalogTransferPackage;
+      } catch (err) {
+        setError(
+          err instanceof CatalogFileTooLargeError
+            ? t('acc.teams.transferFileTooLarge')
+            : t('acc.teams.transferInvalidFile'),
+        );
+        return;
+      }
       const preview = await adminPreviewTeamCatalogImport(parsed);
       if (preview.conflicts.length === 0) {
         await applyImport(parsed, []);
@@ -107,11 +166,7 @@ export default function TeamCatalogTransfer({ existingNames, onImported }: Props
       setResolutions([]);
       setRename(suggestedName(preview.conflicts[0]!, [], parsed));
     } catch (err) {
-      if (err instanceof SyntaxError) {
-        setError(t('acc.teams.transferInvalidFile'));
-      } else {
-        setError(apiErrorMessage(err, t('acc.teams.transferImportError')));
-      }
+      setError(apiErrorMessage(err, t('acc.teams.transferImportError')));
     } finally {
       setBusy(false);
     }
@@ -122,13 +177,11 @@ export default function TeamCatalogTransfer({ existingNames, onImported }: Props
     setError('');
     try {
       const exported = await adminExportTeamCatalog(includeLogos);
-      const blob = new Blob([JSON.stringify(exported)], {
-        type: 'application/json',
-      });
+      const blob = await gzipJson(exported);
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = 'team-catalog.json';
+      anchor.download = 'team-catalog.json.gz';
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -185,7 +238,7 @@ export default function TeamCatalogTransfer({ existingNames, onImported }: Props
         <input
           ref={fileRef}
           type="file"
-          accept=".json,application/json"
+          accept=".json,.gz,application/json,application/gzip"
           data-testid="team-catalog-file-input"
           hidden
           onChange={(event) => {

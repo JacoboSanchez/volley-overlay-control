@@ -25,6 +25,9 @@ archive by hand.
 
 ### Changed
 
+- **Portable team-catalog downloads are now gzip-compressed** as
+  `team-catalog.json.gz`, reducing the overhead of embedded base64 logos.
+  Import remains compatible with both compressed backups and plain JSON files.
 - **README screenshots were refreshed** after adding the catalog transfer
   controls to the account UI.
 

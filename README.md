@@ -378,8 +378,10 @@ Teams and presets are stored in the database, not in environment variables:
     (`GET`/`POST`/`DELETE {slug}`); admins manage globals under
     `/api/v1/admin/presets…`.
 *   **Import/export** — On the Team catalog page, admins can download a
-    versioned JSON backup and choose whether to embed hosted logos. Import
-    previews name conflicts and offers **Replace**, **Save with another name**,
+    gzip-compressed, versioned JSON backup (`team-catalog.json.gz`) and choose
+    whether to embed hosted logos. Import accepts both compressed backups and
+    plain `.json` files, previews name conflicts, and offers **Replace**,
+    **Save with another name**,
     or **Replace all** before changing the catalog. The legacy API payloads
     remain available for migration tooling: teams use the `APP_TEAMS` shape and
     presets use `APP_THEMES`; neither is a runtime environment variable.
