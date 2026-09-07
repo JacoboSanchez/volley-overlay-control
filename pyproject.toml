@@ -55,7 +55,7 @@ dev = [
     # should land in its own PR with the new findings reviewed -- and now
     # that they are locked, that PR is the Dependabot one.
     "ruff==0.15.8",
-    "mypy==1.19.1",
+    "mypy==2.3.1",
 ]
 
 # The app runs from the source tree (``app/`` + ``main.py``); it is not an
