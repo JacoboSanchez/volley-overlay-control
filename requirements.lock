@@ -63,7 +63,7 @@ pyyaml==6.0.3
     # via uvicorn
 requests==2.34.2
     # via -r requirements.txt
-sentry-sdk==2.68.0
+sentry-sdk==2.68.1
     # via -r requirements.txt
 sqlalchemy==2.0.52
     # via

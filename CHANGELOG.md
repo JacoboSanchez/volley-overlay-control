@@ -33,6 +33,14 @@ archive by hand.
 
 ### Dependencies
 
+- **Backend runtime:** `sentry-sdk[fastapi]` `>=2.68.0` → `>=2.68.1`. The bump
+  raised only the declared range, leaving `requirements.lock` pinned at
+  `2.68.0`; that fails the lockfile-satisfies-`requirements.txt` gate in CI
+  with an unsatisfiable resolution, before ruff, mypy or any test runs, so
+  the lock is recompiled here too. Only that one pin moves. The release is
+  inert for this app: its headline change restores auto-collected logs when
+  `enable_logs=True`, which `configure_error_tracking()` never passes, and
+  the remaining fixes target integrations this app does not use.
 - **Backend runtime:** `websocket-client` `>=1.9.0` → `>=1.9.1`. The bump
   raised only the declared range, leaving `requirements.lock` pinned at
   `1.9.0`; that fails the lockfile-satisfies-`requirements.txt` gate in CI
