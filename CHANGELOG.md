@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.1.4] - 2026-09-07
+
 ### Dependencies
 
 - **Backend tooling (dev-only):** `ruff` `0.15.8` → `0.16.6` and `mypy`
