@@ -70,7 +70,7 @@ def metrics_endpoint(request: Request) -> Response:
     if not PROMETHEUS_AVAILABLE:
         raise HTTPException(
             status_code=503,
-            detail=("Metrics disabled: prometheus_client is not installed. Run 'pip install -r requirements.txt' to enable."),
+            detail=("Metrics disabled: prometheus_client is not installed. Run 'uv sync' to enable."),
         )
     refresh_operational_gauges()
     body = generate_latest(REGISTRY)

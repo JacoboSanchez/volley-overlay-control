@@ -161,7 +161,7 @@ def test_readme_style_list_matches_reality(selectable_styles):
 # so the two directions below can name the offender precisely.
 #
 # The value is a tuple because one documented gate can promise more than one
-# CI step: the table says pip-audit covers "both lockfiles", so a lone
+# CI step: the table says pip-audit covers "both dependency groups", so a lone
 # "pip-audit -r" marker would stay satisfied after either scan was deleted.
 # Every marker in a gate's tuple must be present for the gate to count as run.
 CI_GATES = {
@@ -170,10 +170,10 @@ CI_GATES = {
     "mypy": ("mypy",),
     "bandit": ("bandit -r",),
     "pip-audit": (
-        "pip-audit -r requirements.lock",
-        "pip-audit -r requirements-dev.lock",
+        "pip-audit -r runtime-audit.txt",
+        "pip-audit -r dev-audit.txt",
     ),
-    "lockfile-satisfies-`requirements.txt`": ("uv pip compile requirements.txt",),
+    "`uv.lock`-matches-`pyproject.toml`": ("uv lock --check",),
     "vitest": ("npm run test:coverage",),
     "tsc": ("npm run typecheck",),
     "eslint": ("npm run lint",),

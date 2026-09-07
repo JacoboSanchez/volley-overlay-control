@@ -3,6 +3,58 @@ name = "volley-overlay-control"
 version = "0.0.0"
 description = "Self-hostable web application for controlling volleyball overlays."
 requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.141.1",
+    "uvicorn[standard]>=0.52.4",
+    "requests==2.34.2",
+    # Browser-compatible UTS #46 normalization for CSP frame origins.
+    "idna>=3.19",
+    "python-dotenv==1.2.3",
+    "websocket-client>=1.9.1",
+    "jinja2>=3.1.6",
+    "prometheus-client>=0.26.0",
+    # The integration remains inert until SENTRY_DSN is configured.
+    "sentry-sdk[fastapi]>=2.68.1,<3",
+    # Database layer (multi-user refactor): SQLAlchemy ORM + Alembic migrations.
+    # DATABASE_URL selects the backend: SQLite (the default) or Postgres via
+    # ``postgresql+psycopg://...``. The psycopg 3 driver below ships in the image
+    # (``[binary]`` bundles libpq), so Postgres works with no rebuild — just point
+    # DATABASE_URL at a server. It is a small unconditional add even for the
+    # SQLite-only default; that keeps the published image Postgres-ready.
+    "sqlalchemy>=2.0.52",
+    "alembic>=1.19.1",
+    "psycopg[binary]>=3.3.4",
+    # Security floor — patches CVE-2026-44431 / CVE-2026-44432 (urllib3 2.6.x).
+    # ``requests`` allows urllib3 < 3, so this constraint just pulls the
+    # transitive dep up to the fixed minor without touching API surface.
+    "urllib3>=2.7.0",
+    # Security floor — patches CVE-2026-48817 / CVE-2026-48818 / CVE-2026-54282 /
+    # CVE-2026-54283 (starlette < 1.3.1). ``fastapi`` pulls starlette in
+    # transitively; this constraint lifts it past the fixed release — the floor
+    # tracks the current release line, which sits above the 1.3.1 CVE fix.
+    "starlette>=1.6.0",
+    # Hosted icon library: multipart parsing for the upload endpoints and
+    # Pillow for server-side decode/resize/WebP re-encode of team icons.
+    "python-multipart>=0.0.32",
+    "pillow>=12.3.0",
+]
+
+# Test-only dependencies (PEP 735). ``uv sync`` installs these by default;
+# the runtime image builds with ``--no-dev`` so they never ship.
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov",
+    "httpx>=0.28.1",
+]
+
+# The app runs from the source tree (``app/`` + ``main.py``); it is not an
+# installable distribution and there is no build backend. ``package = false``
+# tells uv to resolve and install the dependencies without trying to build
+# this project itself.
+[tool.uv]
+package = false
 
 [tool.ruff]
 line-length = 127

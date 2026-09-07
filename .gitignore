@@ -1,4 +1,6 @@
 __pycache__/
+# ``uv sync`` (the documented setup step) creates this in every checkout.
+/.venv
 /.env
 /ROADMAP.md
 /screenshots*

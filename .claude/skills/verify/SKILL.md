@@ -13,7 +13,7 @@ implementation for all of this.
 
 ```bash
 # One-time: backend venv + frontend bundle (the backend serves frontend/dist).
-uv venv .venv && uv pip install -p .venv/bin/python -r requirements.lock
+uv sync --frozen
 (cd frontend && npm ci && npm run build)
 
 # Isolated boot — scratch data dir so real overlays/DB are untouched:

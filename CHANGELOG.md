@@ -30,6 +30,21 @@ archive by hand.
   Import remains compatible with both compressed backups and plain JSON files.
 - **README screenshots were refreshed** after adding the catalog transfer
   controls to the account UI.
+- **Python dependencies moved to `pyproject.toml` + `uv.lock`.** The four
+  `requirements*.txt` / `requirements*.lock` files are replaced by declared
+  ranges in `pyproject.toml` (runtime in `[project.dependencies]`, test-only
+  in a PEP 735 `[dependency-groups] dev`) and a single hashed `uv.lock`
+  covering both. This closes a recurring failure mode rather than a one-off
+  bug: Dependabot's `pip` ecosystem raised the declared range but could not
+  regenerate the compiled lock, so **every** Python update PR arrived failing
+  the lock gate and needed a manual `uv pip compile` follow-up (most recently
+  #517 and #518, and before them `idna`, `starlette` and `alembic`).
+  Dependabot's `uv` ecosystem updates the manifest and the lockfile together
+  in one PR, so the class of breakage disappears. Setup is now `uv sync`; the
+  bespoke 55-line lockfile-consistency gate collapses to `uv lock --check`,
+  and the image installs the same pins via `uv export`. The migration is a
+  pure format change — every one of the 46 previously reviewed pins is
+  carried over unchanged, so nothing upgrades under cover of the move.
 
 ### Dependencies
 
