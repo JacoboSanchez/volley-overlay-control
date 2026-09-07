@@ -41,6 +41,14 @@ archive by hand.
   inert for this app: its headline change restores auto-collected logs when
   `enable_logs=True`, which `configure_error_tracking()` never passes, and
   the remaining fixes target integrations this app does not use.
+- **Backend runtime:** `websocket-client` `>=1.9.0` → `>=1.9.1`. The bump
+  raised only the declared range, leaving `requirements.lock` pinned at
+  `1.9.0`; that fails the lockfile-satisfies-`requirements.txt` gate in CI
+  with an unsatisfiable resolution, before ruff, mypy or any test runs, so
+  the lock is recompiled here too. The pin resolves to `1.9.2`, the newest
+  release satisfying the new floor, which adds a fix for a race in
+  `WebSocketApp.close()` when the `run_forever()` thread clears the socket
+  mid-handshake. Only that one pin moves.
 
 ## [7.1.2] - 2026-08-28
 
