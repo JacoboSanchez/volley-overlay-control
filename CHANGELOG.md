@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.1.3] - 2026-09-07
+
 ### Added
 
 - **The admin Team catalog can now be exported and imported as a portable,
