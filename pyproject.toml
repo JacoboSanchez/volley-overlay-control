@@ -39,14 +39,23 @@ dependencies = [
     "pillow>=12.3.0",
 ]
 
-# Test-only dependencies (PEP 735). ``uv sync`` installs these by default;
-# the runtime image builds with ``--no-dev`` so they never ship.
+# Development dependencies (PEP 735): the test stack plus the lint/type
+# gates. ``uv sync`` installs these by default; the runtime image builds with
+# ``--no-dev`` so they never ship.
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov",
     "httpx>=0.28.1",
+    # Pinned exactly, and kept in lockstep with .pre-commit-config.yaml, so
+    # local pre-commit and CI run identical checks. Floating to "latest"
+    # previously let a newer mypy surface errors that a stale pinned
+    # pre-commit hook never saw. Bumping either is a deliberate change that
+    # should land in its own PR with the new findings reviewed -- and now
+    # that they are locked, that PR is the Dependabot one.
+    "ruff==0.15.8",
+    "mypy==1.19.1",
 ]
 
 # The app runs from the source tree (``app/`` + ``main.py``); it is not an
