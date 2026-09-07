@@ -14,6 +14,26 @@ archive by hand.
 
 ## [Unreleased]
 
+### Dependencies
+
+- **Backend tooling (dev-only):** `ruff` `0.15.8` → `0.16.6` and `mypy`
+  `1.19.1` → `2.3.1`. Both are pinned exactly in the `dev` dependency group
+  precisely so that a new release cannot quietly introduce findings the
+  local pre-commit hook never saw, which is why each arrives as its own
+  Dependabot PR. Re-running both gates on the merged tree reports no new
+  findings — `ruff check .` clean, `mypy` clean across 141 source files —
+  so the mypy major needed no annotation changes.
+  [#523](https://github.com/JacoboSanchez/volley-overlay-control/pull/523),
+  [#524](https://github.com/JacoboSanchez/volley-overlay-control/pull/524)
+- **Frontend (dev-only):** `vitest` and `@vitest/coverage-v8` `4.1.x` →
+  `5.0.0`. A major bump of the test runner; the 1011-test suite passes
+  unchanged across all 99 files, so no test or config migration was needed.
+  [#525](https://github.com/JacoboSanchez/volley-overlay-control/pull/525)
+- **Frontend (dev-only):** `@testing-library/user-event` `14.6.6` → `14.6.7`.
+  [#526](https://github.com/JacoboSanchez/volley-overlay-control/pull/526)
+- **Frontend types:** `@types/react-dom` `19.2.5` → `19.2.7`.
+  [#527](https://github.com/JacoboSanchez/volley-overlay-control/pull/527)
+
 ## [7.1.3] - 2026-09-07
 
 ### Added
