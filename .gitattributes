@@ -45,6 +45,5 @@ Makefile text eol=lf
 
 # Lockfiles — keep diffs collapsed in PR review UIs.
 frontend/package-lock.json linguist-generated=true
-requirements.lock          linguist-generated=true
-requirements-dev.lock      linguist-generated=true
+uv.lock                    linguist-generated=true
 frontend/src/api/schema.d.ts linguist-generated=true

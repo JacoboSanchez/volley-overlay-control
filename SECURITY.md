@@ -84,8 +84,8 @@ Every PR runs three security scanners as part of the CI matrix
 (`.github/workflows/ci.yml`, job `security-scan`):
 
 - **Bandit** — static analysis of `app/` at MEDIUM+ severity.
-- **pip-audit** — CVE scan of both `requirements.lock` and
-  `requirements-dev.lock`.
+- **pip-audit** — CVE scan of both dependency groups, exported from
+  `uv.lock`.
 - **npm audit** — CVE scan of `frontend/` runtime dependencies at
   HIGH+ severity (dev tooling is omitted to keep the signal-to-noise
   ratio high).

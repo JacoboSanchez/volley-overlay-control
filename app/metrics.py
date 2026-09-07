@@ -4,7 +4,7 @@ Exposes a single ``/metrics`` HTTP endpoint plus a small handful of
 counters and gauges that the rest of the codebase bumps from its hot
 paths. Designed to degrade gracefully:
 
-* If ``prometheus_client`` is missing (``pip install -r requirements.txt``
+* If ``prometheus_client`` is missing (``uv sync``
   is the canonical fix), ``PROMETHEUS_AVAILABLE`` flips to False and
   every helper becomes a no-op so the operator can still boot the app.
 * The ``/metrics`` endpoint stays mounted in either case — when the
@@ -54,7 +54,7 @@ try:
     PROMETHEUS_AVAILABLE = True
 except ImportError:  # pragma: no cover — handled at runtime
     logger.warning(
-        "prometheus_client not installed; /metrics will return 503. Run 'pip install -r requirements.txt' to enable.",
+        "prometheus_client not installed; /metrics will return 503. Run 'uv sync' to enable.",
     )
     PROMETHEUS_AVAILABLE = False
     CONTENT_TYPE_LATEST = "text/plain; version=0.0.4; charset=utf-8"

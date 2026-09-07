@@ -13,7 +13,7 @@ version. The longer-form architecture, conventions, and pitfalls live in
 # Backend (Python 3.14+)
 python -m venv .venv && source .venv/bin/activate
 pip install -U pip uv
-uv pip install -r requirements.lock -r requirements-dev.lock
+uv sync --frozen
 uv pip install ruff mypy
 
 # Frontend (Node 22.22+)

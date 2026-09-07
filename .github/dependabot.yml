@@ -5,22 +5,19 @@
 
 version: 2
 updates:
-  - package-ecosystem: "pip" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  # ``uv`` rather than ``pip``: the pip ecosystem parses requirements files and
+  # would raise the declared range in pyproject.toml without touching uv.lock,
+  # so every Python PR arrived failing the lock gate and needed a manual
+  # recompile. The uv ecosystem updates the manifest and the lockfile together
+  # in one PR.
+  - package-ecosystem: "uv"
+    directory: "/" # Location of pyproject.toml and uv.lock
     schedule:
       interval: "weekly"
-    groups:
-      nicegui:
-        patterns:
-          - "nicegui"
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
-    groups:
-      nicegui:
-        patterns:
-          - "zauberzeug/nicegui"
   - package-ecosystem: "github-actions"
     # Workflow files stored in the default location of `.github/workflows`
     # You don't need to specify `/.github/workflows` for `directory`. You can use `directory: "/"`.

@@ -199,7 +199,7 @@ it is safe to embed in a browser source or share with a streaming partner.
 1.  **Clone the repository** and install dependencies:
     ```bash
     pip install -U pip uv
-    uv pip install -r requirements.lock -r requirements-dev.lock
+    uv sync --frozen
     ```
 
 2.  **Build the frontend**:
@@ -512,7 +512,7 @@ Contributions are welcome! Here's how to get started:
 
 1.  **Fork** the repository and create a feature branch.
 2.  **Install dependencies** and ensure tests pass:
-    - Backend: `uv pip install -r requirements.lock -r requirements-dev.lock && pytest tests/`
+    - Backend: `uv sync --frozen && uv run pytest tests/`
     - Frontend: `cd frontend && npm ci && npm test`
 3.  **Follow existing patterns** — see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for architecture and conventions.
 4.  **Submit a Pull Request** against the `dev` branch with a clear description of your changes.

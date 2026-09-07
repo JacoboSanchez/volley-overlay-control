@@ -441,7 +441,7 @@ sets up logging, and calls `create_app()`.
 
 ```bash
 # Backend tests
-uv pip install -r requirements.lock -r requirements-dev.lock
+uv sync --frozen
 pytest tests/
 
 # Frontend tests
@@ -582,7 +582,7 @@ python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 # 3. Install backend dependencies
-uv pip install -r requirements.lock -r requirements-dev.lock
+uv sync --frozen
 
 # 4. Build the frontend
 cd frontend && npm ci && npm run build && cd ..

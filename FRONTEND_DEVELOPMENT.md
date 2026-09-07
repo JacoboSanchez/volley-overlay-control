@@ -95,7 +95,7 @@ picker baked into the board.
 ```bash
 # Clone and install
 git clone <repo-url>
-uv pip install -r requirements.lock
+uv sync --frozen --no-dev
 
 # Build the frontend (optional — backend works without it)
 cd frontend && npm ci && npm run build && cd ..

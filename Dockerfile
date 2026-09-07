@@ -53,7 +53,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 COPY --from=ghcr.io/astral-sh/uv:0.8.17 /uv /usr/local/bin/uv
 
-COPY requirements.lock ./
+COPY pyproject.toml uv.lock ./
+# uv.lock is exported to requirements format and installed with
+# ``uv pip install --system`` rather than ``uv sync`` so the dependencies land
+# in the image's own site-packages, not a ``.venv`` -- which is what the
+# runtime and the pip-removal below both expect. ``--frozen`` installs exactly
+# the committed lock instead of re-resolving, and ``--no-dev`` keeps the test
+# dependencies out of the published image.
 # Drop pip once the dependencies are in. Nothing here installs packages at
 # runtime — ``uv`` did the install and stays available for an operator who
 # needs one — and pip is not free to carry: its ``_vendor`` tree bundles
@@ -63,7 +69,10 @@ COPY requirements.lock ./
 # at the root rather than a scanner suppression, and it shrinks the layer.
 # Keep this in the same RUN as the install so the deleted files never land
 # in a layer of their own.
-RUN uv pip install --system --no-cache -r requirements.lock \
+RUN uv export --frozen --no-dev --no-emit-project --no-hashes \
+        --format requirements-txt -o /tmp/requirements.txt \
+    && uv pip install --system --no-cache -r /tmp/requirements.txt \
+    && rm /tmp/requirements.txt \
     && rm -rf /usr/local/lib/python3*/site-packages/pip \
               /usr/local/lib/python3*/site-packages/pip-*.dist-info \
               /usr/local/lib/python3*/site-packages/pkg_resources \
