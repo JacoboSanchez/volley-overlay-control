@@ -12,6 +12,10 @@ export interface UseOverlaysResult {
   /** True if the (re)load failed. Pages map this to their own copy. */
   error: boolean;
   reload: () => Promise<void>;
+  /** Merge one row — a mutation's own response — into the cached list. */
+  applyOverlay: (row: api.OverlayPayload) => void;
+  /** Drop one row from the cached list (a delete that already succeeded). */
+  removeOverlay: (oid: string) => void;
 }
 
 /**
@@ -47,11 +51,28 @@ export function useOverlays(): UseOverlaysResult {
     }
   }, []);
 
+  // Mutation endpoints answer with the updated row, and that response — not
+  // the refetch that follows it — is what the cache is written from. A refresh
+  // can fail after the mutation committed; when it does, the list must still
+  // show what the operator just did rather than pre-mutation state (a revoked
+  // control URL under a Copy button, a flag that no longer holds).
+  const applyOverlay = useCallback((row: api.OverlayPayload) => {
+    setOverlays((rows) =>
+      rows.some((r) => r.oid === row.oid)
+        ? rows.map((r) => (r.oid === row.oid ? row : r))
+        : [...rows, row],
+    );
+  }, []);
+
+  const removeOverlay = useCallback((oid: string) => {
+    setOverlays((rows) => rows.filter((r) => r.oid !== oid));
+  }, []);
+
   // Single code path: the mount load IS a reload, so an early manual
   // reload() can never race a divergent copy of the same fetch.
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  return { overlays, loading, refreshing, error, reload };
+  return { overlays, loading, refreshing, error, reload, applyOverlay, removeOverlay };
 }

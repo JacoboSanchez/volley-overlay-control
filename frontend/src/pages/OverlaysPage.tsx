@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as api from '../api/overlays';
 import CopyField from '../components/CopyField';
 import EmptyState from '../components/EmptyState';
@@ -14,7 +14,15 @@ export default function OverlaysPage() {
   const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
-  const { overlays, loading, refreshing, error: loadError, reload } = useOverlays();
+  const {
+    overlays,
+    loading,
+    refreshing,
+    error: loadError,
+    reload,
+    applyOverlay,
+    removeOverlay,
+  } = useOverlays();
   const [oid, setOid] = useState('');
   const [description, setDescription] = useState('');
   const [creating, setCreating] = useState(false);
@@ -49,6 +57,19 @@ export default function OverlaysPage() {
       .sort((a, b) => Number(b.is_favorite) - Number(a.is_favorite) || a.oid.localeCompare(b.oid));
   }, [favoritesOnly, overlays, query]);
   const filtersActive = query.trim().length > 0 || favoritesOnly;
+  // Every mutation lands here: its own response is applied first, and only
+  // then is the list refetched. The refetch can fail after the mutation has
+  // already committed — on that path the card must show the state the
+  // operator just created, never the pre-mutation row (a revoked control URL
+  // still sitting under the Copy button, a bookmark flag that no longer
+  // holds) under its success toast.
+  const applyAndReload = useCallback(
+    async (row: api.OverlayPayload) => {
+      applyOverlay(row);
+      await reload();
+    },
+    [applyOverlay, reload],
+  );
   // A failed *first* load has nothing to show, so the banner above stands
   // alone. A failed refresh is different: the last good list stays on screen
   // under the banner so an operator mid-task keeps the card they were in.
@@ -79,12 +100,12 @@ export default function OverlaysPage() {
     setCreating(true);
     try {
       const created = oid.trim();
-      await api.createOverlay(created, {
+      const row = await api.createOverlay(created, {
         description: description.trim() || null,
       });
       setOid('');
       setDescription('');
-      await reload();
+      await applyAndReload(row);
       setCreateOpen(false);
       setQuery('');
       setFavoritesOnly(false);
@@ -107,6 +128,9 @@ export default function OverlaysPage() {
     if (!ok) return;
     try {
       await api.deleteOverlay(o.oid);
+      // The row is gone server-side; drop it locally so a refresh that fails
+      // cannot leave a deleted overlay's controls on screen.
+      removeOverlay(o.oid);
       await reload();
       toast(t('acc.overlays.toastDeleted', { oid: o.oid }));
     } catch (err) {
@@ -116,8 +140,7 @@ export default function OverlaysPage() {
 
   async function onToggleFavorite(o: api.OverlayPayload) {
     try {
-      await api.updateOverlay(o.oid, { is_favorite: !o.is_favorite });
-      await reload();
+      await applyAndReload(await api.updateOverlay(o.oid, { is_favorite: !o.is_favorite }));
       toast(
         o.is_favorite
           ? t('acc.overlays.toastFavoriteRemoved', { oid: o.oid })
@@ -255,7 +278,7 @@ export default function OverlaysPage() {
                   key={o.oid}
                   o={o}
                   highlighted={o.oid === newOverlayOid}
-                  onChanged={reload}
+                  onMutated={applyAndReload}
                   onDelete={() => onDelete(o)}
                   onToggleFavorite={() => onToggleFavorite(o)}
                 />
@@ -275,13 +298,13 @@ export default function OverlaysPage() {
 function OverlayCard({
   o,
   highlighted,
-  onChanged,
+  onMutated,
   onDelete,
   onToggleFavorite,
 }: {
   o: api.OverlayPayload;
   highlighted: boolean;
-  onChanged: () => Promise<void>;
+  onMutated: (row: api.OverlayPayload) => Promise<void>;
   onDelete: () => void;
   onToggleFavorite: () => void;
 }) {
@@ -373,9 +396,9 @@ function OverlayCard({
           {renaming && (
             <RenamePanel
               o={o}
-              onSaved={async () => {
+              onSaved={async (row) => {
                 setRenaming(false);
-                await onChanged();
+                await onMutated(row);
               }}
             />
           )}
@@ -390,8 +413,8 @@ function OverlayCard({
               {t('acc.overlays.controlLabel')}
             </div>
             <p className="acc-overlay-job__desc acc-muted">{t('acc.overlays.controlGroupDesc')}</p>
-            <ShareControl o={o} onChanged={onChanged} />
-            <BookmarkAdvanced o={o} onChanged={onChanged} />
+            <ShareControl o={o} onMutated={onMutated} />
+            <BookmarkAdvanced o={o} onMutated={onMutated} />
           </div>
 
           {/* The OBS graphic is normally configured once, but remains easy to
@@ -512,7 +535,13 @@ function OverlayManageMenu({
   );
 }
 
-function RenamePanel({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => Promise<void> }) {
+function RenamePanel({
+  o,
+  onSaved,
+}: {
+  o: api.OverlayPayload;
+  onSaved: (row: api.OverlayPayload) => Promise<void>;
+}) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [description, setDescription] = useState(o.description || '');
@@ -522,8 +551,7 @@ function RenamePanel({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => Pro
     if (busy) return;
     setBusy(true);
     try {
-      await api.updateOverlay(o.oid, { description: description.trim() || null });
-      await onSaved();
+      await onSaved(await api.updateOverlay(o.oid, { description: description.trim() || null }));
       toast(t('acc.overlays.toastSaved'));
     } catch (err) {
       toast(apiErrorMessage(err, t('acc.overlays.errorSave')), 'error');
@@ -552,7 +580,13 @@ function RenamePanel({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => Pro
 /** The shareable, no-login operator link (`/board?c=<token>`). It is minted
  *  with the overlay, so it is shown inline with a Copy button; the small ↻
  *  regenerates it (revoking any previously shared link, behind a confirm). */
-function ShareControl({ o, onChanged }: { o: api.OverlayPayload; onChanged: () => Promise<void> }) {
+function ShareControl({
+  o,
+  onMutated,
+}: {
+  o: api.OverlayPayload;
+  onMutated: (row: api.OverlayPayload) => Promise<void>;
+}) {
   const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
@@ -570,11 +604,10 @@ function ShareControl({ o, onChanged }: { o: api.OverlayPayload; onChanged: () =
     }
     setBusy(true);
     try {
-      await api.regenerateControlToken(o.oid);
       // The card stays open across the refresh now, so hold ``busy`` until the
       // new URL is actually on screen — releasing early would leave the
       // just-revoked link sitting under the Copy button.
-      await onChanged();
+      await onMutated(await api.regenerateControlToken(o.oid));
       toast(t('acc.overlays.controlToast'));
     } catch (err) {
       toast(apiErrorMessage(err, t('acc.overlays.controlError')), 'error');
@@ -621,10 +654,10 @@ function ShareControl({ o, onChanged }: { o: api.OverlayPayload; onChanged: () =
  *  "Advanced" disclosure so it is never confused with the link you hand out. */
 function BookmarkAdvanced({
   o,
-  onChanged,
+  onMutated,
 }: {
   o: api.OverlayPayload;
-  onChanged: () => Promise<void>;
+  onMutated: (row: api.OverlayPayload) => Promise<void>;
 }) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -647,8 +680,7 @@ function BookmarkAdvanced({
     }
     setBusy(true);
     try {
-      await api.updateOverlay(o.oid, { public_control: !o.public_control });
-      await onChanged();
+      await onMutated(await api.updateOverlay(o.oid, { public_control: !o.public_control }));
       toast(
         o.public_control ? t('acc.overlays.bookmarkDisabled') : t('acc.overlays.bookmarkEnabled'),
       );

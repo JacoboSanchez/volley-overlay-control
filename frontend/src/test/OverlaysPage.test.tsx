@@ -430,6 +430,47 @@ describe('OverlaysPage flows', () => {
     expect(screen.getByRole('checkbox')).not.toBeChecked();
   });
 
+  // A mutation commits server-side even when the refresh after it fails, so
+  // the row is written from the mutation's own response: the revoked control
+  // URL must never stay under the Copy button beneath a success toast.
+  it('shows the new link, not the revoked one, when the refresh after it fails', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.regenerateControlToken).mockResolvedValue({
+      ...OVERLAY,
+      control_token: 'fresh',
+      control_url: 'https://x/board?c=fresh',
+    });
+    renderWithI18n(<OverlaysPage />);
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /links and settings/i }));
+    vi.mocked(api.getOverlays).mockRejectedValue(new TypeError('Failed to fetch'));
+    fireEvent.click(screen.getByRole('button', { name: /regenerate/i }));
+
+    await waitFor(() => expect(screen.getByText('https://x/board?c=fresh')).toBeInTheDocument());
+    expect(screen.queryByText('https://x/board?c=ctl')).not.toBeInTheDocument();
+    // The failed refresh is still reported; it just does not roll the card back.
+    expect(document.querySelector('.acc-error')).not.toBeNull();
+    confirmSpy.mockRestore();
+  });
+
+  it('drops a deleted overlay even when the refresh after it fails', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.getOverlays).mockResolvedValue([OVERLAY, overlay('otra', 'Otra pista')]);
+    vi.mocked(api.deleteOverlay).mockResolvedValue(undefined as never);
+    renderWithI18n(<OverlaysPage />);
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
+
+    vi.mocked(api.getOverlays).mockRejectedValue(new TypeError('Failed to fetch'));
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /more actions/i }));
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /delete/i }));
+
+    await waitFor(() => expect(api.deleteOverlay).toHaveBeenCalledWith('liga'));
+    await waitFor(() => expect(screen.queryByText('Liga Local')).not.toBeInTheDocument());
+    expect(screen.getByText('Otra pista')).toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
   it('keeps the last good list under the banner when a refresh fails', async () => {
     vi.mocked(api.updateOverlay).mockResolvedValue({ ...OVERLAY, is_favorite: true });
     renderWithI18n(<OverlaysPage />);

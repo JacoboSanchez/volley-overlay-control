@@ -25,10 +25,13 @@ archive by hand.
   A refresh now keeps the list on screen: the card, its *Links and settings*
   panel and the *Advanced* bookmark disclosure all stay open, revoking public
   access leaves that disclosure open on the toggle that switches it back on,
-  the regenerate button stays busy until the new URL is actually rendered (so
-  the revoked one cannot be copied in the gap), and a refresh that fails now
-  leaves the last good list under the error banner instead of emptying the
-  page.
+  and the regenerate button stays busy until the new URL is actually rendered,
+  so the revoked one cannot be copied in the gap. Each action also writes the
+  server's own response into the list before refetching: a refresh that fails
+  after the change already committed now leaves the card showing what you just
+  did — the new link, the flipped flag, the deleted overlay gone — under the
+  error banner, instead of emptying the page or leaving a revoked link under
+  the Copy button.
 
 ## [7.1.4] - 2026-09-07
 
