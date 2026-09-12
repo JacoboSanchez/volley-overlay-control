@@ -42,3 +42,14 @@ def test_persisted_timeouts_default_to_zero_when_absent():
     payload = _build({State.CURRENT_SET_INT: 1})
     assert payload["team_home"]["timeouts_by_set"]["set_1"] == 0
     assert payload["team_away"]["timeouts_by_set"]["set_1"] == 0
+
+
+def test_legacy_flat_timeout_migrates_into_current_set():
+    """A pre-per-set model (flat counter only) must not recap as zero."""
+    model = {
+        State.CURRENT_SET_INT: 2,
+        State.T1TIMEOUTS_INT: "1",
+    }
+    payload = _build(model)
+    assert payload["team_home"]["timeouts_by_set"]["set_2"] == 1
+    assert payload["team_home"]["timeouts_by_set"]["set_1"] == 0

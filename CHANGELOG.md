@@ -46,7 +46,9 @@ archive by hand.
   persisted per-set counters (`team.timeouts_by_set`, the values the backend
   enforces the per-set cap against), so a finished set recaps its own totals
   and a best-effort audit write that failed can no longer under-report a
-  timeout the state already counted. The audit-derived event list stays in
+  timeout the state already counted. An old state file whose only timeout
+  counter is the flat `Team N Timeouts` key migrates into the current set, the
+  same way `State` reads it elsewhere. The audit-derived event list stays in
   place for the ledgers' `T` markers and the chart's timeout lines. An
   over-limit timeout attempt (a third for one team in a set, reachable through
   the API or a stale control client) is now rejected before it is written to

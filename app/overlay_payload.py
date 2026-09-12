@@ -83,13 +83,13 @@ def _timeouts_history(current_model: dict, team: int) -> dict[str, int]:
     the authoritative per-set counter (the one the cap is enforced against)
     already recorded the timeout. Overlay recaps read these totals; the event
     array stays reserved for timeline markers.
+
+    Built through :class:`State` so a model written before per-set timeout
+    keys existed (only the flat ``Team N Timeouts`` key) migrates that value
+    into the current set exactly as ``State._from_dict`` does everywhere else.
     """
-    return {
-        f"set_{index}": int(
-            current_model.get(State._t_timeouts_key(team, index), 0)
-        )
-        for index in range(1, 8)
-    }
+    per_set = State(current_model).get_timeouts_by_set(team)
+    return {f"set_{index}": per_set[index] for index in range(1, 8)}
 
 
 def _team_payload(
