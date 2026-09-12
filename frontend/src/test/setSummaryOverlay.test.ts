@@ -122,7 +122,7 @@ describe('set_summary.js overlay renderer', () => {
   describe('variant dispatch', () => {
     // Marker: a DOM node only that variant's builder produces.
     const VARIANT_MARKERS: Record<string, string> = {
-      brand_ledger: '.ss-ledger-col',
+      brand_ledger: '.ss-rally-ribbon',
       brand_columns: '.ss-chart-wrap',
       bento: '.ss-bento-ledger',
       glass: '.ss-team-row',
@@ -144,7 +144,7 @@ describe('set_summary.js overlay renderer', () => {
         match_info: { set_summary_style: 'totally_bogus' },
       });
       expect(stage.dataset.style).toBe('brand_ledger');
-      expect(stage.querySelector('.ss-ledger-col')).not.toBeNull();
+      expect(stage.querySelector('.ss-rally-ribbon')).not.toBeNull();
     });
 
     it('falls back to brand_ledger for non-string styles', () => {
@@ -160,6 +160,152 @@ describe('set_summary.js overlay renderer', () => {
       expect(stage.dataset.style).toBe('glass');
       expect(stage.querySelector('.ss-ld-cols')).toBeNull();
       expect(document.querySelectorAll('#set-summary-panel')).toHaveLength(1);
+    });
+  });
+
+  describe('Rallies lower third', () => {
+    const thirdSet = {
+      match_info: { summary_set_num: 3, current_set: 4 },
+      team_home: {
+        name: 'CV Pontevedra',
+        set_history: { set_1: 25, set_2: 22, set_3: 25, set_4: 0 },
+        sets_won: 2,
+      },
+      team_away: {
+        name: 'San Sadurniño',
+        set_history: { set_1: 20, set_2: 25, set_3: 21, set_4: 0 },
+        sets_won: 1,
+      },
+    };
+
+    it('puts only earlier sets between each identity and its current score', () => {
+      const stage = renderState(thirdSet);
+      const home = stage.querySelector('.ss-strip-home')!;
+      const away = stage.querySelector('.ss-strip-away')!;
+      expect(Array.from(home.children).map((n) => n.className)).toEqual([
+        'ss-strip-identity',
+        'ss-strip-history',
+        'ss-team-score',
+      ]);
+      expect(Array.from(away.children).map((n) => n.className)).toEqual([
+        'ss-team-score',
+        'ss-strip-history',
+        'ss-strip-identity',
+      ]);
+      expect(home.querySelector('.ss-strip-history')!.textContent).toBe('S125S222');
+      expect(away.querySelector('.ss-strip-history')!.textContent).toBe('S120S225');
+      expect(home.querySelector('.ss-strip-previous .home')!.textContent).toBe('25');
+      expect(away.querySelector('.ss-strip-previous .away')!.textContent).toBe('25');
+      expect(stage.querySelector('.ss-strip-standing')!.textContent).toBe('Match2–1');
+      expect(stage.querySelector('.ss-strip-status')!.textContent).toBe('Set 3Final');
+      expect(stage.querySelector('.ss-ribbon')).toBeNull();
+    });
+
+    it('does not invent previous-set scores in the first set or with missing history', () => {
+      let stage = renderState();
+      expect(stage.querySelectorAll('.ss-strip-previous')).toHaveLength(0);
+      stage = renderState({
+        match_info: { summary_set_num: 3 },
+        team_home: { set_history: { set_1: 25 } },
+      });
+      expect(stage.querySelector('.ss-strip-away .ss-strip-history')!.textContent).toBe('S1–');
+      expect(
+        stage.querySelectorAll('.ss-strip-previous .home, .ss-strip-previous .away'),
+      ).toHaveLength(0);
+    });
+
+    it('shows all four previous sets in a deciding fifth set', () => {
+      const stage = renderState({
+        match_info: { summary_set_num: 5, current_set: 5, match_finished: true },
+        team_home: { set_history: { set_1: 25, set_2: 22, set_3: 25, set_4: 24, set_5: 17 } },
+        team_away: { set_history: { set_1: 20, set_2: 25, set_3: 21, set_4: 26, set_5: 15 } },
+      });
+      expect(stage.querySelectorAll('.ss-strip-previous')).toHaveLength(8);
+      expect(stage.querySelector('.ss-strip-status')!.textContent).toBe('Set 5Final');
+    });
+
+    it('does not call a live set final when the payload includes every set slot', () => {
+      const stage = renderState({
+        team_home: { set_history: { set_1: 7, set_2: 0, set_3: 0 } },
+        team_away: { set_history: { set_1: 5, set_2: 0, set_3: 0 } },
+      });
+      expect(stage.querySelector('.ss-strip-status')!.textContent).toBe('Set 1LIVE');
+    });
+
+    it('renders the recorded rally winners in order and outlines only the last', () => {
+      const stage = renderState();
+      const rallies = Array.from(stage.querySelectorAll('.ss-rally'));
+      expect(rallies.map((n) => n.className)).toEqual([
+        'ss-rally home',
+        'ss-rally away',
+        'ss-rally home ss-last',
+      ]);
+      expect(rallies.map((n) => n.getAttribute('title'))).toEqual([
+        '1 · Lions · 1–0',
+        '2 · Tigers · 1–1',
+        '3 · Lions · 2–1',
+      ]);
+      // The live score is 7–5 but there are only three audit records.
+      expect(stage.querySelector('.ss-rally-heading')!.textContent).toContain(
+        'Recorded rallies · 3',
+      );
+    });
+
+    it('retains every rally of a long deuce set and wraps to balanced rows', () => {
+      const points = Array.from({ length: 126 }, (_, i) => ({
+        team: (i % 2) + 1,
+        score: [i, i],
+        ts: 1000 + i,
+      }));
+      const stage = renderState({ overlay_control: { points_by_set: { 1: points } } });
+      expect(stage.querySelectorAll('.ss-rally')).toHaveLength(126);
+      expect(
+        (stage.querySelector('.ss-rally-track') as HTMLElement).style.gridTemplateColumns,
+      ).toBe('repeat(42, minmax(0, 1fr))');
+      expect(stage.querySelector('.ss-last')!.getAttribute('title')).toContain('126 · Tigers');
+    });
+
+    it('uses an explicit no-recorded-rallies message even for a finished set', () => {
+      (window as any).OVERLAY_LOCALE = 'es';
+      const stage = renderState(thirdSet);
+      expect(stage.querySelector('.ss-empty-note')!.textContent).toBe(
+        'Sin rallies registrados en este set',
+      );
+      expect(stage.querySelectorAll('.ss-rally')).toHaveLength(0);
+    });
+
+    it('patterns the away rallies and legend when both teams share a colour', () => {
+      const stage = renderState({
+        team_home: { color_primary: '#124ade' },
+        team_away: { color_primary: '#124ade' },
+      });
+      expect(stage.querySelector('.ss-rally-pattern .ss-rally.away')).not.toBeNull();
+      expect(stage.querySelector('.ss-rally-pattern .ss-rally-legend .away')).not.toBeNull();
+      renderState();
+      expect(stage.querySelector('.ss-rally-pattern')).toBeNull();
+    });
+
+    it('retains configured colours for rallies and brightens dark text accents', () => {
+      const stage = renderState({
+        team_home: { color_primary: '#000000' },
+        team_away: { color_primary: '#ef3340' },
+      });
+      expect(stage.style.getPropertyValue('--ss-home')).toBe('#000000');
+      expect(stage.style.getPropertyValue('--ss-away')).toBe('#ef3340');
+      expect(stage.style.getPropertyValue('--ss-home-text')).not.toBe('rgb(0, 0, 0)');
+    });
+
+    it('renders club names as text and uses configured logos', () => {
+      const stage = renderState({
+        team_home: { name: '<img src=x onerror=alert(1)>', logo_url: '/media/icons/home.webp' },
+      });
+      expect(stage.querySelector('.ss-team-name')!.textContent).toBe(
+        '<img src=x onerror=alert(1)>',
+      );
+      expect(stage.querySelector('.ss-team-name img')).toBeNull();
+      expect(stage.querySelector('.ss-logo img')!.getAttribute('src')).toBe(
+        '/media/icons/home.webp',
+      );
     });
   });
 
@@ -300,9 +446,9 @@ describe('set_summary.js overlay renderer', () => {
           stats: {},
         },
       });
-      const homeChips = stage.querySelectorAll('.ss-ledger-col-home .ss-point:not(.ss-empty)');
+      const homeChips = stage.querySelectorAll('.ss-rally.home');
       expect(homeChips).toHaveLength(1);
-      expect(homeChips[0]!.textContent).toBe('1');
+      expect(homeChips[0]!.getAttribute('title')).toBe('1 · Lions · 1–0');
     });
 
     it('shows the localized empty note before the first rally (chart variants)', () => {
@@ -315,11 +461,11 @@ describe('set_summary.js overlay renderer', () => {
       expect(note!.textContent).toBe('No points yet this set');
     });
 
-    it('shows the inline empty note in the brand_ledger centre', () => {
+    it('shows the inline empty note in the rally ribbon', () => {
       const stage = renderState({
         overlay_control: { points_by_set: {}, timeouts_by_set: {}, stats: {} },
       });
-      const note = stage.querySelector('.ss-centre .ss-empty-note--inline');
+      const note = stage.querySelector('.ss-rally-ribbon .ss-empty-note--inline');
       expect(note).not.toBeNull();
     });
 
@@ -373,13 +519,14 @@ describe('set_summary.js overlay renderer', () => {
 
     it('renders timeout markers in the ledger', () => {
       const stage = renderState({
+        match_info: { set_summary_style: 'bumper' },
         overlay_control: {
           points_by_set: { 1: [{ team: 1, score: [1, 0], ts: 1000 }] },
           timeouts_by_set: { 1: [{ team: 2, ts: 1500 }] },
           stats: {},
         },
       });
-      const marker = stage.querySelector('.ss-ledger-col-away .ss-timeout');
+      const marker = stage.querySelector('.ss-bumper-row.away .ss-timeout');
       expect(marker).not.toBeNull();
       expect(marker!.textContent).toBe('T');
     });

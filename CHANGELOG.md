@@ -14,7 +14,27 @@ archive by hand.
 
 ## [Unreleased]
 
+### Changed
+
+- **The set-summary “Ledger” style is now “Rallies”.** The recap is a compact
+  lower third without a top banner: team names and logos, small previous-set
+  scores beside the current score, a team-coloured rally ribbon, match standing
+  and set/match clocks. Existing selections keep working. Long rally histories
+  wrap, missing events are not fabricated, and similar team colours gain an
+  away-team pattern. Live sets are no longer labelled final merely because
+  their scores appear in the payload's set-history slots.
+- **README screenshots were refreshed** to show the new Rallies recap.
+  The point-type picker capture now uses the signed-in account’s settings
+  namespace, restoring that screenshot after browser preferences were scoped
+  per account.
+
 ### Fixed
+
+- **Rallies recap keeps the complete set sequence through long deuce sets.**
+  While Rallies is on air, the overlay payload preserves the displayed set's
+  complete rally bucket while keeping every other set—and ordinary
+  broadcasts—at the protective 60-event cap, so a 32–30 set still shows and
+  highlights the winning rally without growing unrelated WebSocket payloads.
 
 - **Regenerating an overlay's control link — or switching its permanent
   bookmark off — no longer throws the operator back to the plain overlay

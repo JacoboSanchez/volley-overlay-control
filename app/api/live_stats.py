@@ -190,7 +190,8 @@ def resolve_summary_set_num(
 
 def _points_by_set(
     events: list[dict[str, Any]],
-    per_set_limit: int,
+    per_set_limit: int | None,
+    uncapped_set_num: int | None = None,
 ) -> dict[int, list[dict[str, Any]]]:
     """Group scoring events by set number, capped at *per_set_limit* per set.
 
@@ -204,7 +205,11 @@ def _points_by_set(
         set_num = ev.get("set")
         key = set_num if isinstance(set_num, int) and set_num > 0 else 0
         bucket = out.setdefault(key, [])
-        if len(bucket) < per_set_limit:
+        if (
+            per_set_limit is None
+            or key == uncapped_set_num
+            or len(bucket) < per_set_limit
+        ):
             bucket.append(ev)
     out.pop(0, None)
     return out
@@ -411,6 +416,7 @@ def compute_live_stats(
     oid: str,
     *,
     history_limit: int = 30,
+    points_by_set_uncapped_set: int | None = None,
 ) -> dict[str, Any]:
     """Read the audit log for *oid* and return a live-stats payload.
 
@@ -420,25 +426,37 @@ def compute_live_stats(
     shape and field semantics.
     """
     ver = action_log.version(oid)
+    cache_key: Any = (
+        history_limit
+        if points_by_set_uncapped_set is None
+        else (history_limit, points_by_set_uncapped_set)
+    )
     with _CACHE_LOCK:
         entry = _STATS_CACHE.get(oid)
         if entry is not None and entry[0] == ver:
-            hit = entry[1].get(history_limit)
+            hit = entry[1].get(cache_key)
             if hit is not None:
                 return hit
     # Compute outside the lock — the audit read + aggregation passes are
     # the expensive part and must not serialize unrelated OIDs. A
     # concurrent miss for the same (oid, version) just recomputes an
     # identical payload.
-    result = _compute_live_stats(oid, history_limit=history_limit)
+    if points_by_set_uncapped_set is None:
+        result = _compute_live_stats(oid, history_limit=history_limit)
+    else:
+        result = _compute_live_stats(
+            oid,
+            history_limit=history_limit,
+            points_by_set_uncapped_set=points_by_set_uncapped_set,
+        )
     with _CACHE_LOCK:
         entry = _STATS_CACHE.get(oid)
         if entry is None or entry[0] < ver:
             # First entry, or ours is newer — install it.
-            _STATS_CACHE[oid] = (ver, {history_limit: result})
+            _STATS_CACHE[oid] = (ver, {cache_key: result})
         elif entry[0] == ver:
             # Same version already cached — add/refresh this history_limit.
-            entry[1][history_limit] = result
+            entry[1][cache_key] = result
         # entry[0] > ver: a newer version landed while we computed off a
         # stale snapshot. Drop our result rather than regress the cached
         # version, which would force a miss on every subsequent read until
@@ -450,6 +468,7 @@ def _compute_live_stats(
     oid: str,
     *,
     history_limit: int = 30,
+    points_by_set_uncapped_set: int | None = None,
 ) -> dict[str, Any]:
     """Read the audit log for *oid* and return a live-stats payload.
 
@@ -491,10 +510,14 @@ def _compute_live_stats(
         # used by the spectator page to show how the last point was won.
         "last_point": _last_point(audit),
         "points_history": _recent_points(events, history_limit),
-        # Per-set buckets capped at 60 events (more than enough for
-        # any indoor or beach set, including extreme deuce stretches).
-        # Used by the spectator page to render past sets on demand.
-        "points_by_set": _points_by_set(events, per_set_limit=60),
+        # Per-set buckets are capped for ordinary payloads. The Rallies recap
+        # can name its displayed set so only that bucket retains a long deuce
+        # sequence past the historical 60-event transport cap.
+        "points_by_set": _points_by_set(
+            events,
+            per_set_limit=60,
+            uncapped_set_num=points_by_set_uncapped_set,
+        ),
         # Per-set timeout events with timestamps so the spectator
         # chart can render them as markers on the same time axis.
         "timeouts_by_set": _timeouts_by_set(audit),

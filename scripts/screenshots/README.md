@@ -4,7 +4,7 @@ Tooling to regenerate the screenshots referenced from the project [README.md](..
 
 The capture pipeline boots a fresh backend instance with isolated environment
 variables (no `.env` is loaded), **claims the first admin** with a known
-bootstrap token to obtain a session cookie, creates two demo overlays via the
+bootstrap token to obtain a session cookie, creates demo overlays via the
 authenticated API (each minting a `public_token`), applies invented "Thunder
 Wolves" / "Solar Hawks" team customization + match state, and walks Playwright
 (Chromium headless) through the authenticated SPA pages and the
@@ -77,7 +77,7 @@ the account overlays page.)
 | `07-overlay-mosaic-simple.png` | `?style=mosaic` preview grid in simple mode (current set only). | 1600×1800 (mosaic grid) |
 | `08-match-report.png` | Print-friendly match report at `/match/{id}/report` for a finished 3-1 demo match (read via `MATCH_REPORT_PUBLIC`). | 1024×1100 (compact desktop) |
 | `09-spectator-page.png` | Public spectator (follow) page at `/follow/{public_token}` — header, scoreboard, set chart, history table, and live stats. Captured `fullPage` so every section is in-frame. | 414×896 (phone portrait) |
-| `10-overlay-set-summary.png` | Set-summary recap overlay (`brand_columns` variant) at `/overlay/{public_token}`, at the canonical OBS browser-source size. | 1280×720 (overlay HD) |
+| `10-overlay-set-summary.png` | Set-summary recap overlay (Rallies / `brand_ledger` variant) at `/overlay/{public_token}`, at the canonical OBS browser-source size. | 1280×720 (overlay HD) |
 | `11-point-type-picker.png` | Control board with the opt-in per-point classification dialog open (ace / kill / block / opponent error / quick point), shown after tapping a team's score with "Track point types" enabled. | 844×390 (mobile-landscape) |
 | `12-admin-page.png` | Admin **Administration** page at `/admin` (admin-only) — the global configuration surface: the self-registration toggle plus user management (create / reset password / activate / delete). `seedDemoUsers()` seeds a small roster so the table is representative. | 1024×700 (compact desktop) |
 
