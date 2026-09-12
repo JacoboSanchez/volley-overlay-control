@@ -400,18 +400,28 @@ class GameActions:
             if blocked is not None:
                 return blocked
 
-        # Table tennis allows a single timeout per team for the *whole*
-        # match (volleyball is 2 per set, enforced in GameManager). Since
-        # timeouts are stored per-set, sum across sets to enforce the
-        # per-match cap before the forward add lands.
-        if not undo and session.mode == "table_tennis":
+        # Reject an over-limit timeout *before* it reaches the audit log.
+        # GameManager also caps at 2 per set, but that guard is silent: the
+        # request would still be audited and every audit-derived count (the
+        # set-summary recap, the spectator chart, the printed report) would
+        # render the rejected attempt as a real timeout. Table tennis allows
+        # a single timeout per team for the whole match; volleyball (indoor
+        # and beach) allows 2 per set.
+        if not undo:
             state = session.game_manager.get_current_state()
-            taken = sum(state.get_timeouts_by_set(team).values())
-            if taken >= 1:
+            if session.mode == "table_tennis":
+                taken = sum(state.get_timeouts_by_set(team).values())
+                limit_reached = taken >= 1
+                message = "Timeout limit reached for this match."
+            else:
+                current = state.get_timeout(team, set_num=session.current_set)
+                limit_reached = current >= 2
+                message = "Timeout limit reached for this set."
+            if limit_reached:
                 return ActionResponse(
                     success=False,
                     state=_service(cls).get_state(session),
-                    message="Timeout limit reached for this match.",
+                    message=message,
                 )
 
         _service(cls)._invalidate_rapid_pair_cache(session)

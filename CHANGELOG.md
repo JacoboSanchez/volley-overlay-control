@@ -45,7 +45,11 @@ archive by hand.
   scoresheet chart still drew the timeout lines. All four now count the
   timeout events of the displayed set, the same source the ledgers use, so
   the numbers and the markers agree. A set still in play is unaffected: both
-  sources describe the current set there.
+  sources describe the current set there. An over-limit timeout attempt (a
+  third for one team in a set, reachable through the API or a stale control
+  client) is now rejected before it is written to the audit log, so the
+  counters cannot climb past the two-per-set rule; table tennis already
+  rejected its second attempt this way.
 
 ## [7.1.4] - 2026-09-07
 
