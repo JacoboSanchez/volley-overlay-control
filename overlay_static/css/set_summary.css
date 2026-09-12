@@ -1614,16 +1614,12 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     0 24px 60px rgba(0, 0, 0, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.16);
   display: grid;
-  /* ribbon · hero · optional point-type breakdown. The hero (1fr)
-     yields room to the breakdown's auto row instead of the block
-     overflowing the core into the bottom ledger. */
-  grid-template-rows: auto 1fr auto;
+  /* ribbon · hero. The card is centred in the stage's 1fr row and is
+     free to grow, so anything past those two rows overflows the row
+     and lands on top of the bottom ledger — which is why the
+     point-type breakdown is not rendered here (see renderBumper). */
+  grid-template-rows: auto 1fr;
   overflow: hidden;
-}
-.ss-stage[data-style="bumper"] .ss-bumper-core > .ss-pt-breakdown {
-  margin: 0;
-  padding: var(--ss-sz-sm) clamp(11px, 3.9cqw, 36px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .ss-stage[data-style="bumper"] .ss-bumper-core .ss-ribbon {
