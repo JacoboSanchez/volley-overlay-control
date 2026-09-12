@@ -1,9 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as api from '../api/overlays';
 
 export interface UseOverlaysResult {
   overlays: api.OverlayPayload[];
+  /** True only while the *first* load is in flight, so a page can show a
+   *  placeholder before it has anything to render. Later reloads keep the
+   *  current list on screen — see ``refreshing``. */
   loading: boolean;
+  /** True while a ``reload`` refreshes an already-loaded list. */
+  refreshing: boolean;
   /** True if the (re)load failed. Pages map this to their own copy. */
   error: boolean;
   reload: () => Promise<void>;
@@ -18,17 +23,27 @@ export interface UseOverlaysResult {
 export function useOverlays(): UseOverlaysResult {
   const [overlays, setOverlays] = useState<api.OverlayPayload[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
+  const loaded = useRef(false);
 
   const reload = useCallback(async () => {
-    setLoading(true);
+    // Only the first load may blank the page. A reload that follows an action
+    // (regenerate the control link, toggle the public bookmark, rename,
+    // favorite) must keep the list mounted: swapping it for a placeholder
+    // unmounts the cards, React drops their local UI state, and the operator
+    // is thrown back to the collapsed list in the middle of the task —
+    // typically right before copying the link they just minted.
+    if (loaded.current) setRefreshing(true);
     try {
       setOverlays(await api.getOverlays());
       setError(false);
     } catch {
       setError(true);
     } finally {
+      loaded.current = true;
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -38,5 +53,5 @@ export function useOverlays(): UseOverlaysResult {
     void reload();
   }, [reload]);
 
-  return { overlays, loading, error, reload };
+  return { overlays, loading, refreshing, error, reload };
 }

@@ -14,6 +14,22 @@ archive by hand.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Regenerating an overlay's control link — or switching its permanent
+  bookmark off — no longer throws the operator back to the plain overlay
+  list.** Every action on the Overlays page refreshed the list by swapping it
+  for the loading placeholder, which unmounted the cards and discarded their
+  open state, so the card collapsed under the click that had just minted or
+  revoked a link — exactly when the new URL was still waiting to be copied.
+  A refresh now keeps the list on screen: the card, its *Links and settings*
+  panel and the *Advanced* bookmark disclosure all stay open, revoking public
+  access leaves that disclosure open on the toggle that switches it back on,
+  the regenerate button stays busy until the new URL is actually rendered (so
+  the revoked one cannot be copied in the gap), and a refresh that fails now
+  leaves the last good list under the error banner instead of emptying the
+  page.
+
 ## [7.1.4] - 2026-09-07
 
 ### Dependencies

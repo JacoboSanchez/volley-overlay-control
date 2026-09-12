@@ -14,7 +14,7 @@ export default function OverlaysPage() {
   const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
-  const { overlays, loading, error: loadError, reload } = useOverlays();
+  const { overlays, loading, refreshing, error: loadError, reload } = useOverlays();
   const [oid, setOid] = useState('');
   const [description, setDescription] = useState('');
   const [creating, setCreating] = useState(false);
@@ -49,6 +49,10 @@ export default function OverlaysPage() {
       .sort((a, b) => Number(b.is_favorite) - Number(a.is_favorite) || a.oid.localeCompare(b.oid));
   }, [favoritesOnly, overlays, query]);
   const filtersActive = query.trim().length > 0 || favoritesOnly;
+  // A failed *first* load has nothing to show, so the banner above stands
+  // alone. A failed refresh is different: the last good list stays on screen
+  // under the banner so an operator mid-task keeps the card they were in.
+  const hideList = loadError && overlays.length === 0;
 
   // Removing the final favorite should not strand the user on an empty,
   // apparently broken list.
@@ -186,7 +190,7 @@ export default function OverlaysPage() {
 
       {loading ? (
         <p className="acc-muted">{t('acc.common.loading')}</p>
-      ) : loadError ? null /* the error banner above already explains the failure */ : overlays.length ===
+      ) : hideList ? null /* the error banner above already explains the failure */ : overlays.length ===
         0 ? (
         <EmptyState>{t('acc.overlays.empty')}</EmptyState>
       ) : (
@@ -245,7 +249,7 @@ export default function OverlaysPage() {
               </div>
             </div>
           ) : (
-            <div className="acc-overlay-cards">
+            <div className="acc-overlay-cards" aria-busy={refreshing}>
               {visibleOverlays.map((o) => (
                 <OverlayCard
                   key={o.oid}
@@ -277,7 +281,7 @@ function OverlayCard({
 }: {
   o: api.OverlayPayload;
   highlighted: boolean;
-  onChanged: () => void;
+  onChanged: () => Promise<void>;
   onDelete: () => void;
   onToggleFavorite: () => void;
 }) {
@@ -369,9 +373,9 @@ function OverlayCard({
           {renaming && (
             <RenamePanel
               o={o}
-              onSaved={() => {
+              onSaved={async () => {
                 setRenaming(false);
-                onChanged();
+                await onChanged();
               }}
             />
           )}
@@ -508,7 +512,7 @@ function OverlayManageMenu({
   );
 }
 
-function RenamePanel({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => void }) {
+function RenamePanel({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => Promise<void> }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [description, setDescription] = useState(o.description || '');
@@ -519,7 +523,7 @@ function RenamePanel({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => voi
     setBusy(true);
     try {
       await api.updateOverlay(o.oid, { description: description.trim() || null });
-      onSaved();
+      await onSaved();
       toast(t('acc.overlays.toastSaved'));
     } catch (err) {
       toast(apiErrorMessage(err, t('acc.overlays.errorSave')), 'error');
@@ -548,7 +552,7 @@ function RenamePanel({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => voi
 /** The shareable, no-login operator link (`/board?c=<token>`). It is minted
  *  with the overlay, so it is shown inline with a Copy button; the small ↻
  *  regenerates it (revoking any previously shared link, behind a confirm). */
-function ShareControl({ o, onChanged }: { o: api.OverlayPayload; onChanged: () => void }) {
+function ShareControl({ o, onChanged }: { o: api.OverlayPayload; onChanged: () => Promise<void> }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
@@ -567,7 +571,10 @@ function ShareControl({ o, onChanged }: { o: api.OverlayPayload; onChanged: () =
     setBusy(true);
     try {
       await api.regenerateControlToken(o.oid);
-      onChanged();
+      // The card stays open across the refresh now, so hold ``busy`` until the
+      // new URL is actually on screen — releasing early would leave the
+      // just-revoked link sitting under the Copy button.
+      await onChanged();
       toast(t('acc.overlays.controlToast'));
     } catch (err) {
       toast(apiErrorMessage(err, t('acc.overlays.controlError')), 'error');
@@ -612,11 +619,22 @@ function ShareControl({ o, onChanged }: { o: api.OverlayPayload; onChanged: () =
 /** The permanent, guessable self-bookmark (`/board?u=<user>&oid=<id>`). It is a
  *  niche, opt-in alternative to the shareable link, kept in a collapsed
  *  "Advanced" disclosure so it is never confused with the link you hand out. */
-function BookmarkAdvanced({ o, onChanged }: { o: api.OverlayPayload; onChanged: () => void }) {
+function BookmarkAdvanced({
+  o,
+  onChanged,
+}: {
+  o: api.OverlayPayload;
+  onChanged: () => Promise<void>;
+}) {
   const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
+  // Open by default while the bookmark is on, then it follows the operator
+  // rather than the flag: revoking public access must not slam the panel shut
+  // on the toggle just used — turning it back on is one click away, and the
+  // description of what the link is stays readable.
+  const [expanded, setExpanded] = useState(o.public_control);
 
   async function toggle() {
     if (!o.public_control) {
@@ -630,7 +648,7 @@ function BookmarkAdvanced({ o, onChanged }: { o: api.OverlayPayload; onChanged: 
     setBusy(true);
     try {
       await api.updateOverlay(o.oid, { public_control: !o.public_control });
-      onChanged();
+      await onChanged();
       toast(
         o.public_control ? t('acc.overlays.bookmarkDisabled') : t('acc.overlays.bookmarkEnabled'),
       );
@@ -642,7 +660,11 @@ function BookmarkAdvanced({ o, onChanged }: { o: api.OverlayPayload; onChanged: 
   }
 
   return (
-    <details className="acc-overlay-advanced" open={o.public_control}>
+    <details
+      className="acc-overlay-advanced"
+      open={expanded}
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
+    >
       <summary className="acc-overlay-advanced__summary">{t('acc.overlays.advancedTitle')}</summary>
       <div className="acc-overlay-advanced__body">
         <p className="acc-muted" style={{ marginTop: 0 }}>
