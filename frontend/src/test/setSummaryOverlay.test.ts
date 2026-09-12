@@ -381,6 +381,55 @@ describe('set_summary.js overlay renderer', () => {
       expect(marker).not.toBeNull();
       expect(marker!.textContent).toBe('T');
     });
+
+    // The live ``timeouts_taken`` counter is reset by the backend when
+    // the match moves on to the next set, so a recap of the set that
+    // just finished must count its own timeout events instead.
+    describe('per-set timeout counts', () => {
+      const SET_1_TIMEOUTS = {
+        1: [
+          { team: 1, ts: 1200 },
+          { team: 2, ts: 1500 },
+          { team: 2, ts: 1800 },
+        ],
+      };
+
+      // The stat row each variant renders the pair in, and where the
+      // two numbers sit inside it.
+      const VARIANT_ROWS: Record<string, [string, string, string]> = {
+        bento: ['.ss-stat-row', '.home', '.away'],
+        glass: ['.ss-stat-row', '.home', '.away'],
+        bumper: ['.ss-stat-row', '.home', '.away'],
+        ledger_diff: ['.ss-ld-row', '.ss-ld-hv', '.ss-ld-av'],
+      };
+
+      for (const [style, [rowSelector, homeSel, awaySel]] of Object.entries(VARIANT_ROWS)) {
+        it(`counts the displayed set's timeouts in ${style}`, () => {
+          renderState({
+            match_info: {
+              set_summary_style: style,
+              summary_set_num: 1,
+              current_set: 2,
+            },
+            // Set 1 is over: both counters already restarted for set 2.
+            team_home: { timeouts_taken: 0, set_history: { set_1: 25 } },
+            team_away: { timeouts_taken: 0, set_history: { set_1: 23 } },
+            overlay_control: {
+              points_by_set: { 1: [{ team: 1, score: [1, 0], ts: 1000 }] },
+              timeouts_by_set: SET_1_TIMEOUTS,
+              stats: {},
+            },
+          });
+          const panel = document.getElementById('set-summary-panel')!;
+          const row = Array.from(panel.querySelectorAll(rowSelector)).find((n) =>
+            /timeout/i.test(n.textContent || ''),
+          );
+          expect(row, `no timeout row in ${style}`).toBeTruthy();
+          expect(row!.querySelector(homeSel)!.textContent).toBe('1');
+          expect(row!.querySelector(awaySel)!.textContent).toBe('2');
+        });
+      }
+    });
   });
 
   describe('clocks', () => {

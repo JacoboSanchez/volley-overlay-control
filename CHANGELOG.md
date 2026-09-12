@@ -37,6 +37,15 @@ archive by hand.
   earlier refresh nor a concurrent action's whole-row response can revert what
   you just did — a favorite toggle can no longer put a revoked control link
   back under the Copy button.
+- **Set-summary recap: the timeout counters now belong to the set being
+  recapped.** The `bento`, `glass`, `ledger_diff` and `bumper` variants read
+  the live `timeouts_taken` counter, which the backend restarts when the match
+  moves on to the next set — so the recap of a set that had just finished
+  reported "0 · 0" while its own ledger still drew the `T` markers and the
+  scoresheet chart still drew the timeout lines. All four now count the
+  timeout events of the displayed set, the same source the ledgers use, so
+  the numbers and the markers agree. A set still in play is unaffected: both
+  sources describe the current set there.
 
 ## [7.1.4] - 2026-09-07
 
