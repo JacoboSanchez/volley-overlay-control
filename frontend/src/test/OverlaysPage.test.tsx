@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import OverlaysPage from '../pages/OverlaysPage';
 import * as api from '../api/overlays';
 import { ApiError } from '../api/http';
@@ -355,6 +355,227 @@ describe('OverlaysPage flows', () => {
     );
     await waitFor(() => expect(screen.getByText('Permanent link on')).toBeInTheDocument());
     confirmSpy.mockRestore();
+  });
+
+  // Regression: a reload used to swap the whole list for the loading
+  // placeholder, unmounting the cards. The operator who had just minted or
+  // revoked a link was dropped back on the collapsed overlay list — exactly
+  // when they still needed the card to copy the new URL from.
+  it('stays in the expanded card while the refresh runs and swaps in the new URL', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.regenerateControlToken).mockResolvedValue({
+      ...OVERLAY,
+      control_token: 'fresh',
+      control_url: 'https://x/board?c=fresh',
+    });
+    renderWithI18n(<OverlaysPage />);
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /links and settings/i }));
+
+    // Hold the refresh open so the in-flight window is observable — that is
+    // where the list used to be swapped for the loading placeholder.
+    let finishRefresh!: (rows: api.OverlayPayload[]) => void;
+    vi.mocked(api.getOverlays).mockReturnValue(
+      new Promise<api.OverlayPayload[]>((resolve) => {
+        finishRefresh = resolve;
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /regenerate/i }));
+    await waitFor(() => expect(api.regenerateControlToken).toHaveBeenCalledWith('liga'));
+
+    expect(screen.getByRole('button', { name: /links and settings/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(document.querySelector('.acc-overlay-cards')).toHaveAttribute('aria-busy', 'true');
+
+    finishRefresh([{ ...OVERLAY, control_token: 'fresh', control_url: 'https://x/board?c=fresh' }]);
+
+    await waitFor(() => expect(screen.getByText('https://x/board?c=fresh')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /links and settings/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    // The revoked link is gone from the copy field, not merely hidden.
+    expect(screen.queryByText('https://x/board?c=ctl')).not.toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
+  it('keeps the card and the Advanced panel open after removing public access', async () => {
+    vi.mocked(api.getOverlays).mockResolvedValue([
+      { ...OVERLAY, public_control: true, public_control_url: 'https://x/board?u=me&oid=liga' },
+    ]);
+    vi.mocked(api.updateOverlay).mockResolvedValue({ ...OVERLAY, public_control: false });
+    renderWithI18n(<OverlaysPage />);
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /links and settings/i }));
+    vi.mocked(api.getOverlays).mockResolvedValue([OVERLAY]);
+    fireEvent.click(screen.getByRole('checkbox'));
+
+    await waitFor(() =>
+      expect(api.updateOverlay).toHaveBeenCalledWith('liga', { public_control: false }),
+    );
+    await waitFor(() => expect(screen.queryByText('Permanent link on')).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /links and settings/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    // The disclosure that hosts the toggle stays open, so re-enabling the
+    // bookmark is one click away instead of two.
+    expect(
+      screen.getByText('Advanced: permanent bookmark link').closest('details'),
+    ).toHaveAttribute('open');
+    expect(screen.getByRole('checkbox')).not.toBeChecked();
+  });
+
+  // A mutation commits server-side even when the refresh after it fails, so
+  // the row is written from the mutation's own response: the revoked control
+  // URL must never stay under the Copy button beneath a success toast.
+  it('shows the new link, not the revoked one, when the refresh after it fails', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.regenerateControlToken).mockResolvedValue({
+      ...OVERLAY,
+      control_token: 'fresh',
+      control_url: 'https://x/board?c=fresh',
+    });
+    renderWithI18n(<OverlaysPage />);
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /links and settings/i }));
+    vi.mocked(api.getOverlays).mockRejectedValue(new TypeError('Failed to fetch'));
+    fireEvent.click(screen.getByRole('button', { name: /regenerate/i }));
+
+    await waitFor(() => expect(screen.getByText('https://x/board?c=fresh')).toBeInTheDocument());
+    expect(screen.queryByText('https://x/board?c=ctl')).not.toBeInTheDocument();
+    // The failed refresh is still reported; it just does not roll the card back.
+    expect(document.querySelector('.acc-error')).not.toBeNull();
+    confirmSpy.mockRestore();
+  });
+
+  it('drops a deleted overlay even when the refresh after it fails', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.getOverlays).mockResolvedValue([OVERLAY, overlay('otra', 'Otra pista')]);
+    vi.mocked(api.deleteOverlay).mockResolvedValue(undefined as never);
+    renderWithI18n(<OverlaysPage />);
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
+
+    vi.mocked(api.getOverlays).mockRejectedValue(new TypeError('Failed to fetch'));
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /more actions/i }));
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /delete/i }));
+
+    await waitFor(() => expect(api.deleteOverlay).toHaveBeenCalledWith('liga'));
+    await waitFor(() => expect(screen.queryByText('Liga Local')).not.toBeInTheDocument());
+    expect(screen.getByText('Otra pista')).toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
+  // Two refreshes can now overlap, because the cards stay clickable while one
+  // is in flight. If the older response lands last it must not win, or the
+  // regenerated link visibly reverts to the revoked URL.
+  it('ignores an overlapping older refresh that resolves last', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.updateOverlay).mockResolvedValue({ ...OVERLAY, is_favorite: true });
+    vi.mocked(api.regenerateControlToken).mockResolvedValue({
+      ...OVERLAY,
+      is_favorite: true,
+      control_token: 'fresh',
+      control_url: 'https://x/board?c=fresh',
+    });
+    renderWithI18n(<OverlaysPage />);
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /links and settings/i }));
+
+    // Hold every refresh from here on so both can be in flight at once.
+    const pending: ((rows: api.OverlayPayload[]) => void)[] = [];
+    vi.mocked(api.getOverlays).mockImplementation(
+      () =>
+        new Promise<api.OverlayPayload[]>((resolve) => {
+          pending.push(resolve);
+        }),
+    );
+
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /more actions/i }));
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /add to favorites/i }));
+    await waitFor(() => expect(pending).toHaveLength(1));
+
+    fireEvent.click(screen.getByRole('button', { name: /regenerate/i }));
+    await waitFor(() => expect(pending).toHaveLength(2));
+
+    const favorited = { ...OVERLAY, is_favorite: true };
+    const regenerated = {
+      ...favorited,
+      control_token: 'fresh',
+      control_url: 'https://x/board?c=fresh',
+    };
+    // Newest first...
+    await act(async () => {
+      pending[1]!([regenerated]);
+    });
+    expect(screen.getByText('https://x/board?c=fresh')).toBeInTheDocument();
+    // ...then the stale one, carrying pre-regenerate rows.
+    await act(async () => {
+      pending[0]!([favorited]);
+    });
+
+    expect(screen.getByText('https://x/board?c=fresh')).toBeInTheDocument();
+    expect(screen.queryByText('https://x/board?c=ctl')).not.toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
+  // Two mutations on one card can overlap (the favorite toggle has no busy
+  // guard), and each answers with a whole-row snapshot. A favorite response
+  // that still carries the pre-regeneration control_url must not put that
+  // revoked link back under the Copy button.
+  it('never lets an overlapping mutation response restore the revoked link', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.regenerateControlToken).mockResolvedValue({
+      ...OVERLAY,
+      control_token: 'fresh',
+      control_url: 'https://x/board?c=fresh',
+    });
+    // The favorite PATCH read the row before the regeneration committed, so
+    // its snapshot still holds the old control_url.
+    vi.mocked(api.updateOverlay).mockResolvedValue({ ...OVERLAY, is_favorite: true });
+    renderWithI18n(<OverlaysPage />);
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /links and settings/i }));
+
+    // Hold every refresh, so only the mutation responses decide what is shown.
+    vi.mocked(api.getOverlays).mockImplementation(() => new Promise(() => {}));
+
+    fireEvent.click(screen.getByRole('button', { name: /regenerate/i }));
+    await waitFor(() => expect(screen.getByText('https://x/board?c=fresh')).toBeInTheDocument());
+
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /more actions/i }));
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /add to favorites/i }));
+    await waitFor(() =>
+      expect(api.updateOverlay).toHaveBeenCalledWith('liga', { is_favorite: true }),
+    );
+
+    // The favorite lands, and it only carries the favorite.
+    await waitFor(() =>
+      expect(cardFor('liga').querySelector('.acc-overlay-favorite')).not.toBeNull(),
+    );
+    expect(screen.getByText('https://x/board?c=fresh')).toBeInTheDocument();
+    expect(screen.queryByText('https://x/board?c=ctl')).not.toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
+  it('keeps the last good list under the banner when a refresh fails', async () => {
+    vi.mocked(api.updateOverlay).mockResolvedValue({ ...OVERLAY, is_favorite: true });
+    renderWithI18n(<OverlaysPage />);
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
+
+    vi.mocked(api.getOverlays).mockRejectedValue(new TypeError('Failed to fetch'));
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /more actions/i }));
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /add to favorites/i }));
+
+    await waitFor(() => expect(document.querySelector('.acc-error')).not.toBeNull());
+    expect(screen.getByText('Liga Local')).toBeInTheDocument();
   });
 
   it('shows the empty state without overlays and the error banner on load failure', async () => {
