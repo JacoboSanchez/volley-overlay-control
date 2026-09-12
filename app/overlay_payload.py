@@ -75,6 +75,23 @@ def _set_history(current_model: dict, team: int) -> dict[str, int]:
     }
 
 
+def _timeouts_history(current_model: dict, team: int) -> dict[str, int]:
+    """Per-set timeout counts from the persisted game state.
+
+    The audit log is best-effort, so an append that fails would leave the
+    audit-derived ``overlay_control.timeouts_by_set`` one event short while
+    the authoritative per-set counter (the one the cap is enforced against)
+    already recorded the timeout. Overlay recaps read these totals; the event
+    array stays reserved for timeline markers.
+    """
+    return {
+        f"set_{index}": int(
+            current_model.get(State._t_timeouts_key(team, index), 0)
+        )
+        for index in range(1, 8)
+    }
+
+
 def _team_payload(
     current_model: dict,
     customization: Customization,
@@ -103,6 +120,7 @@ def _team_payload(
                 0,
             )
         ),
+        "timeouts_by_set": _timeouts_history(current_model, team),
         "set_history": _set_history(current_model, team),
     }
 

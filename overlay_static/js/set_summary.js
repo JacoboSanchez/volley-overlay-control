@@ -475,16 +475,20 @@
       ),
     };
 
-    // Timeouts taken in the displayed set, counted from the same
-    // event list the ledgers render as "T" chips. The live
-    // ``team.timeouts_taken`` counter resets when the match moves
-    // on to the next set, so a finished set would otherwise recap
-    // as "0 · 0" while its own ledger still shows the markers.
-    const timeoutsSet = { 1: 0, 2: 0 };
-    setTimeouts.forEach((tx) => {
-      const team = tx && tx.team;
-      if (team === 1 || team === 2) timeoutsSet[team] += 1;
-    });
+    // Timeouts taken in the displayed set come from the persisted
+    // per-set counters (``team.timeouts_by_set``), the same values the
+    // backend enforces the per-set cap against. The audit-derived event
+    // list is best-effort, so a failed append would leave it one event
+    // short and under-report a valid timeout; the event list stays the
+    // source for the ledger's "T" markers and the chart's lines. The
+    // live ``team.timeouts_taken`` counter resets when the match moves
+    // on to the next set, so it can't be used for a finished set either.
+    const homeTimeouts = (home && home.timeouts_by_set) || {};
+    const awayTimeouts = (away && away.timeouts_by_set) || {};
+    const timeoutsSet = {
+      1: Number(homeTimeouts[setKey]) || 0,
+      2: Number(awayTimeouts[setKey]) || 0,
+    };
 
     const servicesBySet = stats.services_by_set || {};
     const setServicesRaw =

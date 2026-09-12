@@ -42,14 +42,16 @@ archive by hand.
   the live `timeouts_taken` counter, which the backend restarts when the match
   moves on to the next set — so the recap of a set that had just finished
   reported "0 · 0" while its own ledger still drew the `T` markers and the
-  scoresheet chart still drew the timeout lines. All four now count the
-  timeout events of the displayed set, the same source the ledgers use, so
-  the numbers and the markers agree. A set still in play is unaffected: both
-  sources describe the current set there. An over-limit timeout attempt (a
-  third for one team in a set, reachable through the API or a stale control
-  client) is now rejected before it is written to the audit log, so the
-  counters cannot climb past the two-per-set rule; table tennis already
-  rejected its second attempt this way.
+  scoresheet chart still drew the timeout lines. All four now read the
+  persisted per-set counters (`team.timeouts_by_set`, the values the backend
+  enforces the per-set cap against), so a finished set recaps its own totals
+  and a best-effort audit write that failed can no longer under-report a
+  timeout the state already counted. The audit-derived event list stays in
+  place for the ledgers' `T` markers and the chart's timeout lines. An
+  over-limit timeout attempt (a third for one team in a set, reachable through
+  the API or a stale control client) is now rejected before it is written to
+  the audit log, so those markers cannot show a timeout past the two-per-set
+  rule; table tennis already rejected its second attempt this way.
 
 ## [7.1.4] - 2026-09-07
 
