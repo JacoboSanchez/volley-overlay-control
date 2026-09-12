@@ -31,7 +31,9 @@ archive by hand.
   after the change already committed now leaves the card showing what you just
   did — the new link, the flipped flag, the deleted overlay gone — under the
   error banner, instead of emptying the page or leaving a revoked link under
-  the Copy button.
+  the Copy button. And because the cards now stay clickable while a refresh
+  runs, two refreshes can overlap: only the newest response is applied, so a
+  slower earlier one can no longer revert what you just did.
 
 ## [7.1.4] - 2026-09-07
 

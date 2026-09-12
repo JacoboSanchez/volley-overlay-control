@@ -30,6 +30,12 @@ export function useOverlays(): UseOverlaysResult {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
   const loaded = useRef(false);
+  // Refreshes no longer blank the list, so the cards stay clickable while one
+  // is in flight and two can overlap (favorite then regenerate, say). Their
+  // responses can land in either order, and an older one would otherwise
+  // overwrite the newer state — the regenerated link reverting to the revoked
+  // URL on screen. Each run takes a ticket; only the newest may write.
+  const generation = useRef(0);
 
   const reload = useCallback(async () => {
     // Only the first load may blank the page. A reload that follows an action
@@ -38,16 +44,25 @@ export function useOverlays(): UseOverlaysResult {
     // unmounts the cards, React drops their local UI state, and the operator
     // is thrown back to the collapsed list in the middle of the task —
     // typically right before copying the link they just minted.
+    const ticket = ++generation.current;
+    const current = () => ticket === generation.current;
     if (loaded.current) setRefreshing(true);
     try {
-      setOverlays(await api.getOverlays());
+      const rows = await api.getOverlays();
+      if (!current()) return;
+      setOverlays(rows);
       setError(false);
     } catch {
+      if (!current()) return;
       setError(true);
     } finally {
-      loaded.current = true;
-      setLoading(false);
-      setRefreshing(false);
+      // A superseded run settles nothing: the newest one owns these flags and
+      // will clear them when it lands.
+      if (current()) {
+        loaded.current = true;
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import OverlaysPage from '../pages/OverlaysPage';
 import * as api from '../api/overlays';
 import { ApiError } from '../api/http';
@@ -468,6 +468,60 @@ describe('OverlaysPage flows', () => {
     await waitFor(() => expect(api.deleteOverlay).toHaveBeenCalledWith('liga'));
     await waitFor(() => expect(screen.queryByText('Liga Local')).not.toBeInTheDocument());
     expect(screen.getByText('Otra pista')).toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
+  // Two refreshes can now overlap, because the cards stay clickable while one
+  // is in flight. If the older response lands last it must not win, or the
+  // regenerated link visibly reverts to the revoked URL.
+  it('ignores an overlapping older refresh that resolves last', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.updateOverlay).mockResolvedValue({ ...OVERLAY, is_favorite: true });
+    vi.mocked(api.regenerateControlToken).mockResolvedValue({
+      ...OVERLAY,
+      is_favorite: true,
+      control_token: 'fresh',
+      control_url: 'https://x/board?c=fresh',
+    });
+    renderWithI18n(<OverlaysPage />);
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /links and settings/i }));
+
+    // Hold every refresh from here on so both can be in flight at once.
+    const pending: ((rows: api.OverlayPayload[]) => void)[] = [];
+    vi.mocked(api.getOverlays).mockImplementation(
+      () =>
+        new Promise<api.OverlayPayload[]>((resolve) => {
+          pending.push(resolve);
+        }),
+    );
+
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /more actions/i }));
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /add to favorites/i }));
+    await waitFor(() => expect(pending).toHaveLength(1));
+
+    fireEvent.click(screen.getByRole('button', { name: /regenerate/i }));
+    await waitFor(() => expect(pending).toHaveLength(2));
+
+    const favorited = { ...OVERLAY, is_favorite: true };
+    const regenerated = {
+      ...favorited,
+      control_token: 'fresh',
+      control_url: 'https://x/board?c=fresh',
+    };
+    // Newest first...
+    await act(async () => {
+      pending[1]!([regenerated]);
+    });
+    expect(screen.getByText('https://x/board?c=fresh')).toBeInTheDocument();
+    // ...then the stale one, carrying pre-regenerate rows.
+    await act(async () => {
+      pending[0]!([favorited]);
+    });
+
+    expect(screen.getByText('https://x/board?c=fresh')).toBeInTheDocument();
+    expect(screen.queryByText('https://x/board?c=ctl')).not.toBeInTheDocument();
     confirmSpy.mockRestore();
   });
 
