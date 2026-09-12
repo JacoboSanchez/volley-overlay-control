@@ -475,6 +475,21 @@
       ),
     };
 
+    // Timeouts taken in the displayed set come from the persisted
+    // per-set counters (``team.timeouts_by_set``), the same values the
+    // backend enforces the per-set cap against. The audit-derived event
+    // list is best-effort, so a failed append would leave it one event
+    // short and under-report a valid timeout; the event list stays the
+    // source for the ledger's "T" markers and the chart's lines. The
+    // live ``team.timeouts_taken`` counter resets when the match moves
+    // on to the next set, so it can't be used for a finished set either.
+    const homeTimeouts = (home && home.timeouts_by_set) || {};
+    const awayTimeouts = (away && away.timeouts_by_set) || {};
+    const timeoutsSet = {
+      1: Number(homeTimeouts[setKey]) || 0,
+      2: Number(awayTimeouts[setKey]) || 0,
+    };
+
     const servicesBySet = stats.services_by_set || {};
     const setServicesRaw =
       servicesBySet[setNum] || servicesBySet[String(setNum)] || {};
@@ -560,6 +575,7 @@
       // matches what the operator just watched).
       longestSet,
       servicesSet,
+      timeoutsSet,
       setTotalPoints,
       pointTypes,
       hasPointTypes,
@@ -1243,8 +1259,8 @@
       buildBentoStatRowDual(
         "⏱",
         t("timeouts"),
-        vm.home.timeouts_taken || 0,
-        vm.away.timeouts_taken || 0,
+        vm.timeoutsSet[1],
+        vm.timeoutsSet[2],
       ),
       buildBentoStatRow("∑", t("totalPoints"), vm.setTotalPoints),
     ];
@@ -1365,8 +1381,8 @@
         ),
         buildGlassStatRowDual(
           t("timeoutsUsed"),
-          vm.home.timeouts_taken || 0,
-          vm.away.timeouts_taken || 0,
+          vm.timeoutsSet[1],
+          vm.timeoutsSet[2],
         ),
         buildGlassStatRow(t("totalPoints"), vm.setTotalPoints),
       ],
@@ -1513,8 +1529,8 @@
       (vm.servicesSet && (vm.servicesSet[1] || vm.servicesSet["1"])) || {};
     const sA =
       (vm.servicesSet && (vm.servicesSet[2] || vm.servicesSet["2"])) || {};
-    const toH = vm.home.timeouts_taken || 0;
-    const toA = vm.away.timeouts_taken || 0;
+    const toH = vm.timeoutsSet[1];
+    const toA = vm.timeoutsSet[2];
     const col = el("div", { class: "ss-ld-col" });
     col.appendChild(
       buildLdRow(
@@ -1867,8 +1883,8 @@
         ),
         buildBumperStatCellDual(
           t("timeouts"),
-          vm.home.timeouts_taken || 0,
-          vm.away.timeouts_taken || 0,
+          vm.timeoutsSet[1],
+          vm.timeoutsSet[2],
         ),
         buildBumperStatCell(t("totalPoints"), vm.setTotalPoints),
       ],

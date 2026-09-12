@@ -10,6 +10,7 @@ import threading
 import pytest
 from starlette.concurrency import run_in_threadpool
 
+from app.api import action_log
 from app.api.game_service import GameService
 from app.api.routes.customization import get_customization
 from app.api.routes.state import get_config
@@ -211,6 +212,30 @@ class TestGameService:
         blocked = GameService.add_timeout(session, team=1)
         assert blocked.success is False
         assert "limit" in (blocked.message or "").lower()
+
+    def test_add_timeout_volleyball_cap_returns_failure(self, session):
+        # Indoor/beach allow two timeouts per team per set; the third must be
+        # rejected with success=False. Rejecting before the audit append keeps
+        # audit-derived counts (set-summary recap, charts, report) at the cap.
+        assert GameService.add_timeout(session, team=1).success is True
+        assert GameService.add_timeout(session, team=1).success is True
+        blocked = GameService.add_timeout(session, team=1)
+        assert blocked.success is False
+        assert "limit" in (blocked.message or "").lower()
+        assert blocked.state.team_1.timeouts == 2
+        audited = [
+            r for r in action_log.read_all(session.oid)
+            if r.get("action") == "add_timeout"
+        ]
+        assert len(audited) == 2
+
+    def test_add_timeout_cap_allows_undo(self, session):
+        # The per-set cap must not block the undo path, even at the limit.
+        assert GameService.add_timeout(session, team=1).success is True
+        assert GameService.add_timeout(session, team=1).success is True
+        undone = GameService.add_timeout(session, team=1, undo=True)
+        assert undone.success is True
+        assert undone.state.team_1.timeouts == 1
 
     def test_change_serve(self, session):
         result = GameService.change_serve(session, team=2)

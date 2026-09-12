@@ -37,6 +37,23 @@ archive by hand.
   earlier refresh nor a concurrent action's whole-row response can revert what
   you just did — a favorite toggle can no longer put a revoked control link
   back under the Copy button.
+- **Set-summary recap: the timeout counters now belong to the set being
+  recapped.** The `bento`, `glass`, `ledger_diff` and `bumper` variants read
+  the live `timeouts_taken` counter, which the backend restarts when the match
+  moves on to the next set — so the recap of a set that had just finished
+  reported "0 · 0" while its own ledger still drew the `T` markers and the
+  scoresheet chart still drew the timeout lines. All four now read the
+  persisted per-set counters (`team.timeouts_by_set`, the values the backend
+  enforces the per-set cap against), so a finished set recaps its own totals
+  and a best-effort audit write that failed can no longer under-report a
+  timeout the state already counted. An old state file whose only timeout
+  counter is the flat `Team N Timeouts` key migrates into the current set, the
+  same way `State` reads it elsewhere. The audit-derived event list stays in
+  place for the ledgers' `T` markers and the chart's timeout lines. An
+  over-limit timeout attempt (a third for one team in a set, reachable through
+  the API or a stale control client) is now rejected before it is written to
+  the audit log, so those markers cannot show a timeout past the two-per-set
+  rule; table tennis already rejected its second attempt this way.
 
 ## [7.1.4] - 2026-09-07
 

@@ -35,6 +35,7 @@ function makeState(overrides: AnyState = {}): AnyState {
       points: 7,
       sets_won: 0,
       timeouts_taken: 0,
+      timeouts_by_set: {},
       set_history: {},
     },
     team_away: {
@@ -44,6 +45,7 @@ function makeState(overrides: AnyState = {}): AnyState {
       points: 5,
       sets_won: 0,
       timeouts_taken: 0,
+      timeouts_by_set: {},
       set_history: {},
     },
     overlay_control: {
@@ -380,6 +382,97 @@ describe('set_summary.js overlay renderer', () => {
       const marker = stage.querySelector('.ss-ledger-col-away .ss-timeout');
       expect(marker).not.toBeNull();
       expect(marker!.textContent).toBe('T');
+    });
+
+    // The live ``timeouts_taken`` counter is reset by the backend when
+    // the match moves on to the next set, so a recap of the set that
+    // just finished must read the persisted per-set counters. The
+    // audit-derived event list is best-effort and only feeds markers.
+    describe('per-set timeout counts', () => {
+      const SET_1_TIMEOUTS = {
+        1: [
+          { team: 1, ts: 1200 },
+          { team: 2, ts: 1500 },
+          { team: 2, ts: 1800 },
+        ],
+      };
+
+      // The stat row each variant renders the pair in, and where the
+      // two numbers sit inside it.
+      const VARIANT_ROWS: Record<string, [string, string, string]> = {
+        bento: ['.ss-stat-row', '.home', '.away'],
+        glass: ['.ss-stat-row', '.home', '.away'],
+        bumper: ['.ss-stat-row', '.home', '.away'],
+        ledger_diff: ['.ss-ld-row', '.ss-ld-hv', '.ss-ld-av'],
+      };
+
+      for (const [style, [rowSelector, homeSel, awaySel]] of Object.entries(VARIANT_ROWS)) {
+        it(`counts the displayed set's timeouts in ${style}`, () => {
+          renderState({
+            match_info: {
+              set_summary_style: style,
+              summary_set_num: 1,
+              current_set: 2,
+            },
+            // Set 1 is over: the live counters already restarted for
+            // set 2, but the persisted per-set history still holds it.
+            team_home: {
+              timeouts_taken: 0,
+              timeouts_by_set: { set_1: 1 },
+              set_history: { set_1: 25 },
+            },
+            team_away: {
+              timeouts_taken: 0,
+              timeouts_by_set: { set_1: 2 },
+              set_history: { set_1: 23 },
+            },
+            overlay_control: {
+              points_by_set: { 1: [{ team: 1, score: [1, 0], ts: 1000 }] },
+              timeouts_by_set: SET_1_TIMEOUTS,
+              stats: {},
+            },
+          });
+          const panel = document.getElementById('set-summary-panel')!;
+          const row = Array.from(panel.querySelectorAll(rowSelector)).find((n) =>
+            /timeout/i.test(n.textContent || ''),
+          );
+          expect(row, `no timeout row in ${style}`).toBeTruthy();
+          expect(row!.querySelector(homeSel)!.textContent).toBe('1');
+          expect(row!.querySelector(awaySel)!.textContent).toBe('2');
+        });
+      }
+
+      it('reads the persisted per-set totals, not the audit event list', () => {
+        // A best-effort audit append can fail while the authoritative
+        // per-set counter (the one the cap is enforced against) still
+        // records the timeout. The totals must come from the state, so
+        // an empty event list must not zero out a real count.
+        renderState({
+          match_info: {
+            set_summary_style: 'bento',
+            summary_set_num: 1,
+            current_set: 1,
+          },
+          team_home: {
+            timeouts_taken: 2,
+            timeouts_by_set: { set_1: 2 },
+          },
+          team_away: { timeouts_taken: 1, timeouts_by_set: { set_1: 1 } },
+          overlay_control: {
+            points_by_set: { 1: [{ team: 1, score: [1, 0], ts: 1000 }] },
+            // Audit is missing both events.
+            timeouts_by_set: {},
+            stats: {},
+          },
+        });
+        const panel = document.getElementById('set-summary-panel')!;
+        const row = Array.from(panel.querySelectorAll('.ss-stat-row')).find((n) =>
+          /timeout/i.test(n.textContent || ''),
+        );
+        expect(row).toBeTruthy();
+        expect(row!.querySelector('.home')!.textContent).toBe('2');
+        expect(row!.querySelector('.away')!.textContent).toBe('1');
+      });
     });
   });
 
