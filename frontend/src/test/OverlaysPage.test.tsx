@@ -525,6 +525,46 @@ describe('OverlaysPage flows', () => {
     confirmSpy.mockRestore();
   });
 
+  // Two mutations on one card can overlap (the favorite toggle has no busy
+  // guard), and each answers with a whole-row snapshot. A favorite response
+  // that still carries the pre-regeneration control_url must not put that
+  // revoked link back under the Copy button.
+  it('never lets an overlapping mutation response restore the revoked link', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.regenerateControlToken).mockResolvedValue({
+      ...OVERLAY,
+      control_token: 'fresh',
+      control_url: 'https://x/board?c=fresh',
+    });
+    // The favorite PATCH read the row before the regeneration committed, so
+    // its snapshot still holds the old control_url.
+    vi.mocked(api.updateOverlay).mockResolvedValue({ ...OVERLAY, is_favorite: true });
+    renderWithI18n(<OverlaysPage />);
+    await waitFor(() => expect(screen.getByText('Liga Local')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /links and settings/i }));
+
+    // Hold every refresh, so only the mutation responses decide what is shown.
+    vi.mocked(api.getOverlays).mockImplementation(() => new Promise(() => {}));
+
+    fireEvent.click(screen.getByRole('button', { name: /regenerate/i }));
+    await waitFor(() => expect(screen.getByText('https://x/board?c=fresh')).toBeInTheDocument());
+
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /more actions/i }));
+    fireEvent.click(within(cardFor('liga')).getByRole('button', { name: /add to favorites/i }));
+    await waitFor(() =>
+      expect(api.updateOverlay).toHaveBeenCalledWith('liga', { is_favorite: true }),
+    );
+
+    // The favorite lands, and it only carries the favorite.
+    await waitFor(() =>
+      expect(cardFor('liga').querySelector('.acc-overlay-favorite')).not.toBeNull(),
+    );
+    expect(screen.getByText('https://x/board?c=fresh')).toBeInTheDocument();
+    expect(screen.queryByText('https://x/board?c=ctl')).not.toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
   it('keeps the last good list under the banner when a refresh fails', async () => {
     vi.mocked(api.updateOverlay).mockResolvedValue({ ...OVERLAY, is_favorite: true });
     renderWithI18n(<OverlaysPage />);

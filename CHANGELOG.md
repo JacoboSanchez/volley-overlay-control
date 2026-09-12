@@ -32,8 +32,11 @@ archive by hand.
   did — the new link, the flipped flag, the deleted overlay gone — under the
   error banner, instead of emptying the page or leaving a revoked link under
   the Copy button. And because the cards now stay clickable while a refresh
-  runs, two refreshes can overlap: only the newest response is applied, so a
-  slower earlier one can no longer revert what you just did.
+  runs, two requests can overlap: only the newest listing response is applied,
+  and each action writes only the fields it changes, so neither a slower
+  earlier refresh nor a concurrent action's whole-row response can revert what
+  you just did — a favorite toggle can no longer put a revoked control link
+  back under the Copy button.
 
 ## [7.1.4] - 2026-09-07
 

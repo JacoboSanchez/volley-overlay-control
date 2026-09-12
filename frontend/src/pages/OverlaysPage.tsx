@@ -21,6 +21,7 @@ export default function OverlaysPage() {
     error: loadError,
     reload,
     applyOverlay,
+    patchOverlay,
     removeOverlay,
   } = useOverlays();
   const [oid, setOid] = useState('');
@@ -57,18 +58,20 @@ export default function OverlaysPage() {
       .sort((a, b) => Number(b.is_favorite) - Number(a.is_favorite) || a.oid.localeCompare(b.oid));
   }, [favoritesOnly, overlays, query]);
   const filtersActive = query.trim().length > 0 || favoritesOnly;
-  // Every mutation lands here: its own response is applied first, and only
-  // then is the list refetched. The refetch can fail after the mutation has
-  // already committed — on that path the card must show the state the
-  // operator just created, never the pre-mutation row (a revoked control URL
-  // still sitting under the Copy button, a bookmark flag that no longer
-  // holds) under its success toast.
-  const applyAndReload = useCallback(
-    async (row: api.OverlayPayload) => {
-      applyOverlay(row);
+  // Every mutation lands here: the fields it owns are written from its own
+  // response first, and only then is the list refetched. The refetch can fail
+  // after the mutation has already committed — on that path the card must
+  // show the state the operator just created, never the pre-mutation row (a
+  // revoked control URL still sitting under the Copy button, a bookmark flag
+  // that no longer holds) under its success toast. Each caller passes just
+  // its own fields, so an overlapping mutation's whole-row response can never
+  // drag another one's back (see ``patchOverlay``).
+  const patchAndReload = useCallback(
+    async (oid: string, patch: Partial<api.OverlayPayload>) => {
+      patchOverlay(oid, patch);
       await reload();
     },
-    [applyOverlay, reload],
+    [patchOverlay, reload],
   );
   // A failed *first* load has nothing to show, so the banner above stands
   // alone. A failed refresh is different: the last good list stays on screen
@@ -105,7 +108,8 @@ export default function OverlaysPage() {
       });
       setOid('');
       setDescription('');
-      await applyAndReload(row);
+      applyOverlay(row);
+      await reload();
       setCreateOpen(false);
       setQuery('');
       setFavoritesOnly(false);
@@ -140,7 +144,8 @@ export default function OverlaysPage() {
 
   async function onToggleFavorite(o: api.OverlayPayload) {
     try {
-      await applyAndReload(await api.updateOverlay(o.oid, { is_favorite: !o.is_favorite }));
+      const row = await api.updateOverlay(o.oid, { is_favorite: !o.is_favorite });
+      await patchAndReload(o.oid, { is_favorite: row.is_favorite });
       toast(
         o.is_favorite
           ? t('acc.overlays.toastFavoriteRemoved', { oid: o.oid })
@@ -278,7 +283,7 @@ export default function OverlaysPage() {
                   key={o.oid}
                   o={o}
                   highlighted={o.oid === newOverlayOid}
-                  onMutated={applyAndReload}
+                  onMutated={(patch) => patchAndReload(o.oid, patch)}
                   onDelete={() => onDelete(o)}
                   onToggleFavorite={() => onToggleFavorite(o)}
                 />
@@ -304,7 +309,8 @@ function OverlayCard({
 }: {
   o: api.OverlayPayload;
   highlighted: boolean;
-  onMutated: (row: api.OverlayPayload) => Promise<void>;
+  /** Write the fields one mutation owns, then refresh. */
+  onMutated: (patch: Partial<api.OverlayPayload>) => Promise<void>;
   onDelete: () => void;
   onToggleFavorite: () => void;
 }) {
@@ -396,9 +402,9 @@ function OverlayCard({
           {renaming && (
             <RenamePanel
               o={o}
-              onSaved={async (row) => {
+              onSaved={async (patch) => {
                 setRenaming(false);
-                await onMutated(row);
+                await onMutated(patch);
               }}
             />
           )}
@@ -540,7 +546,7 @@ function RenamePanel({
   onSaved,
 }: {
   o: api.OverlayPayload;
-  onSaved: (row: api.OverlayPayload) => Promise<void>;
+  onSaved: (patch: Partial<api.OverlayPayload>) => Promise<void>;
 }) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -551,7 +557,8 @@ function RenamePanel({
     if (busy) return;
     setBusy(true);
     try {
-      await onSaved(await api.updateOverlay(o.oid, { description: description.trim() || null }));
+      const row = await api.updateOverlay(o.oid, { description: description.trim() || null });
+      await onSaved({ description: row.description });
       toast(t('acc.overlays.toastSaved'));
     } catch (err) {
       toast(apiErrorMessage(err, t('acc.overlays.errorSave')), 'error');
@@ -585,7 +592,7 @@ function ShareControl({
   onMutated,
 }: {
   o: api.OverlayPayload;
-  onMutated: (row: api.OverlayPayload) => Promise<void>;
+  onMutated: (patch: Partial<api.OverlayPayload>) => Promise<void>;
 }) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -604,10 +611,11 @@ function ShareControl({
     }
     setBusy(true);
     try {
+      const row = await api.regenerateControlToken(o.oid);
       // The card stays open across the refresh now, so hold ``busy`` until the
       // new URL is actually on screen — releasing early would leave the
       // just-revoked link sitting under the Copy button.
-      await onMutated(await api.regenerateControlToken(o.oid));
+      await onMutated({ control_token: row.control_token, control_url: row.control_url });
       toast(t('acc.overlays.controlToast'));
     } catch (err) {
       toast(apiErrorMessage(err, t('acc.overlays.controlError')), 'error');
@@ -657,7 +665,7 @@ function BookmarkAdvanced({
   onMutated,
 }: {
   o: api.OverlayPayload;
-  onMutated: (row: api.OverlayPayload) => Promise<void>;
+  onMutated: (patch: Partial<api.OverlayPayload>) => Promise<void>;
 }) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -680,7 +688,11 @@ function BookmarkAdvanced({
     }
     setBusy(true);
     try {
-      await onMutated(await api.updateOverlay(o.oid, { public_control: !o.public_control }));
+      const row = await api.updateOverlay(o.oid, { public_control: !o.public_control });
+      await onMutated({
+        public_control: row.public_control,
+        public_control_url: row.public_control_url,
+      });
       toast(
         o.public_control ? t('acc.overlays.bookmarkDisabled') : t('acc.overlays.bookmarkEnabled'),
       );

@@ -12,8 +12,10 @@ export interface UseOverlaysResult {
   /** True if the (re)load failed. Pages map this to their own copy. */
   error: boolean;
   reload: () => Promise<void>;
-  /** Merge one row — a mutation's own response — into the cached list. */
+  /** Insert a row the caller just created. */
   applyOverlay: (row: api.OverlayPayload) => void;
+  /** Write the fields one mutation owns onto the cached row. */
+  patchOverlay: (oid: string, patch: Partial<api.OverlayPayload>) => void;
   /** Drop one row from the cached list (a delete that already succeeded). */
   removeOverlay: (oid: string) => void;
 }
@@ -71,6 +73,21 @@ export function useOverlays(): UseOverlaysResult {
   // can fail after the mutation committed; when it does, the list must still
   // show what the operator just did rather than pre-mutation state (a revoked
   // control URL under a Copy button, a flag that no longer holds).
+  //
+  // Each response is a *whole-row* snapshot, though, and two mutations on one
+  // overlay can be in flight together (the favorite toggle and delete have no
+  // guard of their own), so a snapshot can carry another mutation's
+  // pre-change fields — a favorite response still holding the control_url the
+  // regenerate beside it just revoked. Writing whole rows would put that
+  // revoked link back under the Copy button until the next refresh lands, or
+  // for good if that refresh fails. So a mutation writes only the fields it
+  // owns, and the refetch behind it reconciles the rest.
+  const patchOverlay = useCallback((oid: string, patch: Partial<api.OverlayPayload>) => {
+    setOverlays((rows) => rows.map((r) => (r.oid === oid ? { ...r, ...patch } : r)));
+  }, []);
+
+  // Creation is the one whole-row write: the row cannot conflict with a
+  // mutation of an overlay that did not exist a moment ago.
   const applyOverlay = useCallback((row: api.OverlayPayload) => {
     setOverlays((rows) =>
       rows.some((r) => r.oid === row.oid)
@@ -89,5 +106,14 @@ export function useOverlays(): UseOverlaysResult {
     void reload();
   }, [reload]);
 
-  return { overlays, loading, refreshing, error, reload, applyOverlay, removeOverlay };
+  return {
+    overlays,
+    loading,
+    refreshing,
+    error,
+    reload,
+    applyOverlay,
+    patchOverlay,
+    removeOverlay,
+  };
 }
