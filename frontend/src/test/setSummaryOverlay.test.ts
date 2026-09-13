@@ -366,6 +366,48 @@ describe('set_summary.js overlay renderer', () => {
     });
   });
 
+  describe('bumper point-type breakdown', () => {
+    const TAGGED = {
+      1: {
+        1: { ace: 2, kill: 15, block: 5, opp_error: 1 },
+        2: { ace: 3, kill: 14, block: 4, opp_error: 4 },
+      },
+    };
+
+    it('never renders the two-row block, even on a fully tagged set', () => {
+      // The bumper core is a free-floating card centred in a fixed
+      // stage row, with the full-width chip ledger below it. The
+      // breakdown's two rows grew the card from 371px to 534px — past
+      // the ~420px row a 1280x720 browser source gives it — so the top
+      // of the card was clipped and the away team's ledger row
+      // disappeared behind the strip. See renderBumper.
+      const stage = renderState({
+        match_info: { set_summary_style: 'bumper', summary_set_num: 1 },
+        overlay_control: { stats: { point_types_by_set: TAGGED } },
+      });
+      expect(stage.querySelector('.ss-pt-breakdown')).toBeNull();
+      expect(stage.querySelector('.ss-pt-chips')).toBeNull();
+      // The core keeps exactly its two rows, and both ledger rows
+      // (home + away) still render below it.
+      const core = stage.querySelector('.ss-bumper-core')!;
+      expect(core.children).toHaveLength(2);
+      expect(stage.querySelectorAll('.ss-bumper-row')).toHaveLength(2);
+    });
+
+    it('still renders the block in the variants that have room for it', () => {
+      // Guards the fix against an over-broad revert: dropping the
+      // block is bumper-only, the tile/centre variants keep it.
+      for (const style of ['bento', 'glass']) {
+        renderState({
+          match_info: { set_summary_style: style, summary_set_num: 1 },
+          overlay_control: { stats: { point_types_by_set: TAGGED } },
+        });
+        const panel = document.getElementById('set-summary-panel')!;
+        expect(panel.querySelector('.ss-pt-breakdown')).not.toBeNull();
+      }
+    });
+  });
+
   describe('ledger_diff scoresheet variant', () => {
     const TAGGED = {
       1: {

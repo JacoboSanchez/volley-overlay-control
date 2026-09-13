@@ -1866,7 +1866,9 @@
   // ─────────────────────────────────────────────────────────────────
   function renderBumper(stage, vm) {
     // Core card (centred). Top ribbon + hero scores; no stats strip
-    // here — the histogram-style ledger below replaces it.
+    // and no point-type breakdown here — the histogram-style ledger
+    // below replaces them, and the card has to stay inside its stage
+    // row (see the note above ``core``).
     const ribbon = el("div", {
       class: "ss-ribbon",
       children: [
@@ -1961,12 +1963,17 @@
       ],
     });
 
-    const coreChildren = [ribbon, hero];
-    const bumperBreakdown = buildPtBreakdown(vm);
-    if (bumperBreakdown) coreChildren.push(bumperBreakdown);
+    // Ribbon + hero only. The point-type breakdown deliberately has no
+    // home here: unlike the other variants the core is a free-floating
+    // card centred in a fixed stage row (the full-width ledger below
+    // owns the rest), so the block's two extra rows pushed the card
+    // from 371px to 534px — past the ~420px row an HD 1280x720 browser
+    // source gives it. A card that tall is clipped at the top and
+    // covers the away team's chip row in the ledger. The tagged counts
+    // stay available in every other recap style.
     const core = el("div", {
       class: "ss-bumper-core",
-      children: coreChildren,
+      children: [ribbon, hero],
     });
 
     // Bottom ledger — full stage width so 25+ chips fit per team

@@ -57,6 +57,35 @@ archive by hand.
   earlier refresh nor a concurrent action's whole-row response can revert what
   you just did — a favorite toggle can no longer put a revoked control link
   back under the Copy button.
+- **Set-summary recap: the `glass` score tile no longer clips "timeouts used"
+  and "total points".** The flex rules that protect those two rows — the stats
+  block holding its height while the taller hero-score block absorbs the
+  shortfall — were scoped to `.ss-has-breakdown`, so they only applied when the
+  set carried scouting tags. The clipping happened in the other case: with no
+  tags the tile keeps its roomier type, "services won" wraps onto a second
+  line, and the two bottom stat rows were pushed off the tile from 1366x768
+  down. The protection is now unconditional, the tag-only rules keep just the
+  extra tightening they were always about, and the services value is held to
+  one line so the block's height no longer depends on how long that string is.
+  Both stat rows stay whole at every canvas size, tagged or not.
+- **Set-summary recap: the `bumper` card no longer collides with the
+  point-by-point strip when the set carries scouting tags.** The variant's
+  centre card is a free-floating panel centred in a fixed stage row, with the
+  full-width chip ledger below it — and it also rendered the two-row
+  point-type breakdown, which grew it from 371px to 534px. On a 1280x720
+  browser source that row is only ~420px, so the card was clipped along its
+  top edge and its bottom 35px sat over the ledger, hiding the away team's
+  whole chip row and final score. The card now carries only its ribbon and
+  hero rows, so it fits its row at every canvas size instead of just at 1080p,
+  where the taller row had been hiding the bug. The tagged counts are
+  unchanged in the `bento`, `glass`, `brand_ledger`, `brand_columns` and
+  `ledger_diff` recaps, which lay them out inside a sized panel. The card also
+  outgrew its row on canvases of 1024x576 and below whether or not the set was
+  tagged, because it was sized purely off the stage's width while the stage
+  itself is free-form — a short canvas lost height far faster. Its type and
+  padding are now bounded by the stage height as well, every bound a no-op at
+  1280x720 and above, and the centre stats panel uses `minmax(0, 1fr)` rows so
+  a single wrapped value can no longer make all four rows taller at once.
 - **Set-summary recap: the timeout counters now belong to the set being
   recapped.** The `bento`, `glass`, `ledger_diff` and `bumper` variants read
   the live `timeouts_taken` counter, which the backend restarts when the match

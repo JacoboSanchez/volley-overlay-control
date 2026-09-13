@@ -1322,30 +1322,21 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 }
 /* When the full-width point-type band is present it claims part of the
    stage's fixed height, leaving the score tile a shorter row. Tighten
-   the tile's padding, gap and hero score so all four stat rows
-   (timeouts / total points included) stay inside the tile instead of
-   being clipped. The roomy defaults above are kept for the common
-   no-band case. */
+   the tile's padding, gap and hero score on top of the shared flex
+   protection so all four stat rows (timeouts / total points included)
+   keep their room. The roomier type above stays for the no-band
+   case. */
 .ss-stage[data-style="glass"].ss-has-breakdown .ss-score-tile {
   padding-top: clamp(7px, 2.1cqw, 18px);
   padding-bottom: clamp(7px, 2.1cqw, 18px);
   gap: clamp(4px, 1.2cqw, 10px);
 }
-/* Protect the stats block: it keeps its natural height (so timeouts /
-   total points are always readable) while the taller hero-score block
-   absorbs the shortfall — and, only on the most cramped stages, trims
-   a hair off its digits rather than pushing the stats off the tile. */
+/* On top of the shared protection above, the band case also tightens
+   the gaps — it has the least room of the two. */
 .ss-stage[data-style="glass"].ss-has-breakdown .ss-score-tile .ss-teams {
-  /* Grow into the tile's spare height (instead of ``space-between``
-     parking it between the rows and the stats) so the hero scores get
-     every available pixel before they ever clip. */
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
   gap: clamp(3px, 0.9cqw, 9px);
 }
 .ss-stage[data-style="glass"].ss-has-breakdown .ss-score-tile .ss-stats-block {
-  flex: 0 0 auto;
   gap: clamp(2px, 0.9cqw, 8px) var(--ss-sz-md);
 }
 .ss-stage[data-style="glass"].ss-has-breakdown
@@ -1379,21 +1370,31 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   display: flex;
   flex-direction: column;
   gap: clamp(6px, 1.8cqw, 14px);
+  /* Absorb the tile's shortfall here rather than in the stats block
+     below: the hero scores have slack to give, the four stat rows do
+     not. Unconditional on purpose — the tile is a fixed-height row in
+     a fixed-height stage, so it can run short whether or not the
+     point-type band is present. It is in fact worse *without* the
+     band, because "services won" then keeps its roomy type and wraps
+     onto a second line. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 .ss-stage[data-style="glass"] .ss-team-row {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 18px;
-  padding: clamp(5px, 1.5cqw, 12px) 0;
+  padding: min(clamp(5px, 1.5cqw, 12px), 2.5cqh) 0;
   border-bottom: 1px solid var(--ss-white-12);
 }
 .ss-stage[data-style="glass"] .ss-team-row:last-child {
   border-bottom: none;
 }
 .ss-stage[data-style="glass"] .ss-team-row .ss-logo {
-  width: clamp(20px, 4.8cqw, 56px);
-  height: clamp(20px, 4.8cqw, 56px);
+  width: min(clamp(20px, 4.8cqw, 56px), 8.6cqh);
+  height: min(clamp(20px, 4.8cqw, 56px), 8.6cqh);
   border-radius: 14px;
   display: grid;
   place-items: center;
@@ -1438,6 +1439,12 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   font:
     900 clamp(30px, 9cqw, 100px)/0.85 -apple-system,
     sans-serif;
+  /* The hero score is the tallest thing in the row, so it decides how
+     much height the two rows ask for. Bounding it by the stage height
+     — not just its width — is what lets both rows stay whole on a
+     short canvas; the band case already makes the same trade with its
+     gentler 4.2cqw slope. No-op at 1080p and above. */
+  font-size: min(clamp(30px, 9cqw, 100px), 13.6cqh);
   letter-spacing: -0.05em;
   text-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
 }
@@ -1505,6 +1512,9 @@ body.set-summary-mode .set-summary-panel .ss-extras {
    in one place. Uniform white values with no <small> suffix so all
    four rows render at the exact same font size. */
 .ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block {
+  /* Never the element that gives: timeouts / total points are the two
+     rows that used to be sliced off the bottom of the tile. */
+  flex: 0 0 auto;
   margin-top: var(--ss-sz-xs);
   padding-top: var(--ss-sz-xs);
   border-top: 1px solid var(--ss-white-12);
@@ -1517,6 +1527,10 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   flex-direction: column;
   gap: 4px;
   padding: 4px 0;
+  /* Grid items default to a min-width of auto, which would let the
+     nowrap value below widen the column and blow the tile out
+     sideways instead of wrapping. */
+  min-width: 0;
 }
 .ss-stage[data-style="glass"]
   .ss-score-tile
@@ -1540,6 +1554,16 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     sans-serif;
   letter-spacing: -0.02em;
   color: #fff;
+  /* "services won" reads "11 / 23 · 12 / 25" — by far the longest
+     value here. Left to wrap it added a line to the stats block, which
+     is what used to push timeouts / total points off the bottom of the
+     tile. Keeping it on one line means the block's height no longer
+     depends on how long the services string happens to be. The cqh
+     bound is what makes that affordable: it only bites once the stage
+     is short enough that the roomy 3cqw type would not fit the cell,
+     which is the same point at which the wrap used to start. */
+  white-space: nowrap;
+  font-size: min(clamp(11px, 3cqw, 30px), 4.3cqh);
 }
 .ss-stage[data-style="glass"]
   .ss-score-tile
@@ -1614,23 +1638,19 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     0 24px 60px rgba(0, 0, 0, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.16);
   display: grid;
-  /* ribbon · hero · optional point-type breakdown. The hero (1fr)
-     yields room to the breakdown's auto row instead of the block
-     overflowing the core into the bottom ledger. */
-  grid-template-rows: auto 1fr auto;
+  /* ribbon · hero. The card is centred in the stage's 1fr row and is
+     free to grow, so anything past those two rows overflows the row
+     and lands on top of the bottom ledger — which is why the
+     point-type breakdown is not rendered here (see renderBumper). */
+  grid-template-rows: auto 1fr;
   overflow: hidden;
-}
-.ss-stage[data-style="bumper"] .ss-bumper-core > .ss-pt-breakdown {
-  margin: 0;
-  padding: var(--ss-sz-sm) clamp(11px, 3.9cqw, 36px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .ss-stage[data-style="bumper"] .ss-bumper-core .ss-ribbon {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: clamp(6px, 2.1cqw, 20px) clamp(10px, 3.9cqw, 36px);
+  padding: min(clamp(6px, 2.1cqw, 20px), 3.4cqh) clamp(10px, 3.9cqw, 36px);
   background: rgba(0, 0, 0, 0.28);
   border-bottom: 1px solid var(--ss-white-08);
 }
@@ -1654,6 +1674,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   font:
     900 clamp(16px, 5.1cqw, 50px)/1 "Helvetica Neue",
     sans-serif;
+  font-size: min(clamp(16px, 5.1cqw, 50px), 8.5cqh);
   letter-spacing: -0.02em;
   color: #ffd64a;
   text-shadow: 0 0 14px rgba(255, 214, 74, 0.45);
@@ -1670,6 +1691,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     800 clamp(10px, 3cqw, 30px)/1 "Menlo",
     "Consolas",
     monospace;
+  font-size: min(clamp(10px, 3cqw, 30px), 5.1cqh);
   color: #ffd64a;
   letter-spacing: 0.04em;
   display: inline-flex;
@@ -1690,7 +1712,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
      the visual real estate is actually used. */
   grid-template-columns: 1fr minmax(180px, 0.85fr) 1fr;
   align-items: center;
-  padding: clamp(8px, 3cqw, 28px) clamp(11px, 4.2cqw, 44px);
+  padding: min(clamp(8px, 3cqw, 28px), 4.8cqh) clamp(11px, 4.2cqw, 44px);
   gap: clamp(7px, 3cqw, 36px);
   min-height: 0;
 }
@@ -1736,6 +1758,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   font:
     800 clamp(10px, 3cqw, 30px)/1.05 "Helvetica Neue",
     sans-serif;
+  font-size: min(clamp(10px, 3cqw, 30px), 5.1cqh);
   letter-spacing: -0.005em;
   color: #fff;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
@@ -1748,6 +1771,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   font:
     900 clamp(40px, 11cqw, 132px)/0.9 "Helvetica Neue",
     sans-serif;
+  font-size: min(clamp(40px, 11cqw, 132px), 22.4cqh);
   letter-spacing: -0.04em;
   background: linear-gradient(
     180deg,
@@ -1787,8 +1811,12 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 .ss-stage[data-style="bumper"] .ss-hero-stats {
   align-self: stretch;
   display: grid;
-  grid-template-rows: repeat(4, 1fr);
-  padding: var(--ss-sz-md) clamp(6px, 2.1cqw, 20px);
+  /* ``minmax(0, 1fr)``, not ``1fr``: equal rows take their auto floor
+     from the *tallest* row, so a single wrapped value used to make the
+     whole panel four lines taller and push the card over the stage
+     row it sits in. */
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  padding: min(var(--ss-sz-md), 3.1cqh) clamp(6px, 2.1cqw, 20px);
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid var(--ss-white-08);
   border-radius: 12px;
@@ -1800,8 +1828,11 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: 4px 0;
+  /* Scaled, not fixed: at 4px+2px per row these four rows contributed a
+     flat 40px at every canvas size, which is a fifth of the panel once
+     the stage is small. */
+  gap: min(0.2cqw, 0.35cqh);
+  padding: min(0.35cqw, 0.7cqh) 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row:last-child {
@@ -1811,6 +1842,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   font:
     700 clamp(4px, 1.125cqw, 11px)/1 "Helvetica Neue",
     sans-serif;
+  font-size: min(clamp(4px, 1.125cqw, 11px), 1.9cqh);
   color: var(--ss-text-dim);
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -1821,6 +1853,10 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     sans-serif;
   letter-spacing: -0.02em;
   color: #fff;
+  /* One line, always: the services cell reads "11 / 23 · 12 / 25" and
+     wrapping it was what tipped the panel over. */
+  white-space: nowrap;
+  font-size: min(clamp(9px, 2.55cqw, 24px), 4.1cqh);
 }
 .ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row .ss-value .home {
   color: color-mix(in srgb, var(--ss-home) 40%, #fff);
