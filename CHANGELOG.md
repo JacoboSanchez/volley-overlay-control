@@ -124,6 +124,28 @@ archive by hand.
   the audit log, so those markers cannot show a timeout past the two-per-set
   rule; table tennis already rejected its second attempt this way.
 
+### Dependencies
+
+- **Backend (runtime):** `alembic` `1.19.1` → `1.19.2` — a `uv.lock` refresh
+  only, since `pyproject.toml` already floats at `>=1.19.1`. Migrations run on
+  every startup behind the cross-process lock, so this is a boot-path bump
+  rather than a tooling one.
+  [#532](https://github.com/JacoboSanchez/volley-overlay-control/pull/532)
+- **Frontend (runtime):** `react-colorful` `5.8.0` → `5.8.1`. The colour
+  picker behind the swatches in the customization panel, the team editor and
+  the team cards; a patch release with no API change.
+  [#529](https://github.com/JacoboSanchez/volley-overlay-control/pull/529)
+- **Frontend (dev-only):** `stylelint` `17.14.1` → `17.15.0` and `globals`
+  `17.9.0` → `17.12.0` — the overlay CSS gate, and the global sets the ESLint
+  flat config builds each environment from. Neither reports a new finding on
+  the merged tree.
+  [#530](https://github.com/JacoboSanchez/volley-overlay-control/pull/530),
+  [#531](https://github.com/JacoboSanchez/volley-overlay-control/pull/531)
+- **Frontend (transitive):** the `js-yaml` `overrides` pin moves `4.3.1` →
+  `4.3.2`. Nothing in the app imports it; the entry exists only to hold the
+  version that dev tooling pulls in.
+  [#533](https://github.com/JacoboSanchez/volley-overlay-control/pull/533)
+
 ## [7.1.4] - 2026-09-07
 
 ### Dependencies
