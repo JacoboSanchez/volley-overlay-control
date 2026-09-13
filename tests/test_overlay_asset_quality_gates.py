@@ -1,6 +1,7 @@
 """Keep the on-air overlay assets inside the JavaScript/CSS quality gates."""
 
 import json
+import re
 from pathlib import Path
 
 import yaml
@@ -59,3 +60,20 @@ def test_long_team_names_keep_an_older_obs_wrapping_fallback() -> None:
         "overlay_static/css/vertical.css",
     ):
         assert fallback in _read(stylesheet), stylesheet
+
+
+def test_neon_compact_mode_collapses_the_whole_header() -> None:
+    """Simple mode must hide `neon`'s header, chips and set label alike.
+
+    The header carries a ``min-height``, which would win over the
+    ``max-height: 0`` collapse and leave an 18px stub across the top of
+    the card — so both have to be zeroed together.
+    """
+    css = _read("overlay_static/css/neon.css")
+
+    match = re.search(r"\.compact-mode \.head \{([^}]*)\}", css)
+    assert match, "neon.css no longer collapses .head in compact mode"
+    block = match.group(1)
+
+    for declaration in ("max-height: 0", "min-height: 0"):
+        assert declaration in block, declaration

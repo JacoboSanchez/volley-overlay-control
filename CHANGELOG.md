@@ -14,6 +14,18 @@ archive by hand.
 
 ## [Unreleased]
 
+### Changed
+
+- **`neon` simple mode now hides the whole header, not just the set-history
+  chips.** The operator's "show only current set" toggle left the card's top
+  strip in place with nothing in it but the localized `SET n` label — a row of
+  empty space above the two team rows. It now collapses the header entirely,
+  so the card is just the two rows (logo, name, serve lamp, timeout dots, sets
+  won, points) and gives back ~37px of screen. The collapse animates shut
+  rather than popping, so flipping the toggle mid-match is not a jump cut on
+  air, and both the dark and light card surfaces are covered. Screenshots
+  regenerated (`07-overlay-mosaic-simple.png`).
+
 ### Fixed
 
 - **Regenerating an overlay's control link — or switching its permanent

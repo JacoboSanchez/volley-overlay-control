@@ -86,6 +86,18 @@ body {
   color: rgba(238, 241, 255, 0.55);
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   min-height: 18px;
+  /* Collapse machinery for compact mode (see the block at the end of
+       this file). ``max-height`` is the animatable stand-in for the
+       row's natural height: generous enough that the label and chips
+       are never clipped here, small enough that the close animation
+       starts moving immediately. */
+  max-height: 60px;
+  overflow: hidden;
+  transition:
+    max-height 0.4s ease,
+    padding 0.4s ease,
+    border-bottom-width 0.4s ease,
+    opacity 0.3s ease;
 }
 .head-history {
   display: flex;
@@ -352,8 +364,18 @@ body.overlay-theme-light .team-away .points {
   text-shadow: none;
 }
 
-/* Compact mode (operator's "only current set" toggle): drop the
-   header history chips. */
-.compact-mode .head-history {
-  display: none;
+/* ── Compact mode (operator's "only current set" toggle) ──
+   Drop the whole header — localized set label and per-set history
+   chips alike — so the card collapses to the two team rows. The
+   header is the card's top edge, so it animates shut (height,
+   padding and the divider all to zero) instead of popping on air;
+   ``min-height`` has to go too, since it would otherwise win over
+   ``max-height: 0``. */
+.compact-mode .head {
+  max-height: 0;
+  min-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-bottom-width: 0;
+  opacity: 0;
 }
