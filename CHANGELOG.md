@@ -16,6 +16,17 @@ archive by hand.
 
 ### Changed
 
+- **The set-summary “Ledger” style is now “Rallies”.** The recap is a compact
+  lower third without a top banner: team names and logos, small previous-set
+  scores beside the current score, a team-coloured rally ribbon, match standing
+  and set/match clocks. Existing selections keep working. Long rally histories
+  wrap, missing events are not fabricated, and similar team colours gain an
+  away-team pattern. Live sets are no longer labelled final merely because
+  their scores appear in the payload's set-history slots.
+- **README screenshots were refreshed** to show the new Rallies recap.
+  The point-type picker capture now uses the signed-in account’s settings
+  namespace, restoring that screenshot after browser preferences were scoped
+  per account.
 - **`neon` simple mode now hides the whole header, not just the set-history
   chips.** The operator's "show only current set" toggle left the card's top
   strip in place with nothing in it but the localized `SET n` label — a row of
@@ -27,6 +38,12 @@ archive by hand.
   regenerated (`07-overlay-mosaic-simple.png`).
 
 ### Fixed
+
+- **Rallies recap keeps the complete set sequence through long deuce sets.**
+  While Rallies is on air, the overlay payload preserves the displayed set's
+  complete rally bucket while keeping every other set—and ordinary
+  broadcasts—at the protective 60-event cap, so a 32–30 set still shows and
+  highlights the winning rally without growing unrelated WebSocket payloads.
 
 - **Regenerating an overlay's control link — or switching its permanent
   bookmark off — no longer throws the operator back to the plain overlay
@@ -49,6 +66,35 @@ archive by hand.
   earlier refresh nor a concurrent action's whole-row response can revert what
   you just did — a favorite toggle can no longer put a revoked control link
   back under the Copy button.
+- **Set-summary recap: the `glass` score tile no longer clips "timeouts used"
+  and "total points".** The flex rules that protect those two rows — the stats
+  block holding its height while the taller hero-score block absorbs the
+  shortfall — were scoped to `.ss-has-breakdown`, so they only applied when the
+  set carried scouting tags. The clipping happened in the other case: with no
+  tags the tile keeps its roomier type, "services won" wraps onto a second
+  line, and the two bottom stat rows were pushed off the tile from 1366x768
+  down. The protection is now unconditional, the tag-only rules keep just the
+  extra tightening they were always about, and the services value is held to
+  one line so the block's height no longer depends on how long that string is.
+  Both stat rows stay whole at every canvas size, tagged or not.
+- **Set-summary recap: the `bumper` card no longer collides with the
+  point-by-point strip when the set carries scouting tags.** The variant's
+  centre card is a free-floating panel centred in a fixed stage row, with the
+  full-width chip ledger below it — and it also rendered the two-row
+  point-type breakdown, which grew it from 371px to 534px. On a 1280x720
+  browser source that row is only ~420px, so the card was clipped along its
+  top edge and its bottom 35px sat over the ledger, hiding the away team's
+  whole chip row and final score. The card now carries only its ribbon and
+  hero rows, so it fits its row at every canvas size instead of just at 1080p,
+  where the taller row had been hiding the bug. The tagged counts are
+  unchanged in the `bento`, `glass`, `brand_ledger`, `brand_columns` and
+  `ledger_diff` recaps, which lay them out inside a sized panel. The card also
+  outgrew its row on canvases of 1024x576 and below whether or not the set was
+  tagged, because it was sized purely off the stage's width while the stage
+  itself is free-form — a short canvas lost height far faster. Its type and
+  padding are now bounded by the stage height as well, every bound a no-op at
+  1280x720 and above, and the centre stats panel uses `minmax(0, 1fr)` rows so
+  a single wrapped value can no longer make all four rows taller at once.
 - **Set-summary recap: the timeout counters now belong to the set being
   recapped.** The `bento`, `glass`, `ledger_diff` and `bumper` variants read
   the live `timeouts_taken` counter, which the backend restarts when the match

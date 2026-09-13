@@ -478,9 +478,12 @@ async function captureScoreboardPhone(page) {
 
 async function capturePointTypePicker(page) {
   await gotoBoard(page, DEMO_OID, 'domcontentloaded');
-  await page.evaluate(() => {
-    try { localStorage.setItem('volley_trackPointTypes', JSON.stringify(true)); } catch (_) { /* ignore */ }
-  });
+  // Settings belong to the signed-in account, not the old guest namespace.
+  const user = await (await apiFetch('/api/v1/auth/me')).json();
+  const key = `volley:user:${user.storage_namespace}:trackPointTypes`;
+  await page.evaluate((storageKey) => {
+    localStorage.setItem(storageKey, JSON.stringify(true));
+  }, key);
   await page.reload({ waitUntil: 'networkidle' });
   await dismissPwaPrompt(page);
   await page.waitForSelector('[data-testid="team-1-score"]', { timeout: 5000 });
@@ -489,9 +492,7 @@ async function capturePointTypePicker(page) {
   await page.waitForTimeout(300);
   await page.screenshot({ path: resolve(OUT_DIR, '11-point-type-picker.png'), fullPage: false });
   await page.keyboard.press('Escape').catch(() => {});
-  await page.evaluate(() => {
-    try { localStorage.removeItem('volley_trackPointTypes'); } catch (_) { /* ignore */ }
-  });
+  await page.evaluate((storageKey) => localStorage.removeItem(storageKey), key);
 }
 
 async function captureConfigPanel(page) {
@@ -635,19 +636,42 @@ async function captureSpectator(page) {
 }
 
 async function captureSetSummary(page, filename) {
-  await oidPost('/api/v1/display/set-summary-style', DEMO_OID, { style: 'brand_columns' });
-  await oidPost('/api/v1/display/set-summary', DEMO_OID, { enabled: true });
+  // Use its own finished set so preceding UI interactions cannot turn this
+  // into a live recap with only one recorded rally after direct score edits.
+  const oid = 'set-recap';
+  await createOverlay(oid);
+  await initSession(oid);
+  await putCustomization(oid, { ...CUSTOMIZATION, preferredStyle: 'glass' });
+  await oidPost('/api/v1/game/start-match', oid, null);
+  for (const [set, home, away] of [[1, 25, 20], [2, 22, 25]]) {
+    const winner = home > away ? 1 : 2;
+    const loser = winner === 1 ? 2 : 1;
+    await oidPost('/api/v1/game/set-score', oid, { team: loser, set_number: set, value: loser === 1 ? home : away });
+    await oidPost('/api/v1/game/set-score', oid, { team: winner, set_number: set, value: winner === 1 ? home : away });
+  }
+  const rallies = [
+    2, 1, 2, 2, 2, 2, 1, 2, 1, 1, 1, 2, 1, 1, 1, 1,
+    2, 1, 2, 1, 1, 2, 2, 2, 1, 2, 2, 1, 1, 1, 1, 1,
+    2, 2, 2, 2, 2, 1, 2, 1, 1, 1, 1, 2, 1, 1,
+  ];
+  for (const team of rallies) await oidPost('/api/v1/game/add-point', oid, { team });
+  await oidPost('/api/v1/display/set-summary-style', oid, { style: 'brand_ledger' });
+  await oidPost('/api/v1/display/set-summary', oid, { enabled: true });
 
   await page.setViewportSize(OVERLAY_HD_VIEWPORT);
-  await page.goto(`${BASE}/overlay/${encodeURIComponent(PUBLIC_TOKEN[DEMO_OID])}?lang=en`, { waitUntil: 'networkidle' });
+  await page.goto(`${BASE}/overlay/${encodeURIComponent(PUBLIC_TOKEN[oid])}?lang=en`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => {
     const panel = document.getElementById('set-summary-panel');
-    return panel && parseFloat(getComputedStyle(panel).opacity) >= 0.99;
-  }, null, { timeout: 5000 }).catch(() => {});
+    return panel && parseFloat(getComputedStyle(panel).opacity) >= 0.99
+      && panel.querySelectorAll('.ss-rally').length === 46
+      && panel.querySelector('.ss-strip-status')?.textContent === 'Set 3Final'
+      && panel.querySelector('.ss-strip-home .ss-team-score')?.textContent === '25'
+      && panel.querySelector('.ss-strip-away .ss-team-score')?.textContent === '21';
+  }, null, { timeout: 5000 });
   await page.waitForTimeout(800);
   await page.screenshot({ path: resolve(OUT_DIR, filename) });
 
-  await oidPost('/api/v1/display/set-summary', DEMO_OID, { enabled: false });
+  await oidPost('/api/v1/display/set-summary', oid, { enabled: false });
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
