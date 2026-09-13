@@ -34,7 +34,9 @@ archive by hand.
   so the card is just the two rows (logo, name, serve lamp, timeout dots, sets
   won, points) and gives back ~37px of screen. The header animates shut and
   back open rather than popping either way, so flipping the toggle mid-match
-  is not a jump cut on air, and both the dark and light card surfaces are
+  is not a jump cut on air, while a browser source that *opens* with the
+  toggle already on renders the collapsed card outright instead of animating
+  it over the scoreboard's fade-in. Both the dark and light card surfaces are
   covered. Screenshots regenerated (`07-overlay-mosaic-simple.png`).
 
 ### Fixed

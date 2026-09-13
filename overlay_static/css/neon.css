@@ -383,3 +383,11 @@ body.overlay-theme-light .team-away .points {
   border-bottom-width: 0;
   opacity: 0;
 }
+
+/* First state payload after a page load: app.js applies compact mode behind
+   `.priming` so a browser source that opens with the toggle already on shows
+   the collapsed card outright, instead of animating the header shut over the
+   scoreboard's fade-in. */
+.priming .head {
+  transition: none;
+}

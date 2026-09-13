@@ -84,3 +84,22 @@ def test_neon_compact_mode_collapses_the_whole_header() -> None:
     assert transition, "the .head rule no longer animates its collapse"
     for prop in ("max-height", "min-height"):
         assert prop in transition.group(1), prop
+
+
+def test_neon_skips_the_header_animation_on_the_first_payload() -> None:
+    """A browser source opening in simple mode must not animate the collapse.
+
+    ``app.js`` applies the first state behind ``.priming`` precisely so a
+    transitioning style can sit that one out; without neon's opt-out the
+    header animates shut over the card's fade-in, flashing the `SET n`
+    label compact mode is there to remove.
+    """
+    css = _read("overlay_static/css/neon.css")
+    js = _read("overlay_static/js/app.js")
+
+    assert re.search(r"\.priming \.head \{[^}]*transition:\s*none", css), (
+        "neon.css no longer opts out of the header transition while priming"
+    )
+    assert 'classList.add("priming")' in js, (
+        "app.js no longer marks the first compact-mode application"
+    )

@@ -763,6 +763,30 @@ function applyScoreboardVisibility(container, show) {
   }
 }
 
+// Apply compact mode ("show only current set") to the scoreboard card.
+//
+// The page renders with the card in its full state and the first payload
+// only arrives over the websocket, so a browser source that loads while
+// compact mode is already on applies it a beat later — and a style that
+// transitions the collapse (neon's header) would animate it shut while the
+// card is still fading in, flashing the very chrome compact mode removes.
+// The first application therefore runs behind `.priming`, which such a
+// style uses to switch its transition off; the forced reflow commits the
+// collapsed layout while it is still off, so dropping the guard changes no
+// value and starts no transition. Later operator toggles animate normally.
+function applyCompactMode(container, on) {
+  const priming = container.dataset.compactPrimed === undefined;
+  if (priming) {
+    container.dataset.compactPrimed = "1";
+    container.classList.add("priming");
+  }
+  container.classList.toggle("compact-mode", !!on);
+  if (priming) {
+    void container.offsetHeight;
+    container.classList.remove("priming");
+  }
+}
+
 // Set (or hide) a team logo image from a possibly-unsafe URL. Shared by the
 // full render and the diff path so the sanitize + show/hide rule lives once.
 function applyTeamLogo(elId, logoUrl) {
@@ -791,10 +815,7 @@ function renderFullState(state, rawState) {
       state.overlay_control.show_main_scoreboard,
     );
     // Compact mode toggle (used by compact overlay to hide name/history)
-    container.classList.toggle(
-      "compact-mode",
-      !!state.match_info.show_only_current_set,
-    );
+    applyCompactMode(container, state.match_info.show_only_current_set);
   });
 
   // Set summary recap panel (replaces the scoreboard between sets).
@@ -1078,10 +1099,7 @@ function updateStateDiff(oldState, newState, oldRawState, newRawState) {
     newState.match_info.show_only_current_set
   ) {
     withEl("scoreboard-container", (container) => {
-      container.classList.toggle(
-        "compact-mode",
-        !!newState.match_info.show_only_current_set,
-      );
+      applyCompactMode(container, newState.match_info.show_only_current_set);
     });
     // Re-fit beach names only when they reappear leaving compact mode;
     // entering it hides the names and CSS pins the bar width, so a
