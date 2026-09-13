@@ -13,7 +13,7 @@ export interface SetSummaryStylePickerProps {
 
 /**
  * Picker for the set-summary overlay style. Mirrors the existing
- * preset-style flow: the operator chooses one of the seven candidate
+ * preset-style flow: the operator chooses one of the six
  * variants and the backend broadcasts the change to OBS without
  * reloading.
  */

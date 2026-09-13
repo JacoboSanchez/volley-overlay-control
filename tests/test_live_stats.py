@@ -143,6 +143,23 @@ class TestPointsBySet:
         stats = compute_live_stats(oid)
         assert len(stats["points_by_set"][1]) == 60
 
+    def test_overlay_sequence_can_preserve_deuce_events_past_public_cap(self):
+        oid = "per-set-uncapped"
+        home = away = 0
+        sequence = [1 if i % 2 else 2 for i in range(1, 61)] + [1, 1]
+        for team in sequence:
+            if team == 1:
+                home += 1
+            else:
+                away += 1
+            _add_point(oid, team, (home, away), set_num=1)
+        for i in range(1, 66):
+            _add_point(oid, 2, (0, i), set_num=2)
+        stats = compute_live_stats(oid, points_by_set_uncapped_set=1)
+        assert len(stats["points_by_set"][1]) == 62
+        assert stats["points_by_set"][1][-1]["score"] == [32, 30]
+        assert len(stats["points_by_set"][2]) == 60
+
 
 def _add_timeout(oid: str, team: int, set_num: int = 1):
     action_log.append(

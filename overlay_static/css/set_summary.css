@@ -8,9 +8,8 @@
    from match_info.set_summary_style.
 
    The wrapper is a transparent fixed overlay; the stage inside is a
-   16:9 panel that occupies roughly two thirds of the viewport
-   height (with equal margins above/below) and is horizontally
-   centred. Each variant's visual rules are scoped to
+   centred 16:9 panel for most styles; brand_ledger instead uses a
+   bottom-aligned horizontal strip with space for the court above. Each variant's visual rules are scoped to
    ``.ss-stage[data-style="X"]`` so the markup the JS emits is
    plain HTML and the styling is fully CSS-driven.
    ───────────────────────────────────────────────────────────────── */
@@ -232,7 +231,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 /* Empty state: shown centred over the (otherwise blank) chart area
    when the recap is opened before the first rally of the set. The
    ``--inline`` flavour flows in normal layout instead (used by the
-   chart-less brand_ledger centre column). */
+   brand_ledger rally ribbon). */
 .ss-stage .ss-empty-note {
   position: absolute;
   inset: 0;
@@ -274,7 +273,6 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 /* Timeout marker chip ("T") — identical treatment in every ledger.
    The variant-specific selectors are kept (rather than a generic
    ``.ss-timeout``) so each keeps out-ranking its base chip rule. */
-.ss-stage[data-style="brand_ledger"] .ss-point.ss-timeout,
 .ss-extras[data-style="bento"] .ss-bumper-row .ss-chip.ss-timeout,
 .ss-stage[data-style="bumper"] .ss-bumper-row .ss-chip.ss-timeout {
   background: var(--ss-timeout-bg);
@@ -283,260 +281,250 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Variant: brand_ledger
-   5 columns (home brand · home ledger strip · centre with set
-   number + duration · away ledger strip · away brand). The two
-   ledger strips sit on either side of the centre marker and span
-   the full panel height so they have plenty of vertical room for
-   each scoring chip.
+   Variant: brand_ledger (Rallies)
+   Lower third: identities + previous sets + score, rally ribbon,
+   match standing and clocks. Team colours belong to accents only;
+   opaque dark surfaces keep names readable over the broadcast.
    ───────────────────────────────────────────────────────────── */
 
 .ss-stage[data-style="brand_ledger"] {
-  grid-template-columns:
-    minmax(0, 1fr)
-    clamp(27px, 9cqw, 88px)
-    minmax(120px, 0.55fr)
-    clamp(27px, 9cqw, 88px)
-    minmax(0, 1fr);
-  background: transparent;
+  width: 88vw;
+  aspect-ratio: auto;
+  align-self: end;
+  margin-bottom: 8vh;
+  container-type: inline-size;
+  display: block;
+  border-radius: 3px;
+  background: rgba(17, 27, 43, 0.97);
+  font-variant-numeric: tabular-nums;
 }
-
-.ss-stage[data-style="brand_ledger"] .ss-team {
+.ss-stage[data-style="brand_ledger"] .home {
+  color: var(--ss-home-text);
+}
+.ss-stage[data-style="brand_ledger"] .away {
+  color: var(--ss-away-text);
+}
+.ss-stage[data-style="brand_ledger"] .ss-strip-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5cqw minmax(0, 1fr);
+  align-items: center;
+  gap: 1.5cqw;
+  padding: 2.2cqw;
   position: relative;
-  padding: clamp(10px, 4.5cqw, 48px) clamp(9px, 3.9cqw, 44px);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  overflow: hidden;
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
-.ss-stage[data-style="brand_ledger"] .ss-team-home {
-  background:
-    radial-gradient(circle at 20% 80%, var(--ss-white-08) 0%, transparent 60%),
-    linear-gradient(135deg, var(--ss-home) 0%, rgba(0, 0, 0, 0.55) 100%);
-}
-.ss-stage[data-style="brand_ledger"] .ss-team-away {
-  background:
-    radial-gradient(circle at 80% 80%, var(--ss-white-08) 0%, transparent 60%),
-    linear-gradient(225deg, var(--ss-away) 0%, rgba(0, 0, 0, 0.55) 100%);
-  text-align: right;
-}
-.ss-stage[data-style="brand_ledger"] .ss-team::after {
+.ss-stage[data-style="brand_ledger"] .ss-strip-header::after {
   content: "";
   position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0) 0%,
-    rgba(0, 0, 0, 0.25) 100%
-  );
-  pointer-events: none;
+  inset: auto 0 0;
+  height: max(2px, 0.2cqw);
+  background: linear-gradient(to right, var(--ss-home) 50%, var(--ss-away) 50%);
 }
-.ss-stage[data-style="brand_ledger"] .ss-team > * {
-  position: relative;
-  z-index: 1;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+.ss-stage[data-style="brand_ledger"] .ss-strip-team {
+  display: grid;
+  align-items: center;
+  gap: 1.5cqw;
+  min-width: 0;
 }
-.ss-stage[data-style="brand_ledger"] .ss-team-header {
+.ss-stage[data-style="brand_ledger"] .ss-strip-home {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+.ss-stage[data-style="brand_ledger"] .ss-strip-away {
+  grid-template-columns: auto auto minmax(0, 1fr);
+}
+.ss-stage[data-style="brand_ledger"] .ss-strip-identity {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 1cqw;
+  min-width: 0;
 }
-.ss-stage[data-style="brand_ledger"] .ss-team-away .ss-team-header {
+.ss-stage[data-style="brand_ledger"] .ss-strip-away .ss-strip-identity {
   flex-direction: row-reverse;
+  text-align: right;
 }
 .ss-stage[data-style="brand_ledger"] .ss-logo {
-  width: clamp(24px, 6.75cqw, 88px);
-  height: clamp(24px, 6.75cqw, 88px);
-  border-radius: 16px;
-  background: var(--ss-white-18);
-  border: 2px solid rgba(255, 255, 255, 0.45);
+  width: 5.5cqw;
+  height: 5.5cqw;
+  flex-shrink: 0;
+  border: 1px solid var(--ss-home-text);
+  border-radius: 50%;
   display: grid;
   place-items: center;
-  font-weight: 800;
-  font-size: clamp(9px, 2.85cqw, 36px);
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  font-size: 1.6cqw;
+  font-weight: 700;
+  color: var(--ss-home-text);
+  background: color-mix(in srgb, var(--ss-home) 25%, #111b2b);
   overflow: hidden;
-  flex-shrink: 0;
+}
+.ss-stage[data-style="brand_ledger"] .ss-strip-away .ss-logo {
+  color: var(--ss-away-text);
+  border-color: var(--ss-away-text);
+  background: color-mix(in srgb, var(--ss-away) 25%, #111b2b);
 }
 .ss-stage[data-style="brand_ledger"] .ss-logo img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 .ss-stage[data-style="brand_ledger"] .ss-team-name {
-  font-weight: 800;
-  font-size: clamp(10px, 3cqw, 38px);
-  line-height: 1.05;
-  letter-spacing: -0.01em;
+  font-size: 2.05cqw;
+  font-weight: 750;
+  line-height: 1.15;
+  text-transform: uppercase;
   overflow-wrap: anywhere;
 }
-.ss-stage[data-style="brand_ledger"] .ss-team-tag {
-  font-weight: 600;
-  font-size: clamp(5px, 1.125cqw, 13px);
-  color: var(--ss-text-bright);
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  margin-top: 6px;
-}
 .ss-stage[data-style="brand_ledger"] .ss-team-score {
-  font-family: "Menlo", "Consolas", monospace;
-  font-weight: 900;
-  font-size: clamp(45px, 16.5cqw, 220px);
-  line-height: 0.82;
+  color: var(--ss-home-text);
+  font-size: 7.3cqw;
+  font-weight: 800;
   letter-spacing: -0.06em;
-  text-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  margin: 4px 0;
-}
-.ss-stage[data-style="brand_ledger"] .ss-team-stat-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.ss-stage[data-style="brand_ledger"] .ss-team-away .ss-team-stat-list {
-  align-items: flex-end;
-}
-.ss-stage[data-style="brand_ledger"] .ss-team-stat .ss-label {
-  display: block;
-  font-weight: 600;
-  font-size: clamp(4px, 0.975cqw, 11px);
-  color: var(--ss-text-bright);
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-}
-.ss-stage[data-style="brand_ledger"] .ss-team-stat .ss-value {
-  display: block;
-  font-weight: 700;
-  font-size: clamp(9px, 2.25cqw, 28px);
   line-height: 1;
-  font-family: "Menlo", "Consolas", monospace;
-  letter-spacing: -0.02em;
 }
-
-.ss-stage[data-style="brand_ledger"] .ss-centre {
-  position: relative;
-  background: rgba(15, 20, 30, 0.62);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  padding: clamp(10px, 3cqw, 32px) var(--ss-sz-xs);
+.ss-stage[data-style="brand_ledger"] .ss-strip-away .ss-team-score {
+  color: var(--ss-away-text);
+}
+.ss-stage[data-style="brand_ledger"] .ss-strip-history {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  /* SET label + number anchored to the top edge; duration block
-     anchored to the bottom edge. The empty space in the middle
-     keeps the number visually dominant without crowding the
-     duration tick. */
-  justify-content: space-between;
+  gap: 0.8cqw;
+  padding: 0 1cqw;
+  border-inline: 1px solid var(--ss-white-12);
+}
+.ss-stage[data-style="brand_ledger"] .ss-strip-history:empty {
+  display: none;
+}
+.ss-stage[data-style="brand_ledger"]
+  .ss-strip-team:has(.ss-strip-history:empty) {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.ss-stage[data-style="brand_ledger"]
+  .ss-strip-away:has(.ss-strip-history:empty) {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.ss-stage[data-style="brand_ledger"] .ss-strip-previous {
+  display: grid;
+  gap: 0.65cqw;
   text-align: center;
-  min-height: 0;
+}
+.ss-stage[data-style="brand_ledger"] .ss-strip-previous small {
+  font-size: 1.1cqw;
+  color: #b7c3d4;
+}
+.ss-stage[data-style="brand_ledger"] .ss-strip-previous strong {
+  font-size: 2cqw;
+  font-weight: 600;
+}
+.ss-stage[data-style="brand_ledger"] .ss-strip-status {
+  display: grid;
+  gap: 0.6cqw;
+  text-align: center;
+  font-size: 1.1cqw;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #b7c3d4;
+  overflow-wrap: anywhere;
+}
+.ss-stage[data-style="brand_ledger"] .ss-strip-status > div {
+  font-weight: 700;
+  color: #e3e9f2;
+}
+.ss-stage[data-style="brand_ledger"] .ss-rally-ribbon {
+  padding: 1.6cqw 2.2cqw;
+  background: #1c2a3c;
+}
+.ss-stage[data-style="brand_ledger"] .ss-rally-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 2cqw;
+  margin-bottom: 1.2cqw;
+  font-size: 1.1cqw;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #b7c3d4;
+}
+.ss-stage[data-style="brand_ledger"] .ss-rally-legend {
+  display: flex;
+  justify-content: end;
+  gap: 1.8cqw;
+  min-width: 0;
+  max-width: 55%;
+}
+.ss-stage[data-style="brand_ledger"] .ss-rally-legend span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   min-width: 0;
 }
-.ss-stage[data-style="brand_ledger"] .ss-set-group,
-.ss-stage[data-style="brand_ledger"] .ss-duration-group {
+.ss-stage[data-style="brand_ledger"] .ss-rally-legend span::before {
+  content: "";
+  display: inline-block;
+  width: 0.65cqw;
+  height: 0.65cqw;
+  margin-right: 0.6cqw;
+  background: var(--ss-home);
+}
+.ss-stage[data-style="brand_ledger"] .ss-rally-legend .away::before {
+  background: var(--ss-away);
+}
+.ss-stage[data-style="brand_ledger"] .ss-rally-track {
+  display: grid;
+  gap: 0.3cqw;
+  padding: 0.2cqw;
+}
+.ss-stage[data-style="brand_ledger"] .ss-rally {
+  height: 1.8cqw;
+  border-radius: 1px;
+  background: var(--ss-home);
+  box-shadow: inset 0 0 0 1px var(--ss-white-12);
+}
+.ss-stage[data-style="brand_ledger"] .ss-rally.away {
+  background: var(--ss-away);
+}
+/* The away pattern distinguishes teams even if both use the same colour. */
+.ss-stage[data-style="brand_ledger"] .ss-rally-pattern .ss-rally.away,
+.ss-stage[data-style="brand_ledger"]
+  .ss-rally-pattern
+  .ss-rally-legend
+  .away::before {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 3px,
+    rgba(255, 255, 255, 0.55) 3px 4px
+  );
+}
+.ss-stage[data-style="brand_ledger"] .ss-rally.ss-last {
+  outline: 1px solid #fff;
+  outline-offset: 1px;
+}
+.ss-stage[data-style="brand_ledger"] .ss-rally-hint {
+  margin-top: 1.1cqw;
+  text-align: center;
+  font-size: 1.1cqw;
+  color: #b7c3d4;
+}
+.ss-stage[data-style="brand_ledger"] .ss-empty-note {
+  font-size: 1.3cqw;
+  padding: 1cqw;
+  color: #b7c3d4;
+}
+.ss-stage[data-style="brand_ledger"] .ss-strip-footer {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-.ss-stage[data-style="brand_ledger"] .ss-set-label {
-  font-weight: 700;
-  font-size: var(--ss-fs-label);
-  color: var(--ss-text-bright);
-  letter-spacing: 0.3em;
+  justify-content: space-between;
+  gap: 2cqw;
+  padding: 1.2cqw 2.2cqw;
+  background: #253345;
+  font-size: 1.4cqw;
   text-transform: uppercase;
 }
-.ss-stage[data-style="brand_ledger"] .ss-set-number {
-  font-weight: 900;
-  font-size: clamp(36px, 12cqw, 140px);
-  line-height: 0.85;
-  letter-spacing: -0.04em;
-  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
-}
-.ss-stage[data-style="brand_ledger"] .ss-duration-label {
-  display: block;
-  font-weight: 600;
-  font-size: clamp(4px, 1.125cqw, 11px);
-  color: var(--ss-text-bright);
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-}
-.ss-stage[data-style="brand_ledger"] .ss-duration {
+.ss-stage[data-style="brand_ledger"] .ss-strip-standing,
+.ss-stage[data-style="brand_ledger"] .ss-strip-clocks {
   display: flex;
   align-items: baseline;
-  justify-content: center;
-  gap: 8px;
-  font-family: "Menlo", "Consolas", monospace;
-  font-weight: 700;
-  font-size: clamp(11px, 3.3cqw, 34px);
-  line-height: 1;
-  color: #2ecc71;
-  letter-spacing: 0.04em;
+  gap: 0.65cqw;
 }
-.ss-stage[data-style="brand_ledger"] .ss-duration::before {
-  content: "⏱";
-  font-size: clamp(7px, 1.8cqw, 20px);
-  opacity: 0.85;
+.ss-stage[data-style="brand_ledger"] .ss-strip-clocks [data-live-duration] {
+  margin-right: 1.2cqw;
 }
 
-/* Ledger columns flank the centre. They are direct children of
-   the stage (no wrapping ``.ss-ledger``) so each gets the full
-   panel height to spread chips down vertically. JS sets
-   ``grid-template-rows`` per event count so all rows stay
-   equidistant. */
-.ss-stage[data-style="brand_ledger"] .ss-ledger-col {
-  display: grid;
-  width: 100%;
-  padding: var(--ss-sz-lg) 4px;
-  background: rgba(0, 0, 0, 0.25);
-  border-left: 1px solid var(--ss-white-08);
-  border-right: 1px solid var(--ss-white-08);
-  min-height: 0;
-  overflow: hidden;
-}
-.ss-stage[data-style="brand_ledger"] .ss-point {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto;
-  min-width: 38px;
-  padding: 0 6px;
-  border-radius: 4px;
-  font:
-    700 clamp(5px, 1.5cqw, 14px)/1 "Menlo",
-    "Consolas",
-    monospace;
-  letter-spacing: 0.02em;
-}
-.ss-stage[data-style="brand_ledger"] .ss-ledger-col-home .ss-point {
-  color: #fff;
-  background: color-mix(in srgb, var(--ss-home) 70%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ss-home) 35%, transparent);
-}
-.ss-stage[data-style="brand_ledger"] .ss-ledger-col-away .ss-point {
-  color: #fff;
-  background: color-mix(in srgb, var(--ss-away) 70%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ss-away) 35%, transparent);
-}
-.ss-stage[data-style="brand_ledger"] .ss-point.ss-empty {
-  visibility: hidden;
-}
-/* Final scoring chip — same brand colour as a regular chip so the
-   identity stays clear, but enlarged slightly and animated with a
-   breathing glow so the operator's eye locks onto the set-winning
-   point at a glance. */
-.ss-stage[data-style="brand_ledger"] .ss-ledger-col-home .ss-point.ss-final {
-  background: color-mix(in srgb, var(--ss-home) 92%, transparent);
-  color: #fff;
-  font-weight: 900;
-  animation: ss-final-breathe-home 2.4s ease-in-out infinite;
-}
-.ss-stage[data-style="brand_ledger"] .ss-ledger-col-away .ss-point.ss-final {
-  background: color-mix(in srgb, var(--ss-away) 92%, transparent);
-  color: #fff;
-  font-weight: 900;
-  animation: ss-final-breathe-away 2.4s ease-in-out infinite;
-}
 @keyframes ss-final-breathe-home {
   0%,
   100% {
@@ -564,7 +552,6 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ss-stage[data-style="brand_ledger"] .ss-point.ss-final,
   .ss-stage[data-style="bumper"] .ss-bumper-row .ss-chip.ss-final,
   .ss-extras[data-style="bento"] .ss-bumper-row .ss-chip.ss-final {
     animation: none;
@@ -575,12 +562,6 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     transition: none;
   }
 }
-/* Colours/weight come from the shared timeout-chip rule above —
-   only the strip-width-bound font size is variant-specific. */
-.ss-stage[data-style="brand_ledger"] .ss-point.ss-timeout {
-  font-size: clamp(5px, 1.35cqw, 12px);
-}
-
 /* ─────────────────────────────────────────────────────────────
    Variant: brand_columns
    Three columns with brand-tinted side panels and a centre chart.

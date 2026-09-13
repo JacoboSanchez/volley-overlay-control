@@ -197,9 +197,30 @@ def _add_rule_indicators(
 
 def _add_live_stats(payload: dict, storage_key: str, logger: logging.Logger) -> None:
     try:
-        from app.api.live_stats import compute_live_stats
+        from app.api.live_stats import compute_live_stats, resolve_summary_set_num
 
         stats = compute_live_stats(storage_key, history_limit=30)
+        match_info = payload["match_info"]
+        summary_set_num = resolve_summary_set_num(
+            stats["points_by_set"],
+            match_info["current_set"],
+        )
+        match_info["summary_set_num"] = summary_set_num
+
+        # Keep ordinary broadcasts bounded. Only Rallies needs the complete
+        # set sequence, and only while that recap is actually on air. Other
+        # sets retain the public live-stats endpoint's 60-event cap.
+        summary_events = stats["points_by_set"].get(summary_set_num, [])
+        if (
+            match_info["show_set_summary"]
+            and match_info["set_summary_style"] == "brand_ledger"
+            and len(summary_events) >= 60
+        ):
+            stats = compute_live_stats(
+                storage_key,
+                history_limit=30,
+                points_by_set_uncapped_set=summary_set_num,
+            )
         control = payload["overlay_control"]
         control["stats"] = {
             "current_streak": stats["current_streak"],
@@ -328,15 +349,16 @@ def build_overlay_payload(
 
     if show_only_current_set is not None:
         payload["match_info"]["show_only_current_set"] = show_only_current_set
-    try:
-        from app.api.live_stats import resolve_summary_set_num
+    if "summary_set_num" not in payload["match_info"]:
+        try:
+            from app.api.live_stats import resolve_summary_set_num
 
-        payload["match_info"]["summary_set_num"] = resolve_summary_set_num(
-            payload["overlay_control"].get("points_by_set"),
-            current_set,
-        )
-    except Exception:  # pragma: no cover - defensive
-        payload["match_info"]["summary_set_num"] = max(current_set - 1, 1)
+            payload["match_info"]["summary_set_num"] = resolve_summary_set_num(
+                payload["overlay_control"].get("points_by_set"),
+                current_set,
+            )
+        except Exception:  # pragma: no cover - defensive
+            payload["match_info"]["summary_set_num"] = max(current_set - 1, 1)
     if force_visibility is not None:
         payload["overlay_control"]["show_main_scoreboard"] = force_visibility
     return payload

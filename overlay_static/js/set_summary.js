@@ -7,9 +7,8 @@
    match_info.set_summary_style and calls the matching builder
    below; unknown styles fall back to "brand_ledger".
 
-   The wrapper centres the stage in a 16:9 box that fills roughly
-   two thirds of the viewport height (with equal margins
-   above/below), driven from CSS in set_summary.css (.ss-stage rule).
+   Most variants use a centred 16:9 panel; brand_ledger (Rallies)
+   uses a horizontal lower third. Placement is driven by set_summary.css.
    ───────────────────────────────────────────────────────────────── */
 
 (function () {
@@ -25,6 +24,9 @@
   // ── i18n ────────────────────────────────────────────────────────
   const LABELS = {
     en: {
+      recordedRallies: "Recorded rallies",
+      rallyHint: "Each block = one point · Outline = last point",
+      noRallies: "No recorded rallies for this set",
       final: "Final",
       duration: "Duration",
       longestStreak: "Longest streak",
@@ -53,6 +55,9 @@
       chipOppErr: "Opp. err",
     },
     es: {
+      recordedRallies: "Rallies registrados",
+      rallyHint: "Cada bloque = un punto · Borde = último punto",
+      noRallies: "Sin rallies registrados en este set",
       final: "Final",
       duration: "Duración",
       longestStreak: "Racha más larga",
@@ -81,6 +86,9 @@
       chipOppErr: "Err. riv",
     },
     pt: {
+      recordedRallies: "Ralis registados",
+      rallyHint: "Cada bloco = um ponto · Contorno = último ponto",
+      noRallies: "Sem ralis registados neste set",
       final: "Final",
       duration: "Duração",
       longestStreak: "Maior sequência",
@@ -109,6 +117,9 @@
       chipOppErr: "Err. adv",
     },
     it: {
+      recordedRallies: "Scambi registrati",
+      rallyHint: "Ogni blocco = un punto · Bordo = ultimo punto",
+      noRallies: "Nessuno scambio registrato in questo set",
       final: "Finale",
       duration: "Durata",
       longestStreak: "Striscia più lunga",
@@ -137,6 +148,9 @@
       chipOppErr: "Err. avv",
     },
     fr: {
+      recordedRallies: "Échanges enregistrés",
+      rallyHint: "Un bloc = un point · Contour = dernier point",
+      noRallies: "Aucun échange enregistré pour ce set",
       final: "Final",
       duration: "Durée",
       longestStreak: "Plus longue série",
@@ -165,6 +179,9 @@
       chipOppErr: "Faute adv",
     },
     de: {
+      recordedRallies: "Erfasste Ballwechsel",
+      rallyHint: "Ein Block = ein Punkt · Rahmen = letzter Punkt",
+      noRallies: "Keine Ballwechsel für diesen Satz erfasst",
       final: "Final",
       duration: "Dauer",
       longestStreak: "Längste Serie",
@@ -432,14 +449,10 @@
     const stats = oc.stats || {};
     const setNum = matchInfo.summary_set_num || matchInfo.current_set || 1;
     const setKey = `set_${setNum}`;
-    // A set is "finished" when the backend has written a final score
-    // into the team's set_history. While the set is still in play the
-    // entry is absent and we fall back to live points — used below to
-    // pick the right pill label ("Final" vs "Live").
-    const setFinished = !!(
-      (home.set_history && home.set_history[setKey] != null) ||
-      (away.set_history && away.set_history[setKey] != null)
-    );
+    // set_history includes live and future slots too. A recap is final
+    // only after the match advances past this set or the match finishes.
+    const setFinished =
+      setNum < (matchInfo.current_set || 1) || !!matchInfo.match_finished;
     const homeScore =
       home.set_history && home.set_history[setKey] != null
         ? home.set_history[setKey]
@@ -711,99 +724,194 @@
   // ─────────────────────────────────────────────────────────────────
   // Renderer: brand_ledger
   // ─────────────────────────────────────────────────────────────────
+  // Compact lower third. Keep the persisted style key so existing overlays
+  // automatically use the new layout without a settings migration.
   function renderBrandLedger(stage, vm) {
-    const homeStats = el("div", { class: "ss-team-stat-list" });
-    homeStats.appendChild(buildStat(t("longestStreak"), vm.longestSet[1] || 0));
-    homeStats.appendChild(
-      buildStat(t("servicesWon"), formatServices(vm.servicesSet, 1)),
+    stage.style.setProperty(
+      "--ss-home-text",
+      stripTextColour(resolveTeamColour(vm.home, FALLBACK_HOME)),
     );
-
-    const awayStats = el("div", { class: "ss-team-stat-list" });
-    awayStats.appendChild(buildStat(t("longestStreak"), vm.longestSet[2] || 0));
-    awayStats.appendChild(
-      buildStat(t("servicesWon"), formatServices(vm.servicesSet, 2)),
+    stage.style.setProperty(
+      "--ss-away-text",
+      stripTextColour(resolveTeamColour(vm.away, FALLBACK_AWAY)),
     );
+    const header = el("div", {
+      class: "ss-strip-header",
+      children: [
+        buildStripTeam(vm, "home"),
+        el("div", {
+          class: "ss-strip-status",
+          children: [
+            el("div", {
+              children: [
+                el("span", { class: "ss-set-label", text: t("set") }),
+                document.createTextNode(" "),
+                el("span", { class: "ss-set-number", text: String(vm.setNum) }),
+              ],
+            }),
+            el("span", { text: vm.setFinished ? t("final") : t("live") }),
+          ],
+        }),
+        buildStripTeam(vm, "away"),
+      ],
+    });
+    stage.appendChild(header);
+    stage.appendChild(buildRallyRibbon(vm));
+    stage.appendChild(
+      el("div", {
+        class: "ss-strip-footer",
+        children: [
+          el("div", {
+            class: "ss-strip-standing",
+            children: [
+              el("span", { text: t("match") }),
+              el("strong", { class: "home", text: String(vm.team1Sets) }),
+              document.createTextNode("–"),
+              el("strong", { class: "away", text: String(vm.team2Sets) }),
+            ],
+          }),
+          el("div", {
+            class: "ss-strip-clocks",
+            children: [
+              el("span", { text: t("set") }),
+              durationNode(vm.durationSec),
+              el("span", { text: t("match") }),
+              matchClockNode(vm.matchElapsedSec),
+            ],
+          }),
+        ],
+      }),
+    );
+  }
 
-    if (vm.hasPointTypes) {
-      homeStats.appendChild(buildPtChipStrip(vm, 1));
-      awayStats.appendChild(buildPtChipStrip(vm, 2));
+  // Text sits on a dark surface: lift very dark primaries toward white while
+  // retaining their hue. The rally blocks still use the configured colours.
+  function stripTextColour(colour) {
+    const rgb = parseHex(colour);
+    if (!rgb) return colour;
+    while (relativeLuminance(rgb) < 0.25) {
+      for (let i = 0; i < rgb.length; i++)
+        rgb[i] = Math.ceil(rgb[i] + (255 - rgb[i]) * 0.1);
     }
+    return `rgb(${rgb.join(", ")})`;
+  }
 
-    const homeCol = el("div", {
-      class: "ss-team ss-team-home",
+  function buildStripTeam(vm, side) {
+    const isHome = side === "home";
+    const team = isHome ? vm.home : vm.away;
+    const opponent = isHome ? vm.away : vm.home;
+    const name = team.name || team.short_name || t(side);
+    const identity = el("div", {
+      class: "ss-strip-identity",
       children: [
+        teamLogoNode(team, side),
         el("div", {
-          class: "ss-team-header",
-          children: [
-            teamLogoNode(vm.home, "home"),
-            el("div", {
-              children: [
-                el("div", { class: "ss-team-name", text: vm.home.name || "" }),
-                el("div", { class: "ss-team-tag", text: t("home") }),
-              ],
-            }),
-          ],
+          class: "ss-team-name",
+          text: name,
+          attrs: { title: name },
         }),
-        el("div", { class: "ss-team-score", text: String(vm.homeScore) }),
-        homeStats,
       ],
     });
-
-    const awayCol = el("div", {
-      class: "ss-team ss-team-away",
-      children: [
+    const history = el("div", { class: "ss-strip-history" });
+    // Only previous sets belong between name and score. The backend includes
+    // all set slots (including future zeroes), so do not enumerate the object.
+    for (let n = 1; n < vm.setNum; n++) {
+      const key = `set_${n}`;
+      const score = team.set_history && team.set_history[key];
+      const other = opponent.set_history && opponent.set_history[key];
+      if (score == null && other == null) continue;
+      history.appendChild(
         el("div", {
-          class: "ss-team-header",
+          class: "ss-strip-previous",
           children: [
-            teamLogoNode(vm.away, "away"),
-            el("div", {
-              children: [
-                el("div", { class: "ss-team-name", text: vm.away.name || "" }),
-                el("div", { class: "ss-team-tag", text: t("away") }),
-              ],
+            el("small", {
+              text: `S${n}`,
+              attrs: { title: `${t("set")} ${n}` },
+            }),
+            el("strong", {
+              class:
+                score != null && other != null && score > other ? side : "",
+              text: score == null ? "–" : String(score),
             }),
           ],
         }),
-        el("div", { class: "ss-team-score", text: String(vm.awayScore) }),
-        awayStats,
-      ],
+      );
+    }
+    const score = el("div", {
+      class: "ss-team-score",
+      text: String(isHome ? vm.homeScore : vm.awayScore),
     });
-
-    const centre = el("div", {
-      class: "ss-centre",
-      children: [
-        el("div", {
-          class: "ss-set-group",
-          children: [
-            el("span", { class: "ss-set-label", text: t("set") }),
-            el("span", { class: "ss-set-number", text: String(vm.setNum) }),
-          ],
-        }),
-        el("div", {
-          class: "ss-duration-group",
-          children: [
-            el("span", { class: "ss-duration-label", text: t("duration") }),
-            durationNode(vm.durationSec, { class: "ss-duration" }),
-            el("span", {
-              class: "ss-duration-label ss-match-label",
-              text: t("match"),
-            }),
-            matchClockNode(vm.matchElapsedSec, {
-              class: "ss-duration ss-match-duration",
-            }),
-          ],
-        }),
-        emptyNote(vm, { inline: true }),
-      ],
+    return el("div", {
+      class: `ss-strip-team ss-strip-${side}`,
+      children: isHome
+        ? [identity, history, score]
+        : [score, history, identity],
     });
+  }
 
-    const ledger = buildLedger(vm);
-
-    stage.appendChild(homeCol);
-    stage.appendChild(ledger.home);
-    stage.appendChild(centre);
-    stage.appendChild(ledger.away);
-    stage.appendChild(awayCol);
+  function buildRallyRibbon(vm) {
+    // No synthetic blocks for direct score edits or missing audit history.
+    // The label counts recorded rallies, which may differ from the final sum.
+    const points = vm.setPoints.filter(
+      (p) => p && (p.team === 1 || p.team === 2),
+    );
+    const ribbon = el("div", { class: "ss-rally-ribbon" });
+    if (
+      colorsAreSimilar(
+        resolveTeamColour(vm.home, FALLBACK_HOME),
+        resolveTeamColour(vm.away, FALLBACK_AWAY),
+      )
+    ) {
+      ribbon.classList.add("ss-rally-pattern");
+    }
+    const legend = el("div", { class: "ss-rally-legend" });
+    [vm.home, vm.away].forEach((team, i) => {
+      const side = i === 0 ? "home" : "away";
+      const name = team.short_name || team.name || t(side);
+      legend.appendChild(
+        el("span", { class: side, text: name, attrs: { title: name } }),
+      );
+    });
+    ribbon.appendChild(
+      el("div", {
+        class: "ss-rally-heading",
+        children: [
+          el("span", { text: `${t("recordedRallies")} · ${points.length}` }),
+          legend,
+        ],
+      }),
+    );
+    if (!points.length) {
+      ribbon.appendChild(
+        el("div", {
+          class: "ss-empty-note ss-empty-note--inline",
+          text: t("noRallies"),
+        }),
+      );
+      return ribbon;
+    }
+    const track = el("div", { class: "ss-rally-track" });
+    // Wrap very long deuce sets into evenly-sized rows instead of making
+    // hundreds of subpixel blocks or clipping the final rallies.
+    const columns = Math.ceil(points.length / Math.ceil(points.length / 60));
+    track.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
+    points.forEach((point, i) => {
+      const side = point.team === 1 ? "home" : "away";
+      const team = point.team === 1 ? vm.home : vm.away;
+      const score = Array.isArray(point.score) ? point.score.join("–") : "–";
+      const title = `${i + 1} · ${team.name || team.short_name || t(side)} · ${score}`;
+      track.appendChild(
+        el("span", {
+          class: `ss-rally ${side}${i === points.length - 1 ? " ss-last" : ""}`,
+          attrs: { title, "aria-label": title },
+        }),
+      );
+    });
+    ribbon.appendChild(track);
+    ribbon.appendChild(
+      el("div", { class: "ss-rally-hint", text: t("rallyHint") }),
+    );
+    return ribbon;
   }
 
   function buildStat(label, value) {
@@ -870,72 +978,6 @@
       class: "ss-pt-breakdown",
       children: [row(1, "home"), row(2, "away")],
     });
-  }
-
-  function buildLedger(vm) {
-    const merged = [];
-    vm.setPoints.forEach((p) => merged.push({ ...p, kind: "point" }));
-    vm.setTimeouts.forEach((tx) => merged.push({ ...tx, kind: "timeout" }));
-    merged.sort((a, b) => (a.ts || 0) - (b.ts || 0));
-
-    const homeBody = el("div", { class: "ss-ledger-col ss-ledger-col-home" });
-    const awayBody = el("div", { class: "ss-ledger-col ss-ledger-col-away" });
-
-    const rowCount = Math.max(merged.length, 1);
-    homeBody.style.gridTemplateRows = `repeat(${rowCount}, 1fr)`;
-    awayBody.style.gridTemplateRows = `repeat(${rowCount}, 1fr)`;
-
-    let lastPointIdx = -1;
-    for (let i = merged.length - 1; i >= 0; i--) {
-      if (merged[i].kind === "point") {
-        lastPointIdx = i;
-        break;
-      }
-    }
-
-    if (merged.length === 0) {
-      homeBody.appendChild(
-        el("span", { class: "ss-point ss-empty", text: "·" }),
-      );
-      awayBody.appendChild(
-        el("span", { class: "ss-point ss-empty", text: "·" }),
-      );
-    } else {
-      merged.forEach((ev, idx) => {
-        const isHome = ev.team === 1;
-        const empty = () =>
-          el("span", { class: "ss-point ss-empty", text: "·" });
-        if (ev.kind === "point") {
-          const score = Array.isArray(ev.score) ? ev.score : [0, 0];
-          const teamScore = isHome ? score[0] : score[1];
-          const chip = el("span", {
-            class: "ss-point",
-            text: String(teamScore),
-          });
-          if (idx === lastPointIdx) chip.classList.add("ss-final");
-          if (isHome) {
-            homeBody.appendChild(chip);
-            awayBody.appendChild(empty());
-          } else {
-            homeBody.appendChild(empty());
-            awayBody.appendChild(chip);
-          }
-        } else {
-          const marker = el("span", {
-            class: "ss-point ss-timeout",
-            text: "T",
-          });
-          if (isHome) {
-            homeBody.appendChild(marker);
-            awayBody.appendChild(empty());
-          } else {
-            homeBody.appendChild(empty());
-            awayBody.appendChild(marker);
-          }
-        }
-      });
-    }
-    return { home: homeBody, away: awayBody };
   }
 
   // ─────────────────────────────────────────────────────────────────
