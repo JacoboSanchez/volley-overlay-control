@@ -1,6 +1,7 @@
 """Keep the on-air overlay assets inside the JavaScript/CSS quality gates."""
 
 import json
+import re
 from pathlib import Path
 
 import yaml
@@ -59,3 +60,46 @@ def test_long_team_names_keep_an_older_obs_wrapping_fallback() -> None:
         "overlay_static/css/vertical.css",
     ):
         assert fallback in _read(stylesheet), stylesheet
+
+
+def test_neon_compact_mode_collapses_the_whole_header() -> None:
+    """Simple mode must hide `neon`'s header, chips and set label alike.
+
+    The header carries a ``min-height``, which would win over the
+    ``max-height: 0`` collapse and leave an 18px stub across the top of
+    the card — so both have to be zeroed together, and both have to ride
+    the transition: a snapping minimum slams the row back open to 18px
+    on the way out of compact mode, before anything else has moved.
+    """
+    css = _read("overlay_static/css/neon.css")
+
+    collapse = re.search(r"\.compact-mode \.head \{([^}]*)\}", css)
+    assert collapse, "neon.css no longer collapses .head in compact mode"
+    for declaration in ("max-height: 0", "min-height: 0"):
+        assert declaration in collapse.group(1), declaration
+
+    base = re.search(r"\n\.head \{([^}]*)\}", css)
+    assert base, "neon.css no longer has a .head rule"
+    transition = re.search(r"transition:([^;]*);", base.group(1))
+    assert transition, "the .head rule no longer animates its collapse"
+    for prop in ("max-height", "min-height"):
+        assert prop in transition.group(1), prop
+
+
+def test_neon_skips_the_header_animation_on_the_first_payload() -> None:
+    """A browser source opening in simple mode must not animate the collapse.
+
+    ``app.js`` applies the first state behind ``.priming`` precisely so a
+    transitioning style can sit that one out; without neon's opt-out the
+    header animates shut over the card's fade-in, flashing the `SET n`
+    label compact mode is there to remove.
+    """
+    css = _read("overlay_static/css/neon.css")
+    js = _read("overlay_static/js/app.js")
+
+    assert re.search(r"\.priming \.head \{[^}]*transition:\s*none", css), (
+        "neon.css no longer opts out of the header transition while priming"
+    )
+    assert 'classList.add("priming")' in js, (
+        "app.js no longer marks the first compact-mode application"
+    )
