@@ -352,6 +352,8 @@ export function getStyles(oid: string): Promise<string[]> {
 export interface StyleCapabilities {
   /** Style ships a dark/light override block — show the theme selector. */
   theme: boolean;
+  /** Palette used when the operator leaves the theme at its per-style default. */
+  nativeTheme: 'dark' | 'light';
   /** Style is edge-pinned — show the top/center/bottom vertical-anchor control. */
   verticalAnchor: boolean;
 }

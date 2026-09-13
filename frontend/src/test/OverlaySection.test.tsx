@@ -23,9 +23,9 @@ function render(
 }
 
 const CAPS: Record<string, StyleCapabilities> = {
-  default: { theme: false, verticalAnchor: false },
-  pylons: { theme: true, verticalAnchor: true },
-  neon: { theme: true, verticalAnchor: false },
+  default: { theme: false, nativeTheme: 'dark', verticalAnchor: false },
+  pylons: { theme: true, nativeTheme: 'dark', verticalAnchor: true },
+  neon: { theme: true, nativeTheme: 'dark', verticalAnchor: false },
 };
 
 describe('OverlaySection capability gating', () => {

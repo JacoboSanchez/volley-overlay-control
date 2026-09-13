@@ -40,6 +40,8 @@
     <script>
         const OUTPUT_KEY = "{{ output_key }}";
         window.OVERLAY_STYLE = "{{ style }}";
+        window.OVERLAY_NATIVE_THEME = "{{ native_theme|default('dark') }}";
+        window.OVERLAY_THEME_SUPPORTED = {{ theme_supported|default(false)|tojson }};
         window.OVERLAY_LOCALE = "{{ locale|default('en') }}";
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws/${OUTPUT_KEY}`;

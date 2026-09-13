@@ -25,6 +25,7 @@ interface Tween {
 }
 
 interface OverlayApp {
+  applyOverlayTheme: (state: unknown) => void;
   runSideSwapTransition: (view: unknown, raw: unknown) => void;
   setRenderFullState: (fn: (view: unknown, raw: unknown) => void) => void;
 }
@@ -34,6 +35,7 @@ function loadApp(gsap: unknown): OverlayApp {
   // ``runSideSwapTransition`` and rebind the hoisted ``renderFullState``.
   const epilogue = `
     ;return {
+      applyOverlayTheme: applyOverlayTheme,
       runSideSwapTransition: runSideSwapTransition,
       setRenderFullState: function (fn) { renderFullState = fn; },
     };`;
@@ -141,5 +143,44 @@ describe('overlay side-swap transition', () => {
     expect(fold.vars.scaleX).toBe(0);
     expect(unfold.vars.scaleX).toBe(1);
     expect(rendered).toHaveLength(1);
+  });
+});
+
+describe('overlay theme resolution', () => {
+  beforeEach(() => {
+    document.body.className = '';
+    (window as any).OVERLAY_NATIVE_THEME = 'dark';
+    (window as any).OVERLAY_THEME_SUPPORTED = true;
+  });
+
+  it('uses the loaded style native palette when customization is default', () => {
+    (window as any).OVERLAY_NATIVE_THEME = 'light';
+    const app = loadApp(makeGsap().gsap);
+
+    app.applyOverlayTheme({ raw_remote_customization: { overlayTheme: '' } });
+
+    expect(document.body).toHaveClass('overlay-theme-light');
+    expect(document.body).not.toHaveClass('overlay-theme-dark');
+  });
+
+  it('lets an explicit customization override the native palette', () => {
+    (window as any).OVERLAY_NATIVE_THEME = 'light';
+    const app = loadApp(makeGsap().gsap);
+
+    app.applyOverlayTheme({ raw_remote_customization: { overlayTheme: 'dark' } });
+
+    expect(document.body).toHaveClass('overlay-theme-dark');
+    expect(document.body).not.toHaveClass('overlay-theme-light');
+  });
+
+  it('falls back to native palette when the style does not support themes', () => {
+    (window as any).OVERLAY_NATIVE_THEME = 'dark';
+    (window as any).OVERLAY_THEME_SUPPORTED = false;
+    const app = loadApp(makeGsap().gsap);
+
+    app.applyOverlayTheme({ raw_remote_customization: { overlayTheme: 'light' } });
+
+    expect(document.body).toHaveClass('overlay-theme-dark');
+    expect(document.body).not.toHaveClass('overlay-theme-light');
   });
 });

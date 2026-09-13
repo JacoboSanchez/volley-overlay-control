@@ -12263,7 +12263,7 @@
     },
     "/api/v1/style-capabilities": {
       "get": {
-        "description": "Per-style UI capability flags (theme / vertical-anchor support).\n\nThe control UI uses this to only surface the dark/light theme selector\nand the top/center/bottom vertical-anchor control for styles where they\nactually change something.",
+        "description": "Per-style capabilities and the style's native light/dark palette.\n\nThe control UI uses this to only surface the dark/light theme selector\nand the top/center/bottom vertical-anchor control for styles where they\nactually change something.",
         "operationId": "get_style_capabilities_api_v1_style_capabilities_get",
         "parameters": [
           {

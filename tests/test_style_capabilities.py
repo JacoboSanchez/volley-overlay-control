@@ -24,7 +24,11 @@ def store(tmp_path):
 
 def test_pylons_supports_both_theme_and_vertical_anchor(store):
     caps = store.get_style_capabilities()
-    assert caps["pylons"] == {"verticalAnchor": True, "theme": True}
+    assert caps["pylons"] == {
+        "verticalAnchor": True,
+        "theme": True,
+        "nativeTheme": "dark",
+    }
     assert caps["pylons_gradient"]["verticalAnchor"] is True
 
 
@@ -32,7 +36,11 @@ def test_default_style_exposes_no_special_knobs(store):
     caps = store.get_style_capabilities()
     # The default template honours operator geometry and ships no
     # overlay-theme override, so neither knob should be offered.
-    assert caps["default"] == {"verticalAnchor": False, "theme": False}
+    assert caps["default"] == {
+        "verticalAnchor": False,
+        "theme": False,
+        "nativeTheme": "dark",
+    }
 
 
 def test_theme_only_style_has_no_vertical_anchor(store):
@@ -42,6 +50,26 @@ def test_theme_only_style_has_no_vertical_anchor(store):
     # exercising the one-level import follow.
     assert caps["clear_jersey"]["theme"] is True
     assert caps["clear_jersey"]["verticalAnchor"] is False
+
+
+def test_native_palette_marks_light_card_styles(store):
+    caps = store.get_style_capabilities()
+    light_styles = {
+        style
+        for style, capability in caps.items()
+        if capability["nativeTheme"] == "light"
+    }
+    assert light_styles == {
+        "broadcast",
+        "clear_jersey",
+        "corner_jersey",
+        "neo_jersey",
+        "split_jersey",
+    }
+    assert all(
+        capability["nativeTheme"] in {"dark", "light"}
+        for capability in caps.values()
+    )
 
 
 def test_capabilities_cover_every_available_style(store):

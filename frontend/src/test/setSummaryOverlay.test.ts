@@ -85,6 +85,7 @@ describe('set_summary.js overlay renderer', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-01T12:00:00Z'));
+    document.body.className = '';
     document.body.innerHTML = '';
     (window as any).OVERLAY_LOCALE = 'en';
     // jsdom has no requestAnimationFrame unless pretendToBeVisual is
@@ -293,6 +294,13 @@ describe('set_summary.js overlay renderer', () => {
       expect(stage.style.getPropertyValue('--ss-home')).toBe('#000000');
       expect(stage.style.getPropertyValue('--ss-away')).toBe('#ef3340');
       expect(stage.style.getPropertyValue('--ss-home-text')).not.toBe('rgb(0, 0, 0)');
+    });
+
+    it('darkens bright team accents for the light strip surface', () => {
+      document.body.classList.add('overlay-theme-light');
+      const stage = renderState({ team_home: { color_primary: '#ffffff' } });
+
+      expect(stage.style.getPropertyValue('--ss-home-text')).not.toBe('rgb(255, 255, 255)');
     });
 
     it('renders club names as text and uses configured logos', () => {
