@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.2.0] - 2026-09-13
+
 ### Changed
 
 - **Set summaries now follow the active scoreboard palette.** Rallies switches
