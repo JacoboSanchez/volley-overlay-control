@@ -1586,7 +1586,7 @@ export interface paths {
         };
         /**
          * Get Style Capabilities
-         * @description Per-style UI capability flags (theme / vertical-anchor support).
+         * @description Per-style capabilities and the style's native light/dark palette.
          *
          *     The control UI uses this to only surface the dark/light theme selector
          *     and the top/center/bottom vertical-anchor control for styles where they

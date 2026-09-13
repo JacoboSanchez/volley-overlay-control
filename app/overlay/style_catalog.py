@@ -28,6 +28,19 @@ class StyleCatalog:
     _META_STYLES = {"mosaic"}
     _NEVER_RENDERED = {"base"}
 
+    # Native surface palette used when ``overlayTheme`` is left at its
+    # per-style default.  Most bundled scoreboards were designed on dark or
+    # team-coloured surfaces; these five deliberately start from a light card
+    # and provide a dark override.  Keeping the hint beside style discovery
+    # gives both the rendered overlay and the control UI one source of truth.
+    _LIGHT_NATIVE_STYLES = {
+        "broadcast",
+        "clear_jersey",
+        "corner_jersey",
+        "neo_jersey",
+        "split_jersey",
+    }
+
     # Pull linked stylesheet names from templates and one-level CSS imports.
     _CSS_HREF_RE = re.compile(r"/static/css/([\w-]+)\.css")
     _CSS_IMPORT_RE = re.compile(r"@import\s+url\(['\"]?([\w-]+)\.css")
@@ -42,7 +55,7 @@ class StyleCatalog:
         self._lock = lock or threading.RLock()
         self._available_styles: list | None = None
         self._renderable_styles: list | None = None
-        self._style_capabilities: dict[str, dict[str, bool]] | None = None
+        self._style_capabilities: dict[str, dict[str, bool | str]] | None = None
 
     def get_available_styles_list(self) -> list:
         """Return user-selectable overlay styles (cached after first scan)."""
@@ -103,12 +116,12 @@ class StyleCatalog:
             queue.extend(self._CSS_IMPORT_RE.findall(css))
         return False
 
-    def get_style_capabilities(self) -> dict[str, dict[str, bool]]:
-        """Return cached capability flags derived from templates and CSS."""
+    def get_style_capabilities(self) -> dict[str, dict[str, bool | str]]:
+        """Return cached capability flags and each style's native palette."""
         with self._lock:
             if self._style_capabilities is not None:
                 return self._style_capabilities
-            caps: dict[str, dict[str, bool]] = {}
+            caps: dict[str, dict[str, bool | str]] = {}
             for style in self.get_available_styles_list():
                 template = (
                     "index.html" if style == "default" else f"{style}.html"
@@ -120,6 +133,11 @@ class StyleCatalog:
                     "verticalAnchor": "data-fixed-geometry" in html,
                     "theme": self._template_supports_theme(
                         html, _BUNDLED_CSS_DIR
+                    ),
+                    "nativeTheme": (
+                        "light"
+                        if style in self._LIGHT_NATIVE_STYLES
+                        else "dark"
                     ),
                 }
             self._style_capabilities = caps

@@ -370,11 +370,11 @@ function contrastAccent(hex, surfaceIsDark) {
 // ── Overlay theme (default / dark / light) ──────────────────────────
 //
 // ``overlayTheme`` rides in the operator customization. "default"
-// (empty/absent) keeps every style's native palette; "dark"/"light"
-// flip the card surface on styles that define the matching override
-// block (body.overlay-theme-*). A ``?theme=`` URL parameter takes
-// precedence so a fixed OBS browser-source URL (or the mosaic
-// preview) can pin a theme regardless of the live customization.
+// (empty/absent) resolves to the palette declared by the loaded style;
+// "dark"/"light" select an explicit palette. A ``?theme=`` URL parameter
+// takes precedence so a fixed OBS browser-source URL (or the mosaic
+// preview) can pin a theme regardless of the live customization. Both the
+// scoreboard and its in-document set summary consume the resulting class.
 const THEME_URL_OVERRIDE = (() => {
   try {
     const v = (
@@ -387,14 +387,21 @@ const THEME_URL_OVERRIDE = (() => {
 })();
 
 function applyOverlayTheme(state) {
-  let theme = THEME_URL_OVERRIDE;
-  if (!theme) {
+  // Styles without a theme override must keep their native palette even if
+  // a stale customization value or URL parameter asks for another one.
+  const themeSupported = window.OVERLAY_THEME_SUPPORTED !== false;
+  let theme = themeSupported ? THEME_URL_OVERRIDE : null;
+  if (!theme && themeSupported) {
     const cust = state && state.raw_remote_customization;
     const v =
       cust && typeof cust.overlayTheme === "string"
         ? cust.overlayTheme.toLowerCase()
         : "";
     theme = v === "dark" || v === "light" ? v : null;
+  }
+  if (!theme) {
+    const native = String(window.OVERLAY_NATIVE_THEME || "").toLowerCase();
+    theme = native === "light" ? "light" : "dark";
   }
   document.body.classList.toggle("overlay-theme-dark", theme === "dark");
   document.body.classList.toggle("overlay-theme-light", theme === "light");

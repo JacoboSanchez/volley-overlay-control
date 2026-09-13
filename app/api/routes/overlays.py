@@ -235,7 +235,7 @@ async def get_styles(
 async def get_style_capabilities(
     session: GameSession = Depends(get_session),
 ) -> dict[str, Any]:
-    """Per-style UI capability flags (theme / vertical-anchor support).
+    """Per-style capabilities and the style's native light/dark palette.
 
     The control UI uses this to only surface the dark/light theme selector
     and the top/center/bottom vertical-anchor control for styles where they

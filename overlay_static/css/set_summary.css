@@ -58,17 +58,46 @@ body.set-summary-mode #player-stats-container {
      FALLBACK_AWAY in set_summary.js. */
   --ss-home: #d4314c;
   --ss-away: #f0a020;
-  /* White-on-dark text tiers (bright → dim). */
+  --ss-home-text: var(--ss-home);
+  --ss-away-text: var(--ss-away);
+  /* Theme-relative surfaces and ink. ``app.js`` always resolves the
+     scoreboard's explicit or native palette to one body class. */
+  --ss-surface-main: rgba(17, 27, 43, 0.97);
+  --ss-surface-raised: #1c2a3c;
+  --ss-surface-footer: #253345;
+  --ss-surface-glass: rgba(12, 16, 24, 0.62);
+  --ss-surface-tile: rgba(22, 27, 34, 0.7);
+  --ss-ink: #f8fafc;
+  --ss-ink-secondary: #b7c3d4;
+  --ss-ink-strong: #e3e9f2;
+  --ss-divider: rgba(255, 255, 255, 0.12);
+  --ss-divider-strong: rgba(255, 255, 255, 0.22);
+  --ss-empty-cell: rgba(255, 255, 255, 0.04);
+  --ss-history-cell: rgba(255, 255, 255, 0.06);
+  --ss-history-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --ss-card-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  --ss-inset-highlight: rgba(255, 255, 255, 0.25);
+  --ss-accent-ink-mix: #fff;
+  --ss-text-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
+  /* Theme-relative text tiers (bright → dim). */
   --ss-text-bright: rgba(255, 255, 255, 0.7);
   --ss-text-mid: rgba(255, 255, 255, 0.65);
   --ss-text-dim: rgba(255, 255, 255, 0.55);
-  /* Translucent white tones for hairlines, borders and fills. */
+  /* Legacy translucent-tone aliases used across the existing variants. */
   --ss-white-08: rgba(255, 255, 255, 0.08);
   --ss-white-12: rgba(255, 255, 255, 0.12);
   --ss-white-18: rgba(255, 255, 255, 0.18);
   /* Timeout chip ("T" marker) colours, shared by every ledger. */
   --ss-timeout-bg: rgba(245, 197, 66, 0.32);
   --ss-timeout-fg: #ffe48a;
+  --ss-accent-positive: #5bdb7c;
+  --ss-accent-positive-bg: rgba(91, 219, 124, 0.2);
+  --ss-accent-positive-border: rgba(91, 219, 124, 0.5);
+  --ss-accent-live: #ffc36b;
+  --ss-accent-live-bg: rgba(255, 170, 31, 0.22);
+  --ss-accent-live-border: rgba(255, 170, 31, 0.55);
+  --ss-accent-warm: #f5d27a;
+  --ss-guide: rgba(255, 255, 255, 0.3);
   /* Container-scaled size scale shared across variants (gaps,
      paddings, radii) plus the two most repeated fixed roles. */
   --ss-sz-xs: clamp(4px, 1.5cqw, 14px);
@@ -90,7 +119,7 @@ body.set-summary-mode #player-stats-container {
   justify-items: center;
   row-gap: var(--ss-sz-md);
   z-index: 100;
-  color: #fff;
+  color: var(--ss-ink);
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   pointer-events: none;
@@ -151,8 +180,44 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   pointer-events: auto;
   /* Subtle outer shadow so the panel reads as a card over the
      stream regardless of the variant chosen. */
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--ss-card-shadow);
   border-radius: 16px;
+}
+
+body.overlay-theme-light .set-summary-panel {
+  --ss-surface-main: rgba(248, 250, 252, 0.98);
+  --ss-surface-raised: #eef2f7;
+  --ss-surface-footer: #e2e8f0;
+  --ss-surface-glass: rgba(248, 250, 252, 0.78);
+  --ss-surface-tile: rgba(255, 255, 255, 0.82);
+  --ss-ink: #172033;
+  --ss-ink-secondary: #526074;
+  --ss-ink-strong: #253044;
+  --ss-divider: rgba(15, 23, 42, 0.14);
+  --ss-divider-strong: rgba(15, 23, 42, 0.22);
+  --ss-empty-cell: rgba(15, 23, 42, 0.06);
+  --ss-history-cell: rgba(15, 23, 42, 0.055);
+  --ss-history-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.1);
+  --ss-card-shadow: 0 20px 52px rgba(15, 23, 42, 0.3);
+  --ss-inset-highlight: rgba(255, 255, 255, 0.8);
+  --ss-accent-ink-mix: #111827;
+  --ss-text-shadow: none;
+  --ss-text-bright: rgba(23, 32, 51, 0.72);
+  --ss-text-mid: rgba(23, 32, 51, 0.65);
+  --ss-text-dim: rgba(23, 32, 51, 0.55);
+  --ss-white-08: rgba(15, 23, 42, 0.08);
+  --ss-white-12: rgba(15, 23, 42, 0.12);
+  --ss-white-18: rgba(15, 23, 42, 0.18);
+  --ss-timeout-bg: rgba(180, 123, 0, 0.18);
+  --ss-timeout-fg: #805900;
+  --ss-accent-positive: #176b36;
+  --ss-accent-positive-bg: rgba(23, 107, 54, 0.14);
+  --ss-accent-positive-border: rgba(23, 107, 54, 0.4);
+  --ss-accent-live: #8a4b00;
+  --ss-accent-live-bg: rgba(138, 75, 0, 0.14);
+  --ss-accent-live-border: rgba(138, 75, 0, 0.42);
+  --ss-accent-warm: #805300;
+  --ss-guide: rgba(15, 23, 42, 0.35);
 }
 
 .ss-stage > * {
@@ -223,7 +288,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   stroke-width: 1;
 }
 .ss-stage .ss-timeout-line {
-  stroke: rgba(255, 255, 255, 0.3);
+  stroke: var(--ss-guide);
   stroke-width: 1;
   stroke-dasharray: 3 4;
 }
@@ -284,7 +349,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
    Variant: brand_ledger (Rallies)
    Lower third: identities + previous sets + score, rally ribbon,
    match standing and clocks. Team colours belong to accents only;
-   opaque dark surfaces keep names readable over the broadcast.
+   theme-relative neutral surfaces keep names readable over the broadcast.
    ───────────────────────────────────────────────────────────── */
 
 .ss-stage[data-style="brand_ledger"] {
@@ -295,7 +360,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   container-type: inline-size;
   display: block;
   border-radius: 3px;
-  background: rgba(17, 27, 43, 0.97);
+  background: var(--ss-surface-main);
   font-variant-numeric: tabular-nums;
 }
 .ss-stage[data-style="brand_ledger"] .home {
@@ -352,13 +417,13 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   font-size: 1.6cqw;
   font-weight: 700;
   color: var(--ss-home-text);
-  background: color-mix(in srgb, var(--ss-home) 25%, #111b2b);
+  background: color-mix(in srgb, var(--ss-home) 25%, var(--ss-surface-main));
   overflow: hidden;
 }
 .ss-stage[data-style="brand_ledger"] .ss-strip-away .ss-logo {
   color: var(--ss-away-text);
   border-color: var(--ss-away-text);
-  background: color-mix(in srgb, var(--ss-away) 25%, #111b2b);
+  background: color-mix(in srgb, var(--ss-away) 25%, var(--ss-surface-main));
 }
 .ss-stage[data-style="brand_ledger"] .ss-logo img {
   width: 100%;
@@ -386,7 +451,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   display: flex;
   gap: 0.8cqw;
   padding: 0 1cqw;
-  border-inline: 1px solid var(--ss-white-12);
+  border-inline: 1px solid var(--ss-divider);
 }
 .ss-stage[data-style="brand_ledger"] .ss-strip-history:empty {
   display: none;
@@ -402,11 +467,15 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 .ss-stage[data-style="brand_ledger"] .ss-strip-previous {
   display: grid;
   gap: 0.65cqw;
+  padding: 0.45cqw 0.6cqw;
+  border-radius: 3px;
+  background: var(--ss-history-cell);
+  box-shadow: var(--ss-history-shadow);
   text-align: center;
 }
 .ss-stage[data-style="brand_ledger"] .ss-strip-previous small {
   font-size: 1.1cqw;
-  color: #b7c3d4;
+  color: var(--ss-ink-secondary);
 }
 .ss-stage[data-style="brand_ledger"] .ss-strip-previous strong {
   font-size: 2cqw;
@@ -419,16 +488,16 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   font-size: 1.1cqw;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #b7c3d4;
+  color: var(--ss-ink-secondary);
   overflow-wrap: anywhere;
 }
 .ss-stage[data-style="brand_ledger"] .ss-strip-status > div {
   font-weight: 700;
-  color: #e3e9f2;
+  color: var(--ss-ink-strong);
 }
 .ss-stage[data-style="brand_ledger"] .ss-rally-ribbon {
   padding: 1.6cqw 2.2cqw;
-  background: #1c2a3c;
+  background: var(--ss-surface-raised);
 }
 .ss-stage[data-style="brand_ledger"] .ss-rally-heading {
   display: flex;
@@ -439,7 +508,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   font-size: 1.1cqw;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: #b7c3d4;
+  color: var(--ss-ink-secondary);
 }
 .ss-stage[data-style="brand_ledger"] .ss-rally-legend {
   display: flex;
@@ -474,7 +543,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   height: 1.8cqw;
   border-radius: 1px;
   background: var(--ss-home);
-  box-shadow: inset 0 0 0 1px var(--ss-white-12);
+  box-shadow: inset 0 0 0 1px var(--ss-divider);
 }
 .ss-stage[data-style="brand_ledger"] .ss-rally.away {
   background: var(--ss-away);
@@ -492,26 +561,26 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   );
 }
 .ss-stage[data-style="brand_ledger"] .ss-rally.ss-last {
-  outline: 1px solid #fff;
+  outline: 1px solid var(--ss-ink);
   outline-offset: 1px;
 }
 .ss-stage[data-style="brand_ledger"] .ss-rally-hint {
   margin-top: 1.1cqw;
   text-align: center;
   font-size: 1.1cqw;
-  color: #b7c3d4;
+  color: var(--ss-ink-secondary);
 }
 .ss-stage[data-style="brand_ledger"] .ss-empty-note {
   font-size: 1.3cqw;
   padding: 1cqw;
-  color: #b7c3d4;
+  color: var(--ss-ink-secondary);
 }
 .ss-stage[data-style="brand_ledger"] .ss-strip-footer {
   display: flex;
   justify-content: space-between;
   gap: 2cqw;
   padding: 1.2cqw 2.2cqw;
-  background: #253345;
+  background: var(--ss-surface-footer);
   font-size: 1.4cqw;
   text-transform: uppercase;
 }
@@ -571,6 +640,11 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   grid-template-columns: 1fr 0.85fr 1fr;
 }
 .ss-stage[data-style="brand_columns"] .ss-team {
+  --ss-text-bright: rgba(255, 255, 255, 0.7);
+  --ss-white-08: rgba(255, 255, 255, 0.08);
+  --ss-white-12: rgba(255, 255, 255, 0.12);
+  --ss-white-18: rgba(255, 255, 255, 0.18);
+  color: #fff;
   position: relative;
   padding: clamp(11px, 5.1cqw, 56px) clamp(11px, 4.2cqw, 48px);
   display: flex;
@@ -683,7 +757,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   letter-spacing: -0.02em;
 }
 .ss-stage[data-style="brand_columns"] .ss-centre {
-  background: rgba(15, 20, 30, 0.62);
+  background: var(--ss-surface-glass);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   padding: clamp(11px, 4.5cqw, 56px) clamp(7px, 2.25cqw, 28px);
@@ -691,8 +765,8 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   grid-template-rows: auto 1fr auto auto;
   row-gap: 16px;
   text-align: center;
-  border-left: 1px solid var(--ss-white-12);
-  border-right: 1px solid var(--ss-white-12);
+  border-left: 1px solid var(--ss-divider);
+  border-right: 1px solid var(--ss-divider);
 }
 .ss-stage[data-style="brand_columns"] .ss-set-pill {
   display: inline-flex;
@@ -702,32 +776,32 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   justify-self: center;
   padding: 8px 18px;
   border-radius: 999px;
-  background: rgba(46, 204, 113, 0.12);
-  border: 1px solid rgba(46, 204, 113, 0.4);
+  background: var(--ss-accent-positive-bg);
+  border: 1px solid var(--ss-accent-positive-border);
   font:
     700 12px/1 -apple-system,
     sans-serif;
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: #2ecc71;
+  color: var(--ss-accent-positive);
 }
 .ss-stage[data-style="brand_columns"] .ss-set-pill::before {
   content: "";
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #2ecc71;
+  background: var(--ss-accent-positive);
 }
 /* Recap pill tints amber + pulses when the displayed set is still in
    play (operator triggered the recap mid-set). Green stays reserved
    for genuinely completed sets. */
 .ss-stage[data-style="brand_columns"] .ss-set-pill.is-live {
-  background: rgba(255, 170, 31, 0.14);
-  border-color: rgba(255, 170, 31, 0.45);
-  color: #ffaa1f;
+  background: var(--ss-accent-live-bg);
+  border-color: var(--ss-accent-live-border);
+  color: var(--ss-accent-live);
 }
 .ss-stage[data-style="brand_columns"] .ss-set-pill.is-live::before {
-  background: #ffaa1f;
+  background: var(--ss-accent-live);
   animation: ss-live-dot 1.4s ease-in-out infinite;
 }
 @keyframes ss-live-dot {
@@ -760,7 +834,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   font:
     800 clamp(10px, 2.4cqw, 28px)/1 -apple-system,
     sans-serif;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--ss-text-dim);
   letter-spacing: 0.6em;
 }
 .ss-stage[data-style="brand_columns"] .ss-duration-block {
@@ -771,7 +845,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 .ss-stage[data-style="brand_columns"] .ss-duration-block .ss-label {
   font-weight: 600;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--ss-text-dim);
   letter-spacing: 0.22em;
   text-transform: uppercase;
 }
@@ -789,9 +863,8 @@ body.set-summary-mode .set-summary-panel .ss-extras {
    Modular tile grid à la Apple/Stripe with a wide bottom
    ledger. Stage span overrides the common 16:9 box so the
    ledger can stretch nearly edge-to-edge of the viewport. The
-   "frame" wrapping the core block uses a darker translucent
-   fill (~50% opacity) so the white text on top gets enough
-   contrast over any stream.
+   "frame" wrapping the core block uses a translucent themed fill
+   with enough contrast over any stream.
    ───────────────────────────────────────────────────────────── */
 
 .ss-stage[data-style="bento"] {
@@ -802,7 +875,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   grid-template-columns: repeat(6, 1fr);
   grid-template-rows: auto 1fr;
   gap: var(--ss-sz-md);
-  background: rgba(13, 17, 23, 0.55);
+  background: var(--ss-surface-glass);
   backdrop-filter: blur(8px) saturate(140%);
   -webkit-backdrop-filter: blur(8px) saturate(140%);
 }
@@ -818,8 +891,8 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     800 clamp(11px, 3.15cqw, 32px)/1 -apple-system,
     sans-serif;
   letter-spacing: -0.02em;
-  color: #fff;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
+  color: var(--ss-ink);
+  text-shadow: var(--ss-text-shadow);
 }
 .ss-stage[data-style="bento"] .ss-header .ss-title small {
   color: var(--ss-text-mid);
@@ -833,12 +906,12 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   /* Soft warm amber instead of the previous bright green so the
      clock blends with the muted tile palette and gives a steady
      accent without screaming. */
-  color: #f5d27a;
+  color: var(--ss-accent-warm);
   letter-spacing: 0.04em;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
+  text-shadow: var(--ss-text-shadow);
 }
 .ss-stage[data-style="bento"] .ss-tile {
-  background: rgba(22, 27, 34, 0.62);
+  background: var(--ss-surface-tile);
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
   border: 1px solid var(--ss-white-08);
@@ -880,8 +953,8 @@ body.set-summary-mode .set-summary-panel .ss-extras {
       color-mix(in srgb, var(--ss-home) 32%, transparent) 0%,
       color-mix(in srgb, var(--ss-away) 32%, transparent) 100%
     ),
-    rgba(15, 20, 30, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+    var(--ss-surface-glass);
+  border: 1px solid var(--ss-divider-strong);
   padding: clamp(11px, 3.3cqw, 32px);
   /* Centre the teams group vertically so the score doesn't sit
      at the top with a chunk of empty space below it. */
@@ -907,8 +980,8 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     800 clamp(10px, 3cqw, 32px)/1.1 -apple-system,
     sans-serif;
   letter-spacing: -0.005em;
-  color: #fff;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+  color: var(--ss-ink);
+  text-shadow: var(--ss-text-shadow);
   overflow-wrap: anywhere;
 }
 .ss-stage[data-style="bento"] .ss-tile-score .ss-team .ss-tag {
@@ -944,14 +1017,14 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     "Consolas",
     monospace;
   letter-spacing: -0.06em;
-  color: #fff;
-  text-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  color: var(--ss-ink);
+  text-shadow: var(--ss-text-shadow);
 }
 .ss-stage[data-style="bento"] .ss-tile-score .ss-sep {
   font:
     800 clamp(20px, 6cqw, 70px)/1 "Menlo",
     monospace;
-  color: rgba(255, 255, 255, 0.32);
+  color: var(--ss-white-18);
 }
 /* Stats tile replaces the previous chart tile in the same grid
    slot. Hosts four stacked rows (streak, services, timeouts,
@@ -978,7 +1051,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   align-items: center;
   gap: var(--ss-sz-xs);
   padding: clamp(2px, 0.8cqw, 8px) clamp(1px, 0.6cqw, 6px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--ss-divider);
 }
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-row:last-child {
   border-bottom: none;
@@ -995,25 +1068,22 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   text-transform: uppercase;
   color: var(--ss-text-mid);
 }
-/* Stat values always render in solid white. Team-colour tinting
-   was traded off because dark primaries (e.g. navy #060f8a) — or
-   even the 65%-white blend — never quite reached comfortable
-   contrast on the dark bento tile. The team origin of each stat
-   stays visible via the icon column on the left. */
+/* Stat values use the theme's strongest ink. The team origin of each
+   stat stays visible via the icon column on the left. */
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-value {
   font:
     900 clamp(11px, 2.85cqw, 28px)/1 "Menlo",
     "Consolas",
     monospace;
   letter-spacing: -0.02em;
-  color: #fff;
+  color: var(--ss-ink);
   white-space: nowrap;
 }
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-value .home {
-  color: color-mix(in srgb, var(--ss-home) 40%, #fff);
+  color: color-mix(in srgb, var(--ss-home) 40%, var(--ss-accent-ink-mix));
 }
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-value .away {
-  color: color-mix(in srgb, var(--ss-away) 40%, #fff);
+  color: color-mix(in srgb, var(--ss-away) 40%, var(--ss-accent-ink-mix));
 }
 
 /* Decoupled bottom ledger — sits in the panel's ``.ss-extras``
@@ -1022,7 +1092,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
    bento tile so it visually belongs to this variant. */
 .ss-extras[data-style="bento"] .ss-bento-ledger {
   width: min(96vw, 1840px);
-  background: rgba(22, 27, 34, 0.7);
+  background: var(--ss-surface-tile);
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
   border: 1px solid var(--ss-white-08);
@@ -1033,7 +1103,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   grid-template-rows: 1fr 1fr;
   row-gap: clamp(3px, 1.05cqw, 10px);
   min-width: 0;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--ss-card-shadow);
 }
 .ss-extras[data-style="bento"] .ss-bumper-row {
   display: grid;
@@ -1073,7 +1143,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   font:
     900 clamp(11px, 3cqw, 30px)/1 -apple-system,
     sans-serif;
-  color: #fff;
+  color: var(--ss-ink);
   letter-spacing: -0.02em;
   min-width: 2em;
   padding-left: 6px;
@@ -1109,7 +1179,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   background: color-mix(in srgb, var(--ss-away) 55%, transparent);
 }
 .ss-extras[data-style="bento"] .ss-bumper-row .ss-chip.ss-empty {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--ss-empty-cell);
   color: var(--ss-white-18);
   font-weight: 600;
 }
@@ -1204,7 +1274,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   right: -6%;
 }
 .ss-stage[data-style="glass"] .ss-blob-3 {
-  background: #5bdb7c;
+  background: var(--ss-accent-positive);
   width: 26%;
   aspect-ratio: 1;
   bottom: -14%;
@@ -1213,16 +1283,14 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 }
 .ss-stage[data-style="glass"] .ss-glass {
   position: relative;
-  /* Darker tile background so white/coloured text stays legible
-     even when the stream behind the overlay is bright. */
-  background: rgba(12, 16, 24, 0.55);
+  background: var(--ss-surface-glass);
   backdrop-filter: blur(24px) saturate(140%);
   -webkit-backdrop-filter: blur(24px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  border: 1px solid var(--ss-divider-strong);
   border-radius: 22px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    0 24px 50px rgba(0, 0, 0, 0.5);
+    inset 0 1px 0 var(--ss-inset-highlight),
+    var(--ss-card-shadow);
   z-index: 1;
 }
 .ss-stage[data-style="glass"] .ss-header {
@@ -1242,7 +1310,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   padding: 6px 14px;
   border-radius: 999px;
   background: var(--ss-white-08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--ss-divider-strong);
 }
 .ss-stage[data-style="glass"] .ss-match-score-label {
   font:
@@ -1257,13 +1325,13 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     900 clamp(10px, 2.85cqw, 26px)/1 -apple-system,
     sans-serif;
   letter-spacing: -0.02em;
-  color: #fff;
+  color: var(--ss-ink);
 }
 .ss-stage[data-style="glass"] .ss-match-score-value .home {
-  color: color-mix(in srgb, var(--ss-home) 40%, #fff);
+  color: var(--ss-home-text);
 }
 .ss-stage[data-style="glass"] .ss-match-score-value .away {
-  color: color-mix(in srgb, var(--ss-away) 40%, #fff);
+  color: var(--ss-away-text);
 }
 .ss-stage[data-style="glass"] .ss-header .ss-title {
   display: flex;
@@ -1274,21 +1342,21 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     sans-serif;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--ss-ink-strong);
 }
 .ss-stage[data-style="glass"] .ss-pill {
   padding: 6px 14px;
-  background: rgba(91, 219, 124, 0.2);
-  border: 1px solid rgba(91, 219, 124, 0.5);
-  color: #5bdb7c;
+  background: var(--ss-accent-positive-bg);
+  border: 1px solid var(--ss-accent-positive-border);
+  color: var(--ss-accent-positive);
   border-radius: 999px;
   font-size: clamp(5px, 1.275cqw, 13px);
   letter-spacing: 0.22em;
 }
 .ss-stage[data-style="glass"] .ss-pill.is-live {
-  background: rgba(255, 170, 31, 0.22);
-  border-color: rgba(255, 170, 31, 0.55);
-  color: #ffc36b;
+  background: var(--ss-accent-live-bg);
+  border-color: var(--ss-accent-live-border);
+  color: var(--ss-accent-live);
   animation: ss-live-pulse 1.6s ease-in-out infinite;
 }
 @keyframes ss-live-pulse {
@@ -1311,7 +1379,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   letter-spacing: 0.04em;
 }
 .ss-stage[data-style="glass"] .ss-meta strong {
-  color: #fff;
+  color: var(--ss-ink);
 }
 .ss-stage[data-style="glass"] .ss-score-tile {
   padding: clamp(9px, 3cqw, 28px) clamp(13px, 4.5cqw, 40px);
@@ -1399,7 +1467,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   display: grid;
   place-items: center;
   background: var(--ss-white-12);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid var(--ss-divider-strong);
   font:
     800 clamp(8px, 2.1cqw, 22px)/1 -apple-system,
     sans-serif;
@@ -1422,17 +1490,17 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   font:
     600 clamp(4px, 1.125cqw, 11px)/1 -apple-system,
     sans-serif;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--ss-text-mid);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   margin-top: 4px;
 }
 .ss-stage[data-style="glass"] .ss-team-row.home .ss-name strong {
-  color: var(--ss-home);
+  color: var(--ss-home-text);
   font-weight: 800;
 }
 .ss-stage[data-style="glass"] .ss-team-row.away .ss-name strong {
-  color: var(--ss-away);
+  color: var(--ss-away-text);
   font-weight: 800;
 }
 .ss-stage[data-style="glass"] .ss-team-row .ss-pts {
@@ -1449,10 +1517,10 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   text-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
 }
 .ss-stage[data-style="glass"] .ss-team-row.home .ss-pts {
-  color: var(--ss-home);
+  color: var(--ss-home-text);
 }
 .ss-stage[data-style="glass"] .ss-team-row.away .ss-pts {
-  color: var(--ss-away);
+  color: var(--ss-away-text);
 }
 .ss-stage[data-style="glass"] .ss-chart-tile {
   padding: clamp(9px, 2.7cqw, 24px) clamp(10px, 3cqw, 28px);
@@ -1485,7 +1553,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   font:
     800 clamp(11px, 3.3cqw, 28px)/1 -apple-system,
     sans-serif;
-  color: #5bdb7c;
+  color: var(--ss-accent-positive);
   letter-spacing: -0.02em;
 }
 .ss-stage[data-style="glass"] .ss-chart-tile .ss-chart-box {
@@ -1509,7 +1577,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 }
 /* Stats live inside the score tile (below the team rows) — same
    column as the teams so the operator scans ``team + their stats``
-   in one place. Uniform white values with no <small> suffix so all
+   in one place. Uniform foreground values with no <small> suffix so all
    four rows render at the exact same font size. */
 .ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block {
   /* Never the element that gives: timeouts / total points are the two
@@ -1553,7 +1621,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     800 clamp(11px, 3cqw, 30px)/1 -apple-system,
     sans-serif;
   letter-spacing: -0.02em;
-  color: #fff;
+  color: var(--ss-ink);
   /* "services won" reads "11 / 23 · 12 / 25" — by far the longest
      value here. Left to wrap it added a line to the stats block, which
      is what used to push timeouts / total points off the bottom of the
@@ -1571,7 +1639,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   .ss-stat-row
   .ss-value
   .home {
-  color: color-mix(in srgb, var(--ss-home) 40%, #fff);
+  color: color-mix(in srgb, var(--ss-home) 40%, var(--ss-accent-ink-mix));
 }
 .ss-stage[data-style="glass"]
   .ss-score-tile
@@ -1579,7 +1647,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   .ss-stat-row
   .ss-value
   .away {
-  color: color-mix(in srgb, var(--ss-away) 40%, #fff);
+  color: color-mix(in srgb, var(--ss-away) 40%, var(--ss-accent-ink-mix));
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -1594,6 +1662,17 @@ body.set-summary-mode .set-summary-panel .ss-extras {
    ───────────────────────────────────────────────────────────── */
 
 .ss-stage[data-style="bumper"] {
+  /* Bumper is intentionally a night-broadcast title card. Preserve that
+     identity even when the surrounding scoreboard uses its light palette. */
+  --ss-ink: #fff;
+  --ss-text-bright: rgba(255, 255, 255, 0.7);
+  --ss-text-mid: rgba(255, 255, 255, 0.65);
+  --ss-text-dim: rgba(255, 255, 255, 0.55);
+  --ss-white-08: rgba(255, 255, 255, 0.08);
+  --ss-white-12: rgba(255, 255, 255, 0.12);
+  --ss-white-18: rgba(255, 255, 255, 0.18);
+  --ss-empty-cell: rgba(255, 255, 255, 0.04);
+  --ss-accent-ink-mix: #fff;
   /* Free-form stage shape so the ledger can span almost edge-to-edge. */
   width: min(96vw, 1840px);
   height: min(82vh, 920px);
@@ -2037,7 +2116,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   align-items: center;
   gap: clamp(1px, 0.4cqw, 4px);
   padding: clamp(3px, 1cqw, 10px) clamp(2px, 0.6cqw, 6px);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--ss-empty-cell);
   border-radius: clamp(5px, 1.2cqw, 10px);
 }
 .ss-pt-chip-k {
@@ -2046,7 +2125,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     sans-serif;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--ss-text-dim);
   white-space: nowrap;
 }
 .ss-pt-chip-n {
@@ -2054,16 +2133,16 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     800 clamp(9px, 2.25cqw, 24px)/1 "Menlo",
     "Consolas",
     monospace;
-  color: #fff;
+  color: var(--ss-ink);
 }
 .ss-pt-chip-n.home {
-  color: color-mix(in srgb, var(--ss-home) 45%, #fff);
+  color: color-mix(in srgb, var(--ss-home) 45%, var(--ss-accent-ink-mix));
 }
 .ss-pt-chip-n.away {
-  color: color-mix(in srgb, var(--ss-away) 45%, #fff);
+  color: color-mix(in srgb, var(--ss-away) 45%, var(--ss-accent-ink-mix));
 }
 .ss-pt-chip.is-zero .ss-pt-chip-n {
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--ss-white-18);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -2086,7 +2165,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
       color-mix(in srgb, var(--ss-away) 24%, transparent) 0%,
       transparent 45%
     ),
-    rgba(12, 16, 24, 0.62);
+    var(--ss-surface-glass);
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
   grid-template-rows: auto auto auto minmax(0, 1fr);
@@ -2103,9 +2182,9 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 .ss-stage[data-style="ledger_diff"] .ss-ld-pill {
   padding: 0.45em 0.95em;
   border-radius: 999px;
-  background: rgba(91, 219, 124, 0.2);
-  border: 1px solid rgba(91, 219, 124, 0.5);
-  color: #5bdb7c;
+  background: var(--ss-accent-positive-bg);
+  border: 1px solid var(--ss-accent-positive-border);
+  color: var(--ss-accent-positive);
   font:
     700 clamp(6px, 1.55cqh, 15px)/1 -apple-system,
     sans-serif;
@@ -2114,9 +2193,9 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   white-space: nowrap;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-pill.is-live {
-  background: rgba(255, 170, 31, 0.22);
-  border-color: rgba(255, 170, 31, 0.55);
-  color: #ffc36b;
+  background: var(--ss-accent-live-bg);
+  border-color: var(--ss-accent-live-border);
+  color: var(--ss-accent-live);
   animation: ss-live-pulse 1.6s ease-in-out infinite;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-matchscore {
@@ -2137,13 +2216,13 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     900 clamp(10px, 2.6cqh, 26px)/1 "Menlo",
     "Consolas",
     monospace;
-  color: #fff;
+  color: var(--ss-ink);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-ms-value .home {
-  color: color-mix(in srgb, var(--ss-home) 45%, #fff);
+  color: color-mix(in srgb, var(--ss-home) 45%, var(--ss-accent-ink-mix));
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-ms-value .away {
-  color: color-mix(in srgb, var(--ss-away) 45%, #fff);
+  color: color-mix(in srgb, var(--ss-away) 45%, var(--ss-accent-ink-mix));
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-clocks {
   display: inline-flex;
@@ -2155,7 +2234,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     700 clamp(7px, 1.7cqh, 17px)/1 "Menlo",
     "Consolas",
     monospace;
-  color: #5bdb7c;
+  color: var(--ss-accent-positive);
   letter-spacing: 0.02em;
 }
 /* Team header cards (logo · name/tag · big score), mirrored away-side. */
@@ -2282,11 +2361,11 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-hv {
   text-align: right;
-  color: color-mix(in srgb, var(--ss-home) 45%, #fff);
+  color: color-mix(in srgb, var(--ss-home) 45%, var(--ss-accent-ink-mix));
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-av {
   text-align: left;
-  color: color-mix(in srgb, var(--ss-away) 45%, #fff);
+  color: color-mix(in srgb, var(--ss-away) 45%, var(--ss-accent-ink-mix));
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-bar {
   position: relative;
@@ -2352,7 +2431,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
     700 clamp(5px, 1.3cqh, 12px)/1 -apple-system,
     sans-serif;
   letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--ss-text-bright);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-graph-body {
   position: relative;
@@ -2367,7 +2446,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-line {
   fill: none;
-  stroke: #fff;
+  stroke: var(--ss-ink);
   stroke-width: 2.4;
   stroke-opacity: 0.9;
 }
@@ -2380,17 +2459,17 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   stop-opacity: 0.55;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-zero {
-  stroke: rgba(255, 255, 255, 0.35);
+  stroke: var(--ss-divider-strong);
   stroke-width: 1.2;
   stroke-dasharray: 5 4;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-to {
-  stroke: rgba(255, 255, 255, 0.3);
+  stroke: var(--ss-divider-strong);
   stroke-width: 1.4;
   stroke-dasharray: 4 4;
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-dot {
-  fill: #fff;
+  fill: var(--ss-ink);
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-annot {
   position: absolute;
@@ -2401,9 +2480,9 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-annot-top {
   top: clamp(2px, 0.4cqh, 6px);
-  color: color-mix(in srgb, var(--ss-home) 55%, #fff);
+  color: color-mix(in srgb, var(--ss-home) 55%, var(--ss-accent-ink-mix));
 }
 .ss-stage[data-style="ledger_diff"] .ss-ld-annot-bot {
   bottom: clamp(2px, 0.4cqh, 6px);
-  color: color-mix(in srgb, var(--ss-away) 55%, #fff);
+  color: color-mix(in srgb, var(--ss-away) 55%, var(--ss-accent-ink-mix));
 }

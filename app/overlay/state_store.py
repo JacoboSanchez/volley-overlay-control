@@ -418,7 +418,7 @@ class OverlayStateStore:
 
     # -- Style capabilities ------------------------------------------------
 
-    def get_style_capabilities(self) -> dict[str, dict[str, bool]]:
+    def get_style_capabilities(self) -> dict[str, dict[str, bool | str]]:
         return self._style_catalog.get_style_capabilities()
 
     # Compatibility properties for fixtures and extensions that clear the
@@ -440,13 +440,13 @@ class OverlayStateStore:
         self._style_catalog._renderable_styles = value
 
     @property
-    def _style_capabilities(self) -> dict[str, dict[str, bool]] | None:
+    def _style_capabilities(self) -> dict[str, dict[str, bool | str]] | None:
         return self._style_catalog._style_capabilities
 
     @_style_capabilities.setter
     def _style_capabilities(
         self,
-        value: dict[str, dict[str, bool]] | None,
+        value: dict[str, dict[str, bool | str]] | None,
     ) -> None:
         self._style_catalog._style_capabilities = value
 

@@ -16,6 +16,15 @@ archive by hand.
 
 ### Changed
 
+- **Set summaries now follow the active scoreboard palette.** Rallies switches
+  its surfaces, text, separators, shadows and previous-set cells between light
+  and dark themes while keeping team colours as accents; Bento, Glass,
+  Comparativa and the neutral centre of Columnas adapt as well. The default
+  theme now resolves from each scoreboard style's declared native palette, so
+  light-card styles also receive a matching recap without an explicit theme
+  selection. The deliberately theatrical Bumper variant keeps its dark title
+  card treatment. The set-summary documentation screenshot now shows the
+  native-light result.
 - **The set-summary “Ledger” style is now “Rallies”.** The recap is a compact
   lower third without a top banner: team names and logos, small previous-set
   scores beside the current score, a team-coloured rally ribbon, match standing

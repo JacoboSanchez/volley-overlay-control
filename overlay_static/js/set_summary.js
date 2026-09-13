@@ -707,14 +707,12 @@
   }
 
   function applyTeamColours(stage, home, away) {
-    stage.style.setProperty(
-      "--ss-home",
-      resolveTeamColour(home, FALLBACK_HOME),
-    );
-    stage.style.setProperty(
-      "--ss-away",
-      resolveTeamColour(away, FALLBACK_AWAY),
-    );
+    const homeColour = resolveTeamColour(home, FALLBACK_HOME);
+    const awayColour = resolveTeamColour(away, FALLBACK_AWAY);
+    stage.style.setProperty("--ss-home", homeColour);
+    stage.style.setProperty("--ss-away", awayColour);
+    stage.style.setProperty("--ss-home-text", stripTextColour(homeColour));
+    stage.style.setProperty("--ss-away-text", stripTextColour(awayColour));
   }
 
   function clear(node) {
@@ -784,14 +782,23 @@
     );
   }
 
-  // Text sits on a dark surface: lift very dark primaries toward white while
-  // retaining their hue. The rally blocks still use the configured colours.
+  // Keep team accents readable on the summary surface while retaining their
+  // hue. The rally blocks themselves always use the configured raw colours.
   function stripTextColour(colour) {
     const rgb = parseHex(colour);
     if (!rgb) return colour;
-    while (relativeLuminance(rgb) < 0.25) {
-      for (let i = 0; i < rgb.length; i++)
-        rgb[i] = Math.ceil(rgb[i] + (255 - rgb[i]) * 0.1);
+    const lightSurface = document.body.classList.contains(
+      "overlay-theme-light",
+    );
+    if (lightSurface) {
+      while (relativeLuminance(rgb) > 0.2) {
+        for (let i = 0; i < rgb.length; i++) rgb[i] = Math.floor(rgb[i] * 0.9);
+      }
+    } else {
+      while (relativeLuminance(rgb) < 0.25) {
+        for (let i = 0; i < rgb.length; i++)
+          rgb[i] = Math.ceil(rgb[i] + (255 - rgb[i]) * 0.1);
+      }
     }
     return `rgb(${rgb.join(", ")})`;
   }

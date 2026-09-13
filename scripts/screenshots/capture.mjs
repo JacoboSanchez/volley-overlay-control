@@ -641,7 +641,9 @@ async function captureSetSummary(page, filename) {
   const oid = 'set-recap';
   await createOverlay(oid);
   await initSession(oid);
-  await putCustomization(oid, { ...CUSTOMIZATION, preferredStyle: 'glass' });
+  // Broadcast is natively light; leaving overlayTheme unset exercises the
+  // per-style default palette used by the in-document Rallies summary.
+  await putCustomization(oid, { ...CUSTOMIZATION, preferredStyle: 'broadcast' });
   await oidPost('/api/v1/game/start-match', oid, null);
   for (const [set, home, away] of [[1, 25, 20], [2, 22, 25]]) {
     const winner = home > away ? 1 : 2;
