@@ -67,13 +67,20 @@ def test_neon_compact_mode_collapses_the_whole_header() -> None:
 
     The header carries a ``min-height``, which would win over the
     ``max-height: 0`` collapse and leave an 18px stub across the top of
-    the card — so both have to be zeroed together.
+    the card — so both have to be zeroed together, and both have to ride
+    the transition: a snapping minimum slams the row back open to 18px
+    on the way out of compact mode, before anything else has moved.
     """
     css = _read("overlay_static/css/neon.css")
 
-    match = re.search(r"\.compact-mode \.head \{([^}]*)\}", css)
-    assert match, "neon.css no longer collapses .head in compact mode"
-    block = match.group(1)
-
+    collapse = re.search(r"\.compact-mode \.head \{([^}]*)\}", css)
+    assert collapse, "neon.css no longer collapses .head in compact mode"
     for declaration in ("max-height: 0", "min-height: 0"):
-        assert declaration in block, declaration
+        assert declaration in collapse.group(1), declaration
+
+    base = re.search(r"\n\.head \{([^}]*)\}", css)
+    assert base, "neon.css no longer has a .head rule"
+    transition = re.search(r"transition:([^;]*);", base.group(1))
+    assert transition, "the .head rule no longer animates its collapse"
+    for prop in ("max-height", "min-height"):
+        assert prop in transition.group(1), prop

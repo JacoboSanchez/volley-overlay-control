@@ -90,11 +90,15 @@ body {
        this file). ``max-height`` is the animatable stand-in for the
        row's natural height: generous enough that the label and chips
        are never clipped here, small enough that the close animation
-       starts moving immediately. */
+       starts moving immediately. ``min-height`` rides the same
+       transition because a minimum beats ``max-height`` outright —
+       left to snap, it would slam the row back open to 18px on the
+       way out of compact mode before the rest had moved. */
   max-height: 60px;
   overflow: hidden;
   transition:
     max-height 0.4s ease,
+    min-height 0.4s ease,
     padding 0.4s ease,
     border-bottom-width 0.4s ease,
     opacity 0.3s ease;
