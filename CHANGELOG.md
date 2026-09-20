@@ -14,6 +14,34 @@ archive by hand.
 
 ## [Unreleased]
 
+### Dependencies
+
+- **Backend (runtime):** `alembic` `1.19.2` → `1.20.0` — a `uv.lock` refresh
+  only, since `pyproject.toml` already floats at `>=1.19.1`. Alembic runs
+  `upgrade head` on every startup behind the cross-process file lock, so this
+  bump lands on the boot path rather than in tooling.
+  [#542](https://github.com/JacoboSanchez/volley-overlay-control/pull/542)
+- **Backend (transitive):** `anyio` `4.13.0` → `4.14.2`. The async primitives
+  underneath Starlette, httpx and watchfiles; nothing under `app/` imports it
+  directly, so the lock entry only records which version the request path and
+  the test client run on.
+  [#546](https://github.com/JacoboSanchez/volley-overlay-control/pull/546)
+- **Backend (dev-only):** `ruff` `0.16.6` → `0.16.7` — the lint gate, pinned
+  exactly so CI and a local run report identical findings. Clean on the
+  merged tree.
+  [#544](https://github.com/JacoboSanchez/volley-overlay-control/pull/544)
+- **Frontend (runtime):** the `react` group moves `react` and `react-dom`
+  `19.2.8` → `19.3.0`, carrying `@types/react` `19.2.18` → `19.3.0` and
+  `@types/react-dom` `19.2.7` → `19.3.0` (dev-only) along with them so the
+  control SPA's types stay in step with the renderer they describe.
+  [#541](https://github.com/JacoboSanchez/volley-overlay-control/pull/541)
+- **Frontend (dev-only):** `vite` `8.2.0` → `8.3.0` and `@vitejs/plugin-react`
+  `6.0.5` → `6.1.1` — the SPA build and its React transform, and with them the
+  PWA manifest and pre-compressed assets both plugins emit at build time. The
+  production bundle builds and the vitest suite passes unchanged.
+  [#543](https://github.com/JacoboSanchez/volley-overlay-control/pull/543),
+  [#545](https://github.com/JacoboSanchez/volley-overlay-control/pull/545)
+
 ## [7.2.0] - 2026-09-13
 
 ### Changed
