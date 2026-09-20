@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.2.1] - 2026-09-20
+
 ### Dependencies
 
 - **Backend (runtime):** `alembic` `1.19.2` → `1.20.0` — a `uv.lock` refresh
