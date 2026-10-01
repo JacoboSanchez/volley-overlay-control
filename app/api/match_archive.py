@@ -183,12 +183,17 @@ def archive_match(
     return match_id
 
 
-def _scope_predicates(
-    stmt: Select[Any],
+def _scope_predicates[S: Select[Any]](
+    stmt: S,
     oid: str | None,
     user_id: int | None,
-) -> Select[Any] | None:
+) -> S | None:
     """Apply the skey / user_id scoping shared by list and count.
+
+    Generic over the statement so callers keep its concrete row type:
+    under SQLAlchemy 2.1's variadic ``Select``, a ``Select[Any]`` return
+    widens to ``Select[*tuple[Any, ...]]`` and ``.scalars()`` types as
+    ``ScalarResult[Never]``.
 
     Returns the scoped statement, or ``None`` when a provided-but-invalid
     key must match nothing (fail closed).
@@ -203,13 +208,13 @@ def _scope_predicates(
     return stmt
 
 
-def _summary_filters(
-    stmt: Select[Any],
+def _summary_filters[S: Select[Any]](
+    stmt: S,
     *,
     mode: str | None = None,
     ended_from: float | None = None,
     ended_to: float | None = None,
-) -> Select[Any]:
+) -> S:
     """Apply filters shared by summary, count, and calendar-time queries.
 
     ``JSON.as_string`` compiles to the native JSON scalar extraction for both
@@ -320,7 +325,9 @@ def list_match_times(
         if stmt is None:
             return []
         stmt = _summary_filters(stmt, mode=mode).where(MatchReport.ended_at.is_not(None))
-        return [float(ts) for ts in db.execute(stmt).scalars().all()]
+        return [
+            float(ts) for ts in db.execute(stmt).scalars().all() if ts is not None
+        ]
 
 
 def _latest_match_stmt(oid: str) -> Select[Any] | None:
