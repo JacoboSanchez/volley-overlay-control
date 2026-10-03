@@ -167,12 +167,18 @@ describe('CenterPanel', () => {
       expect(onToggleSetSummary).toHaveBeenCalledOnce();
     });
 
-    it('shows the full-frame preview even when the scoreboard preview is off', () => {
-      const { container } = renderWithBoard(<CenterPanel />, {
+    it('shows the on-air status line instead of a preview when the preview is off', () => {
+      renderWithBoard(<CenterPanel />, {
         state: { state: recapOnAir, previewData: overlayPreview, showPreview: false },
+        layout: { compactLandscape: true },
       });
-      expect(container.querySelector('.preview-container-full')).not.toBeNull();
+      expect(screen.queryByTestId('overlay-preview')).not.toBeInTheDocument();
       expect(screen.queryByTestId('points-history-strip')).not.toBeInTheDocument();
+      expect(screen.getByTestId('set-summary-notice-status')).toHaveTextContent('Showing set 2');
+      // No preview to make room for, so the button stays in the notice.
+      const notice = screen.getByTestId('set-summary-notice');
+      expect(screen.getByTestId('match-alerts-row')).not.toContainElement(notice);
+      expect(notice).toContainElement(screen.getByTestId('set-summary-notice-deactivate'));
     });
 
     it('falls back to the on-air status line when no preview is available', () => {

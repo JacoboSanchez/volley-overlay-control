@@ -20,14 +20,13 @@ archive by hand.
   The centre column used to replace the overlay preview with a "Showing set N
   on the overlay" line and the six-style picker. It now shows the whole OBS
   frame (the full 1920×1080 canvas scaled into the preview card) with the
-  recap on it, plus the existing **Hide summary** button. The full-frame
-  preview also appears when the scoreboard preview is switched off, and it
-  reuses the scoreboard preview's iframe, so turning the recap on or off does
-  not reload it. On landscape phones the hide button moves up next to the
-  swap-sides button so the bottom control bar no longer covers it. The recap
-  style is still chosen in the config panel's recap section. If the overlay
-  link can't be loaded, the "on air" status line is shown instead of the
-  preview.
+  recap on it, plus the existing **Hide summary** button. It reuses the
+  scoreboard preview's iframe, so turning the recap on or off does not reload
+  it. On landscape phones the hide button moves up next to the swap-sides
+  button so the bottom control bar no longer covers it. With the preview
+  switched off (or when the overlay link can't be loaded), the board shows
+  the "on air" status line and the hide button instead. The recap style is
+  now chosen only in the config panel's recap section.
 
 ## [7.2.1] - 2026-09-20
 

@@ -216,13 +216,8 @@ export default function App({
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
 
   // Gate preview fetch on session readiness — /api/v1/links returns 404 until
-  // initSession has created the session. The set recap shows a full-frame
-  // preview even when the scoreboard preview is off, so fetch for it too.
-  const previewData = usePreview(
-    oid,
-    settings.showPreview || (state?.set_summary ?? false),
-    !!state,
-  );
+  // initSession has created the session.
+  const previewData = usePreview(oid, settings.showPreview, !!state);
 
   // Landscape phones run with a narrower centre slot; truncate the
   // history strip accordingly so it doesn't overflow.

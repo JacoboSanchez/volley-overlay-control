@@ -67,9 +67,9 @@ function CenterPanel() {
   } as const;
   const setSummaryActive = state.set_summary ?? false;
   const setSummarySetNum = state.set_summary_set_num ?? null;
-  // The recap takes over the whole OBS frame, so while it is on air the
-  // preview shows the full canvas even when the scoreboard preview is off.
-  const visiblePreview = showPreview || setSummaryActive ? previewData : null;
+  // With the preview on, the recap takes over the whole OBS frame, so the
+  // preview shows the full canvas while it is on air.
+  const visiblePreview = showPreview ? previewData : null;
   // Landscape phones have no room under the preview before the HUD bar
   // (kept visible while the recap is on air), so the hide button moves up
   // into the alerts row there.
