@@ -120,7 +120,6 @@ export function boardContextValues(overrides: BoardContextOverrides = {}) {
     onUndoLast: noop,
     onTogglePreview: noop,
     onToggleSetSummary: noop,
-    onChangeSetSummaryStyle: noop,
     onStartMatch: noop,
     onReset: noop,
     onOpenConfig: noop,

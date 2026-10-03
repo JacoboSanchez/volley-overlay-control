@@ -45,8 +45,7 @@ function CenterPanel() {
   const { isPortrait, compactLandscape } = useBoardLayout();
   const { btnColorA, btnTextA, btnColorB, btnTextB, iconLogoA, iconLogoB, fontStyle } =
     useBoardTheme();
-  const { onAddSet, onLongPressSet, onSwapSides, onToggleSetSummary, onChangeSetSummaryStyle } =
-    useBoardActions();
+  const { onAddSet, onLongPressSet, onSwapSides, onToggleSetSummary } = useBoardActions();
   const indoorMidpointPending = useIndoorMidpointAlert(state, currentSet, setsLimit);
 
   // Display-side swap: presentation only — the buttons stay bound to
@@ -68,8 +67,13 @@ function CenterPanel() {
   } as const;
   const setSummaryActive = state.set_summary ?? false;
   const setSummarySetNum = state.set_summary_set_num ?? null;
-  const setSummaryStyle = (state.set_summary_style ??
-    'brand_ledger') as import('../api/board').SetSummaryStyle;
+  // The recap takes over the whole OBS frame, so while it is on air the
+  // preview shows the full canvas even when the scoreboard preview is off.
+  const visiblePreview = showPreview || setSummaryActive ? previewData : null;
+  // Landscape phones have no room under the preview before the HUD bar
+  // (kept visible while the recap is on air), so the hide button moves up
+  // into the alerts row there.
+  const hideInAlertsRow = setSummaryActive && compactLandscape && !!visiblePreview;
 
   return (
     <div className={`center-panel${compactLandscape ? ' center-panel-compact' : ''}`}>
@@ -161,6 +165,13 @@ function CenterPanel() {
             swap_horiz
           </span>
         </button>
+        {hideInAlertsRow && (
+          <SetSummaryActiveNotice
+            setNum={setSummarySetNum}
+            inline
+            onDeactivate={onToggleSetSummary}
+          />
+        )}
         <MatchAlertIndicator state={state} isPortrait={isPortrait} sidesSwapped={sidesSwapped} />
         {!state.match_finished && (
           <SideSwitchIndicator
@@ -171,37 +182,43 @@ function CenterPanel() {
         {!state.match_finished && <ServeSwitchIndicator info={state.serve_switch} />}
       </div>
 
-      {setSummaryActive ? (
-        <SetSummaryActiveNotice
-          setNum={setSummarySetNum}
-          style={setSummaryStyle}
-          onDeactivate={onToggleSetSummary}
-          onChangeStyle={onChangeSetSummaryStyle}
-        />
-      ) : showPreview && previewData ? (
+      {/* Kept in one slot for both modes so the iframe is not reloaded
+          when the recap comes and goes. */}
+      {visiblePreview && (
         <OverlayPreview
-          overlayUrl={previewData.overlayUrl}
-          x={previewData.x}
-          y={previewData.y}
-          width={previewData.width}
-          height={previewData.height}
-          layoutId={previewData.layoutId}
+          overlayUrl={visiblePreview.overlayUrl}
+          x={visiblePreview.x}
+          y={visiblePreview.y}
+          width={visiblePreview.width}
+          height={visiblePreview.height}
+          layoutId={visiblePreview.layoutId}
           cardWidth={compactLandscape ? PREVIEW_CARD_WIDTH_COMPACT : PREVIEW_CARD_WIDTH}
-        />
-      ) : (
-        <PointsHistoryStrip
-          events={recentEvents}
-          swapped={sidesSwapped}
-          team1Color={btnColorA}
-          team1TextColor={btnTextA}
-          team1Logo={logosById[1] || null}
-          team1Name={teamNamesById[1]}
-          team2Color={btnColorB}
-          team2TextColor={btnTextB}
-          team2Logo={logosById[2] || null}
-          team2Name={teamNamesById[2]}
+          fullFrame={setSummaryActive}
         />
       )}
+
+      {setSummaryActive
+        ? !hideInAlertsRow && (
+            <SetSummaryActiveNotice
+              setNum={setSummarySetNum}
+              showStatus={!visiblePreview}
+              onDeactivate={onToggleSetSummary}
+            />
+          )
+        : !visiblePreview && (
+            <PointsHistoryStrip
+              events={recentEvents}
+              swapped={sidesSwapped}
+              team1Color={btnColorA}
+              team1TextColor={btnTextA}
+              team1Logo={logosById[1] || null}
+              team1Name={teamNamesById[1]}
+              team2Color={btnColorB}
+              team2TextColor={btnTextB}
+              team2Logo={logosById[2] || null}
+              team2Name={teamNamesById[2]}
+            />
+          )}
     </div>
   );
 }

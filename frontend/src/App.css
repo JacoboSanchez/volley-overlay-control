@@ -566,6 +566,14 @@ body {
   pointer-events: none;
 }
 
+/* Full-frame mode (set recap on air): the card stands for the whole OBS
+   canvas, so give it a screen-like backdrop that shows the frame edges
+   behind the transparent overlay. */
+.preview-container-full {
+  background: #0b0b10;
+  outline: 1px solid var(--border);
+}
+
 /*
   Surfaces a "preview unavailable" placeholder when the iframe's load
   event never fires (cross-origin failure, CSP block, network drop,
@@ -3801,10 +3809,20 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 4px 14px 10px;
   text-align: center;
   width: 100%;
   max-width: 320px;
+}
+
+.set-summary-notice-inline {
+  width: auto;
+  padding: 0;
+}
+
+.set-summary-notice-inline .set-summary-notice-cta {
+  padding: 6px 12px;
+  font-size: 0.8rem;
 }
 
 .set-summary-notice-dot {
