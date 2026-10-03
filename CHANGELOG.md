@@ -28,6 +28,14 @@ archive by hand.
   the "on air" status line and the hide button instead. The recap style is
   now chosen only in the config panel's recap section.
 
+### Fixed
+
+- **"Hide summary" works on every board.** Hiding the set recap was blocked
+  on any device where the set-summary setting was off. So when the recap
+  was put on air from another device, or by another device's auto-show, the
+  hide button on that board did nothing. The setting now only controls
+  showing the recap; hiding it always works.
+
 ## [7.2.1] - 2026-09-20
 
 ### Dependencies
