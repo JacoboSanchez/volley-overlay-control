@@ -33,6 +33,10 @@ export interface OverlayPreviewProps {
   layoutId?: string | undefined;
   cardWidth?: number;
   styleOverride?: string | undefined;
+  /** Scale the whole 1920×1080 overlay canvas into the card instead of
+   *  cropping to the scoreboard's render bounds — used while a full-screen
+   *  graphic (the set recap) is on air. Toggling it keeps the same iframe. */
+  fullFrame?: boolean | undefined;
 }
 
 interface Bounds {
@@ -45,12 +49,14 @@ interface Bounds {
 /**
  * Renders an overlay preview by loading the full overlay output page in a
  * hidden iframe and using CSS transforms to crop/scale to just the scoreboard
- * region. Mirrors the logic in app/preview.py create_iframe_card().
+ * region (or, with ``fullFrame``, the whole canvas). Mirrors the logic in
+ * app/preview.py create_iframe_card().
  */
 export default function OverlayPreview({
   overlayUrl,
   cardWidth = 300,
   styleOverride,
+  fullFrame = false,
 }: OverlayPreviewProps) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -191,7 +197,14 @@ export default function OverlayPreview({
     transition: 'opacity 0.3s ease',
   };
 
-  if (customBounds && customBounds.width > 0 && customBounds.height > 0) {
+  if (fullFrame) {
+    // The card is 16:9 like the canvas, so one scale factor fits it exactly.
+    wrapperStyle = {
+      ...wrapperStyle,
+      transform: `scale(${cardWidth / iframeW})`,
+      opacity: 1,
+    };
+  } else if (customBounds && customBounds.width > 0 && customBounds.height > 0) {
     const scaleX = cardWidth / customBounds.width;
     const scaleY = cardHeight / customBounds.height;
     const scale = Math.min(scaleX, scaleY) * 0.95;
@@ -210,7 +223,7 @@ export default function OverlayPreview({
   return (
     <div
       ref={containerRef}
-      className="preview-container"
+      className={`preview-container${fullFrame ? ' preview-container-full' : ''}`}
       style={{ width: cardWidth, height: cardHeight, position: 'relative' }}
     >
       <div style={wrapperStyle}>{customIframe}</div>

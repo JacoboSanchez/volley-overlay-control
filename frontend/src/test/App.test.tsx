@@ -24,6 +24,7 @@ vi.mock('../api/board', () => ({
   resetGame: vi.fn(),
   setVisibility: vi.fn(),
   setSimpleMode: vi.fn(),
+  setSetSummary: vi.fn(),
   getBoardGroups: vi.fn().mockResolvedValue({ groups: [], selected_id: null }),
   getBoardGroupTeams: vi.fn().mockResolvedValue({}),
   setBoardSelectedGroup: vi.fn().mockResolvedValue({ ok: true, selected_id: null }),
@@ -330,6 +331,29 @@ describe('App', () => {
     // ask the owner for a new one.
     expect(screen.queryByText('This control link is no longer valid')).not.toBeInTheDocument();
     expect(screen.getByText('Failed to fetch')).toBeInTheDocument();
+  });
+
+  it('hides an on-air recap even when the set-summary setting is off on this device', async () => {
+    // Recap put on air elsewhere; this device keeps the default
+    // ``setSummaryEnabled: false``.
+    localStorage.clear();
+    vi.mocked(boardApi.initSession).mockResolvedValue({
+      success: true,
+      state: { ...mockGameState, set_summary: true, set_summary_set_num: 1 },
+    });
+    vi.mocked(boardApi.setSetSummary).mockResolvedValue({
+      success: true,
+      state: { ...mockGameState, set_summary: false },
+    });
+    renderWithI18n(<App />);
+    const input = screen.getByPlaceholderText('my-overlay');
+    fireEvent.change(input, { target: { value: 'recap-oid' } });
+    fireEvent.submit(input.closest('form')!);
+
+    fireEvent.click(await screen.findByTestId('set-summary-notice-deactivate'));
+    await waitFor(() => {
+      expect(boardApi.setSetSummary).toHaveBeenCalledWith('recap-oid', false, expect.anything());
+    });
   });
 
   describe('HUD auto-hide', () => {

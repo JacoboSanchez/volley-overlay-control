@@ -133,6 +133,74 @@ describe('OverlayPreview', () => {
     expect(uno).toHaveStyle({ width: '400px', height: '225px' });
   });
 
+  it('scales the whole 1920x1080 canvas into the card in fullFrame mode', () => {
+    renderWithI18n(
+      <OverlayPreview
+        overlayUrl="https://my-app.example/overlay/tok"
+        x={0}
+        y={0}
+        width={30}
+        height={10}
+        cardWidth={300}
+        fullFrame
+      />,
+    );
+    const iframe = screen.getByTestId('overlay-preview');
+    const card = iframe.closest('.preview-container');
+    expect(card).toHaveClass('preview-container-full');
+    expect(card).toHaveStyle({ width: '300px', height: '168.75px' });
+    // 300 / 1920: visible straight away, no render bounds needed.
+    expect(iframe.parentElement).toHaveStyle({ transform: 'scale(0.15625)', opacity: '1' });
+  });
+
+  it('ignores reported render bounds in fullFrame mode', () => {
+    renderWithI18n(
+      <OverlayPreview
+        overlayUrl="https://my-app.example/overlay/tok"
+        x={0}
+        y={0}
+        width={30}
+        height={10}
+        cardWidth={200}
+        fullFrame
+      />,
+    );
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          origin: 'https://my-app.example',
+          data: { type: 'overlayRenderArea', bounds: { x: 100, y: 50, width: 600, height: 80 } },
+        }),
+      );
+    });
+    const iframe = screen.getByTestId('overlay-preview');
+    expect(iframe.parentElement).toHaveStyle({ transform: 'scale(0.10416666666666667)' });
+  });
+
+  it('crops to the reported render bounds outside fullFrame mode', () => {
+    renderWithI18n(
+      <OverlayPreview
+        overlayUrl="https://my-app.example/overlay/tok"
+        x={0}
+        y={0}
+        width={30}
+        height={10}
+        cardWidth={300}
+      />,
+    );
+    const iframe = screen.getByTestId('overlay-preview');
+    expect(iframe.closest('.preview-container')).not.toHaveClass('preview-container-full');
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          origin: 'https://my-app.example',
+          data: { type: 'overlayRenderArea', bounds: { x: 100, y: 50, width: 600, height: 80 } },
+        }),
+      );
+    });
+    expect(iframe.parentElement!.style.transform).toMatch(/^translate\(.+\) scale\(.+\)$/);
+  });
+
   it('preserves an existing query string while cache-busting', () => {
     renderWithI18n(
       <OverlayPreview

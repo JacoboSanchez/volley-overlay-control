@@ -1,7 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 import CenterPanel from '../components/CenterPanel';
-import { mockCustomization, renderWithBoard } from './helpers';
+import { BoardContextProvider } from '../board/BoardContexts';
+import {
+  boardContextValues,
+  mockCustomization,
+  mockGameState,
+  renderWithBoard,
+  renderWithI18n,
+} from './helpers';
+
+const overlayPreview = {
+  overlayUrl: 'https://my-app.example/overlay/tok',
+  x: 0,
+  y: 0,
+  width: 30,
+  height: 10,
+  layoutId: 'auto',
+};
+const recapOnAir = { ...mockGameState, set_summary: true, set_summary_set_num: 2 };
 
 describe('CenterPanel', () => {
   beforeEach(() => {
@@ -132,5 +149,89 @@ describe('CenterPanel', () => {
     };
     renderWithBoard(<CenterPanel />, { state: { previewData, showPreview: true } });
     expect(screen.queryByTestId('points-history-strip')).not.toBeInTheDocument();
+  });
+
+  describe('while the set recap is on air', () => {
+    it('shows the full-frame overlay preview and the hide button, without the style picker', () => {
+      const onToggleSetSummary = vi.fn();
+      const { container } = renderWithBoard(<CenterPanel />, {
+        state: { state: recapOnAir, previewData: overlayPreview, showPreview: true },
+        actions: { onToggleSetSummary },
+      });
+      expect(screen.getByTestId('overlay-preview')).toBeInTheDocument();
+      expect(container.querySelector('.preview-container-full')).not.toBeNull();
+      expect(screen.queryByTestId('set-summary-notice-status')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('set-summary-style-picker')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('points-history-strip')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('set-summary-notice-deactivate'));
+      expect(onToggleSetSummary).toHaveBeenCalledOnce();
+    });
+
+    it('shows the on-air status line instead of a preview when the preview is off', () => {
+      renderWithBoard(<CenterPanel />, {
+        state: { state: recapOnAir, previewData: overlayPreview, showPreview: false },
+        layout: { compactLandscape: true },
+      });
+      expect(screen.queryByTestId('overlay-preview')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('points-history-strip')).not.toBeInTheDocument();
+      expect(screen.getByTestId('set-summary-notice-status')).toHaveTextContent('Showing set 2');
+      // No preview to make room for, so the button stays in the notice.
+      const notice = screen.getByTestId('set-summary-notice');
+      expect(screen.getByTestId('match-alerts-row')).not.toContainElement(notice);
+      expect(notice).toContainElement(screen.getByTestId('set-summary-notice-deactivate'));
+    });
+
+    it('falls back to the on-air status line when no preview is available', () => {
+      renderWithBoard(<CenterPanel />, {
+        state: { state: recapOnAir, previewData: null, showPreview: true },
+      });
+      expect(screen.queryByTestId('overlay-preview')).not.toBeInTheDocument();
+      expect(screen.getByTestId('set-summary-notice-status')).toHaveTextContent('Showing set 2');
+      expect(screen.getByTestId('set-summary-notice-deactivate')).toBeInTheDocument();
+    });
+
+    it('moves the hide button into the alerts row on landscape phones', () => {
+      renderWithBoard(<CenterPanel />, {
+        state: { state: recapOnAir, previewData: overlayPreview, showPreview: true },
+        layout: { compactLandscape: true },
+      });
+      const notice = screen.getByTestId('set-summary-notice');
+      expect(screen.getByTestId('match-alerts-row')).toContainElement(notice);
+      expect(notice).toHaveClass('set-summary-notice-inline');
+      expect(screen.getAllByTestId('set-summary-notice-deactivate')).toHaveLength(1);
+    });
+
+    it('keeps the hide button under the preview outside landscape phones', () => {
+      renderWithBoard(<CenterPanel />, {
+        state: { state: recapOnAir, previewData: overlayPreview, showPreview: true },
+      });
+      const notice = screen.getByTestId('set-summary-notice');
+      expect(screen.getByTestId('match-alerts-row')).not.toContainElement(notice);
+      expect(notice).not.toHaveClass('set-summary-notice-inline');
+    });
+
+    it('keeps the same preview iframe when the recap comes and goes', () => {
+      const ui = (gameState: typeof mockGameState) => (
+        <BoardContextProvider
+          {...boardContextValues({
+            state: { state: gameState, previewData: overlayPreview, showPreview: true },
+          })}
+        >
+          <CenterPanel />
+        </BoardContextProvider>
+      );
+      const { container, rerender } = renderWithI18n(ui(mockGameState));
+      const iframe = screen.getByTestId('overlay-preview');
+      expect(container.querySelector('.preview-container-full')).toBeNull();
+
+      rerender(ui(recapOnAir));
+      expect(screen.getByTestId('overlay-preview')).toBe(iframe);
+      expect(container.querySelector('.preview-container-full')).not.toBeNull();
+
+      rerender(ui(mockGameState));
+      expect(screen.getByTestId('overlay-preview')).toBe(iframe);
+      expect(container.querySelector('.preview-container-full')).toBeNull();
+      expect(screen.queryByTestId('set-summary-notice')).not.toBeInTheDocument();
+    });
   });
 });

@@ -298,8 +298,12 @@ export default function App({
     'brand_ledger') as import('./api/board').SetSummaryStyle;
 
   const handleToggleSetSummary = useCallback(() => {
-    if (!settingsRef.current.setSummaryEnabled) return;
-    actions.setSetSummary(!(stateRef.current?.set_summary ?? false));
+    const active = stateRef.current?.set_summary ?? false;
+    // The setting only gates putting the recap on air. Hiding always works:
+    // another device (or its auto-show) may have shown it, and this board
+    // must still be able to take it down.
+    if (!active && !settingsRef.current.setSummaryEnabled) return;
+    actions.setSetSummary(!active);
   }, [actions]);
 
   const handleChangeSetSummaryStyle = useCallback(
@@ -431,7 +435,6 @@ export default function App({
       onUndoLast: handleUndoLast,
       onTogglePreview: handleTogglePreview,
       onToggleSetSummary: handleToggleSetSummary,
-      onChangeSetSummaryStyle: handleChangeSetSummaryStyle,
       onStartMatch: handleStartMatch,
       onReset: handleReset,
       onOpenConfig: handleOpenConfig,
@@ -444,7 +447,6 @@ export default function App({
       handleAddSet,
       handleAddTimeout,
       handleChangeServe,
-      handleChangeSetSummaryStyle,
       handleDoubleTapScore,
       handleDoubleTapTimeout,
       handleLongPressScore,

@@ -1,40 +1,46 @@
 import { memo } from 'react';
 import { useI18n } from '../i18n';
-import SetSummaryStylePicker from './SetSummaryStylePicker';
-import type { SetSummaryStyle } from '../api/board';
 
 export interface SetSummaryActiveNoticeProps {
   /** Resolved set the overlay is currently showing (server-side). */
   setNum: number | null | undefined;
-  /** Current style; populates the inline picker. */
-  style: SetSummaryStyle;
-  /** Disables the toggle off / style picker (e.g. while the request is in flight). */
+  /** Show the "on air" line. Only needed when the full-frame preview can't
+   *  render (links not loaded yet or unavailable) — otherwise the preview of
+   *  the recap above the button already says it all. */
+  showStatus?: boolean | undefined;
+  /** Render just the button, sized to sit in the centre column's alerts row. */
+  inline?: boolean | undefined;
+  /** Disables the hide button (e.g. while the request is in flight). */
   busy?: boolean;
   onDeactivate: () => void;
-  onChangeStyle: (style: SetSummaryStyle) => void;
 }
 
 /**
- * Centre-panel notice shown while the set-summary overlay is live.
- * Replaces the preview/history widget so the operator never forgets
- * the recap is on air, and surfaces the style picker for live tweaks.
+ * Centre-panel controls shown while the set-summary overlay is live.
+ * CenterPanel renders the full-frame overlay preview alongside it, so
+ * the operator sees exactly what is on air and can take it down.
+ * Style changes live in the config panel's recap section.
  */
 function SetSummaryActiveNotice({
   setNum,
-  style,
+  showStatus = false,
+  inline = false,
   busy,
   onDeactivate,
-  onChangeStyle,
 }: SetSummaryActiveNoticeProps) {
   const { t } = useI18n();
   const displaySet = setNum && setNum > 0 ? setNum : '–';
   return (
-    <div className="set-summary-notice" data-testid="set-summary-notice">
-      <p className="set-summary-notice-body">
-        <span className="set-summary-notice-dot" aria-hidden="true" />
-        {t('setSummary.activeBody', { n: displaySet })}
-      </p>
-      <SetSummaryStylePicker value={style} onChange={onChangeStyle} disabled={busy} />
+    <div
+      className={`set-summary-notice${inline ? ' set-summary-notice-inline' : ''}`}
+      data-testid="set-summary-notice"
+    >
+      {showStatus && (
+        <p className="set-summary-notice-body" data-testid="set-summary-notice-status">
+          <span className="set-summary-notice-dot" aria-hidden="true" />
+          {t('setSummary.activeBody', { n: displaySet })}
+        </p>
+      )}
       <button
         type="button"
         className="set-summary-notice-cta"

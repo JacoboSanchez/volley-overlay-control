@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import type { SetSummaryStyle, GameState } from '../api/board';
+import type { GameState } from '../api/board';
 import type { ConfigModel } from '../components/TeamCard';
 import type { PreviewData } from '../components/CenterPanel';
 import type { ScoreButtonFontStyle } from '../components/ScoreButton';
@@ -41,7 +41,6 @@ export interface BoardActionsValue {
   onUndoLast: () => void;
   onTogglePreview: () => void;
   onToggleSetSummary: () => void;
-  onChangeSetSummaryStyle: (style: SetSummaryStyle) => void;
   onStartMatch: () => void;
   onReset: () => void;
   onOpenConfig: () => void;

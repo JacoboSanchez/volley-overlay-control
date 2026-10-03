@@ -14,6 +14,28 @@ archive by hand.
 
 ## [Unreleased]
 
+### Changed
+
+- **The board shows a live preview of the set recap while it is on air.**
+  The centre column used to replace the overlay preview with a "Showing set N
+  on the overlay" line and the six-style picker. It now shows the whole OBS
+  frame (the full 1920×1080 canvas scaled into the preview card) with the
+  recap on it, plus the existing **Hide summary** button. It reuses the
+  scoreboard preview's iframe, so turning the recap on or off does not reload
+  it. On landscape phones the hide button moves up next to the swap-sides
+  button so the bottom control bar no longer covers it. With the preview
+  switched off (or when the overlay link can't be loaded), the board shows
+  the "on air" status line and the hide button instead. The recap style is
+  now chosen only in the config panel's recap section.
+
+### Fixed
+
+- **"Hide summary" works on every board.** Hiding the set recap was blocked
+  on any device where the set-summary setting was off. So when the recap
+  was put on air from another device, or by another device's auto-show, the
+  hide button on that board did nothing. The setting now only controls
+  showing the recap; hiding it always works.
+
 ## [7.2.1] - 2026-09-20
 
 ### Dependencies

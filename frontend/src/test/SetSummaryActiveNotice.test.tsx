@@ -4,89 +4,48 @@ import SetSummaryActiveNotice from '../components/SetSummaryActiveNotice';
 import { renderWithI18n } from './helpers';
 
 describe('SetSummaryActiveNotice', () => {
-  it('announces which set is on air', () => {
-    renderWithI18n(
-      <SetSummaryActiveNotice
-        setNum={2}
-        style="brand_ledger"
-        onDeactivate={() => {}}
-        onChangeStyle={() => {}}
-      />,
-    );
-    expect(screen.getByTestId('set-summary-notice')).toHaveTextContent(
+  it('shows only the hide button by default (the preview carries the status)', () => {
+    renderWithI18n(<SetSummaryActiveNotice setNum={2} onDeactivate={() => {}} />);
+    expect(screen.getByTestId('set-summary-notice-deactivate')).toHaveTextContent('Hide summary');
+    expect(screen.queryByTestId('set-summary-notice-status')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('set-summary-style-picker')).not.toBeInTheDocument();
+  });
+
+  it('announces which set is on air when asked to show the status', () => {
+    renderWithI18n(<SetSummaryActiveNotice setNum={2} showStatus onDeactivate={() => {}} />);
+    expect(screen.getByTestId('set-summary-notice-status')).toHaveTextContent(
       'Showing set 2 on the overlay.',
     );
   });
 
   it('falls back to a dash when the set number is missing or zero', () => {
     const { unmount } = renderWithI18n(
-      <SetSummaryActiveNotice
-        setNum={null}
-        style="brand_ledger"
-        onDeactivate={() => {}}
-        onChangeStyle={() => {}}
-      />,
+      <SetSummaryActiveNotice setNum={null} showStatus onDeactivate={() => {}} />,
     );
-    expect(screen.getByTestId('set-summary-notice')).toHaveTextContent('Showing set –');
+    expect(screen.getByTestId('set-summary-notice-status')).toHaveTextContent('Showing set –');
     unmount();
-    renderWithI18n(
-      <SetSummaryActiveNotice
-        setNum={0}
-        style="brand_ledger"
-        onDeactivate={() => {}}
-        onChangeStyle={() => {}}
-      />,
-    );
-    expect(screen.getByTestId('set-summary-notice')).toHaveTextContent('Showing set –');
+    renderWithI18n(<SetSummaryActiveNotice setNum={0} showStatus onDeactivate={() => {}} />);
+    expect(screen.getByTestId('set-summary-notice-status')).toHaveTextContent('Showing set –');
+  });
+
+  it('applies the inline modifier for the alerts-row placement', () => {
+    renderWithI18n(<SetSummaryActiveNotice setNum={1} inline onDeactivate={() => {}} />);
+    expect(screen.getByTestId('set-summary-notice')).toHaveClass('set-summary-notice-inline');
   });
 
   it('fires onDeactivate from the hide button', () => {
     const onDeactivate = vi.fn();
-    renderWithI18n(
-      <SetSummaryActiveNotice
-        setNum={1}
-        style="brand_ledger"
-        onDeactivate={onDeactivate}
-        onChangeStyle={() => {}}
-      />,
-    );
+    renderWithI18n(<SetSummaryActiveNotice setNum={1} onDeactivate={onDeactivate} />);
     fireEvent.click(screen.getByTestId('set-summary-notice-deactivate'));
     expect(onDeactivate).toHaveBeenCalledOnce();
   });
 
-  it('embeds the style picker and forwards style changes', () => {
-    const onChangeStyle = vi.fn();
-    renderWithI18n(
-      <SetSummaryActiveNotice
-        setNum={1}
-        style="brand_ledger"
-        onDeactivate={() => {}}
-        onChangeStyle={onChangeStyle}
-      />,
-    );
-    fireEvent.click(screen.getByTestId('set-summary-style-glass'));
-    expect(onChangeStyle).toHaveBeenCalledWith('glass');
-  });
-
-  it('disables the toggle and picker while busy', () => {
+  it('disables the hide button while busy', () => {
     const onDeactivate = vi.fn();
-    const onChangeStyle = vi.fn();
-    renderWithI18n(
-      <SetSummaryActiveNotice
-        setNum={1}
-        style="brand_ledger"
-        busy
-        onDeactivate={onDeactivate}
-        onChangeStyle={onChangeStyle}
-      />,
-    );
+    renderWithI18n(<SetSummaryActiveNotice setNum={1} busy onDeactivate={onDeactivate} />);
     const hide = screen.getByTestId('set-summary-notice-deactivate');
     expect(hide).toBeDisabled();
     fireEvent.click(hide);
     expect(onDeactivate).not.toHaveBeenCalled();
-    const option = screen.getByTestId('set-summary-style-glass');
-    expect(option).toBeDisabled();
-    fireEvent.click(option);
-    expect(onChangeStyle).not.toHaveBeenCalled();
   });
 });
