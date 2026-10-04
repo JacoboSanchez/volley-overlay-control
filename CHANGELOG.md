@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.3.0] - 2026-10-04
+
 ### Changed
 
 - **The board shows a live preview of the set recap while it is on air.**
