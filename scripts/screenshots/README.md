@@ -72,8 +72,8 @@ the account overlays page.)
 | `02-scoreboard.png` | Control board at `/board?oid=`. | 844×390 (mobile-landscape) |
 | `03-scoreboard-phone.png` | Control board in portrait, preview hidden so the points-history strip renders in the centre slot. | 390×844 (mobile-portrait) |
 | `04-config-panel.png` | Customization tab inside the control board. | 844×390 (mobile-landscape) |
-| `15-overlay-style-gallery.png` | Visual scoreboard selector with categories, thumbnails and an isolated preview. | 390×844 (mobile-portrait) |
-| `16-summary-style-gallery.png` | Visual set-recap selector with six designs and an isolated preview. | 390×844 (mobile-portrait) |
+| `15-overlay-style-gallery.png` | Visual scoreboard selector with categories, thumbnails and an isolated preview using the configured teams. | 390×844 (mobile-portrait) |
+| `16-summary-style-gallery.png` | Visual set-recap selector with six designs and examples using the configured teams. | 390×844 (mobile-portrait) |
 | `05-manage-page.png` | Account **My overlays** page at `/overlays` — the signed-in user's overlays with their copyable `public_token` OBS output URLs. | 1024×700 (compact desktop) |
 | `06-overlay-mosaic-full.png` | `/overlay/{public_token}?style=mosaic` preview grid showing every selectable style with full match data. | 1600×1800 (mosaic grid) |
 | `07-overlay-mosaic-simple.png` | `?style=mosaic` preview grid in simple mode (current set only). | 1600×1800 (mosaic grid) |

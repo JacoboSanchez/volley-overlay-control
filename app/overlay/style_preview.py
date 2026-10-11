@@ -28,8 +28,8 @@ def demo_state(style: str, summary: str | None) -> dict[str, Any]:
 
     def team(home: bool) -> dict[str, Any]:
         return {
-            "name": "CV Pontevedra" if home else "San Sadurniño",
-            "short_name": "CVP" if home else "SAN",
+            "name": "Team A" if home else "Team B",
+            "short_name": "A" if home else "B",
             "color_primary": "#145bea" if home else "#d92b3a",
             "color_secondary": "#ffffff",
             "logo_url": f"/static/img/style-previews/{'home' if home else 'away'}.svg",

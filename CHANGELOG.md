@@ -25,6 +25,10 @@ archive by hand.
 
 ### Changed
 
+- Style-gallery previews and visible thumbnails now use the current team names,
+  colours, logos, logo visibility and scoreboard colours, including unsaved
+  configuration edits. Off-screen thumbnails release their isolated renderers.
+  Sample scores remain fixed; unconfigured examples use neutral teams A and B.
 - Refreshed the operator screenshots and added mobile style-gallery captures.
   The screenshot workflow also regenerates the lightweight catalogue thumbnails
   from the actual overlay renderers.

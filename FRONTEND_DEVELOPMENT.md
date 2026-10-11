@@ -575,6 +575,14 @@ designs, `lang` sets the language and `theme=light|dark` overrides the supported
 palette. Invalid styles return 404. The example uses invented match data and
 never subscribes to a live overlay WebSocket.
 
+The SPA sends an appearance-only snapshot of its current configuration to the
+example via `postMessage`, including unsaved edits. The child accepts messages
+only from its same-origin parent and applies only team appearance, scoreboard
+colours and logo visibility; scores and history stay illustrative. Credentials
+and team details are never appended to the example URL. Visible thumbnails use
+the same renderer and release their iframe when scrolled off-screen. Bundled
+images with neutral teams A and B serve as loading/compatibility fallbacks.
+
 Browsing a gallery changes only its local candidate. Confirming a scoreboard
 stages `preferredStyle` for the existing configuration Save flow; confirming a
 recap uses the existing set-summary-style action. See

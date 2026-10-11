@@ -3890,6 +3890,17 @@ body {
   height: 100%;
   object-fit: contain;
 }
+.style-thumbnail {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  pointer-events: none;
+}
+.style-thumbnail .style-thumbnail-live {
+  margin: 0;
+  border-radius: 4px;
+}
 .style-trigger-copy {
   display: grid;
   gap: 4px;

@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useMemo, useCallback, type CSSProperties } from 'react';
 import { useI18n } from '../i18n';
+import type { StylePreviewAppearance } from '../styles/preview';
 
 // Fallback timeout for the preview iframe. If we haven't received a single
 // ``load`` event within this window the network is almost certainly blocking
@@ -37,6 +38,10 @@ export interface OverlayPreviewProps {
    *  cropping to the scoreboard's render bounds — used while a full-screen
    *  graphic (the set recap) is on air. Toggling it keeps the same iframe. */
   fullFrame?: boolean | undefined;
+  /** Only sent to same-origin isolated style examples, never to live outputs. */
+  previewAppearance?: StylePreviewAppearance | undefined;
+  testId?: string | undefined;
+  decorative?: boolean | undefined;
 }
 
 interface Bounds {
@@ -57,9 +62,15 @@ export default function OverlayPreview({
   cardWidth = 300,
   styleOverride,
   fullFrame = false,
+  previewAppearance,
+  testId = 'overlay-preview',
+  decorative = false,
 }: OverlayPreviewProps) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const appearanceRef = useRef(previewAppearance);
+  appearanceRef.current = previewAppearance;
   const [customBounds, setCustomBounds] = useState<Bounds | null>(null);
   // Unique token per mount — forces the browser to bypass cache when the iframe
   // is recreated (e.g. after page reload or navigating back from ConfigPanel),
@@ -71,10 +82,31 @@ export default function OverlayPreview({
   const [loadFailed, setLoadFailed] = useState(false);
   const [iframeLoaded, setIframeLoaded] = useState(false);
 
+  const sendAppearance = useCallback(() => {
+    const frame = iframeRef.current;
+    const url = validateHttpUrl(frame?.src);
+    if (
+      !appearanceRef.current ||
+      !url ||
+      url.origin !== window.location.origin ||
+      !url.pathname.startsWith('/overlay-preview/')
+    )
+      return;
+    frame?.contentWindow?.postMessage(
+      { type: 'stylePreviewAppearance', appearance: appearanceRef.current },
+      url.origin,
+    );
+  }, []);
+
   const handleIframeLoad = useCallback(() => {
     setIframeLoaded(true);
     setLoadFailed(false);
-  }, []);
+    sendAppearance();
+  }, [sendAppearance]);
+
+  useEffect(() => {
+    if (iframeLoaded) sendAppearance();
+  }, [previewAppearance, iframeLoaded, sendAppearance]);
 
   const handleIframeError = useCallback(() => {
     setLoadFailed(true);
@@ -119,7 +151,8 @@ export default function OverlayPreview({
     if (!safeOverlayUrl) return;
     const allowedOrigin = safeOverlayUrl.origin;
     function onMessage(event: MessageEvent) {
-      if (event.origin !== allowedOrigin) return;
+      if (event.origin !== allowedOrigin || event.source !== iframeRef.current?.contentWindow)
+        return;
       const data = event.data as { type?: string; bounds?: Bounds } | undefined;
       if (data?.type === 'overlayRenderArea' && data.bounds) {
         setCustomBounds(data.bounds);
@@ -141,6 +174,7 @@ export default function OverlayPreview({
     const src = getBustedUrl(safeOverlayUrl, styleOverride ? { style: styleOverride } : {});
     return (
       <iframe
+        ref={iframeRef}
         src={src}
         width={1920}
         height={1080}
@@ -153,11 +187,22 @@ export default function OverlayPreview({
         title={t('preview.title')}
         onLoad={handleIframeLoad}
         onError={handleIframeError}
-        data-testid="overlay-preview"
+        data-testid={testId}
+        tabIndex={decorative ? -1 : undefined}
+        aria-hidden={decorative || undefined}
       />
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [safeOverlayUrl, styleOverride, cacheBust, t, handleIframeLoad, handleIframeError]);
+  }, [
+    safeOverlayUrl,
+    styleOverride,
+    cacheBust,
+    t,
+    handleIframeLoad,
+    handleIframeError,
+    testId,
+    decorative,
+  ]);
 
   if (!safeOverlayUrl) return null;
 
@@ -176,9 +221,11 @@ export default function OverlayPreview({
         cloud_off
       </span>
       <span className="preview-fallback-message">{t('preview.unavailable')}</span>
-      <button type="button" className="preview-fallback-retry" onClick={handleRetry}>
-        {t('preview.retry')}
-      </button>
+      {!decorative && (
+        <button type="button" className="preview-fallback-retry" onClick={handleRetry}>
+          {t('preview.retry')}
+        </button>
+      )}
     </div>
   ) : null;
 

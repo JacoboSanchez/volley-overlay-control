@@ -553,11 +553,22 @@ async function captureOverlaysPage(page) {
 }
 
 async function captureStyleGalleries(page) {
+  async function waitForConfiguredExamples() {
+    await page.waitForFunction(({ name, color }) => {
+      const frames = [...document.querySelectorAll('.style-picker-modal iframe')];
+      return frames.length > 1 && frames.every(frame => {
+        const doc = frame.contentDocument;
+        return doc?.documentElement.style.getPropertyValue('--home-primary') === color &&
+          (!doc.getElementById('home-name') || doc.getElementById('home-name').textContent === name);
+      });
+    }, { name: TEAM_1.name, color: TEAM_1.color });
+  }
   await page.setViewportSize(PHONE_VIEWPORT);
   await captureConfigPanel(page, false);
   await page.locator('#config-section-overlay-header').click();
   await page.locator('[data-testid="style-selector"] button').click();
   await page.locator('[data-testid="overlay-style-broadcast"]').click();
+  await waitForConfiguredExamples();
   await page.waitForTimeout(1400);
   await page.screenshot({ path: resolve(OUT_DIR, '15-overlay-style-gallery.png') });
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -565,6 +576,7 @@ async function captureStyleGalleries(page) {
   const enable = page.getByRole('checkbox', { name: 'Enable set summary overlay', exact: true });
   await enable.check();
   await page.locator('[data-testid="set-summary-style-picker"] button').click();
+  await waitForConfiguredExamples();
   await page.waitForTimeout(1400);
   await page.screenshot({ path: resolve(OUT_DIR, '16-summary-style-gallery.png') });
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();

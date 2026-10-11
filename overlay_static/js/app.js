@@ -2038,10 +2038,55 @@ function dispatchAlertTransitions(oldState, newState) {
   }
 }
 
+// Personalize isolated examples using appearance sent by their same-origin
+// parent. Scores, rules and match history always remain the sample's own.
+function applyStylePreviewAppearance(event) {
+  if (
+    !window.OVERLAY_PREVIEW_STATE ||
+    event.source !== window.parent ||
+    event.origin !== window.location.origin ||
+    event.data?.type !== "stylePreviewAppearance"
+  )
+    return;
+  const appearance = event.data.appearance;
+  if (!appearance || typeof appearance !== "object") return;
+  const state = structuredClone(window.OVERLAY_PREVIEW_STATE);
+  for (const side of ["team_home", "team_away"]) {
+    const team = appearance[side];
+    if (!team || typeof team !== "object") continue;
+    for (const key of [
+      "name",
+      "short_name",
+      "color_primary",
+      "color_secondary",
+      "logo_url",
+    ]) {
+      if (typeof team[key] === "string") state[side][key] = team[key];
+    }
+  }
+  if (typeof appearance.show_logos === "boolean") {
+    state.overlay_control.show_logos = appearance.show_logos;
+  }
+  if (appearance.colors && typeof appearance.colors === "object") {
+    state.overlay_control.colors = {};
+    for (const key of ["set_bg", "set_text", "game_bg", "game_text"]) {
+      if (typeof appearance.colors[key] === "string") {
+        state.overlay_control.colors[key] = appearance.colors[key];
+      }
+    }
+  }
+  if (["top", "center", "bottom", ""].includes(appearance.verticalAnchor)) {
+    state.raw_remote_customization.verticalAnchor = appearance.verticalAnchor;
+  }
+  previousState = null;
+  processStateUpdate(state);
+}
+
 // Start connection when DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
   if (window.OVERLAY_PREVIEW_STATE) {
     processStateUpdate(window.OVERLAY_PREVIEW_STATE);
+    window.addEventListener("message", applyStylePreviewAppearance);
   } else {
     connectWebSocket();
   }

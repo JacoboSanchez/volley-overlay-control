@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { renderWithI18n } from './helpers';
 import VisualStylePicker from '../components/VisualStylePicker';
 import SetSummaryStylePicker from '../components/SetSummaryStylePicker';
@@ -7,6 +7,8 @@ import { SET_SUMMARY_STYLES } from '../api/board';
 import { ScopedStorageProvider, setScopedItem, getScopedItem } from '../storage/ScopedStorage';
 import { OVERLAY_CATEGORIES, stylePresentation } from '../styles/catalog';
 import { translations } from '../i18n/translations';
+
+afterEach(() => vi.unstubAllGlobals());
 
 function renderPicker(onChange = vi.fn()) {
   renderWithI18n(
@@ -23,6 +25,60 @@ function renderPicker(onChange = vi.fn()) {
 }
 
 describe('Visual style gallery', () => {
+  it('renders configured thumbnails only while visible and keeps a single enlarged preview', () => {
+    const observers: { target: Element; visible: (visible: boolean) => void }[] = [];
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(private callback: (entries: { isIntersecting: boolean }[]) => void) {}
+        observe(target: Element) {
+          observers.push({
+            target,
+            visible: (visible) => this.callback([{ isIntersecting: visible }]),
+          });
+        }
+        disconnect = disconnect;
+      },
+    );
+    const change = vi.fn();
+    renderWithI18n(
+      <VisualStylePicker
+        kind="overlay"
+        value="default"
+        styles={['default', 'neon']}
+        onChange={change}
+        testId="styles"
+        configuration={{ 'Team 1 Name': 'Berlin VC', 'Team 2 Name': 'Hamburg' }}
+      />,
+    );
+    expect(document.querySelectorAll('iframe')).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: /Choose a scoreboard:/ }));
+    const card = screen.getByTestId('overlay-style-neon');
+    const observer = observers.find(({ target }) => card.contains(target))!;
+    expect(observer).toBeDefined();
+    act(() => observer.visible(true));
+    const thumbnail = within(card).getByTestId('style-thumbnail-overlay-neon') as HTMLIFrameElement;
+    const send = vi.spyOn(thumbnail.contentWindow!, 'postMessage');
+    fireEvent.load(thumbnail);
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appearance: expect.objectContaining({
+          team_home: expect.objectContaining({ name: 'Berlin VC' }),
+        }),
+      }),
+      window.location.origin,
+    );
+    expect(thumbnail).toHaveAttribute('tabindex', '-1');
+    expect(document.querySelectorAll('iframe')).toHaveLength(2);
+    act(() => observer.visible(false));
+    expect(card.querySelector('iframe')).toBeNull();
+    expect(document.querySelectorAll('iframe')).toHaveLength(1);
+    expect(change).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(disconnect).toHaveBeenCalled();
+  });
+
   it('previews a local candidate in a single iframe and only confirms explicitly', () => {
     const change = renderPicker();
     fireEvent.click(screen.getByTestId('overlay-style-neon'));
@@ -121,6 +177,29 @@ describe('Visual style gallery', () => {
 });
 
 describe('Set summary gallery', () => {
+  it('keeps static fallbacks when the configured custom scoreboard cannot be previewed', () => {
+    const observe = vi.fn();
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        observe = observe;
+        disconnect() {}
+      },
+    );
+    renderWithI18n(
+      <SetSummaryStylePicker
+        value="brand_ledger"
+        onChange={() => {}}
+        overlayStyle="custom_style"
+        configuration={{ 'Team 1 Name': 'Berlin VC' }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Choose a set summary:/ }));
+    expect(screen.getByText('Preview unavailable')).toBeInTheDocument();
+    expect(observe).not.toHaveBeenCalled();
+    expect(document.querySelectorAll('iframe')).toHaveLength(0);
+  });
+
   it('shows six designs, inherits the scoreboard palette and confirms once', () => {
     const change = vi.fn();
     renderWithI18n(

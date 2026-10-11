@@ -39,7 +39,8 @@ def test_every_selectable_style_has_an_isolated_preview(preview_client):
         response = client.get(f"/overlay-preview/{style}")
         assert response.status_code == 200
         state = _preview_state(response)
-        assert state["team_home"]["name"] == "CV Pontevedra"
+        assert state["team_home"]["name"] == "Team A"
+        assert state["team_away"]["name"] == "Team B"
         assert state["overlay_control"]["preferredStyle"] == style
         assert not state["match_info"]["show_set_summary"]
         assert response.headers["cache-control"] == "no-store"

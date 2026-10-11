@@ -23,6 +23,7 @@ export interface RecapSectionProps {
   onChangeSetSummaryStyle?: ((style: SetSummaryStyle) => void) | undefined;
   overlayStyle?: string | undefined;
   overlayTheme?: string | undefined;
+  configuration?: Record<string, unknown> | undefined;
 }
 
 export default function RecapSection({
@@ -32,6 +33,7 @@ export default function RecapSection({
   onChangeSetSummaryStyle,
   overlayStyle,
   overlayTheme,
+  configuration,
 }: RecapSectionProps) {
   const { t } = useI18n();
   return (
@@ -63,6 +65,7 @@ export default function RecapSection({
                 onChange={onChangeSetSummaryStyle}
                 overlayStyle={overlayStyle}
                 overlayTheme={overlayTheme}
+                configuration={configuration}
               />
             </div>
           )}

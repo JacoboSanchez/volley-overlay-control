@@ -101,6 +101,7 @@ export default function ConfigSectionBody({
           onChangeSetSummaryStyle={onChangeSetSummaryStyle}
           overlayStyle={asString(model['preferredStyle'], '') || 'default'}
           overlayTheme={asString(model['overlayTheme'], '')}
+          configuration={model}
         />
       );
     case 'general':

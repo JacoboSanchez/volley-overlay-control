@@ -268,6 +268,8 @@ const controls: Record<string, string[]> = {
     'Select the design, then save configuration to put it on air.',
     'Apply changes the selected summary on air.',
     'Custom style',
+    'Team A',
+    'Team B',
   ],
   es: [
     'Elegir marcador',
@@ -288,6 +290,8 @@ const controls: Record<string, string[]> = {
     'Selecciona el diseño y guarda la configuración para emitirlo.',
     'Aplicar cambia el diseño del resumen emitido.',
     'Estilo personalizado',
+    'Equipo A',
+    'Equipo B',
   ],
   pt: [
     'Escolher placar',
@@ -308,6 +312,8 @@ const controls: Record<string, string[]> = {
     'Selecione o design e salve a configuração para exibi-lo.',
     'Aplicar altera o resumo exibido.',
     'Estilo personalizado',
+    'Equipa A',
+    'Equipa B',
   ],
   it: [
     'Scegli tabellone',
@@ -328,6 +334,8 @@ const controls: Record<string, string[]> = {
     'Seleziona il design e salva la configurazione per mostrarlo.',
     'Applica cambia il riepilogo in onda.',
     'Stile personalizzato',
+    'Squadra A',
+    'Squadra B',
   ],
   fr: [
     'Choisir le tableau',
@@ -348,6 +356,8 @@ const controls: Record<string, string[]> = {
     'Sélectionnez le design puis enregistrez la configuration pour le diffuser.',
     'Appliquer change le résumé diffusé.',
     'Style personnalisé',
+    'Équipe A',
+    'Équipe B',
   ],
   de: [
     'Anzeige wählen',
@@ -368,6 +378,8 @@ const controls: Record<string, string[]> = {
     'Design auswählen und Konfiguration speichern, um es zu senden.',
     'Anwenden ändert die gesendete Zusammenfassung.',
     'Eigener Stil',
+    'Team A',
+    'Team B',
   ],
 };
 const controlKeys = [
@@ -389,6 +401,8 @@ const controlKeys = [
   'stagedHint',
   'liveHint',
   'customStyle',
+  'team1',
+  'team2',
 ];
 
 export function styleCatalogTranslations(lang: string): Record<string, string> {

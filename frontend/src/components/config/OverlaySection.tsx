@@ -71,6 +71,7 @@ export default function OverlaySection({
               styles={[...new Set(['default', ...styles])]}
               onChange={(style) => updateField('preferredStyle', style === 'default' ? '' : style)}
               overlayTheme={asString(model['overlayTheme'], '')}
+              configuration={model}
               testId="style-selector"
             />
           </div>

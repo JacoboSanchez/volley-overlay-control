@@ -1,8 +1,9 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n } from '../i18n';
 import { getScopedItem, setScopedItem, useStorageScope } from '../storage/ScopedStorage';
 import { stylePresentation, type StyleKind } from '../styles/catalog';
+import { stylePreviewAppearance, type StylePreviewAppearance } from '../styles/preview';
 import Dialog from './Dialog';
 import OverlayPreview from './OverlayPreview';
 
@@ -16,13 +17,45 @@ interface VisualStylePickerProps {
   /** Recap examples inherit the configured scoreboard's native/explicit theme. */
   overlayStyle?: string | undefined;
   overlayTheme?: string | undefined;
+  configuration?: Record<string, unknown> | undefined;
 }
 
-function StyleThumbnail({ kind, id }: { kind: StyleKind; id: string }) {
+function StyleThumbnail({
+  kind,
+  id,
+  url,
+  appearance,
+}: {
+  kind: StyleKind;
+  id: string;
+  url: string;
+  appearance?: StylePreviewAppearance | undefined;
+}) {
   const { t } = useI18n();
   const presentation = stylePresentation(kind, id, t);
+  const hostRef = useRef<HTMLSpanElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host || !appearance || typeof IntersectionObserver === 'undefined') return undefined;
+    const observer = new IntersectionObserver(([entry]) => setVisible(!!entry?.isIntersecting));
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [appearance]);
   return presentation.thumbnail ? (
-    <img src={presentation.thumbnail} alt="" loading="lazy" width={480} height={270} />
+    <span className="style-thumbnail" ref={hostRef} aria-hidden="true">
+      {visible && appearance ? (
+        <StyleExample
+          url={url}
+          summary={kind === 'summary'}
+          appearance={appearance}
+          thumbnail
+          testId={`style-thumbnail-${kind}-${id}`}
+        />
+      ) : (
+        <img src={presentation.thumbnail} alt="" loading="lazy" width={480} height={270} />
+      )}
+    </span>
   ) : (
     <span className="style-thumbnail-fallback material-icons" aria-hidden="true">
       dashboard
@@ -30,7 +63,19 @@ function StyleThumbnail({ kind, id }: { kind: StyleKind; id: string }) {
   );
 }
 
-function StyleExample({ url, summary }: { url: string; summary: boolean }) {
+function StyleExample({
+  url,
+  summary,
+  appearance,
+  thumbnail = false,
+  testId,
+}: {
+  url: string;
+  summary: boolean;
+  appearance?: StylePreviewAppearance | undefined;
+  thumbnail?: boolean;
+  testId?: string | undefined;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(300);
   useEffect(() => {
@@ -41,7 +86,7 @@ function StyleExample({ url, summary }: { url: string; summary: boolean }) {
     return () => observer.disconnect();
   }, []);
   return (
-    <div className="style-example" ref={hostRef}>
+    <div className={`style-example${thumbnail ? ' style-thumbnail-live' : ''}`} ref={hostRef}>
       <OverlayPreview
         overlayUrl={url}
         x={0}
@@ -50,6 +95,9 @@ function StyleExample({ url, summary }: { url: string; summary: boolean }) {
         height={100}
         cardWidth={width}
         fullFrame={summary}
+        previewAppearance={appearance}
+        testId={testId}
+        decorative={thumbnail}
       />
     </div>
   );
@@ -76,9 +124,14 @@ export default function VisualStylePicker({
   testId,
   overlayStyle = 'default',
   overlayTheme = '',
+  configuration,
 }: VisualStylePickerProps) {
   const { t, lang } = useI18n();
   const scope = useStorageScope();
+  const appearance = useMemo(
+    () => (configuration ? stylePreviewAppearance(configuration, t) : undefined),
+    [configuration, t],
+  );
   const labelId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -97,12 +150,20 @@ export default function VisualStylePicker({
         id === value ? -1 : recent.includes(id) ? recent.indexOf(id) : 10;
       return rank(a) - rank(b);
     });
-  const params = new URLSearchParams({ lang });
-  if (overlayTheme === 'light' || overlayTheme === 'dark') params.set('theme', overlayTheme);
-  if (kind === 'summary') params.set('summary', candidate);
+  const exampleUrl = (id: string) => {
+    const params = new URLSearchParams({ lang });
+    if (overlayTheme === 'light' || overlayTheme === 'dark') params.set('theme', overlayTheme);
+    if (kind === 'summary') params.set('summary', id);
+    const style = kind === 'summary' ? overlayStyle || 'default' : id;
+    return `/overlay-preview/${encodeURIComponent(style)}?${params}`;
+  };
   const previewStyle = kind === 'summary' ? overlayStyle || 'default' : candidate;
-  const previewUrl = `/overlay-preview/${encodeURIComponent(previewStyle)}?${params}`;
+  const previewUrl = exampleUrl(candidate);
   const canPreview = selected.known && stylePresentation('overlay', previewStyle, t).known;
+  const thumbnailAppearance =
+    kind === 'summary' && !stylePresentation('overlay', overlayStyle || 'default', t).known
+      ? undefined
+      : appearance;
 
   const close = () => {
     setOpen(false);
@@ -138,7 +199,12 @@ export default function VisualStylePicker({
         }}
       >
         <span className="style-trigger-thumbnail">
-          <StyleThumbnail kind={kind} id={value} />
+          <StyleThumbnail
+            kind={kind}
+            id={value}
+            url={exampleUrl(value)}
+            appearance={thumbnailAppearance}
+          />
         </span>
         <span className="style-trigger-copy">
           <strong>{current.name}</strong>
@@ -168,7 +234,12 @@ export default function VisualStylePicker({
               <div className="style-gallery-body">
                 <div className="style-gallery-preview">
                   {canPreview ? (
-                    <StyleExample key={previewUrl} url={previewUrl} summary={kind === 'summary'} />
+                    <StyleExample
+                      key={previewUrl}
+                      url={previewUrl}
+                      summary={kind === 'summary'}
+                      appearance={appearance}
+                    />
                   ) : (
                     <div className="style-example-unavailable">{t('preview.unavailable')}</div>
                   )}
@@ -229,7 +300,12 @@ export default function VisualStylePicker({
                               data-testid={`${kind}-style-${id}`}
                               onClick={() => setCandidate(id)}
                             >
-                              <StyleThumbnail kind={kind} id={id} />
+                              <StyleThumbnail
+                                kind={kind}
+                                id={id}
+                                url={exampleUrl(id)}
+                                appearance={thumbnailAppearance}
+                              />
                               <strong>{item.name}</strong>
                               <small>{item.description}</small>
                               {id === value ? (
