@@ -74,6 +74,7 @@ the account overlays page.)
 | `04-config-panel.png` | Customization tab inside the control board. | 844×390 (mobile-landscape) |
 | `15-overlay-style-gallery.png` | Visual scoreboard selector with categories, thumbnails and an isolated preview using the configured teams. | 390×844 (mobile-portrait) |
 | `16-summary-style-gallery.png` | Visual set-recap selector with six designs and examples using the configured teams. | 390×844 (mobile-portrait) |
+| `17-overlay-duna.png` | Duna beach scoreboard with fictional pairs, 18–16 points, 1–0 sets and the serving indicator. | Cropped scoreboard from a 1920×1080 OBS canvas |
 | `05-manage-page.png` | Account **My overlays** page at `/overlays` — the signed-in user's overlays with their copyable `public_token` OBS output URLs. | 1024×700 (compact desktop) |
 | `06-overlay-mosaic-full.png` | `/overlay/{public_token}?style=mosaic` preview grid showing every selectable style with full match data. | 1600×1800 (mosaic grid) |
 | `07-overlay-mosaic-simple.png` | `?style=mosaic` preview grid in simple mode (current set only). | 1600×1800 (mosaic grid) |
@@ -97,7 +98,7 @@ ship in-tree alongside the README. Bump the factor in `capture.mjs` only
 if a future change needs retina-quality assets — at 2× the mosaic alone
 weighs more than 1 MB.
 
-`run.sh` first regenerates the 33 catalogue thumbnails using `style-previews.mjs`.
+`run.sh` first regenerates the 34 catalogue thumbnails using `style-previews.mjs`.
 It renders the public, isolated style examples at 1920×1080, crops scoreboards
 to their measured bounds, and uses Pillow to save 480×270 WebP images under
 `overlay_static/img/style-previews/`. Gallery browsing loads these images;

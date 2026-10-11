@@ -27,6 +27,7 @@ const ids = [
   'pylons_gradient',
   'beach',
   'beach_twoline',
+  'duna',
   'brand_ledger',
   'bento',
   'glass',
@@ -64,6 +65,7 @@ const examples: Record<string, [string, string][]> = {
     ['Gradient pylons', 'Edge panels with team-colour gradients'],
     ['Beach', 'Compact scoreboard for beach volleyball'],
     ['Beach: two rows', 'Beach scoreboard with a row for each team'],
+    ['Duna', 'Horizontal beach scoreboard with central points and amber accents'],
     ['Rallies', 'Lower third with previous sets and every rally'],
     ['Bento', 'Score, chart and statistics arranged in tiles'],
     ['Glass', 'Translucent score panel with a progression chart'],
@@ -99,6 +101,7 @@ const examples: Record<string, [string, string][]> = {
     ['Pilares degradados', 'Paneles laterales con degradados de equipo'],
     ['Playa', 'Marcador compacto para vóley playa'],
     ['Playa: dos filas', 'Marcador de playa con una fila por equipo'],
+    ['Duna', 'Marcador horizontal de playa con puntos centrales y acentos ámbar'],
     ['Rallies', 'Franja inferior con sets anteriores y cada punto'],
     ['Bento', 'Marcador, gráfica y estadísticas en tarjetas'],
     ['Cristal', 'Panel translúcido con gráfica de evolución'],
@@ -134,6 +137,7 @@ const examples: Record<string, [string, string][]> = {
     ['Pilares em gradiente', 'Painéis laterais com gradientes de equipe'],
     ['Praia', 'Placar compacto para vôlei de praia'],
     ['Praia: duas linhas', 'Placar de praia com uma linha por equipe'],
+    ['Duna', 'Placar horizontal de praia com pontos centrais e detalhes âmbar'],
     ['Ralis', 'Faixa inferior com sets anteriores e cada ponto'],
     ['Bento', 'Pontuação, gráfico e estatísticas em cartões'],
     ['Vidro', 'Painel translúcido com gráfico de evolução'],
@@ -169,6 +173,7 @@ const examples: Record<string, [string, string][]> = {
     ['Pilastri sfumati', 'Pannelli laterali con sfumature di squadra'],
     ['Beach', 'Tabellone compatto per beach volley'],
     ['Beach: due righe', 'Tabellone beach con una riga per squadra'],
+    ['Duna', 'Tabellone beach orizzontale con punti centrali e dettagli ambra'],
     ['Scambi', 'Fascia inferiore con set precedenti e ogni punto'],
     ['Bento', 'Punteggio, grafico e statistiche in riquadri'],
     ['Vetro', 'Pannello traslucido con grafico di andamento'],
@@ -204,6 +209,7 @@ const examples: Record<string, [string, string][]> = {
     ['Piliers dégradés', 'Panneaux latéraux aux dégradés des équipes'],
     ['Beach', 'Tableau compact pour le beach-volley'],
     ['Beach : deux lignes', 'Tableau beach avec une ligne par équipe'],
+    ['Duna', 'Tableau beach horizontal avec scores centraux et accents ambrés'],
     ['Échanges', 'Bande inférieure avec sets précédents et chaque point'],
     ['Bento', 'Score, graphique et statistiques en tuiles'],
     ['Verre', 'Panneau translucide avec graphique de progression'],
@@ -239,6 +245,7 @@ const examples: Record<string, [string, string][]> = {
     ['Farbverlauf-Säulen', 'Seitenflächen mit Teamfarbverläufen'],
     ['Beach', 'Kompakte Anzeige für Beachvolleyball'],
     ['Beach: zwei Zeilen', 'Beachanzeige mit einer Zeile pro Team'],
+    ['Duna', 'Horizontale Beachanzeige mit zentralen Punkten und Bernsteinakzenten'],
     ['Ballwechsel', 'Unteres Band mit vorherigen Sätzen und jedem Punkt'],
     ['Bento', 'Spielstand, Diagramm und Statistiken in Kacheln'],
     ['Glas', 'Durchscheinende Anzeige mit Verlaufsdiagramm'],
@@ -409,7 +416,7 @@ export function styleCatalogTranslations(lang: string): Record<string, string> {
   const result: Record<string, string> = {};
   const entries = examples[lang] ?? examples.en!;
   entries.forEach(([name, description], index) => {
-    const kind = index < 27 ? 'overlay' : 'summary';
+    const kind = index < ids.indexOf('brand_ledger') ? 'overlay' : 'summary';
     result[`styleCatalog.${kind}.${ids[index]}.name`] = name;
     result[`styleCatalog.${kind}.${ids[index]}.description`] = description;
   });

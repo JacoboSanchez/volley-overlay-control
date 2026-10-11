@@ -1,0 +1,217 @@
+/* Duna: a low horizontal beach scoreboard with a graphite/amber palette.
+   Keep the canvas transparent and let app.js position/scale the whole board. */
+:root {
+  --duna-bg: #20262e;
+  --duna-text: #faf8f2;
+  --duna-accent: #ffb324;
+  --set-bg: transparent;
+  --set-text: #faf8f2;
+  --game-bg: #fafafa;
+  --game-text: #20262e;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: transparent;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.scoreboard {
+  position: absolute;
+  left: 400px;
+  top: 940px;
+  width: 1120px;
+  padding-top: 28px;
+  box-sizing: border-box;
+  opacity: 0;
+  transform-origin: top left;
+}
+
+.duna-set-tab {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 28px;
+  min-width: 106px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--duna-accent);
+  color: var(--duna-bg);
+  font-size: 19px;
+  font-weight: 800;
+  white-space: nowrap;
+  border-radius: 4px 4px 0 0;
+}
+
+.duna-bar {
+  display: flex;
+  height: 76px;
+  border: solid var(--duna-accent);
+  border-width: 3px 4px 0;
+  background: var(--duna-bg);
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.25);
+}
+
+.team {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 12px;
+  padding: 0 18px;
+  color: var(--duna-text);
+}
+
+.duna-name-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.team-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.duna-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.duna-sets {
+  padding: 2px 6px;
+  border-radius: 2px;
+  background: var(--set-bg);
+  color: var(--set-text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+.duna-sets span {
+  display: inline-block;
+}
+
+.serving-indicator {
+  flex: none;
+  width: 15px;
+  height: 18px;
+  background: var(--duna-accent);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.team-away .serving-indicator {
+  transform: rotate(180deg);
+}
+
+.serving-indicator.active {
+  opacity: 1;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.team-logo {
+  max-width: 38px;
+  max-height: 38px;
+  object-fit: contain;
+}
+
+.scoreboard.no-logos .logo-container {
+  display: none;
+}
+
+.duna-scores {
+  display: flex;
+  flex: none;
+  background: var(--game-bg);
+  color: var(--game-text);
+}
+
+.points-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 118px;
+  overflow: hidden;
+}
+
+.points-container + .points-container::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 0;
+  width: 1px;
+  background: currentColor;
+  opacity: 0.25;
+}
+
+/* Both the original digit and app.js's animated replacement share the
+   same centre, so a point update cannot shift the neighbouring panels. */
+.points {
+  position: absolute;
+  font-size: 58px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* This design already shows just the current set. Simple mode removes
+   the sets-won line while keeping the pair names and serving triangle. */
+.scoreboard.compact-mode .duna-meta {
+  display: none;
+}
+
+/* Legacy shared widgets remain invisible unless explicitly activated. */
+.ticker,
+.player-stats {
+  position: absolute;
+  opacity: 0;
+  background: var(--duna-bg);
+  color: var(--duna-text);
+}
+
+.ticker {
+  bottom: 24px;
+  left: 400px;
+  width: 1120px;
+  padding: 12px 0;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.player-stats {
+  top: 200px;
+  left: 64px;
+  padding: 20px;
+  border-left: 4px solid var(--duna-accent);
+}

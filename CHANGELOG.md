@@ -16,6 +16,12 @@ archive by hand.
 
 ### Added
 
+- **Duna beach scoreboard.** A graphite horizontal bar with amber accents,
+  central points, pair names, sets won and a current-set tab. Supports the
+  shared live feed, serving indicators, optional logos, simple mode, side
+  swaps and position/size and score-colour controls. Available in the Beach
+  style gallery with localized descriptions and a renderer thumbnail.
+
 - **Visual style selection for scoreboards and set recaps.** Compact controls
   show a thumbnail, a friendly name and a short description. Open the gallery
   to compare designs, filter scoreboards by category, or use the native quick
@@ -35,6 +41,8 @@ archive by hand.
 - Refreshed the operator screenshots and added mobile style-gallery captures.
   The screenshot workflow also regenerates the lightweight catalogue thumbnails
   from the actual overlay renderers.
+- Refreshed the style mosaics and catalogue thumbnails for Duna, and added a
+  dedicated beach-scoreboard capture to the README.
 
 ## [7.3.0] - 2026-10-04
 

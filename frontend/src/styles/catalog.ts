@@ -31,6 +31,7 @@ export const OVERLAY_CATEGORIES: Record<string, StyleCategory> = {
   pylons_gradient: 'corners',
   beach: 'beach',
   beach_twoline: 'beach',
+  duna: 'beach',
 };
 
 export function stylePresentation(kind: StyleKind, id: string, t: Translate) {

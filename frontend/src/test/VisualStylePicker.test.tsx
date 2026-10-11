@@ -241,8 +241,8 @@ describe('Set summary gallery', () => {
   });
 });
 
-it('provides a name and description for all 33 designs in every UI language', () => {
-  expect(Object.keys(OVERLAY_CATEGORIES)).toHaveLength(27);
+it('provides a name and description for all 34 designs in every UI language', () => {
+  expect(Object.keys(OVERLAY_CATEGORIES)).toHaveLength(28);
   for (const dict of Object.values(translations)) {
     for (const [kind, styles] of [
       ['overlay', Object.keys(OVERLAY_CATEGORIES)],

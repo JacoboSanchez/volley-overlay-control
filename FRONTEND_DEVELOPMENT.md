@@ -563,7 +563,7 @@ Returns available overlay style names for the session's overlay backend.
 ["default", "esports", "glass", "compact", "ribbon", ...]
 ```
 
-The built-in engine returns the 27 selectable templates (the dynamic list from `get_available_styles_list`). The `mosaic` meta-style is intentionally excluded from this list — it can only be rendered via the explicit `?style=mosaic` query parameter on `/overlay/{public_token}`.
+The built-in engine returns the 28 selectable templates (the dynamic list from `get_available_styles_list`). The `mosaic` meta-style is intentionally excluded from this list — it can only be rendered via the explicit `?style=mosaic` query parameter on `/overlay/{public_token}`.
 
 ### SPA Bootstrap
 
