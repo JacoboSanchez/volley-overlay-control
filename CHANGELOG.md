@@ -25,6 +25,9 @@ archive by hand.
 
 ### Changed
 
+- Configuration sections now place Set Summary, Display, Button Appearance,
+  Match Rules and Statistics, in that order, between Position & Size and Presets
+  in both portrait and landscape layouts. Refreshed the configuration capture.
 - Style-gallery previews and visible thumbnails now use the current team names,
   colours, logos, logo visibility and scoreboard colours, including unsaved
   configuration edits. Off-screen thumbnails release their isolated renderers.

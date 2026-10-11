@@ -73,9 +73,19 @@ describe('ConfigPanel', () => {
     expect(presetsApi.listPresets).not.toHaveBeenCalled();
   });
 
-  it('lists Presets after Position & Size in the section order', () => {
+  it('places recap, display, buttons, rules and statistics between position and presets', () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    const labels = ['Teams', 'Overlay Style', 'Position & Size', 'Presets'];
+    const labels = [
+      'Teams',
+      'Overlay Style',
+      'Position & Size',
+      'Set summary',
+      'Display',
+      'Button Appearance',
+      'Match rules',
+      'Statistics',
+      'Presets',
+    ];
     const positions = labels.map((label) =>
       Array.prototype.indexOf.call(
         document.querySelectorAll('button'),
