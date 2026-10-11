@@ -1,7 +1,10 @@
+import { styleCatalogTranslations } from './styleCatalog';
+
 export type TranslationDict = Record<string, string>;
 
 export const translations: Record<string, TranslationDict> = {
   en: {
+    ...styleCatalogTranslations('en'),
     // Init screen
     'app.title': 'Volley Scoreboard',
     'app.oidLabel': 'Overlay Control ID (OID)',
@@ -918,6 +921,7 @@ export const translations: Record<string, TranslationDict> = {
     'acc.json.replace': 'Replace existing',
   },
   es: {
+    ...styleCatalogTranslations('es'),
     // Init screen
     'app.title': 'Marcador',
     'app.oidLabel': 'ID de Control del Overlay (OID)',
@@ -1845,6 +1849,7 @@ export const translations: Record<string, TranslationDict> = {
     'acc.json.replace': 'Reemplazar existentes',
   },
   pt: {
+    ...styleCatalogTranslations('pt'),
     // Init screen
     'app.title': 'Marcador de Voleibol',
     'app.oidLabel': 'ID de Controlo do Overlay (OID)',
@@ -2764,6 +2769,7 @@ export const translations: Record<string, TranslationDict> = {
     'acc.json.replace': 'Substituir existentes',
   },
   it: {
+    ...styleCatalogTranslations('it'),
     // Init screen
     'app.title': 'Tabellone Volley',
     'app.oidLabel': 'ID Controllo Overlay (OID)',
@@ -3681,6 +3687,7 @@ export const translations: Record<string, TranslationDict> = {
     'acc.json.replace': 'Sostituisci esistenti',
   },
   fr: {
+    ...styleCatalogTranslations('fr'),
     // Init screen
     'app.title': 'Tableau de score Volley',
     'app.oidLabel': 'ID de contrôle de l’overlay (OID)',
@@ -4607,6 +4614,7 @@ export const translations: Record<string, TranslationDict> = {
     'acc.json.replace': "Remplacer l'existant",
   },
   de: {
+    ...styleCatalogTranslations('de'),
     // Init screen
     'app.title': 'Volleyball-Anzeigetafel',
     'app.oidLabel': 'Overlay-Steuer-ID (OID)',

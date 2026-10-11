@@ -19,6 +19,7 @@ from starlette.concurrency import run_in_threadpool
 from app.overlay.broadcast import ObsBroadcastHub, ObsHubFull
 from app.overlay.locale import _resolve_overlay_locale
 from app.overlay.state_store import OverlayStateStore
+from app.overlay.style_preview import register_style_preview
 from app.overlay.themes import get_theme_names
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,7 @@ def create_overlay_router(
         generate_unique_id_function=_deterministic_operation_id,
     )
     _register_page_routes(router, store, broadcast, templates)
+    register_style_preview(router, store, templates)
     _register_api_routes(router, store, broadcast)
     return router
 

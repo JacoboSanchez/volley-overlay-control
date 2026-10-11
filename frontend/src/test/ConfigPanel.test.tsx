@@ -282,7 +282,9 @@ describe('ConfigPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('style-selector')).toBeInTheDocument();
     });
-    const options = screen.getByTestId('style-selector').querySelectorAll('option');
+    fireEvent.click(screen.getByRole('button', { name: /Choose a scoreboard:/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Quick selection' }));
+    const options = screen.getByTestId('style-selector-quick-select').querySelectorAll('option');
     expect(options).toHaveLength(3); // placeholder + 2 styles
     expect(options[1]).toHaveTextContent('Classic');
     expect(options[2]).toHaveTextContent('Modern');
@@ -442,8 +444,10 @@ describe('ConfigPanel option loading failures', () => {
 
     // The retried styles are the ones the selector now offers.
     fireEvent.click(screen.getByText('Overlay Style').closest('button')!);
-    const selector = await screen.findByTestId('style-selector');
-    expect(selector.querySelectorAll('option')).toHaveLength(3);
+    await screen.findByTestId('style-selector');
+    fireEvent.click(screen.getByRole('button', { name: /Choose a scoreboard:/ }));
+    expect(screen.getByTestId('overlay-style-Classic')).toBeInTheDocument();
+    expect(screen.getByTestId('overlay-style-Modern')).toBeInTheDocument();
   });
 
   it('reports a failure to persist the selected team group', async () => {

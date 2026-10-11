@@ -1888,6 +1888,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/overlay-preview/{style}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Style Preview */
+        get: operations["style_preview_overlay_preview__style__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/overlay/{public_token}": {
         parameters: {
             query?: never;
@@ -7231,6 +7248,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    style_preview_overlay_preview__style__get: {
+        parameters: {
+            query?: {
+                summary?: string | null;
+                lang?: string | null;
+                theme?: ("light" | "dark") | null;
+            };
+            header?: never;
+            path: {
+                style: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };

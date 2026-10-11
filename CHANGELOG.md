@@ -14,6 +14,21 @@ archive by hand.
 
 ## [Unreleased]
 
+### Added
+
+- **Visual style selection for scoreboards and set recaps.** Compact controls
+  show a thumbnail, a friendly name and a short description. Open the gallery
+  to compare designs, filter scoreboards by category, or use the native quick
+  list. Current and recently selected designs appear first. Only confirmation
+  selects a design; browsing an isolated example never changes the live overlay.
+  Presentation text is translated in all six supported languages.
+
+### Changed
+
+- Refreshed the operator screenshots and added mobile style-gallery captures.
+  The screenshot workflow also regenerates the lightweight catalogue thumbnails
+  from the actual overlay renderers.
+
 ## [7.3.0] - 2026-10-04
 
 ### Changed

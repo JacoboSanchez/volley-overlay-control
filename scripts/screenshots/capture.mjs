@@ -495,7 +495,7 @@ async function capturePointTypePicker(page) {
   await page.evaluate((storageKey) => localStorage.removeItem(storageKey), key);
 }
 
-async function captureConfigPanel(page) {
+async function captureConfigPanel(page, capture = true) {
   await gotoBoard(page, DEMO_OID);
   await dismissPwaPrompt(page);
   await page.waitForTimeout(500);
@@ -526,7 +526,9 @@ async function captureConfigPanel(page) {
       await page.waitForTimeout(500);
     }
   }
-  await page.screenshot({ path: resolve(OUT_DIR, '04-config-panel.png'), fullPage: false });
+  if (capture) {
+    await page.screenshot({ path: resolve(OUT_DIR, '04-config-panel.png'), fullPage: false });
+  }
 }
 
 async function captureOverlaysPage(page) {
@@ -547,6 +549,25 @@ async function captureOverlaysPage(page) {
   await page.click('.acc-overlay-toggle').catch(() => {});
   await page.waitForTimeout(400);
   await page.screenshot({ path: resolve(OUT_DIR, '05-manage-page.png'), fullPage: false });
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
+}
+
+async function captureStyleGalleries(page) {
+  await page.setViewportSize(PHONE_VIEWPORT);
+  await captureConfigPanel(page, false);
+  await page.locator('#config-section-overlay-header').click();
+  await page.locator('[data-testid="style-selector"] button').click();
+  await page.locator('[data-testid="overlay-style-broadcast"]').click();
+  await page.waitForTimeout(1400);
+  await page.screenshot({ path: resolve(OUT_DIR, '15-overlay-style-gallery.png') });
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.locator('#config-section-recap-header').click();
+  const enable = page.getByRole('checkbox', { name: 'Enable set summary overlay', exact: true });
+  await enable.check();
+  await page.locator('[data-testid="set-summary-style-picker"] button').click();
+  await page.waitForTimeout(1400);
+  await page.screenshot({ path: resolve(OUT_DIR, '16-summary-style-gallery.png') });
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
@@ -784,6 +805,7 @@ async function main() {
     await step('03 scoreboard-phone', () => captureScoreboardPhone(page));
     await step('11 point-type-picker', () => capturePointTypePicker(page));
     await step('04 config-panel', () => captureConfigPanel(page));
+    await step('15–16 style galleries', () => captureStyleGalleries(page));
     await step('05 overlays-page', () => captureOverlaysPage(page));
     await step('13 icon-library', () => captureIconLibrary(page));
     await step('14 icon-batch-import', () => captureIconBatchImport(page));

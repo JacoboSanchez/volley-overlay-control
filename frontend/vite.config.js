@@ -215,6 +215,16 @@ export default defineConfig(async () => ({
     // ../overlay_static/ via ``?raw``.
     fs: { allow: ['..'] },
     proxy: {
+      // The visual gallery uses the backend's isolated HTML examples and
+      // renderer assets on the same origin in both dev and production.
+      '/overlay-preview': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/static': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,

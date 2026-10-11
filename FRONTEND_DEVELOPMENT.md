@@ -567,6 +567,19 @@ The built-in engine returns the 27 selectable templates (the dynamic list from `
 
 ### SPA Bootstrap
 
+#### Style gallery examples
+
+`GET /overlay-preview/{style}` returns an isolated HTML example. `style` must
+be a selectable template; optional `summary` chooses one of the six recap
+designs, `lang` sets the language and `theme=light|dark` overrides the supported
+palette. Invalid styles return 404. The example uses invented match data and
+never subscribes to a live overlay WebSocket.
+
+Browsing a gallery changes only its local candidate. Confirming a scoreboard
+stages `preferredStyle` for the existing configuration Save flow; confirming a
+recap uses the existing set-summary-style action. See
+[AUTHENTICATION.md](AUTHENTICATION.md) for the access policy.
+
 #### `GET /api/v1/app-config`
 
 Runtime configuration consumed by the SPA on load. Unauthenticated.

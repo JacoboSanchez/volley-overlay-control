@@ -21,6 +21,8 @@ export interface RecapSectionProps {
    */
   setSummaryStyle?: SetSummaryStyle | undefined;
   onChangeSetSummaryStyle?: ((style: SetSummaryStyle) => void) | undefined;
+  overlayStyle?: string | undefined;
+  overlayTheme?: string | undefined;
 }
 
 export default function RecapSection({
@@ -28,6 +30,8 @@ export default function RecapSection({
   setSetting,
   setSummaryStyle,
   onChangeSetSummaryStyle,
+  overlayStyle,
+  overlayTheme,
 }: RecapSectionProps) {
   const { t } = useI18n();
   return (
@@ -54,7 +58,12 @@ export default function RecapSection({
               <label className="config-field-group-label">
                 {t('config.setSummary.style.label')}
               </label>
-              <SetSummaryStylePicker value={setSummaryStyle} onChange={onChangeSetSummaryStyle} />
+              <SetSummaryStylePicker
+                value={setSummaryStyle}
+                onChange={onChangeSetSummaryStyle}
+                overlayStyle={overlayStyle}
+                overlayTheme={overlayTheme}
+              />
             </div>
           )}
           <div className="config-suboption">

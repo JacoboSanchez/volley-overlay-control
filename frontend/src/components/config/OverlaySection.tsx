@@ -3,6 +3,7 @@ import type { ConfigModel } from './TeamsSection';
 import type { StyleCapabilities } from '../../api/board';
 import { asBool, asString } from '../../utils/coerce';
 import { ConfigColorField } from './fields';
+import VisualStylePicker from '../VisualStylePicker';
 
 export interface OverlaySectionProps {
   model: ConfigModel;
@@ -64,19 +65,14 @@ export default function OverlaySection({
         <div className="config-theme-inline">
           <div className="config-field-group">
             <label className="config-field-group-label">{t('overlay.styleLabel')}</label>
-            <select
-              className="config-select"
-              value={asString(model['preferredStyle'], '')}
-              onChange={(e) => updateField('preferredStyle', e.target.value)}
-              data-testid="style-selector"
-            >
-              <option value="">{t('overlay.style')}</option>
-              {styles.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
+            <VisualStylePicker
+              kind="overlay"
+              value={selectedStyle}
+              styles={[...new Set(['default', ...styles])]}
+              onChange={(style) => updateField('preferredStyle', style === 'default' ? '' : style)}
+              overlayTheme={asString(model['overlayTheme'], '')}
+              testId="style-selector"
+            />
           </div>
           {/* The theme selector only appears for styles where it has a
               visible effect (reported by the backend). The vertical

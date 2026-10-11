@@ -166,7 +166,9 @@ echo "Backend is up."
 
 export SCREENSHOT_BASE_URL="$BASE_URL"
 export SCREENSHOT_ADMIN_PASSWORD="$ADMIN_PW"
+export SCREENSHOT_PYTHON="$PYTHON_BIN"
 
+(cd "$SCRIPT_DIR" && node style-previews.mjs)
 (cd "$SCRIPT_DIR" && node capture.mjs)
 
 echo "Screenshots written to docs/screenshots/."

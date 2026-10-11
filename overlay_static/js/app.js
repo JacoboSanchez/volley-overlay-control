@@ -2040,7 +2040,11 @@ function dispatchAlertTransitions(oldState, newState) {
 
 // Start connection when DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
-  connectWebSocket();
+  if (window.OVERLAY_PREVIEW_STATE) {
+    processStateUpdate(window.OVERLAY_PREVIEW_STATE);
+  } else {
+    connectWebSocket();
+  }
   setupRenderAreaReporting();
   ensureAlertStylesInjected();
 });

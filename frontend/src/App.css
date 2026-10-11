@@ -3863,40 +3863,278 @@ body {
   cursor: default;
 }
 
-.set-summary-style-picker {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
+.style-picker-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
-}
-
-.set-summary-style-option {
-  padding: 6px 10px;
-  border-radius: 6px;
+  min-height: 64px;
+  padding: 8px;
+  text-align: left;
+  border-radius: 8px;
   border: 1px solid var(--border);
-  background: var(--surface-light, rgba(255, 255, 255, 0.04));
+  background: var(--surface);
   color: var(--text);
-  font-size: 0.78rem;
   cursor: pointer;
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
 }
-
-.set-summary-style-option:hover:not(:disabled) {
-  border-color: rgba(46, 204, 113, 0.5);
+.style-trigger-thumbnail {
+  width: 88px;
+  flex: none;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 5px;
+  background: #243346;
 }
-
-.set-summary-style-option.selected {
-  border-color: var(--green, #2e7d32);
-  background: rgba(46, 204, 113, 0.14);
-  color: var(--green, #2e7d32);
-  font-weight: 700;
+.style-trigger-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
-
-.set-summary-style-option:disabled {
+.style-trigger-copy {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.style-trigger-copy small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+.style-picker-trigger:disabled,
+.style-gallery-option:disabled {
   opacity: 0.5;
   cursor: default;
+}
+.style-picker-modal .dialog-card {
+  padding: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(960px, calc(100vw - 24px));
+  max-height: min(90dvh, 820px);
+  overflow: hidden;
+}
+.style-gallery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.style-gallery-header h2 {
+  font-size: 1.05rem;
+}
+.style-gallery-close,
+.style-quick-toggle,
+.style-category-filter button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.style-gallery-close {
+  border: 0;
+}
+.style-gallery-body {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  padding: 16px;
+  gap: 16px;
+}
+.style-gallery-preview {
+  min-width: 0;
+  align-self: start;
+  position: sticky;
+  top: 0;
+}
+.style-example {
+  width: 100%;
+  overflow: hidden;
+  background: #243346;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+.style-example .preview-container {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+.style-example-unavailable {
+  padding: 32px 12px;
+}
+.style-gallery-preview p,
+.style-gallery-preview > small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  margin-top: 6px;
+}
+.style-gallery-options {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.style-quick-toggle {
+  align-self: start;
+  flex: none;
+  margin-bottom: 8px;
+}
+.style-category-filter {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.style-category-filter button {
+  flex: none;
+  font-size: 0.8rem;
+}
+.style-gallery-grid {
+  display: grid;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  align-content: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.style-gallery-option {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.style-gallery-option img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  border-radius: 4px;
+  background: #243346;
+}
+.style-gallery-option small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+.style-gallery-option[aria-pressed='true'],
+.style-category-filter button[aria-pressed='true'] {
+  border-color: var(--blue);
+  background: var(--surface-light);
+}
+.style-card-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: auto;
+  padding-top: 4px;
+}
+.style-thumbnail-fallback {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  min-height: 40px;
+}
+.style-gallery-footer {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+}
+.style-gallery-footer p {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  max-width: 440px;
+}
+.style-gallery-footer > div {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+.style-gallery-footer button {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-light);
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+}
+.style-gallery-footer button.confirm {
+  background: #1565c0;
+  color: #fff;
+  border-color: #1565c0;
+}
+.style-gallery-footer button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.style-picker-modal button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+@media (max-width: 600px) and (min-height: 501px) {
+  .style-picker-modal .dialog-overlay {
+    align-items: end;
+  }
+  .style-picker-modal .dialog-card {
+    width: 100%;
+    max-height: 94dvh;
+    border-radius: 16px 16px 0 0;
+  }
+  .style-gallery-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .style-gallery-preview {
+    position: static;
+  }
+  .style-gallery-preview .style-example {
+    max-width: 260px;
+    margin-inline: auto;
+  }
+  .style-gallery-footer {
+    flex-wrap: wrap;
+  }
+  .style-gallery-footer > div {
+    width: 100%;
+    justify-content: end;
+  }
+}
+@media (max-height: 500px) {
+  .style-picker-modal .dialog-card {
+    max-height: 96dvh;
+  }
+  .style-gallery-body {
+    grid-template-columns: minmax(0, 0.65fr) minmax(0, 1fr);
+    padding: 10px;
+  }
+  .style-gallery-footer {
+    padding-top: 6px;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+  }
 }
 
 /* ── Swap-sides button (centre column, alerts row) ───────────── */
