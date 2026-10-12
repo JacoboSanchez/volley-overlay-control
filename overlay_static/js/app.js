@@ -374,7 +374,9 @@ function contrastAccent(hex, surfaceIsDark) {
 // "dark"/"light" select an explicit palette. A ``?theme=`` URL parameter
 // takes precedence so a fixed OBS browser-source URL (or the mosaic
 // preview) can pin a theme regardless of the live customization. Both the
-// scoreboard and its in-document set summary consume the resulting class.
+// scoreboard and its in-document set summary consume the resulting class;
+// a style without light/dark overrides simply has no rules matching it, so
+// an explicit theme still reaches the set summary on every style.
 const THEME_URL_OVERRIDE = (() => {
   try {
     const v = (
@@ -387,11 +389,8 @@ const THEME_URL_OVERRIDE = (() => {
 })();
 
 function applyOverlayTheme(state) {
-  // Styles without a theme override must keep their native palette even if
-  // a stale customization value or URL parameter asks for another one.
-  const themeSupported = window.OVERLAY_THEME_SUPPORTED !== false;
-  let theme = themeSupported ? THEME_URL_OVERRIDE : null;
-  if (!theme && themeSupported) {
+  let theme = THEME_URL_OVERRIDE;
+  if (!theme) {
     const cust = state && state.raw_remote_customization;
     const v =
       cust && typeof cust.overlayTheme === "string"

@@ -43,6 +43,15 @@ archive by hand.
   from the actual overlay renderers.
 - Refreshed the style mosaics and catalogue thumbnails for Duna, and added a
   dedicated beach-scoreboard capture to the README.
+- **The overlay theme is always configurable, because it also themes the set
+  summary.** The Overlay section's Default / Dark / Light choice used to appear
+  only for scoreboard styles with their own light/dark palette, squeezed beside
+  the style picker. It is now a three-button toggle on its own row under the
+  style picker, shown for every style, with a hint saying whether the selected
+  scoreboard follows it or keeps its own palette. An explicit dark or light
+  theme now reaches the set summary on every scoreboard style (previously it
+  was ignored, and the recap fell back to the scoreboard's native palette);
+  "Default" still follows that native palette.
 
 ## [7.3.0] - 2026-10-04
 

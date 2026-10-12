@@ -113,14 +113,12 @@ def test_overlay_embeds_selected_styles_native_theme(client):
 
     assert res.status_code == 200
     assert 'window.OVERLAY_NATIVE_THEME = "light"' in res.text
-    assert "window.OVERLAY_THEME_SUPPORTED = true;" in res.text
 
     store.set_raw_config(skey, customization={"preferredStyle": "default"})
     res = cli.get(f"/overlay/{token}")
 
     assert res.status_code == 200
     assert 'window.OVERLAY_NATIVE_THEME = "dark"' in res.text
-    assert "window.OVERLAY_THEME_SUPPORTED = false;" in res.text
 
 
 def test_spectator_template_not_in_style_picker(tmp_path):

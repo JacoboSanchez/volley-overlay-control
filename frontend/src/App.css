@@ -2674,12 +2674,9 @@ body {
   border-color: var(--blue);
 }
 
-.config-theme-inline {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
+.config-overlay-style,
+.config-overlay-theme {
   margin-top: 0.75rem;
-  flex-wrap: wrap;
 }
 
 /* ── Match-rules section ────────────────────────────────────────────── */
@@ -2735,6 +2732,23 @@ body {
 
 .config-mode-toggle-btn .material-icons {
   font-size: 1.5rem;
+}
+
+/* Overlay theme: the mode toggle on its own row, with icon and label side by
+   side so the three choices stay one short row even on phone portrait. */
+.config-theme-toggle {
+  margin-bottom: 0;
+}
+
+.config-theme-toggle .config-mode-toggle-btn {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  min-height: 40px;
+}
+
+.config-theme-toggle .config-mode-toggle-btn .material-icons {
+  font-size: 1.15rem;
 }
 
 /* Side-switch indicator pinned to the centre panel during beach matches. */
@@ -2850,11 +2864,6 @@ body {
   background: var(--orange);
   border-color: var(--orange);
   color: #fff;
-}
-
-.config-theme-inline .config-select {
-  flex: 1;
-  min-width: 0;
 }
 
 .config-field-group {

@@ -148,7 +148,6 @@ def _register_page_routes(
         native_theme = style_capability.get("nativeTheme", "dark")
         if native_theme not in ("dark", "light"):
             native_theme = "dark"
-        theme_supported = style_capability.get("theme") is True
 
         persisted_locale = customization.get("locale")
 
@@ -163,7 +162,6 @@ def _register_page_routes(
                 "output_key": public_token,
                 "style": style,
                 "native_theme": native_theme,
-                "theme_supported": theme_supported,
                 "available_styles": available,
                 "v": int(time.time()),
                 "locale": _resolve_overlay_locale(

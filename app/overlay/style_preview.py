@@ -102,7 +102,6 @@ def register_style_preview(
                 "style": style, "v": int(time.time()),
                 "locale": _resolve_overlay_locale(lang, request, None),
                 "native_theme": capability.get("nativeTheme", "dark"),
-                "theme_supported": capability.get("theme") is True,
                 "preview_state": preview_state,
             },
             headers={"Cache-Control": "no-store"},
