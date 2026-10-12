@@ -373,38 +373,55 @@ function contrastAccent(hex, surfaceIsDark) {
 // (empty/absent) resolves to the palette declared by the loaded style;
 // "dark"/"light" select an explicit palette. A ``?theme=`` URL parameter
 // takes precedence so a fixed OBS browser-source URL (or the mosaic
-// preview) can pin a theme regardless of the live customization. Both the
-// scoreboard and its in-document set summary consume the resulting class.
-const THEME_URL_OVERRIDE = (() => {
+// preview) can pin a theme regardless of the live customization.
+//
+// The in-document set summary has its own ``setSummaryTheme`` (and
+// ``?summary_theme=`` override). It applies with every style, themeable
+// or not; left at default it matches the scoreboard's effective theme.
+function themeFromUrl(param) {
   try {
     const v = (
-      new URLSearchParams(window.location.search).get("theme") || ""
+      new URLSearchParams(window.location.search).get(param) || ""
     ).toLowerCase();
     return v === "dark" || v === "light" ? v : null;
   } catch (_e) {
     return null;
   }
-})();
+}
+
+const THEME_URL_OVERRIDE = themeFromUrl("theme");
+const SUMMARY_THEME_URL_OVERRIDE = themeFromUrl("summary_theme");
+
+function themeFromCustomization(cust, key) {
+  const v =
+    cust && typeof cust[key] === "string" ? cust[key].toLowerCase() : "";
+  return v === "dark" || v === "light" ? v : null;
+}
 
 function applyOverlayTheme(state) {
+  const cust = state && state.raw_remote_customization;
   // Styles without a theme override must keep their native palette even if
   // a stale customization value or URL parameter asks for another one.
   const themeSupported = window.OVERLAY_THEME_SUPPORTED !== false;
-  let theme = themeSupported ? THEME_URL_OVERRIDE : null;
-  if (!theme && themeSupported) {
-    const cust = state && state.raw_remote_customization;
-    const v =
-      cust && typeof cust.overlayTheme === "string"
-        ? cust.overlayTheme.toLowerCase()
-        : "";
-    theme = v === "dark" || v === "light" ? v : null;
-  }
+  let theme = themeSupported
+    ? THEME_URL_OVERRIDE || themeFromCustomization(cust, "overlayTheme")
+    : null;
   if (!theme) {
     const native = String(window.OVERLAY_NATIVE_THEME || "").toLowerCase();
     theme = native === "light" ? "light" : "dark";
   }
   document.body.classList.toggle("overlay-theme-dark", theme === "dark");
   document.body.classList.toggle("overlay-theme-light", theme === "light");
+
+  const summaryTheme =
+    SUMMARY_THEME_URL_OVERRIDE ||
+    themeFromCustomization(cust, "setSummaryTheme") ||
+    theme;
+  document.body.classList.toggle("summary-theme-dark", summaryTheme === "dark");
+  document.body.classList.toggle(
+    "summary-theme-light",
+    summaryTheme === "light",
+  );
 }
 
 // ── Vertical anchor (top / center / bottom) ─────────────────────────

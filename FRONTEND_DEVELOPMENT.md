@@ -571,9 +571,11 @@ The built-in engine returns the 28 selectable templates (the dynamic list from `
 
 `GET /overlay-preview/{style}` returns an isolated HTML example. `style` must
 be a selectable template; optional `summary` chooses one of the six recap
-designs, `lang` sets the language and `theme=light|dark` overrides the supported
-palette. Invalid styles return 404. The example uses invented match data and
-never subscribes to a live overlay WebSocket.
+designs, `lang` sets the language, `theme=light|dark` overrides the supported
+palette and `summary_theme=light|dark` overrides the recap's palette (read by
+the overlay script, so it works with every style). Invalid styles return 404.
+The example uses invented match data and never subscribes to a live overlay
+WebSocket.
 
 The SPA sends an appearance-only snapshot of its current configuration to the
 example via `postMessage`, including unsaved edits. The child accepts messages

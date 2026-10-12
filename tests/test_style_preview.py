@@ -80,6 +80,14 @@ def test_preview_accepts_explicit_palettes(preview_client, theme):
     assert _preview_state(response)["raw_remote_customization"]["overlayTheme"] == theme
 
 
+def test_preview_accepts_summary_theme_param(preview_client):
+    # ``summary_theme`` is read client-side by app.js, so the route must
+    # simply serve the page (not reject the extra query parameter).
+    client, _ = preview_client
+    response = client.get("/overlay-preview/default?summary=bento&summary_theme=light")
+    assert response.status_code == 200
+
+
 def test_preview_rejects_unknown_palettes(preview_client):
     client, _ = preview_client
     assert client.get("/overlay-preview/broadcast?theme=unknown").status_code == 422

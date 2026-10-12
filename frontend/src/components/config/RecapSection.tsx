@@ -23,6 +23,13 @@ export interface RecapSectionProps {
   onChangeSetSummaryStyle?: ((style: SetSummaryStyle) => void) | undefined;
   overlayStyle?: string | undefined;
   overlayTheme?: string | undefined;
+  /**
+   * Set summary surface theme ('' matches the scoreboard, 'dark' or
+   * 'light'). Independent of the scoreboard theme, so it is available with
+   * every overlay style. The selector is skipped without a handler.
+   */
+  summaryTheme?: string | undefined;
+  onChangeSummaryTheme?: ((theme: string) => void) | undefined;
   configuration?: Record<string, unknown> | undefined;
 }
 
@@ -33,6 +40,8 @@ export default function RecapSection({
   onChangeSetSummaryStyle,
   overlayStyle,
   overlayTheme,
+  summaryTheme = '',
+  onChangeSummaryTheme,
   configuration,
 }: RecapSectionProps) {
   const { t } = useI18n();
@@ -65,8 +74,29 @@ export default function RecapSection({
                 onChange={onChangeSetSummaryStyle}
                 overlayStyle={overlayStyle}
                 overlayTheme={overlayTheme}
+                summaryTheme={summaryTheme}
                 configuration={configuration}
               />
+            </div>
+          )}
+          {onChangeSummaryTheme && (
+            <div
+              className="config-field-group config-suboption"
+              style={{ marginBottom: '0.75rem' }}
+            >
+              <label className="config-field-group-label">
+                {t('config.setSummary.theme.label')}
+              </label>
+              <select
+                className="config-select"
+                value={summaryTheme}
+                onChange={(e) => onChangeSummaryTheme(e.target.value)}
+                data-testid="set-summary-theme-selector"
+              >
+                <option value="">{t('config.setSummary.theme.matchScoreboard')}</option>
+                <option value="dark">{t('overlay.themeDark')}</option>
+                <option value="light">{t('overlay.themeLight')}</option>
+              </select>
             </div>
           )}
           <div className="config-suboption">

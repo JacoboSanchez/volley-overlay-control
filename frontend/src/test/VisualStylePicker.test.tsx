@@ -224,6 +224,21 @@ describe('Set summary gallery', () => {
     expect(change).toHaveBeenCalledExactlyOnceWith('bento');
   });
 
+  it('passes the separate summary theme to recap examples', () => {
+    renderWithI18n(
+      <SetSummaryStylePicker
+        value="brand_ledger"
+        onChange={vi.fn()}
+        overlayStyle="default"
+        summaryTheme="light"
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Choose a set summary:/ }));
+    const url = new URL(screen.getByTestId('overlay-preview').getAttribute('src')!);
+    expect(url.searchParams.get('summary_theme')).toBe('light');
+    expect(url.searchParams.get('theme')).toBeNull();
+  });
+
   it('cannot open when disabled', () => {
     renderWithI18n(<SetSummaryStylePicker value="bento" onChange={() => {}} disabled />);
     const trigger = screen.getByRole('button', { name: /Choose a set summary:/ });

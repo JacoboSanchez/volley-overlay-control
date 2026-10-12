@@ -17,6 +17,8 @@ interface VisualStylePickerProps {
   /** Recap examples inherit the configured scoreboard's native/explicit theme. */
   overlayStyle?: string | undefined;
   overlayTheme?: string | undefined;
+  /** Recap examples also honour the separate set-summary theme. */
+  summaryTheme?: string | undefined;
   configuration?: Record<string, unknown> | undefined;
 }
 
@@ -124,6 +126,7 @@ export default function VisualStylePicker({
   testId,
   overlayStyle = 'default',
   overlayTheme = '',
+  summaryTheme = '',
   configuration,
 }: VisualStylePickerProps) {
   const { t, lang } = useI18n();
@@ -153,7 +156,11 @@ export default function VisualStylePicker({
   const exampleUrl = (id: string) => {
     const params = new URLSearchParams({ lang });
     if (overlayTheme === 'light' || overlayTheme === 'dark') params.set('theme', overlayTheme);
-    if (kind === 'summary') params.set('summary', id);
+    if (kind === 'summary') {
+      params.set('summary', id);
+      if (summaryTheme === 'light' || summaryTheme === 'dark')
+        params.set('summary_theme', summaryTheme);
+    }
     const style = kind === 'summary' ? overlayStyle || 'default' : id;
     return `/overlay-preview/${encodeURIComponent(style)}?${params}`;
   };

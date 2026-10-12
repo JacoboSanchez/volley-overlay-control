@@ -74,10 +74,11 @@
             // mosaic can show the whole catalogue in a forced
             // dark/light theme (styles without that theme keep their
             // native look — the override is opt-in per style).
-            const themeParam = (() => {
-                const v = (new URLSearchParams(window.location.search).get('theme') || '').toLowerCase();
-                return v === 'dark' || v === 'light' ? `&theme=${v}` : '';
-            })();
+            // ?summary_theme= is forwarded the same way for the set summary.
+            const themeParam = ['theme', 'summary_theme'].map(name => {
+                const v = (new URLSearchParams(window.location.search).get(name) || '').toLowerCase();
+                return v === 'dark' || v === 'light' ? `&${name}=${v}` : '';
+            }).join('');
 
             styles.forEach(style => {
                 const cell = document.createElement("div");

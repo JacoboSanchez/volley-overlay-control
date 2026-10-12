@@ -16,7 +16,7 @@
  *   * hidden → re-render silently, with nothing animated into view;
  *   * any other style + visible → the horizontal card-flip is preserved.
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import APP_SRC from '../../../overlay_static/js/app.js?raw';
 
 interface Tween {
@@ -182,5 +182,66 @@ describe('overlay theme resolution', () => {
 
     expect(document.body).toHaveClass('overlay-theme-dark');
     expect(document.body).not.toHaveClass('overlay-theme-light');
+  });
+
+  it('themes the set summary independently on styles without theme support', () => {
+    (window as any).OVERLAY_NATIVE_THEME = 'dark';
+    (window as any).OVERLAY_THEME_SUPPORTED = false;
+    const app = loadApp(makeGsap().gsap);
+
+    app.applyOverlayTheme({ raw_remote_customization: { setSummaryTheme: 'light' } });
+
+    expect(document.body).toHaveClass('overlay-theme-dark');
+    expect(document.body).toHaveClass('summary-theme-light');
+    expect(document.body).not.toHaveClass('summary-theme-dark');
+  });
+
+  it('lets the summary differ from an explicit scoreboard theme', () => {
+    const app = loadApp(makeGsap().gsap);
+
+    app.applyOverlayTheme({
+      raw_remote_customization: { overlayTheme: 'dark', setSummaryTheme: 'light' },
+    });
+
+    expect(document.body).toHaveClass('overlay-theme-dark');
+    expect(document.body).toHaveClass('summary-theme-light');
+  });
+
+  it('matches the effective scoreboard theme when the summary theme is default', () => {
+    (window as any).OVERLAY_NATIVE_THEME = 'light';
+    (window as any).OVERLAY_THEME_SUPPORTED = false;
+    const app = loadApp(makeGsap().gsap);
+
+    // A stale overlayTheme on a non-themeable style is ignored for both.
+    app.applyOverlayTheme({
+      raw_remote_customization: { overlayTheme: 'dark', setSummaryTheme: '' },
+    });
+
+    expect(document.body).toHaveClass('overlay-theme-light');
+    expect(document.body).toHaveClass('summary-theme-light');
+  });
+
+  describe('with a ?summary_theme= URL override', () => {
+    beforeEach(() => window.history.replaceState(null, '', '/?summary_theme=light'));
+    afterEach(() => window.history.replaceState(null, '', '/'));
+
+    it('beats the stored summary theme', () => {
+      const app = loadApp(makeGsap().gsap);
+
+      app.applyOverlayTheme({ raw_remote_customization: { setSummaryTheme: 'dark' } });
+
+      expect(document.body).toHaveClass('summary-theme-light');
+      expect(document.body).not.toHaveClass('summary-theme-dark');
+    });
+
+    it('applies on styles without theme support', () => {
+      (window as any).OVERLAY_THEME_SUPPORTED = false;
+      const app = loadApp(makeGsap().gsap);
+
+      app.applyOverlayTheme({ raw_remote_customization: {} });
+
+      expect(document.body).toHaveClass('overlay-theme-dark');
+      expect(document.body).toHaveClass('summary-theme-light');
+    });
   });
 });

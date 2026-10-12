@@ -29,6 +29,14 @@ archive by hand.
   selects a design; browsing an isolated example never changes the live overlay.
   Presentation text is translated in all six supported languages.
 
+- **The set summary has its own dark/light theme, available with every
+  overlay style.** It used to follow the scoreboard theme, which only appears
+  for styles with a theme override, so on other styles its palette could not
+  be chosen. The Set Summary section now has a **Summary theme** selector
+  (Match scoreboard / Dark / Light) stored as `setSummaryTheme`, saved with
+  style presets. "Match scoreboard" keeps the previous look, so existing
+  overlays are unchanged. OBS URLs can pin it with `?summary_theme=`.
+
 ### Changed
 
 - Configuration sections now place Set Summary, Display, Button Appearance,
