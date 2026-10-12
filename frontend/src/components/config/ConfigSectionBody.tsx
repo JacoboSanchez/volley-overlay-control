@@ -92,26 +92,20 @@ export default function ConfigSectionBody({
       return <DisplaySection settings={settings} setSetting={setSetting} />;
     case 'stats':
       return <StatsSection settings={settings} setSetting={setSetting} />;
-    case 'recap': {
-      const recapStyle = asString(model['preferredStyle'], '') || 'default';
-      // Themeable styles expose the selector in the Overlay section; for the
-      // rest it would be unreachable, yet it still drives the summary palette.
-      const themeInOverlaySection = !!options.styleCaps[recapStyle]?.theme;
+    case 'recap':
       return (
         <RecapSection
           settings={settings}
           setSetting={setSetting}
           setSummaryStyle={setSummaryStyle}
           onChangeSetSummaryStyle={onChangeSetSummaryStyle}
-          overlayStyle={recapStyle}
+          overlayStyle={asString(model['preferredStyle'], '') || 'default'}
           overlayTheme={asString(model['overlayTheme'], '')}
-          onChangeOverlayTheme={
-            themeInOverlaySection ? undefined : (v) => updateField('overlayTheme', v)
-          }
+          summaryTheme={asString(model['setSummaryTheme'], '')}
+          onChangeSummaryTheme={(v) => updateField('setSummaryTheme', v)}
           configuration={model}
         />
       );
-    }
     case 'general':
       return (
         <GeneralSection

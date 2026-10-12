@@ -22,13 +22,25 @@ describe('RecapSection theme selector', () => {
       <RecapSection
         settings={SETTINGS}
         setSetting={vi.fn()}
-        overlayTheme=""
-        onChangeOverlayTheme={onChange}
+        summaryTheme=""
+        onChangeSummaryTheme={onChange}
       />,
     );
     fireEvent.change(screen.getByTestId('set-summary-theme-selector'), {
       target: { value: 'light' },
     });
     expect(onChange).toHaveBeenCalledWith('light');
+  });
+
+  it('shows the current summary theme', () => {
+    renderWithI18n(
+      <RecapSection
+        settings={SETTINGS}
+        setSetting={vi.fn()}
+        summaryTheme="dark"
+        onChangeSummaryTheme={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('set-summary-theme-selector')).toHaveValue('dark');
   });
 });

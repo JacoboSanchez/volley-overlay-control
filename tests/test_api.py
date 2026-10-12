@@ -395,6 +395,13 @@ class TestGameService:
         assert result.success is True
         assert session.customization.get_model().get("verticalAnchor") == "top"
 
+    def test_update_customization_persists_set_summary_theme(self, session):
+        # The set summary theme is independent of ``overlayTheme`` and must
+        # survive the allow-list filter so non-themeable styles can use it.
+        result = GameService.update_customization(session, {"setSummaryTheme": "light"})
+        assert result.success is True
+        assert session.customization.get_model().get("setSummaryTheme") == "light"
+
     def test_update_customization_accepts_zone_anchor(self, session):
         # A zone anchor must survive the allow-list filter so the overlay
         # can pin the box to that screen zone.

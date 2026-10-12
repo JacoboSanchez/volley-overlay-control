@@ -24,11 +24,12 @@ export interface RecapSectionProps {
   overlayStyle?: string | undefined;
   overlayTheme?: string | undefined;
   /**
-   * Set when the loaded overlay style has no theme knob of its own (so the
-   * Overlay section hides the selector). The theme then only affects the
-   * set summary, and is offered here so it stays controllable.
+   * Set summary surface theme ('' matches the scoreboard, 'dark' or
+   * 'light'). Independent of the scoreboard theme, so it is available with
+   * every overlay style. The selector is skipped without a handler.
    */
-  onChangeOverlayTheme?: ((theme: string) => void) | undefined;
+  summaryTheme?: string | undefined;
+  onChangeSummaryTheme?: ((theme: string) => void) | undefined;
   configuration?: Record<string, unknown> | undefined;
 }
 
@@ -39,7 +40,8 @@ export default function RecapSection({
   onChangeSetSummaryStyle,
   overlayStyle,
   overlayTheme,
-  onChangeOverlayTheme,
+  summaryTheme = '',
+  onChangeSummaryTheme,
   configuration,
 }: RecapSectionProps) {
   const { t } = useI18n();
@@ -72,23 +74,26 @@ export default function RecapSection({
                 onChange={onChangeSetSummaryStyle}
                 overlayStyle={overlayStyle}
                 overlayTheme={overlayTheme}
+                summaryTheme={summaryTheme}
                 configuration={configuration}
               />
             </div>
           )}
-          {onChangeOverlayTheme && (
+          {onChangeSummaryTheme && (
             <div
               className="config-field-group config-suboption"
               style={{ marginBottom: '0.75rem' }}
             >
-              <label className="config-field-group-label">{t('overlay.themeLabel')}</label>
+              <label className="config-field-group-label">
+                {t('config.setSummary.theme.label')}
+              </label>
               <select
                 className="config-select"
-                value={overlayTheme ?? ''}
-                onChange={(e) => onChangeOverlayTheme(e.target.value)}
+                value={summaryTheme}
+                onChange={(e) => onChangeSummaryTheme(e.target.value)}
                 data-testid="set-summary-theme-selector"
               >
-                <option value="">{t('overlay.themeDefault')}</option>
+                <option value="">{t('config.setSummary.theme.matchScoreboard')}</option>
                 <option value="dark">{t('overlay.themeDark')}</option>
                 <option value="light">{t('overlay.themeLight')}</option>
               </select>

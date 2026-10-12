@@ -198,6 +198,11 @@ ALLOWED_CUSTOMIZATION_KEYS = {
     # Applied by app.js as a body class on styles that define the
     # matching palette; a ``?theme=`` URL override takes precedence.
     "overlayTheme",
+    # Set summary surface theme: '' (match the scoreboard's effective
+    # theme), 'dark' or 'light'. Independent of ``overlayTheme`` so it
+    # works with every style, themeable or not; a ``?summary_theme=`` URL
+    # override takes precedence.
+    "setSummaryTheme",
     # Vertical anchor for edge-pinned styles (pylons/corners): 'top',
     # 'bottom' or 'center' (any other string, including the legacy '',
     # also renders centred; an absent key defaults to top). Applied by

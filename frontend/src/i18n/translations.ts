@@ -377,6 +377,8 @@ export const translations: Record<string, TranslationDict> = {
     'config.setSummary.description':
       'Adds a button to swap the scoreboard for a set summary panel (chart + key stats). Off by default.',
     'config.setSummary.style.label': 'Default style',
+    'config.setSummary.theme.label': 'Summary theme',
+    'config.setSummary.theme.matchScoreboard': 'Match scoreboard',
     'setSummary.style.brand_ledger': 'Rallies',
     'setSummary.style.bento': 'Bento',
     'setSummary.style.glass': 'Glass',
@@ -1297,6 +1299,8 @@ export const translations: Record<string, TranslationDict> = {
     'config.setSummary.description':
       'Añade un botón para sustituir el marcador por un panel con el resumen del set (gráfico + stats clave). Desactivado por defecto.',
     'config.setSummary.style.label': 'Estilo por defecto',
+    'config.setSummary.theme.label': 'Tema del resumen',
+    'config.setSummary.theme.matchScoreboard': 'Igual que el marcador',
     'setSummary.style.brand_ledger': 'Rallies',
     'setSummary.style.bento': 'Bento',
     'setSummary.style.glass': 'Cristal',
@@ -2226,6 +2230,8 @@ export const translations: Record<string, TranslationDict> = {
     'config.setSummary.description':
       'Adiciona um botão para trocar o marcador por um painel com o resumo do set (gráfico + estatísticas). Desativado por padrão.',
     'config.setSummary.style.label': 'Estilo por defeito',
+    'config.setSummary.theme.label': 'Tema do resumo',
+    'config.setSummary.theme.matchScoreboard': 'Igual ao marcador',
     'setSummary.style.brand_ledger': 'Ralis',
     'setSummary.style.bento': 'Bento',
     'setSummary.style.glass': 'Vidro',
@@ -3145,6 +3151,8 @@ export const translations: Record<string, TranslationDict> = {
     'config.setSummary.description':
       'Aggiunge un pulsante per sostituire il tabellone con un pannello di riepilogo (grafico + statistiche chiave). Disattivato di default.',
     'config.setSummary.style.label': 'Stile predefinito',
+    'config.setSummary.theme.label': 'Tema del riepilogo',
+    'config.setSummary.theme.matchScoreboard': 'Come il tabellone',
     'setSummary.style.brand_ledger': 'Scambi',
     'setSummary.style.bento': 'Bento',
     'setSummary.style.glass': 'Vetro',
@@ -4065,6 +4073,8 @@ export const translations: Record<string, TranslationDict> = {
     'config.setSummary.description':
       'Ajoute un bouton pour remplacer le tableau par un panneau récapitulatif (graphique + stats clés). Désactivé par défaut.',
     'config.setSummary.style.label': 'Style par défaut',
+    'config.setSummary.theme.label': 'Thème du récap',
+    'config.setSummary.theme.matchScoreboard': 'Comme le tableau de score',
     'setSummary.style.brand_ledger': 'Échanges',
     'setSummary.style.bento': 'Bento',
     'setSummary.style.glass': 'Verre',
@@ -4991,6 +5001,8 @@ export const translations: Record<string, TranslationDict> = {
     'config.setSummary.description':
       'Fügt eine Schaltfläche hinzu, um die Anzeigetafel durch ein Satz-Recap-Panel zu ersetzen (Chart + Schlüssel-Stats). Standardmäßig aus.',
     'config.setSummary.style.label': 'Standardstil',
+    'config.setSummary.theme.label': 'Recap-Thema',
+    'config.setSummary.theme.matchScoreboard': 'Wie Anzeigetafel',
     'setSummary.style.brand_ledger': 'Ballwechsel',
     'setSummary.style.bento': 'Bento',
     'setSummary.style.glass': 'Glas',

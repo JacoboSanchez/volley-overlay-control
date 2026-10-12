@@ -46,13 +46,13 @@ archive by hand.
 
 ### Fixed
 
-- **The set summary's dark/light theme is controllable with every overlay
-  style.** The theme only appeared for scoreboard styles with a theme override,
-  yet the set summary always followed it, so on other styles its palette could
-  not be chosen. The summary now has its own theme class driven by the same
-  Default/Dark/Light setting, and the Set Summary section offers the selector
-  whenever the Overlay section hides it. The scoreboard of non-themeable styles
-  still keeps its native palette.
+- **The set summary has its own dark/light theme, available with every
+  overlay style.** It used to follow the scoreboard theme, which only appears
+  for styles with a theme override, so on other styles its palette could not
+  be chosen. The Set Summary section now has a **Summary theme** selector
+  (Match scoreboard / Dark / Light) stored as `setSummaryTheme`, saved with
+  style presets. "Match scoreboard" keeps the previous look, so existing
+  overlays are unchanged. OBS URLs can pin it with `?summary_theme=`.
 
 ## [7.3.0] - 2026-10-04
 

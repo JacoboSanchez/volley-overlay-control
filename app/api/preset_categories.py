@@ -56,6 +56,7 @@ _KEYS_BY_CATEGORY: dict[str, tuple[str, ...]] = {
     "style": (
         "preferredStyle",
         "overlayTheme",
+        "setSummaryTheme",
         "Logos",
         "Gradient",
         "Color 1",

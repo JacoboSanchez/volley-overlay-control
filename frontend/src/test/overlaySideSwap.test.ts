@@ -184,24 +184,40 @@ describe('overlay theme resolution', () => {
     expect(document.body).not.toHaveClass('overlay-theme-light');
   });
 
-  it('still themes the set summary when the style does not support themes', () => {
+  it('themes the set summary independently on styles without theme support', () => {
     (window as any).OVERLAY_NATIVE_THEME = 'dark';
     (window as any).OVERLAY_THEME_SUPPORTED = false;
     const app = loadApp(makeGsap().gsap);
 
-    app.applyOverlayTheme({ raw_remote_customization: { overlayTheme: 'light' } });
+    app.applyOverlayTheme({ raw_remote_customization: { setSummaryTheme: 'light' } });
 
+    expect(document.body).toHaveClass('overlay-theme-dark');
     expect(document.body).toHaveClass('summary-theme-light');
     expect(document.body).not.toHaveClass('summary-theme-dark');
   });
 
-  it('keeps the summary on the native palette when the theme is default', () => {
+  it('lets the summary differ from an explicit scoreboard theme', () => {
+    const app = loadApp(makeGsap().gsap);
+
+    app.applyOverlayTheme({
+      raw_remote_customization: { overlayTheme: 'dark', setSummaryTheme: 'light' },
+    });
+
+    expect(document.body).toHaveClass('overlay-theme-dark');
+    expect(document.body).toHaveClass('summary-theme-light');
+  });
+
+  it('matches the effective scoreboard theme when the summary theme is default', () => {
     (window as any).OVERLAY_NATIVE_THEME = 'light';
     (window as any).OVERLAY_THEME_SUPPORTED = false;
     const app = loadApp(makeGsap().gsap);
 
-    app.applyOverlayTheme({ raw_remote_customization: { overlayTheme: '' } });
+    // A stale overlayTheme on a non-themeable style is ignored for both.
+    app.applyOverlayTheme({
+      raw_remote_customization: { overlayTheme: 'dark', setSummaryTheme: '' },
+    });
 
+    expect(document.body).toHaveClass('overlay-theme-light');
     expect(document.body).toHaveClass('summary-theme-light');
   });
 });

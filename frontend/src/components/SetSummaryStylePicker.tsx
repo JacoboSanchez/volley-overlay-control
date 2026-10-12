@@ -11,6 +11,7 @@ export interface SetSummaryStylePickerProps {
   disabled?: boolean | undefined;
   overlayStyle?: string | undefined;
   overlayTheme?: string | undefined;
+  summaryTheme?: string | undefined;
   configuration?: Record<string, unknown> | undefined;
 }
 
@@ -25,6 +26,7 @@ function SetSummaryStylePicker({
   disabled,
   overlayStyle,
   overlayTheme,
+  summaryTheme,
   configuration,
 }: SetSummaryStylePickerProps) {
   return (
@@ -36,6 +38,7 @@ function SetSummaryStylePicker({
       disabled={disabled}
       overlayStyle={overlayStyle}
       overlayTheme={overlayTheme}
+      summaryTheme={summaryTheme}
       configuration={configuration}
       testId="set-summary-style-picker"
     />
