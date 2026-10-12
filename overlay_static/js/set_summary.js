@@ -788,7 +788,7 @@
     const rgb = parseHex(colour);
     if (!rgb) return colour;
     const lightSurface = document.body.classList.contains(
-      "overlay-theme-light",
+      "summary-theme-light",
     );
     if (lightSurface) {
       while (relativeLuminance(rgb) > 0.2) {

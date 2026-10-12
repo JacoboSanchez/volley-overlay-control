@@ -184,7 +184,7 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   border-radius: 16px;
 }
 
-body.overlay-theme-light .set-summary-panel {
+body.summary-theme-light .set-summary-panel {
   --ss-surface-main: rgba(248, 250, 252, 0.98);
   --ss-surface-raised: #eef2f7;
   --ss-surface-footer: #e2e8f0;

@@ -297,7 +297,7 @@ describe('set_summary.js overlay renderer', () => {
     });
 
     it('darkens bright team accents for the light strip surface', () => {
-      document.body.classList.add('overlay-theme-light');
+      document.body.classList.add('summary-theme-light');
       const stage = renderState({ team_home: { color_primary: '#ffffff' } });
 
       expect(stage.style.getPropertyValue('--ss-home-text')).not.toBe('rgb(255, 255, 255)');

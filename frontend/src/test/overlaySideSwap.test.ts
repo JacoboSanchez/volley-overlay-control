@@ -183,4 +183,25 @@ describe('overlay theme resolution', () => {
     expect(document.body).toHaveClass('overlay-theme-dark');
     expect(document.body).not.toHaveClass('overlay-theme-light');
   });
+
+  it('still themes the set summary when the style does not support themes', () => {
+    (window as any).OVERLAY_NATIVE_THEME = 'dark';
+    (window as any).OVERLAY_THEME_SUPPORTED = false;
+    const app = loadApp(makeGsap().gsap);
+
+    app.applyOverlayTheme({ raw_remote_customization: { overlayTheme: 'light' } });
+
+    expect(document.body).toHaveClass('summary-theme-light');
+    expect(document.body).not.toHaveClass('summary-theme-dark');
+  });
+
+  it('keeps the summary on the native palette when the theme is default', () => {
+    (window as any).OVERLAY_NATIVE_THEME = 'light';
+    (window as any).OVERLAY_THEME_SUPPORTED = false;
+    const app = loadApp(makeGsap().gsap);
+
+    app.applyOverlayTheme({ raw_remote_customization: { overlayTheme: '' } });
+
+    expect(document.body).toHaveClass('summary-theme-light');
+  });
 });

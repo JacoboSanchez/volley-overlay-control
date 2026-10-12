@@ -44,6 +44,16 @@ archive by hand.
 - Refreshed the style mosaics and catalogue thumbnails for Duna, and added a
   dedicated beach-scoreboard capture to the README.
 
+### Fixed
+
+- **The set summary's dark/light theme is controllable with every overlay
+  style.** The theme only appeared for scoreboard styles with a theme override,
+  yet the set summary always followed it, so on other styles its palette could
+  not be chosen. The summary now has its own theme class driven by the same
+  Default/Dark/Light setting, and the Set Summary section offers the selector
+  whenever the Overlay section hides it. The scoreboard of non-themeable styles
+  still keeps its native palette.
+
 ## [7.3.0] - 2026-10-04
 
 ### Changed

@@ -23,6 +23,12 @@ export interface RecapSectionProps {
   onChangeSetSummaryStyle?: ((style: SetSummaryStyle) => void) | undefined;
   overlayStyle?: string | undefined;
   overlayTheme?: string | undefined;
+  /**
+   * Set when the loaded overlay style has no theme knob of its own (so the
+   * Overlay section hides the selector). The theme then only affects the
+   * set summary, and is offered here so it stays controllable.
+   */
+  onChangeOverlayTheme?: ((theme: string) => void) | undefined;
   configuration?: Record<string, unknown> | undefined;
 }
 
@@ -33,6 +39,7 @@ export default function RecapSection({
   onChangeSetSummaryStyle,
   overlayStyle,
   overlayTheme,
+  onChangeOverlayTheme,
   configuration,
 }: RecapSectionProps) {
   const { t } = useI18n();
@@ -67,6 +74,24 @@ export default function RecapSection({
                 overlayTheme={overlayTheme}
                 configuration={configuration}
               />
+            </div>
+          )}
+          {onChangeOverlayTheme && (
+            <div
+              className="config-field-group config-suboption"
+              style={{ marginBottom: '0.75rem' }}
+            >
+              <label className="config-field-group-label">{t('overlay.themeLabel')}</label>
+              <select
+                className="config-select"
+                value={overlayTheme ?? ''}
+                onChange={(e) => onChangeOverlayTheme(e.target.value)}
+                data-testid="set-summary-theme-selector"
+              >
+                <option value="">{t('overlay.themeDefault')}</option>
+                <option value="dark">{t('overlay.themeDark')}</option>
+                <option value="light">{t('overlay.themeLight')}</option>
+              </select>
             </div>
           )}
           <div className="config-suboption">

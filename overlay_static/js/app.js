@@ -387,24 +387,33 @@ const THEME_URL_OVERRIDE = (() => {
 })();
 
 function applyOverlayTheme(state) {
-  // Styles without a theme override must keep their native palette even if
-  // a stale customization value or URL parameter asks for another one.
+  const native = String(window.OVERLAY_NATIVE_THEME || "").toLowerCase();
+  const nativeTheme = native === "light" ? "light" : "dark";
+  const cust = state && state.raw_remote_customization;
+  const v =
+    cust && typeof cust.overlayTheme === "string"
+      ? cust.overlayTheme.toLowerCase()
+      : "";
+  const custTheme = v === "dark" || v === "light" ? v : null;
+  const requested = THEME_URL_OVERRIDE || custTheme;
+
+  // Styles without a theme override must keep their native scoreboard
+  // palette even if a stale customization value or URL parameter asks for
+  // another one.
   const themeSupported = window.OVERLAY_THEME_SUPPORTED !== false;
-  let theme = themeSupported ? THEME_URL_OVERRIDE : null;
-  if (!theme && themeSupported) {
-    const cust = state && state.raw_remote_customization;
-    const v =
-      cust && typeof cust.overlayTheme === "string"
-        ? cust.overlayTheme.toLowerCase()
-        : "";
-    theme = v === "dark" || v === "light" ? v : null;
-  }
-  if (!theme) {
-    const native = String(window.OVERLAY_NATIVE_THEME || "").toLowerCase();
-    theme = native === "light" ? "light" : "dark";
-  }
+  const theme = (themeSupported && requested) || nativeTheme;
   document.body.classList.toggle("overlay-theme-dark", theme === "dark");
   document.body.classList.toggle("overlay-theme-light", theme === "light");
+
+  // The set summary panel is a separate surface: the operator's choice
+  // applies to it whether or not the loaded scoreboard style is themeable,
+  // so it stays controllable with every overlay style.
+  const summaryTheme = requested || nativeTheme;
+  document.body.classList.toggle("summary-theme-dark", summaryTheme === "dark");
+  document.body.classList.toggle(
+    "summary-theme-light",
+    summaryTheme === "light",
+  );
 }
 
 // ── Vertical anchor (top / center / bottom) ─────────────────────────
