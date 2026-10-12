@@ -19,8 +19,11 @@ archive by hand.
 - **Duna beach scoreboard.** A graphite horizontal bar with amber accents,
   central points, pair names, sets won and a current-set tab. Supports the
   shared live feed, serving indicators, optional logos, simple mode, side
-  swaps and position/size and score-colour controls. Available in the Beach
-  style gallery with localized descriptions and a renderer thumbnail.
+  swaps and position/size and score-colour controls. Graphite is its default
+  palette; the light overlay theme turns the bar sand with graphite text,
+  keeping the amber frame and set tab and a deeper amber serving triangle.
+  Available in the Beach style gallery with localized descriptions and a
+  renderer thumbnail.
 
 - **Visual style selection for scoreboards and set recaps.** Compact controls
   show a thumbnail, a friendly name and a short description. Open the gallery

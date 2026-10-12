@@ -4,10 +4,29 @@
   --duna-bg: #20262e;
   --duna-text: #faf8f2;
   --duna-accent: #ffb324;
-  --set-bg: transparent;
-  --set-text: #faf8f2;
+  --duna-accent-ink: #20262e;
+  --duna-serve: #ffb324;
+  --duna-shadow: 0 5px 16px rgba(0, 0, 0, 0.25);
   --game-bg: #fafafa;
   --game-text: #20262e;
+}
+
+/* Graphite is the native (dark) palette. The light theme swaps the bar for
+   sand with graphite ink; the amber frame and set tab, and the operator's
+   sets-chip and score-panel colours, stay as configured. The serving
+   triangle deepens so it keeps a 3:1 contrast against the pale bar. */
+body.overlay-theme-light {
+  --duna-bg: #f3ecdc;
+  --duna-text: #20262e;
+  --duna-serve: #b86e00;
+  --duna-shadow: 0 5px 16px rgba(32, 38, 46, 0.2);
+}
+
+/* Hairlines keep a white score panel distinct from the pale bar. */
+body.overlay-theme-light .duna-scores {
+  box-shadow:
+    inset 1px 0 rgba(32, 38, 46, 0.14),
+    inset -1px 0 rgba(32, 38, 46, 0.14);
 }
 
 body {
@@ -44,7 +63,7 @@ body {
   align-items: center;
   justify-content: center;
   background: var(--duna-accent);
-  color: var(--duna-bg);
+  color: var(--duna-accent-ink);
   font-size: 19px;
   font-weight: 800;
   white-space: nowrap;
@@ -57,7 +76,7 @@ body {
   border: solid var(--duna-accent);
   border-width: 3px 4px 0;
   background: var(--duna-bg);
-  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--duna-shadow);
 }
 
 .team {
@@ -99,8 +118,9 @@ body {
 .duna-sets {
   padding: 2px 6px;
   border-radius: 2px;
-  background: var(--set-bg);
-  color: var(--set-text);
+  /* Operator set colours when configured; otherwise plain bar text. */
+  background: var(--set-bg, transparent);
+  color: var(--set-text, var(--duna-text));
   font-size: 13px;
   font-weight: 700;
   line-height: 1;
@@ -116,7 +136,7 @@ body {
   flex: none;
   width: 15px;
   height: 18px;
-  background: var(--duna-accent);
+  background: var(--duna-serve);
   clip-path: polygon(0 0, 100% 50%, 0 100%);
   opacity: 0;
   transition: opacity 0.2s ease;
