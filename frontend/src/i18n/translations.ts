@@ -1,7 +1,10 @@
+import { styleCatalogTranslations } from './styleCatalog';
+
 export type TranslationDict = Record<string, string>;
 
 export const translations: Record<string, TranslationDict> = {
   en: {
+    ...styleCatalogTranslations('en'),
     // Init screen
     'app.title': 'Volley Scoreboard',
     'app.oidLabel': 'Overlay Control ID (OID)',
@@ -249,6 +252,9 @@ export const translations: Record<string, TranslationDict> = {
     'overlay.themeDefault': 'Default',
     'overlay.themeDark': 'Dark',
     'overlay.themeLight': 'Light',
+    'overlay.themeHint': 'Applies to the scoreboard and the set summary.',
+    'overlay.themeHintSummaryOnly':
+      'This scoreboard style keeps its own palette; the theme applies to the set summary.',
     'overlay.showStats': 'Show live stats',
     'overlay.showPointsHistory': 'Show points history',
 
@@ -918,6 +924,7 @@ export const translations: Record<string, TranslationDict> = {
     'acc.json.replace': 'Replace existing',
   },
   es: {
+    ...styleCatalogTranslations('es'),
     // Init screen
     'app.title': 'Marcador',
     'app.oidLabel': 'ID de Control del Overlay (OID)',
@@ -1168,6 +1175,9 @@ export const translations: Record<string, TranslationDict> = {
     'overlay.themeDefault': 'Por defecto',
     'overlay.themeDark': 'Oscuro',
     'overlay.themeLight': 'Claro',
+    'overlay.themeHint': 'Se aplica al marcador y al resumen del set.',
+    'overlay.themeHintSummaryOnly':
+      'Este estilo de marcador mantiene su propia paleta; el tema se aplica al resumen del set.',
     'overlay.showStats': 'Mostrar estadísticas en vivo',
     'overlay.showPointsHistory': 'Mostrar histórico de puntos',
 
@@ -1845,6 +1855,7 @@ export const translations: Record<string, TranslationDict> = {
     'acc.json.replace': 'Reemplazar existentes',
   },
   pt: {
+    ...styleCatalogTranslations('pt'),
     // Init screen
     'app.title': 'Marcador de Voleibol',
     'app.oidLabel': 'ID de Controlo do Overlay (OID)',
@@ -2096,6 +2107,9 @@ export const translations: Record<string, TranslationDict> = {
     'overlay.themeDefault': 'Padrão',
     'overlay.themeDark': 'Escuro',
     'overlay.themeLight': 'Claro',
+    'overlay.themeHint': 'Aplica-se ao marcador e ao resumo do set.',
+    'overlay.themeHintSummaryOnly':
+      'Este estilo de marcador mantém a sua própria paleta; o tema aplica-se ao resumo do set.',
     'overlay.showStats': 'Mostrar estatísticas ao vivo',
     'overlay.showPointsHistory': 'Mostrar histórico de pontos',
 
@@ -2764,6 +2778,7 @@ export const translations: Record<string, TranslationDict> = {
     'acc.json.replace': 'Substituir existentes',
   },
   it: {
+    ...styleCatalogTranslations('it'),
     // Init screen
     'app.title': 'Tabellone Volley',
     'app.oidLabel': 'ID Controllo Overlay (OID)',
@@ -3014,6 +3029,9 @@ export const translations: Record<string, TranslationDict> = {
     'overlay.themeDefault': 'Predefinito',
     'overlay.themeDark': 'Scuro',
     'overlay.themeLight': 'Chiaro',
+    'overlay.themeHint': 'Si applica al tabellone e al riepilogo del set.',
+    'overlay.themeHintSummaryOnly':
+      'Questo stile di tabellone mantiene la propria tavolozza; il tema si applica al riepilogo del set.',
     'overlay.showStats': 'Mostra statistiche in tempo reale',
     'overlay.showPointsHistory': 'Mostra cronologia dei punti',
 
@@ -3681,6 +3699,7 @@ export const translations: Record<string, TranslationDict> = {
     'acc.json.replace': 'Sostituisci esistenti',
   },
   fr: {
+    ...styleCatalogTranslations('fr'),
     // Init screen
     'app.title': 'Tableau de score Volley',
     'app.oidLabel': 'ID de contrôle de l’overlay (OID)',
@@ -3933,6 +3952,9 @@ export const translations: Record<string, TranslationDict> = {
     'overlay.themeDefault': 'Par défaut',
     'overlay.themeDark': 'Sombre',
     'overlay.themeLight': 'Clair',
+    'overlay.themeHint': 'S’applique au tableau de score et au récap du set.',
+    'overlay.themeHintSummaryOnly':
+      'Ce style de tableau de score garde sa propre palette ; le thème s’applique au récap du set.',
     'overlay.showStats': 'Afficher les statistiques en direct',
     'overlay.showPointsHistory': 'Afficher l’historique des points',
 
@@ -4607,6 +4629,7 @@ export const translations: Record<string, TranslationDict> = {
     'acc.json.replace': "Remplacer l'existant",
   },
   de: {
+    ...styleCatalogTranslations('de'),
     // Init screen
     'app.title': 'Volleyball-Anzeigetafel',
     'app.oidLabel': 'Overlay-Steuer-ID (OID)',
@@ -4858,6 +4881,9 @@ export const translations: Record<string, TranslationDict> = {
     'overlay.themeDefault': 'Standard',
     'overlay.themeDark': 'Dunkel',
     'overlay.themeLight': 'Hell',
+    'overlay.themeHint': 'Gilt für die Anzeigetafel und den Satz-Recap.',
+    'overlay.themeHintSummaryOnly':
+      'Dieser Anzeigetafel-Stil behält seine eigene Farbpalette; das Thema gilt für den Satz-Recap.',
     'overlay.showStats': 'Live-Statistiken anzeigen',
     'overlay.showPointsHistory': 'Punkteverlauf anzeigen',
 

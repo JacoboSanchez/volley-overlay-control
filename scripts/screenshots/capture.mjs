@@ -495,7 +495,7 @@ async function capturePointTypePicker(page) {
   await page.evaluate((storageKey) => localStorage.removeItem(storageKey), key);
 }
 
-async function captureConfigPanel(page) {
+async function captureConfigPanel(page, capture = true) {
   await gotoBoard(page, DEMO_OID);
   await dismissPwaPrompt(page);
   await page.waitForTimeout(500);
@@ -526,7 +526,9 @@ async function captureConfigPanel(page) {
       await page.waitForTimeout(500);
     }
   }
-  await page.screenshot({ path: resolve(OUT_DIR, '04-config-panel.png'), fullPage: false });
+  if (capture) {
+    await page.screenshot({ path: resolve(OUT_DIR, '04-config-panel.png'), fullPage: false });
+  }
 }
 
 async function captureOverlaysPage(page) {
@@ -547,6 +549,37 @@ async function captureOverlaysPage(page) {
   await page.click('.acc-overlay-toggle').catch(() => {});
   await page.waitForTimeout(400);
   await page.screenshot({ path: resolve(OUT_DIR, '05-manage-page.png'), fullPage: false });
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
+}
+
+async function captureStyleGalleries(page) {
+  async function waitForConfiguredExamples() {
+    await page.waitForFunction(({ name, color }) => {
+      const frames = [...document.querySelectorAll('.style-picker-modal iframe')];
+      return frames.length > 1 && frames.every(frame => {
+        const doc = frame.contentDocument;
+        return doc?.documentElement.style.getPropertyValue('--home-primary') === color &&
+          (!doc.getElementById('home-name') || doc.getElementById('home-name').textContent === name);
+      });
+    }, { name: TEAM_1.name, color: TEAM_1.color });
+  }
+  await page.setViewportSize(PHONE_VIEWPORT);
+  await captureConfigPanel(page, false);
+  await page.locator('#config-section-overlay-header').click();
+  await page.locator('[data-testid="style-selector"] button').click();
+  await page.locator('[data-testid="overlay-style-broadcast"]').click();
+  await waitForConfiguredExamples();
+  await page.waitForTimeout(1400);
+  await page.screenshot({ path: resolve(OUT_DIR, '15-overlay-style-gallery.png') });
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.locator('#config-section-recap-header').click();
+  const enable = page.getByRole('checkbox', { name: 'Enable set summary overlay', exact: true });
+  await enable.check();
+  await page.locator('[data-testid="set-summary-style-picker"] button').click();
+  await waitForConfiguredExamples();
+  await page.waitForTimeout(1400);
+  await page.screenshot({ path: resolve(OUT_DIR, '16-summary-style-gallery.png') });
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
@@ -677,6 +710,54 @@ async function captureSetSummary(page, filename) {
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
+async function captureDuna(page) {
+  const oid = 'beach-duna';
+  await createOverlay(oid);
+  await initSession(oid);
+  await oidPost('/api/v1/session/rules', oid, { mode: 'beach', reset_to_defaults: true });
+  await putCustomization(oid, {
+    ...CUSTOMIZATION,
+    preferredStyle: 'duna',
+    'Team 1 Text Name': 'López / Martín',
+    'Team 2 Text Name': 'Silva / Costa',
+    Logos: 'false',
+    Anchor: 'bottom-center',
+    'Left-Right': 0,
+    'Up-Down': -5,
+    Width: 30,
+  });
+  await oidPost('/api/v1/game/start-match', oid, null);
+  await oidPost('/api/v1/game/set-score', oid, { team: 2, set_number: 1, value: 19 });
+  await oidPost('/api/v1/game/set-score', oid, { team: 1, set_number: 1, value: 21 });
+  await oidPost('/api/v1/game/set-score', oid, { team: 1, set_number: 2, value: 18 });
+  await oidPost('/api/v1/game/set-score', oid, { team: 2, set_number: 2, value: 16 });
+  await oidPost('/api/v1/game/change-serve', oid, { team: 1 });
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto(`${BASE}/overlay/${encodeURIComponent(PUBLIC_TOKEN[oid])}?lang=es`, { waitUntil: 'networkidle' });
+  await page.waitForFunction(() =>
+    document.getElementById('home-points')?.textContent === '18' &&
+    document.getElementById('away-points')?.textContent === '16' &&
+    document.getElementById('home-sets')?.textContent === '1' &&
+    document.getElementById('current-set-label')?.textContent === 'SET 2' &&
+    document.getElementById('home-serving')?.classList.contains('active')
+  );
+  // Exercise a live point update and its undo before taking the stable shot.
+  // The point animation replaces the digit node inside the central card.
+  await oidPost('/api/v1/game/add-point', oid, { team: 1 });
+  await page.waitForFunction(() => document.getElementById('home-points')?.textContent === '19');
+  await oidPost('/api/v1/game/add-point', oid, { team: 1, undo: true });
+  await page.waitForFunction(() => document.getElementById('home-points')?.textContent === '18');
+  await page.waitForTimeout(1000);
+  await page.evaluate(() => { document.body.style.background = '#243346'; });
+  const clip = await page.locator('#scoreboard-container').boundingBox();
+  if (!clip) throw new Error('Duna scoreboard is missing');
+  await page.screenshot({
+    path: resolve(OUT_DIR, '17-overlay-duna.png'),
+    clip: { x: clip.x - 20, y: clip.y - 20, width: clip.width + 40, height: clip.height + 40 },
+  });
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
+}
+
 async function captureOverlayMosaic(page, filename, extraQuery = '') {
   const MOSAIC_VIEWPORT = { width: 1600, height: 1800 };
   await page.setViewportSize(MOSAIC_VIEWPORT);
@@ -784,6 +865,7 @@ async function main() {
     await step('03 scoreboard-phone', () => captureScoreboardPhone(page));
     await step('11 point-type-picker', () => capturePointTypePicker(page));
     await step('04 config-panel', () => captureConfigPanel(page));
+    await step('15–16 style galleries', () => captureStyleGalleries(page));
     await step('05 overlays-page', () => captureOverlaysPage(page));
     await step('13 icon-library', () => captureIconLibrary(page));
     await step('14 icon-batch-import', () => captureIconBatchImport(page));
@@ -795,6 +877,7 @@ async function main() {
     await step('07 mosaic-simple', () => captureOverlayMosaic(page, '07-overlay-mosaic-simple.png', 'theme=dark'));
     await setSimpleMode(false);
     await step('10 set-summary', () => captureSetSummary(page, '10-overlay-set-summary.png'));
+    await step('17 beach-duna', () => captureDuna(page));
     await step('08 match-report', () => captureMatchReport(page, reportMatchId));
     await step('09 spectator', () => captureSpectator(page));
   } finally {

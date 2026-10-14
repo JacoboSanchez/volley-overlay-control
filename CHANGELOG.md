@@ -14,6 +14,48 @@ archive by hand.
 
 ## [Unreleased]
 
+### Added
+
+- **Duna beach scoreboard.** A graphite horizontal bar with amber accents,
+  central points, pair names, sets won and a current-set tab. Supports the
+  shared live feed, serving indicators, optional logos, simple mode, side
+  swaps and position/size and score-colour controls. Graphite is its default
+  palette; the light overlay theme turns the bar sand with graphite text,
+  keeping the amber frame and set tab and a deeper amber serving triangle.
+  Available in the Beach style gallery with localized descriptions and a
+  renderer thumbnail.
+
+- **Visual style selection for scoreboards and set recaps.** Compact controls
+  show a thumbnail, a friendly name and a short description. Open the gallery
+  to compare designs, filter scoreboards by category, or use the native quick
+  list. Current and recently selected designs appear first. Only confirmation
+  selects a design; browsing an isolated example never changes the live overlay.
+  Presentation text is translated in all six supported languages.
+
+### Changed
+
+- Configuration sections now place Set Summary, Display, Button Appearance,
+  Match Rules and Statistics, in that order, between Position & Size and Presets
+  in both portrait and landscape layouts. Refreshed the configuration capture.
+- Style-gallery previews and visible thumbnails now use the current team names,
+  colours, logos, logo visibility and scoreboard colours, including unsaved
+  configuration edits. Off-screen thumbnails release their isolated renderers.
+  Sample scores remain fixed; unconfigured examples use neutral teams A and B.
+- Refreshed the operator screenshots and added mobile style-gallery captures.
+  The screenshot workflow also regenerates the lightweight catalogue thumbnails
+  from the actual overlay renderers.
+- Refreshed the style mosaics and catalogue thumbnails for Duna, and added a
+  dedicated beach-scoreboard capture to the README.
+- **The overlay theme is always configurable, because it also themes the set
+  summary.** The Overlay section's Default / Dark / Light choice used to appear
+  only for scoreboard styles with their own light/dark palette, squeezed beside
+  the style picker. It is now a three-button toggle on its own row under the
+  style picker, shown for every style, with a hint saying whether the selected
+  scoreboard follows it or keeps its own palette. An explicit dark or light
+  theme now reaches the set summary on every scoreboard style (previously it
+  was ignored, and the recap fell back to the scoreboard's native palette);
+  "Default" still follows that native palette.
+
 ## [7.3.0] - 2026-10-04
 
 ### Changed

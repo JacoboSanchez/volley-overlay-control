@@ -150,7 +150,6 @@ describe('overlay theme resolution', () => {
   beforeEach(() => {
     document.body.className = '';
     (window as any).OVERLAY_NATIVE_THEME = 'dark';
-    (window as any).OVERLAY_THEME_SUPPORTED = true;
   });
 
   it('uses the loaded style native palette when customization is default', () => {
@@ -173,14 +172,15 @@ describe('overlay theme resolution', () => {
     expect(document.body).not.toHaveClass('overlay-theme-light');
   });
 
-  it('falls back to native palette when the style does not support themes', () => {
+  it('applies an explicit theme on every style so the set summary follows it', () => {
+    // A scoreboard style without light/dark overrides has no rules matching
+    // the body class, so only the in-document set summary changes palette.
     (window as any).OVERLAY_NATIVE_THEME = 'dark';
-    (window as any).OVERLAY_THEME_SUPPORTED = false;
     const app = loadApp(makeGsap().gsap);
 
     app.applyOverlayTheme({ raw_remote_customization: { overlayTheme: 'light' } });
 
-    expect(document.body).toHaveClass('overlay-theme-dark');
-    expect(document.body).not.toHaveClass('overlay-theme-light');
+    expect(document.body).toHaveClass('overlay-theme-light');
+    expect(document.body).not.toHaveClass('overlay-theme-dark');
   });
 });

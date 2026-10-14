@@ -2,10 +2,98 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, fireEvent, screen } from '@testing-library/react';
 import OverlayPreview, { type OverlayPreviewProps } from '../components/OverlayPreview';
 import { renderWithI18n } from './helpers';
+import { stylePreviewAppearance } from '../styles/preview';
 
 describe('OverlayPreview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('sends staged appearance privately and updates it without reloading the example', () => {
+    const props = { overlayUrl: '/overlay-preview/default', x: 0, y: 0, width: 30, height: 10 };
+    const appearance = stylePreviewAppearance(
+      { 'Team 1 Text Name': '東京 VC', 'Team 2 Name': 'Osaka' },
+      (key) => key,
+    );
+    const { rerender } = renderWithI18n(
+      <OverlayPreview {...props} previewAppearance={appearance} />,
+    );
+    const iframe = screen.getByTestId('overlay-preview') as HTMLIFrameElement;
+    const send = vi.spyOn(iframe.contentWindow!, 'postMessage');
+    const src = iframe.src;
+    fireEvent.load(iframe);
+    expect(send).toHaveBeenCalledWith(
+      { type: 'stylePreviewAppearance', appearance },
+      window.location.origin,
+    );
+    expect(src).not.toContain('Osaka');
+    const updated = { ...appearance, team_home: { ...appearance.team_home, name: 'Kyoto' } };
+    rerender(<OverlayPreview {...props} previewAppearance={updated} />);
+    expect(screen.getByTestId('overlay-preview')).toBe(iframe);
+    expect(iframe.src).toBe(src);
+    expect(send).toHaveBeenLastCalledWith(
+      { type: 'stylePreviewAppearance', appearance: updated },
+      window.location.origin,
+    );
+  });
+
+  it.each(['/overlay/live-token', 'https://another.example/overlay-preview/default'])(
+    'never sends appearance to live or external outputs: %s',
+    (overlayUrl) => {
+      renderWithI18n(
+        <OverlayPreview
+          overlayUrl={overlayUrl}
+          x={0}
+          y={0}
+          width={30}
+          height={10}
+          previewAppearance={stylePreviewAppearance({}, (key) => key)}
+        />,
+      );
+      const iframe = screen.getByTestId('overlay-preview') as HTMLIFrameElement;
+      const send = vi.spyOn(iframe.contentWindow!, 'postMessage');
+      fireEvent.load(iframe);
+      expect(send).not.toHaveBeenCalled();
+    },
+  );
+
+  it('ignores bounds reported by a different example on the same origin', () => {
+    renderWithI18n(
+      <OverlayPreview overlayUrl="/overlay-preview/default" x={0} y={0} width={30} height={10} />,
+    );
+    const iframe = screen.getByTestId('overlay-preview');
+    act(() =>
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          origin: window.location.origin,
+          source: window,
+          data: { type: 'overlayRenderArea', bounds: { x: 100, y: 50, width: 600, height: 80 } },
+        }),
+      ),
+    );
+    expect(iframe.parentElement!.style.transform).toBe('scale(0.12)');
+  });
+
+  it('shows a non-interactive fallback for decorative thumbnails', () => {
+    vi.useFakeTimers();
+    try {
+      renderWithI18n(
+        <OverlayPreview
+          overlayUrl="/overlay-preview/default"
+          x={0}
+          y={0}
+          width={30}
+          height={10}
+          decorative
+        />,
+      );
+      act(() => vi.advanceTimersByTime(7000));
+      const fallback = screen.getByTestId('overlay-preview-fallback');
+      expect(fallback).toBeInTheDocument();
+      expect(fallback.querySelector('button')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('returns null when overlayUrl is empty', () => {
@@ -169,6 +257,7 @@ describe('OverlayPreview', () => {
       window.dispatchEvent(
         new MessageEvent('message', {
           origin: 'https://my-app.example',
+          source: (screen.getByTestId('overlay-preview') as HTMLIFrameElement).contentWindow,
           data: { type: 'overlayRenderArea', bounds: { x: 100, y: 50, width: 600, height: 80 } },
         }),
       );
@@ -194,6 +283,7 @@ describe('OverlayPreview', () => {
       window.dispatchEvent(
         new MessageEvent('message', {
           origin: 'https://my-app.example',
+          source: (iframe as HTMLIFrameElement).contentWindow,
           data: { type: 'overlayRenderArea', bounds: { x: 100, y: 50, width: 600, height: 80 } },
         }),
       );

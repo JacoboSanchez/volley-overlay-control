@@ -328,6 +328,7 @@ state, and cannot mutate anything. Control needs one of credentials 1–3.
 | :--- | :--- | :--- | :--- |
 | `GET` | `/favicon.ico` | — | Public OK |
 | `GET` | `/overlay/{public_token}` | — | Public for OBS browser sources. The unguessable per-overlay `public_token` is itself the path capability; no cookie or secondary credential is required. |
+| `GET` | `/overlay-preview/{style}` | — | Public style example with invented match data only; no access to accounts, stored overlays or live match state. |
 | `GET` | `/follow/{public_token}` | — | Public spectator/follow page; same `public_token` capability URL, same `/ws/{public_token}` feed. |
 | `WS` | `/ws/{public_token}` | — | Public for OBS browser sources. Same `public_token` capability URL. |
 | `GET` | `/api/themes` | — | Public OK (theme name list is not sensitive). |

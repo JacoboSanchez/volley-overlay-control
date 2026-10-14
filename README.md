@@ -10,7 +10,7 @@
 
 **Volley Overlay Control** is a powerful, self-hostable application for controlling volleyball scoreboards. It bundles a touch-friendly React frontend, a FastAPI backend, and a **built-in overlay engine** into a single deployable service.
 
-It includes 27 overlay style templates served **in-process** directly to OBS browser sources — no external overlay server or cloud account required. Complete match control — scores, sets, timeouts, and serving teams. Highly customizable and built for versatility, it is a **multi-user** app: each account signs in, manages its own scoreboards/overlays, teams, presets and match reports, while admins curate a shared global catalog of teams and presets.
+It includes 28 overlay style templates served **in-process** directly to OBS browser sources — no external overlay server or cloud account required. Complete match control — scores, sets, timeouts, and serving teams. Highly customizable and built for versatility, it is a **multi-user** app: each account signs in, manages its own scoreboards/overlays, teams, presets and match reports, while admins curate a shared global catalog of teams and presets.
 
 ---
 
@@ -40,11 +40,18 @@ It includes 27 overlay style templates served **in-process** directly to OBS bro
 |---|---|
 | <p align="center"><img src="docs/screenshots/09-spectator-page.png" alt="Mobile-first spectator page with scoreboard, set chart, history and live stats" width="40%"></p> | ![Admin Administration page: the self-registration toggle and user management table](docs/screenshots/12-admin-page.png) |
 
-**Built-in overlay styles** rendered live to OBS browser sources via `/overlay/{public_token}`. All 27 selectable styles laid out side-by-side in a single preview grid via `/overlay/{public_token}?style=mosaic`. The pair below doubles as the theme demo — full data is captured with the forced light theme (`?theme=light`), simple mode with the forced dark one (`?theme=dark`); styles without the matching palette keep their native look:
+**Built-in overlay styles** rendered live to OBS browser sources via `/overlay/{public_token}`. All 28 selectable styles laid out side-by-side in a single preview grid via `/overlay/{public_token}?style=mosaic`. The pair below doubles as the theme demo — full data is captured with the forced light theme (`?theme=light`), simple mode with the forced dark one (`?theme=dark`); styles without the matching palette keep their native look:
 
 | Full match data | Simple mode (current set only) |
 |---|---|
 | ![Mosaic preview grid showing every overlay style with full match data](docs/screenshots/06-overlay-mosaic-full.png) | ![Mosaic preview grid showing every overlay style in simple mode](docs/screenshots/07-overlay-mosaic-simple.png) |
+
+**Duna beach scoreboard:** a horizontal graphite bar with amber accents,
+central points, pair names, sets won and a serving indicator. Select **Duna**
+in the **Beach** gallery; use the bottom-centre position preset for a lower-third
+placement and adjust the offset to leave a safe margin.
+
+![Duna beach scoreboard with fictional pair names and an 18–16 score](docs/screenshots/17-overlay-duna.png)
 
 **Set-summary recap overlay** (opt-in) fades in over the scoreboard between sets to surface the just-played set's score, point-progression chart and key stats. Ships in six visual variants — the `brand_columns` example below pairs each team's brand-coloured column with a centre chart panel. An optional "auto-show" mode triggers the recap automatically after each set, with a configurable pre-show delay so the broadcast camera can stay on the players' reaction first.
 
@@ -59,7 +66,7 @@ It includes 27 overlay style templates served **in-process** directly to OBS bro
 ### Complete Match Control
 *   **Score Management**: Manage points, sets, and timeouts for both teams via REST API.
 *   **Service Indicator**: Track the serving team.
-*   **Side Switching**: A swap button in the scoreboard centre column mirrors the operator UI, all 27 OBS overlay styles (behind a quick fold transition) and the public spectator page — team identity, stats and the audit log never change, only the presentation. An optional auto mode (Match Rules section) follows the physical court: switch on every set change, every 7/5 combined points in beach mode, and at the deciding-set midpoint indoors; the manual button stays usable as a correction, and an undo rewinds the orientation automatically since it's derived from the live score.
+*   **Side Switching**: A swap button in the scoreboard centre column mirrors the operator UI, all 28 OBS overlay styles (behind a quick fold transition) and the public spectator page — team identity, stats and the audit log never change, only the presentation. An optional auto mode (Match Rules section) follows the physical court: switch on every set change, every 7/5 combined points in beach mode, and at the deciding-set midpoint indoors; the manual button stays usable as a correction, and an undo rewinds the orientation automatically since it's derived from the live score.
 *   **Undo Capability**: Step back through recent scoring actions one at a time, including set-winning points. The bottom-bar Undo button uses the server-side LIFO stack (`POST /api/v1/game/undo`) so it survives reload and is shared between concurrent clients. Double-tap a score or timeout button on the React UI for an instant team-specific undo — both paths share the same audit-log stack.
 *   **Safe Multi-Operator Control**: Every state carries a monotonic revision, so the bundled UI rejects and reconciles stale concurrent writes instead of overwriting another operator's newer action. A quiet aggregate indicator appears when multiple control tabs are connected; ephemeral tab attribution never exposes the owner's account identity.
 *   **Game Modes**: Support for both **Indoor** (25 points, 5 sets) and **Beach Volleyball** (21 points, 3 sets), switchable per-session from a dedicated "Match rules" config-panel section. Beach matches surface a side-switch indicator below the set pagination ("Switch sides now" pulse on the boundary point).
@@ -75,7 +82,7 @@ It includes 27 overlay style templates served **in-process** directly to OBS bro
 ### Advanced Customization
 *   **Team Identity**: Customize team names, logos, and colors.
 *   **Scoreboard Layout**: Adjust dimensions (height, width) and position (horizontal, vertical).
-*   **Style-aware overlay knobs**: The Overlay section only surfaces a control where it actually changes the selected style — the **dark/light theme** selector appears for styles that ship a light/dark palette, and a **top / center / bottom** vertical-anchor selector appears for edge-pinned styles (`pylons`, `pylons_gradient`) that dock to the screen edges instead of following the free x/y geometry.
+*   **Style-aware overlay knobs**: The Overlay section's **default / dark / light theme** control sits on its own row under the style picker and is always available, because it also drives the set-summary recap; its hint says whether the selected scoreboard style follows it too. For edge-pinned styles (`pylons`, `pylons_gradient`) that dock to the screen edges instead of following the free x/y geometry, the Position section's anchor grid becomes a **top / center / bottom** selector.
 *   **Visual Effects**: Apply glossy/gradient effects.
 *   **Presets**: Create, save, and load customization presets. Your own presets follow you across every scoreboard you own; admins can additionally activate global presets that all users see.
 
@@ -101,8 +108,8 @@ Planned usability, functionality, and performance work is tracked in the
 [improvement roadmap](docs/USABILITY_FUNCTIONALITY_PERFORMANCE_ROADMAP.md).
 
 ### Built-In Overlay Engine
-*   **27 Selectable Overlay Styles**: Pre-built HTML templates rendered via Jinja2 and served directly to OBS/vMix browser sources. Available styles: `default`, `baseline`, `beach`, `beach_twoline`, `broadcast`, `clear_jersey`, `compact`, `corner_gradient`, `corner_jersey`, `corner_tags`, `corner_wedge`, `diagonal`, `esports`, `glass`, `led`, `micro`, `neo_jersey`, `neon`, `original`, `pill`, `pylons`, `pylons_gradient`, `ribbon`, `shield`, `split`, `split_jersey`, `vertical`. The `corner_*` styles form the **corners** family — horizontal, corner-docked cousins of `pylons`: one chip per team pinned to a top or bottom corner (sets-won pips by the score; serve lamp and timeout bars by the team icon), with `corner_jersey` leading on a team-kit jersey icon. A meta-style `mosaic` renders every selectable style in a single preview grid via `/overlay/{public_token}?style=mosaic`.
-*   **Dark/Light Overlay Theme**: A three-state appearance setting (default / dark / light) flips the card surface on styles that support it (`broadcast`, `baseline`, `neon`, `pylons`, `micro`, `led`, and dark variants for the light-native `neo_jersey`, `clear_jersey`, `split_jersey`); "default" keeps each style's native palette. Styles whose surface *is* the team colour (e.g. `glass`) intentionally ignore the toggle. A `?theme=` query on the overlay URL (or the mosaic) pins a theme per browser source. Team accents are contrast-corrected automatically against the active surface, so a dark team colour stays legible on a dark card and vice versa.
+*   **28 Selectable Overlay Styles**: Pre-built HTML templates rendered via Jinja2 and served directly to OBS/vMix browser sources. Available styles: `default`, `baseline`, `beach`, `beach_twoline`, `broadcast`, `clear_jersey`, `compact`, `corner_gradient`, `corner_jersey`, `corner_tags`, `corner_wedge`, `diagonal`, `duna`, `esports`, `glass`, `led`, `micro`, `neo_jersey`, `neon`, `original`, `pill`, `pylons`, `pylons_gradient`, `ribbon`, `shield`, `split`, `split_jersey`, `vertical`. The `corner_*` styles form the **corners** family — horizontal, corner-docked cousins of `pylons`: one chip per team pinned to a top or bottom corner (sets-won pips by the score; serve lamp and timeout bars by the team icon), with `corner_jersey` leading on a team-kit jersey icon. A meta-style `mosaic` renders every selectable style in a single preview grid via `/overlay/{public_token}?style=mosaic`.
+*   **Dark/Light Overlay Theme**: A three-state appearance setting (default / dark / light) flips the card surface on styles that support it (`broadcast`, `baseline`, `neon`, `pylons`, `micro`, `led`, a sand variant of the graphite `duna`, and dark variants for the light-native `neo_jersey`, `clear_jersey`, `split_jersey`); "default" keeps each style's native palette. Styles whose surface *is* the team colour (e.g. `glass`) intentionally ignore the toggle on the scoreboard, but an explicit dark or light choice still themes the set-summary recap on every style. A `?theme=` query on the overlay URL (or the mosaic) pins a theme per browser source. Team accents are contrast-corrected automatically against the active surface, so a dark team colour stays legible on a dark card and vice versa.
 *   **Real-Time Updates**: OBS browser sources connect via WebSocket (`/ws/{public_token}`) and receive 50ms-debounced state pushes — no polling needed.
 *   **Manage Overlays From Your Account**: Create and delete overlays via `/api/v1/overlays`, surfaced in the account dashboard. Each overlay exposes an unguessable `public_token` for its OBS output; render state is persisted to disk and served immediately.
 *   **Preset Themes**: Apply dark, light, esports, neo_jersey, split_jersey, or clear_jersey themes with one click.

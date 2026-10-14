@@ -52,6 +52,15 @@ def test_theme_only_style_has_no_vertical_anchor(store):
     assert caps["clear_jersey"]["verticalAnchor"] is False
 
 
+def test_duna_offers_a_light_theme_over_its_native_graphite(store):
+    caps = store.get_style_capabilities()
+    assert caps["duna"] == {
+        "verticalAnchor": False,
+        "theme": True,
+        "nativeTheme": "dark",
+    }
+
+
 def test_native_palette_marks_light_card_styles(store):
     caps = store.get_style_capabilities()
     light_styles = {
