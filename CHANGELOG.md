@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.4.0] - 2026-10-14
+
 ### Added
 
 - **Duna beach scoreboard.** A graphite horizontal bar with amber accents,
