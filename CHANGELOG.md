@@ -56,6 +56,33 @@ archive by hand.
   was ignored, and the recap fell back to the scoreboard's native palette);
   "Default" still follows that native palette.
 
+### Dependencies
+
+- **Backend (runtime):** `fastapi` `0.141.1` → `0.142.2` — a `uv.lock`
+  refresh only, since `pyproject.toml` already floats at `>=0.141.1`. The new
+  release pulls in `opentelemetry-api` `1.45.1` as a transitive dependency.
+  [#571](https://github.com/JacoboSanchez/volley-overlay-control/pull/571)
+- **Backend (runtime):** `sqlalchemy` `2.1.1` → `2.1.3` — a `uv.lock` refresh
+  only (`pyproject.toml` floats at `>=2.0.52`).
+  [#569](https://github.com/JacoboSanchez/volley-overlay-control/pull/569)
+- **Backend (runtime):** `python-dotenv` `1.2.3` → `1.2.4`, pinned exactly in
+  `pyproject.toml`.
+  [#566](https://github.com/JacoboSanchez/volley-overlay-control/pull/566)
+- **Backend (transitive):** `mako` `1.3.12` → `1.4.2`, pulled in by `alembic`.
+  [#575](https://github.com/JacoboSanchez/volley-overlay-control/pull/575)
+- **Backend (dev-only):** `ruff` `0.16.9` → `0.16.10` and `mypy` `2.3.1` →
+  `2.4.0` — the lint and type-check gates, both pinned exactly.
+  [#572](https://github.com/JacoboSanchez/volley-overlay-control/pull/572),
+  [#570](https://github.com/JacoboSanchez/volley-overlay-control/pull/570)
+- **Frontend (dev-only):** the `vitest` group moves `vitest` and
+  `@vitest/coverage-v8` `5.0.2` → `5.0.3`; `stylelint` `17.15.0` → `17.16.0`;
+  `jsdom` `30.1.1` → `30.1.2`; and the transitive `source-map-js` `1.2.1` →
+  `1.2.2`.
+  [#565](https://github.com/JacoboSanchez/volley-overlay-control/pull/565),
+  [#567](https://github.com/JacoboSanchez/volley-overlay-control/pull/567),
+  [#568](https://github.com/JacoboSanchez/volley-overlay-control/pull/568),
+  [#576](https://github.com/JacoboSanchez/volley-overlay-control/pull/576)
+
 ## [7.3.0] - 2026-10-04
 
 ### Changed
