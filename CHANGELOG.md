@@ -21,11 +21,38 @@ archive by hand.
   CVE-2026-112400, CVE-2026-112404, CVE-2026-112895, CVE-2026-112896,
   CVE-2026-112897, CVE-2026-112899) — a `uv.lock` refresh only, since
   `pyproject.toml` floats at `>=12.3.0`.
-  [#592](https://github.com/JacoboSanchez/volley-overlay-control/pull/592)
+  [#593](https://github.com/JacoboSanchez/volley-overlay-control/pull/593)
 - **Backend (transitive):** `certifi` `2026.2.25` → `2026.10.19`, which drops
   the emSign root CAs whose intermediate keys were compromised
   ([GHSA-6q48-6c7w-9gw2](https://github.com/advisories/GHSA-6q48-6c7w-9gw2)).
   Pulled in by `requests` and `sentry-sdk`.
+  [#593](https://github.com/JacoboSanchez/volley-overlay-control/pull/593)
+
+### Dependencies
+
+- **Backend (runtime):** `fastapi` `0.142.2` → `0.146.0`, `starlette` `1.7.0`
+  → `1.9.0` and `sqlalchemy` `2.1.3` → `2.1.5` — `uv.lock` refreshes only,
+  since `pyproject.toml` floats at `>=0.141.1`, `>=1.6.0` and `>=2.0.52`.
+  [#584](https://github.com/JacoboSanchez/volley-overlay-control/pull/584),
+  [#590](https://github.com/JacoboSanchez/volley-overlay-control/pull/590),
+  [#589](https://github.com/JacoboSanchez/volley-overlay-control/pull/589),
+  [#583](https://github.com/JacoboSanchez/volley-overlay-control/pull/583),
+  [#588](https://github.com/JacoboSanchez/volley-overlay-control/pull/588)
+- **Backend (dev-only):** `ruff` `0.16.10` → `0.17.1`, the lint gate, pinned
+  exactly.
+  [#582](https://github.com/JacoboSanchez/volley-overlay-control/pull/582),
+  [#591](https://github.com/JacoboSanchez/volley-overlay-control/pull/591)
+- **Frontend (dev-only):** `vite` `8.3.1` → `8.3.4`; the `vitest` group moves
+  `vitest` and `@vitest/coverage-v8` `5.0.3` → `5.0.5`;
+  `@testing-library/user-event` `14.6.7` → `14.6.8`; `@vitejs/plugin-react`
+  `6.1.1` → `6.1.2`; `prettier` `3.9.6` → `3.9.10`; and `globals` `17.12.0` →
+  `17.13.0`.
+  [#585](https://github.com/JacoboSanchez/volley-overlay-control/pull/585),
+  [#586](https://github.com/JacoboSanchez/volley-overlay-control/pull/586),
+  [#587](https://github.com/JacoboSanchez/volley-overlay-control/pull/587),
+  [#579](https://github.com/JacoboSanchez/volley-overlay-control/pull/579),
+  [#580](https://github.com/JacoboSanchez/volley-overlay-control/pull/580),
+  [#581](https://github.com/JacoboSanchez/volley-overlay-control/pull/581)
 
 ## [7.4.0] - 2026-10-14
 
