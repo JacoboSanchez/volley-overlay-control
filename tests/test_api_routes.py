@@ -383,7 +383,12 @@ class TestWebSocketRoute:
                     "tab-main-b",
                 }
                 assert all("username" not in item for item in joined["data"]["clients"])
-            left = ws1.receive_json()
+                # Disconnect explicitly and read the "left" frame before the
+                # context exits: leaving the block makes the TestClient cancel
+                # the server task right after the disconnect, which can land
+                # before its ``finally`` has broadcast the new presence.
+                ws2.close()
+                left = ws1.receive_json()
             assert left["type"] == "presence_update"
             assert left["data"]["controller_count"] == 1
 
