@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.4.1] - 2026-10-22
+
 ### Security
 
 - **Backend (runtime):** `pillow` `12.3.0` → `13.0.0`, fixing eight CVEs in
