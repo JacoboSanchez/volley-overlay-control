@@ -14,6 +14,19 @@ archive by hand.
 
 ## [Unreleased]
 
+### Security
+
+- **Backend (runtime):** `pillow` `12.3.0` → `13.0.0`, fixing eight CVEs in
+  the image decoder used for team icons (CVE-2026-112395, CVE-2026-112397,
+  CVE-2026-112400, CVE-2026-112404, CVE-2026-112895, CVE-2026-112896,
+  CVE-2026-112897, CVE-2026-112899) — a `uv.lock` refresh only, since
+  `pyproject.toml` floats at `>=12.3.0`.
+  [#592](https://github.com/JacoboSanchez/volley-overlay-control/pull/592)
+- **Backend (transitive):** `certifi` `2026.2.25` → `2026.10.19`, which drops
+  the emSign root CAs whose intermediate keys were compromised
+  ([GHSA-6q48-6c7w-9gw2](https://github.com/advisories/GHSA-6q48-6c7w-9gw2)).
+  Pulled in by `requests` and `sentry-sdk`.
+
 ## [7.4.0] - 2026-10-14
 
 ### Added
