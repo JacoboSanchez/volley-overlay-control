@@ -14,6 +14,22 @@ archive by hand.
 
 ## [Unreleased]
 
+### Changed
+
+- **The output Scale now zooms about the overlay's anchor.** Shrinking or
+  growing a scoreboard with the Position section's *Scale* used to zoom the
+  whole frame about the centre of the canvas, so an overlay pinned to a
+  corner drifted toward the middle of the screen as it got smaller. The zoom
+  now pivots on the overlay's own anchor point: the chosen zone corner or
+  edge (plus any H/V nudge), the box's top-left coordinate in *Free* mode,
+  and the top edge, centre or bottom edge for the edge-pinned pylons and
+  corners styles. A top-left overlay at 50% Scale now stays flush in the
+  top-left corner, and changing an edge-pinned style's vertical placement
+  re-anchors the zoom immediately. *Margin* keeps zooming about the centre,
+  since its job is a uniform border on all four edges, and it is applied
+  outside the Scale zoom so that border stays a true canvas percentage at
+  any Scale. Overlays at the default 100% Scale render exactly as before.
+
 ## [7.4.1] - 2026-10-22
 
 ### Security
