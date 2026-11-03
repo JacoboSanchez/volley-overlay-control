@@ -443,7 +443,14 @@ function applyVerticalAnchor(state) {
     // an explicit "center" pick — keeps rendering mid-frame.
     anchor = v === "top" || v === "bottom" ? v : v === null ? "top" : "center";
   }
+  if (container.getAttribute("data-vertical-anchor") === anchor) return;
   container.setAttribute("data-vertical-anchor", anchor);
+  // The output Scale zooms about this edge (see ``outputScaleOrigin``),
+  // and the state diff only re-applies it when the geometry itself
+  // changes — so refresh it here too when only the placement moved.
+  if (state && state.overlay_control && state.overlay_control.geometry) {
+    updateOutputTransform(state.overlay_control.geometry);
+  }
 }
 
 function updateCSSVariables(teamHome, teamAway, colors = null) {
@@ -628,27 +635,99 @@ function updateGeometry(geometry) {
 
 // Output-wide zoom + outer margin, applied to the whole overlay body so
 // it affects EVERY style uniformly — including edge-pinned layouts that
-// opt out of per-element geometry via data-fixed-geometry. ``scale`` is a
-// percentage (100 = unchanged); ``margin`` is a symmetric outer inset as a
-// percentage of the canvas (positive shrinks the output toward centre,
-// leaving a uniform border; negative pushes it past the edges to fight
-// stream overscan). The two compose multiplicatively into a single
-// transform-origin:center scale on <body>.
+// opt out of per-element geometry via data-fixed-geometry.
+//
+// ``scale`` is a percentage (100 = unchanged) and zooms the output about
+// the overlay's own anchor point (see ``outputScaleOrigin``), so a box
+// pinned to the top-left corner shrinks *into* that corner instead of
+// drifting toward the middle of the frame.
+//
+// ``margin`` is a symmetric outer inset as a percentage of the canvas
+// (positive shrinks the output toward centre, leaving a uniform border;
+// negative pushes it past the edges to fight stream overscan), so it
+// always zooms about the canvas centre.
+//
+// The two compose into a single transform on <body> with the margin
+// outermost, so the border it leaves is a true canvas percentage
+// whatever the zoom.
 function updateOutputTransform(geometry) {
   if (!geometry) return;
   const scalePct = Number(geometry.scale);
   const marginPct = Number(geometry.margin);
-  const scaleFactor = Number.isFinite(scalePct) ? scalePct / 100 : 1;
-  const marginFactor = Number.isFinite(marginPct)
-    ? 1 - (2 * marginPct) / 100
-    : 1;
-  let factor = scaleFactor * marginFactor;
-  // Guard against a degenerate/inverted box if margin >= 50%.
-  if (!Number.isFinite(factor) || factor <= 0) factor = 0.05;
-  document.body.style.transformOrigin = "center center";
+  let scaleFactor = Number.isFinite(scalePct) ? scalePct / 100 : 1;
+  let marginFactor = Number.isFinite(marginPct) ? 1 - (2 * marginPct) / 100 : 1;
+  // Guard against a degenerate/inverted box (margin >= 50%, scale <= 0).
+  if (!Number.isFinite(scaleFactor) || scaleFactor <= 0) scaleFactor = 0.05;
+  if (!Number.isFinite(marginFactor) || marginFactor <= 0) {
+    marginFactor = 0.05;
+  }
+
+  const parts = [];
+  if (marginFactor !== 1) {
+    parts.push(scaleAbout(marginFactor, CANVAS_W / 2, CANVAS_H / 2));
+  }
+  if (scaleFactor !== 1) {
+    const origin = outputScaleOrigin(geometry);
+    parts.push(scaleAbout(scaleFactor, origin.x, origin.y));
+  }
+  document.body.style.transformOrigin = "0 0";
   // Clear the transform entirely at the identity so we never leave a
   // stale matrix on styles that don't use these knobs.
-  document.body.style.transform = factor === 1 ? "" : `scale(${factor})`;
+  document.body.style.transform = parts.join(" ");
+}
+
+// ``scale(factor)`` about an arbitrary canvas point, written against the
+// top-left transform origin so several zooms can be chained in one
+// transform list (CSS applies the functions right-to-left, so the last
+// entry acts on the content first).
+function scaleAbout(factor, x, y) {
+  const dx = roundPx(x * (1 - factor));
+  const dy = roundPx(y * (1 - factor));
+  return `translate(${dx}px, ${dy}px) scale(${factor})`;
+}
+
+function roundPx(value) {
+  return Math.round(value * 1000) / 1000;
+}
+
+// The canvas point the output ``Scale`` zooms about: the overlay's anchor
+// point, so zooming never moves the box away from where the operator
+// placed it.
+//   - zone anchors: the zone's corner / edge / centre plus the H/V nudge,
+//     i.e. the box's own anchored corner;
+//   - free mode: the box's top-left coordinate (what xpos/ypos mean there,
+//     see ``applyGeometry``);
+//   - edge-pinned styles (data-fixed-geometry): the top edge, centre or
+//     bottom edge per their ``verticalAnchor`` (already resolved onto the
+//     container as ``data-vertical-anchor`` by ``applyVerticalAnchor``),
+//     horizontally centred since their chips hug opposite side edges.
+function outputScaleOrigin(geometry) {
+  const container = document.getElementById("scoreboard-container");
+  if (container && container.dataset.fixedGeometry !== undefined) {
+    const v = container.getAttribute("data-vertical-anchor");
+    return {
+      x: CANVAS_W / 2,
+      y: v === "top" ? 0 : v === "bottom" ? CANVAS_H : CANVAS_H / 2,
+    };
+  }
+  const xpos = Number(geometry.xpos) || 0;
+  const ypos = Number(geometry.ypos) || 0;
+  const zone = normalizeAnchor(geometry.anchor);
+  if (!zone) {
+    return {
+      x: ((xpos + 50) / 100) * CANVAS_W,
+      y: ((ypos + 50) / 100) * CANVAS_H,
+    };
+  }
+  const [vAnchor, hAnchor] = zone;
+  const zoneX =
+    hAnchor === "left" ? 0 : hAnchor === "right" ? CANVAS_W : CANVAS_W / 2;
+  const zoneY =
+    vAnchor === "top" ? 0 : vAnchor === "bottom" ? CANVAS_H : CANVAS_H / 2;
+  return {
+    x: zoneX + (xpos / 100) * CANVAS_W,
+    y: zoneY + (ypos / 100) * CANVAS_H,
+  };
 }
 
 function animatePoints(elementId, newPoints) {

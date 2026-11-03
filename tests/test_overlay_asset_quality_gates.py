@@ -103,3 +103,33 @@ def test_neon_skips_the_header_animation_on_the_first_payload() -> None:
     assert 'classList.add("priming")' in js, (
         "app.js no longer marks the first compact-mode application"
     )
+
+
+def test_output_scale_zooms_about_the_overlay_anchor() -> None:
+    """``Scale`` must pivot on the overlay's anchor point, not the canvas centre.
+
+    A corner-anchored scoreboard shrunk with the output ``Scale`` used to
+    drift toward the middle of the frame because the body zoom was a
+    ``transform-origin: center`` scale. The body transform now composes the
+    centred ``Margin`` inset (outermost) with a ``Scale`` zoom about
+    ``outputScaleOrigin`` — the zone corner/edge, the free-mode top-left
+    coordinate, or the edge-pinned styles' vertical edge.
+    """
+    js = _read("overlay_static/js/app.js")
+
+    assert 'transformOrigin = "center center"' not in js
+    assert "function outputScaleOrigin(" in js
+    assert "function scaleAbout(" in js
+
+    start = js.index("function updateOutputTransform(")
+    body = js[start : js.index("\n}\n", start)]
+    assert "scaleAbout(marginFactor, CANVAS_W / 2, CANVAS_H / 2)" in body
+    assert "outputScaleOrigin(geometry)" in body
+    # Margin is pushed first so it ends up outermost in the transform list.
+    assert body.index("scaleAbout(marginFactor") < body.index("outputScaleOrigin(geometry)")
+
+    # Only a vertical-placement change on an edge-pinned style must refresh
+    # the zoom too, since the state diff keys it off the geometry alone.
+    start = js.index("function applyVerticalAnchor(")
+    body = js[start : js.index("\n}\n", start)]
+    assert "updateOutputTransform(state.overlay_control.geometry)" in body
