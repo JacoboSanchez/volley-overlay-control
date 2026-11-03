@@ -30,6 +30,48 @@ archive by hand.
   outside the Scale zoom so that border stays a true canvas percentage at
   any Scale. Overlays at the default 100% Scale render exactly as before.
 
+### Security
+
+- **Frontend (transitive, dev-only):** `fast-uri` `3.1.7` → `3.1.9`, pulled
+  in by `ajv` in the build toolchain, fixing five URI parsing and
+  normalisation advisories (GHSA-hrr3-gc8f-f4qj, GHSA-w74x-v6f9-j3xg,
+  GHSA-wjr9-j795-jxcr, GHSA-xhq7-xmqj-769h, GHSA-333x-w4r6-6crp) — a
+  `package-lock.json` refresh only.
+  [#596](https://github.com/JacoboSanchez/volley-overlay-control/pull/596)
+- **Frontend (transitive, dev-only):** `undici` `8.11.2` → `8.12.3`, pulled
+  in by `jsdom` for the Vitest DOM, picking up the 8.12.2 security batch of
+  TLS, cache-poisoning and denial-of-service fixes (GHSA-qrxm-fqhp-jwvm,
+  GHSA-2m5v-pch6-74hx, GHSA-4w7w-5xrc-9h26, GHSA-xjj6-f33q-929c,
+  GHSA-55wc-3pg8-jfw6, among others) — a `package-lock.json` refresh only.
+  [#597](https://github.com/JacoboSanchez/volley-overlay-control/pull/597)
+- **Frontend (dev-only):** `serialize-javascript` `7.0.5` → `7.1.4`, the
+  `overrides` pin for `@rollup/plugin-terser`, picking up the `</script>`
+  escaping fixes (GHSA-gfhx-hw2g-v5hg, GHSA-m5mm-p8h7-m29v).
+  [#598](https://github.com/JacoboSanchez/volley-overlay-control/pull/598)
+
+### Dependencies
+
+- **Backend (runtime):** `fastapi` `0.146.0` → `0.162.0`, `starlette` `1.9.0`
+  → `1.10.0`, `sqlalchemy` `2.1.5` → `2.1.6` and `alembic` `1.20.0` →
+  `1.20.1` — `uv.lock` refreshes only, since `pyproject.toml` floats at
+  `>=0.141.1`, `>=1.6.0`, `>=2.0.52` and `>=1.19.1`.
+  [#604](https://github.com/JacoboSanchez/volley-overlay-control/pull/604),
+  [#606](https://github.com/JacoboSanchez/volley-overlay-control/pull/606),
+  [#607](https://github.com/JacoboSanchez/volley-overlay-control/pull/607),
+  [#605](https://github.com/JacoboSanchez/volley-overlay-control/pull/605)
+- **Backend (dev-only):** `pytest-asyncio` `1.4.0` → `1.4.1` — a `uv.lock`
+  refresh only, since `pyproject.toml` floats at `>=1.4.0`.
+  [#602](https://github.com/JacoboSanchez/volley-overlay-control/pull/602)
+- **Frontend (runtime):** `react` and `react-dom` `19.3.0` → `19.3.1`, and
+  `react-router` `8.4.0` → `8.5.0`.
+  [#600](https://github.com/JacoboSanchez/volley-overlay-control/pull/600),
+  [#601](https://github.com/JacoboSanchez/volley-overlay-control/pull/601)
+- **Frontend (dev-only):** `vite` `8.3.4` → `8.3.5`.
+  [#603](https://github.com/JacoboSanchez/volley-overlay-control/pull/603)
+- **CI:** `docker/login-action` `4.6.0` → `4.7.0` in both Docker publish
+  workflows.
+  [#599](https://github.com/JacoboSanchez/volley-overlay-control/pull/599)
+
 ## [7.4.1] - 2026-10-22
 
 ### Security
