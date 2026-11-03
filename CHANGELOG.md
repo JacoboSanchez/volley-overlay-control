@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.4.2] - 2026-11-03
+
 ### Changed
 
 - **The output Scale now zooms about the overlay's anchor.** Shrinking or
