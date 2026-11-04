@@ -23,8 +23,10 @@ file lock (`alembic upgrade head`, idempotent) — there is no manual step.
 surface is keyed by the **storage key** `skey = "<user_id>:<oid>"` (see
 `app/overlay_key.py`, `make_skey`), never by the bare `oid` — so two users can
 drive the same `oid` in isolation. That covers DB rows, live overlay render
-state (`data/overlay_state_*.json`), and the per-overlay audit log
-(`data/audit_*.jsonl`). Never query per-user rows without scoping to `user.id`.
+state, session flags and the per-overlay audit log — the three runtime tables
+in `app/db/runtime.py` (`runtime_overlay_state`, `runtime_session_meta`,
+`runtime_audit_events`), whose primary key / lookup column is the `skey`.
+Never query per-user rows without scoping to `user.id`.
 
 **Auth in one paragraph.** Four credentials reach one overlay: the owner's
 `vsession` login cookie; a per-overlay `control_token` (the shareable
@@ -103,7 +105,9 @@ volley-overlay-control/
 │   ├── db/                    # SQLAlchemy 2.0 + Alembic persistence
 │   │   ├── base.py            # Declarative Base
 │   │   ├── engine.py          # Engine + SessionLocal from DATABASE_URL (SQLite default; get_db dependency)
-│   │   ├── migrate.py         # run_migrations() — file-locked `alembic upgrade head` on startup
+│   │   ├── migrate.py         # run_migrations() — file-locked `alembic upgrade head` + runtime schema/import on startup
+│   │   ├── runtime.py         # Runtime-state engine + tables (overlay state, session meta, audit log)
+│   │   ├── runtime_import.py  # One-time import of the pre-DB per-overlay files (renamed *.imported)
 │   │   └── models/            # ORM models: user, overlay, team, preset, setting, report
 │   │
 │   ├── auth/                  # Cookie-session authentication + account service
@@ -127,8 +131,8 @@ volley-overlay-control/
 │   │   ├── team_groups_service.py # Team-group response assembly and board policy
 │   │   ├── overlay_links_service.py # Board output/report link policy
 │   │   ├── session_manager.py # Thread-safe game session management by OID
-│   │   ├── session_persistence.py  # Per-skey JSON file persistence for session-level flags (hashed filename)
-│   │   ├── action_log.py      # Append-only per-skey audit log (data/audit_<hash>.jsonl)
+│   │   ├── session_persistence.py  # Per-skey session-level flags (runtime_session_meta rows)
+│   │   ├── action_log.py      # Append-only per-skey audit log (runtime_audit_events rows)
 │   │   ├── match_archive.py   # Per-match snapshot writer (data/matches/match_<hash>_<UTC>.json)
 │   │   ├── match_rules.py     # Indoor/beach presets + beach side-switch helpers
 │   │   ├── webhooks.py        # Outbound HTTP webhooks fired on game events (set_end, match_end, timeout, serve_change); SSRF-guarded by default
@@ -137,7 +141,7 @@ volley-overlay-control/
 │   │
 │   ├── overlay/               # In-process overlay serving (from volleyball-scoreboard-overlay)
 │   │   ├── __init__.py        # Singletons: OverlayStateStore, ObsBroadcastHub
-│   │   ├── state_store.py     # Overlay state — in-memory + JSON file persistence
+│   │   ├── state_store.py     # Overlay state — in-memory cache + runtime_overlay_state rows
 │   │   ├── style_catalog.py   # Template discovery and capability scanning
 │   │   ├── broadcast.py       # OBS WebSocket broadcast hub — 50ms debounced pushes
 │   │   └── routes.py          # HTTP/WS via public_token: /overlay/, /follow/, /ws/ + public /api/themes
@@ -146,7 +150,7 @@ volley-overlay-control/
 │
 ├── overlay_templates/         # Jinja2 HTML templates for overlay styles (31 files, 28 selectable)
 ├── overlay_static/            # Static assets for overlays (JS, CSS, images)
-├── data/                      # Persisted runtime state — app.db (default SQLite), overlay_state_*.json (skey-keyed), audit_*.jsonl, matches/, .session_secret, .overlay_server_token, .admin_bootstrap_token (auto-generated, mode 0o600)
+├── data/                      # Persisted state — app.db + runtime.db (default SQLite), media/, .session_secret, .overlay_server_token, .admin_bootstrap_token (auto-generated, mode 0o600); legacy *.imported backups after an upgrade
 │
 ├── alembic.ini                # Alembic config (script_location = migrations/)
 ├── migrations/                # Alembic env.py + versions/ revisions (applied to head on startup)
@@ -382,8 +386,23 @@ Always use `State` accessor methods; never read/write `state.current_model` dire
 ### Per-user data (overlays / teams / presets / settings)
 Go through the service modules — `app/overlays_service.py`, `app/teams_service.py`, `app/presets_service.py`, `app/settings_service.py` — and the ORM models in `app/db/models/`. Never query rows without scoping to `user.id`. The public OBS surface resolves an overlay by its `public_token`, never by raw `oid`/`skey`.
 
+### Runtime state (`app/db/runtime.py`)
+Live overlay state, session flags and the audit log are rows in three
+`runtime_*` tables on a **separate engine** from the request `get_db`
+session: the main database on PostgreSQL, a sibling `runtime.db` (WAL) on
+SQLite. The split is load-bearing — board init flushes a new
+`user_overlays` row and then writes runtime state before the request commits,
+and on SQLite a second connection to the same file would block on that
+uncommitted write. So: never write runtime rows through the request session,
+never add a foreign key from a `runtime_*` table to the main schema, and do
+not put these tables in Alembic (they have their own `RuntimeBase` metadata,
+`init_runtime_schema()` and `RUNTIME_SCHEMA_VERSION`; `migrations/env.py`
+skips them). Tests get a fresh in-memory runtime engine from the autouse
+`runtime_db` fixture; seed hand-built audit records with
+`tests/helpers/audit.write_audit_records`.
+
 ### Hosted icon library (`app/icons_service.py`)
-Icon **metadata** is a DB row (`app/db/models/icon.py`, global/personal ownership mirroring `Team`); the **bytes** are WebP files in `data/media/icons/` served from the public, unauthenticated `/media` mount (OBS pages carry no cookies) with immutable caching — filenames embed a content hash + random suffix, so a re-upload is a new URL, and `DELETE` can always unlink its file. Every upload goes through `process_icon_upload` (Pillow: bomb guard → EXIF transpose → ≤`ICONS_MAX_DIM` thumbnail → WebP quality ladder); never store client bytes verbatim. Teams reference icons purely by URL string (no FK) — deletion clears referencing teams by exact URL match. Outbound downloads (batch logo import) must use `app.net_guard.fetch_guarded` (SSRF re-check on every redirect hop, byte cap); `is_safe_logo_url` accepts same-origin `/...` paths, and the permissive `is_acceptable_catalog_icon` gates catalog writes. Backups: the app's persistence unit is the whole `data/` directory (with Postgres, `pg_dump` alone misses icons and overlay state).
+Icon **metadata** is a DB row (`app/db/models/icon.py`, global/personal ownership mirroring `Team`); the **bytes** are WebP files in `data/media/icons/` served from the public, unauthenticated `/media` mount (OBS pages carry no cookies) with immutable caching — filenames embed a content hash + random suffix, so a re-upload is a new URL, and `DELETE` can always unlink its file. Every upload goes through `process_icon_upload` (Pillow: bomb guard → EXIF transpose → ≤`ICONS_MAX_DIM` thumbnail → WebP quality ladder); never store client bytes verbatim. Teams reference icons purely by URL string (no FK) — deletion clears referencing teams by exact URL match. Outbound downloads (batch logo import) must use `app.net_guard.fetch_guarded` (SSRF re-check on every redirect hop, byte cap); `is_safe_logo_url` accepts same-origin `/...` paths, and the permissive `is_acceptable_catalog_icon` gates catalog writes. Backups: on SQLite the persistence unit is the whole `data/` directory (`app.db`, `runtime.db`, `media/`, secrets); on Postgres it is `pg_dump` (which now includes runtime state) plus `data/` for icons and secrets.
 
 ### OID utilities
 Use `app/oid_utils.py` for `extract_oid()` and `compose_output()` — do not import from deleted modules.

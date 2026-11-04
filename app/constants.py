@@ -86,12 +86,11 @@ WS_BROADCAST_SEND_TIMEOUT_SECONDS = _env_float(
     "WS_BROADCAST_SEND_TIMEOUT_SECONDS", 2.0,
 )
 
-# Per-OID audit log file rotation. The active log rotates to
-# ``audit_<hash>.jsonl.1`` once it exceeds ``AUDIT_LOG_MAX_BYTES``,
-# bumping older rotations down by one suffix; anything above
-# ``AUDIT_LOG_MAX_FILES`` (counting the active file) is dropped.
-# Keeps long-running per-OID logs from growing unbounded while still
-# letting ``read_all`` / ``read_page`` walk the rotated set transparently.
+# Per-OID audit log retention. Each OID keeps at most
+# ``AUDIT_LOG_MAX_BYTES * AUDIT_LOG_MAX_FILES`` serialized bytes of records
+# (the size the rotated file set used to hold); past that, the oldest
+# ``AUDIT_LOG_MAX_BYTES`` worth of rows is dropped at once. Keeps
+# long-running per-OID logs from growing unbounded.
 AUDIT_LOG_MAX_BYTES = _env_int("AUDIT_LOG_MAX_BYTES", 5 * 1024 * 1024)
 AUDIT_LOG_MAX_FILES = _env_int("AUDIT_LOG_MAX_FILES", 5)
 

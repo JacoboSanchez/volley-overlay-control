@@ -16,6 +16,18 @@ archive by hand.
 
 ### Changed
 
+- **Live scoreboard state, session settings and the action audit log now
+  live in the database** instead of one file per overlay under `data/`.
+  On SQLite (the default) they go to `data/runtime.db` next to `app.db`; on
+  PostgreSQL they share the main database, so a `pg_dump` now backs up every
+  scoreboard and audit log (icons and secrets still live in `data/`). On the
+  first start after upgrading, existing `overlay_state_*.json`,
+  `session_meta_*.json` and `audit_*.jsonl` files (rotations included) are
+  imported automatically and renamed to `*.imported`; nothing is deleted.
+  `AUDIT_LOG_MAX_BYTES` × `AUDIT_LOG_MAX_FILES` still bounds each overlay's
+  audit history (now a byte budget on rows rather than a set of rotated
+  files), and `/health/ready` reports a new `runtime_db` check.
+
 - **Internal: the typed match state is now the only in-app model.** The
   overlay payload builder and `Backend.save_model` take the typed `State`
   instead of reading the legacy flat `"Team 1 Game 3 Score"` dict by key

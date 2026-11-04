@@ -1,21 +1,24 @@
-"""Overlay state management — in-memory + JSON file persistence.
+"""Overlay state management — in-memory cache + runtime-database persistence.
 
 Ported from volleyball-scoreboard-overlay/main.py into a reusable class
 so the backend can manage overlay state in-process without an external
-overlay server.
+overlay server. Each overlay's merged state is one row of
+``runtime_overlay_state`` (see :mod:`app.db.runtime`); older releases kept
+it in ``data/overlay_state_<hash>.json``, which
+:mod:`app.db.runtime_import` imports once at startup.
 """
 
 import asyncio
 import copy
 import hashlib
-import json
 import logging
-import os
-import re
 import threading
+import time
 from collections.abc import Callable, Iterator
 
-from app.api._persistence_paths import DEFAULT_HASH_LEN, atomic_write_json, hashed_filename
+from sqlalchemy import delete, select
+
+from app.db.runtime import OverlayRuntimeState, runtime_session
 from app.env_vars_manager import EnvVarsManager
 from app.id_validation import is_valid_overlay_id, validate_overlay_id
 from app.overlay.style_catalog import StyleCatalog
@@ -170,33 +173,23 @@ def get_default_state(best_of_sets: int = 5) -> dict:
 # ---------------------------------------------------------------------------
 
 
-# Length of the hex SHA-256 prefix used to derive on-disk filenames from
-# user-supplied overlay ids. 20 hex chars = 80 bits, well above the birthday
-# bound for any realistic overlay count.
-_FILENAME_HASH_LEN = DEFAULT_HASH_LEN
-
-# Matches the hashed basename produced by ``_hashed_basename``. Used during
-# legacy-file migration to skip files that are already in the new format.
-_HASHED_FILENAME_PATTERN = re.compile(
-    r"^overlay_state_[0-9a-f]{" + str(_FILENAME_HASH_LEN) + r"}\.json$"
-)
-
 class OverlayStateStore:
-    """Manages overlay state with in-memory cache and JSON file persistence.
+    """Manages overlay state with an in-memory cache and database persistence.
 
-    Each overlay has a state file at
-    ``data/overlay_state_{sha256(id)[:20]}.json`` — the hex-only basename
-    breaks the taint flow from user input to filesystem paths that CodeQL
-    tracks. The original overlay id is stored inside the JSON payload under
-    ``_meta.overlay_id`` so listings and cache lookups can recover it.
+    Each overlay's merged render state is one ``runtime_overlay_state`` row
+    keyed by its storage key (or a bare legacy overlay id). Reads are served
+    from the in-memory context once loaded; every mutation is written back
+    in per-overlay order.
     """
 
     def __init__(self, data_dir: str, templates_dir: str) -> None:
+        # Kept for API compatibility (callers and fixtures pass/patch it);
+        # nothing is written there any more.
         self._data_dir = data_dir
         self._overlays: dict[str, dict] = {}
         self._lock = threading.RLock()
         self._style_catalog = StyleCatalog(templates_dir, lock=self._lock)
-        # Serializes each overlay's mutation -> snapshot -> disk-write sequence
+        # Serializes each overlay's mutation -> snapshot -> write sequence
         # without making unrelated overlays wait on one another. These locks
         # are always acquired before ``self._lock``.
         self._persistence_locks: dict[str, threading.Lock] = {}
@@ -206,7 +199,16 @@ class OverlayStateStore:
         # in sync by create/copy/delete.
         self._output_key_cache: dict[str, str] = {}
         self._all_overlays_scanned = False
-        os.makedirs(data_dir, exist_ok=True)
+        # Ids known to have a persisted row. ``overlay_exists`` runs on every
+        # model read/save (``ensure_overlay``), so a positive answer is
+        # remembered instead of re-queried; create/copy add to it and delete
+        # removes from it. Negative answers are never cached.
+        self._existing: set[str] = set()
+        # Bumped by every delete. ``overlay_exists`` probes the database
+        # without the per-overlay lock (``create_overlay`` calls it while
+        # holding that lock), so it only caches a positive answer when no
+        # delete ran between its probe and its cache write.
+        self._delete_generation: dict[str, int] = {}
 
     def set_broadcast_callback(
         self,
@@ -215,70 +217,82 @@ class OverlayStateStore:
         """Set the callback invoked after state changes to trigger broadcasts."""
         self._broadcast_callback = callback
 
-    # -- File I/O ----------------------------------------------------------
+    # -- Persistence -------------------------------------------------------
 
     @staticmethod
     def _sanitize_id(overlay_id: str) -> str:
-        """Validate *overlay_id* as a filesystem-safe identifier.
+        """Validate *overlay_id* as a storage identifier.
 
         Accepts either a bare overlay id (legacy/single-tenant) or a
         per-user storage key ``<user_id>:<oid>`` (:func:`app.overlay_key`).
-        Both shapes are path-safe — no ``/`` and no ``..`` — so this stays
-        the single choke point between caller input and the on-disk
-        ``overlay_state_<hash>.json`` paths. Raises ``ValueError`` otherwise.
+        Stays the single choke point between caller input and persisted
+        rows. Raises ``ValueError`` otherwise.
         """
         if is_valid_skey(overlay_id):
             return overlay_id
         return validate_overlay_id(overlay_id)
 
-    @staticmethod
-    def _hashed_basename(overlay_id: str) -> str:
-        """Return the on-disk basename for *overlay_id*.
+    def _read_row(self, overlay_id: str) -> dict | None:
+        """Return the persisted state for *overlay_id*, or ``None`` if absent.
 
-        The hex-only digest means the final path is built from
-        ``self._data_dir`` (trusted) plus a fixed-alphabet suffix, so
-        CodeQL's ``py/path-injection`` taint tracker sees the user input
-        replaced with a hash output at this boundary.
+        A stored value that is not an object reads as absent (defaults). A
+        database *error* propagates: answering "no state" would put default
+        state into the in-memory context, and the next mutation would
+        persist those defaults over the real row.
         """
-        return hashed_filename("overlay_state_", overlay_id)
-
-    def get_state_file_path(self, overlay_id: str) -> str:
-        safe_id = self._sanitize_id(overlay_id)
-        return os.path.join(self._data_dir, self._hashed_basename(safe_id))
-
-    def _read_state_sync(self, path: str) -> dict | None:
-        """Read state from disk synchronously."""
-        if os.path.exists(path):
-            try:
-                with open(path, encoding="utf-8") as f:
-                    return json.load(f)
-            except (OSError, json.JSONDecodeError) as exc:
-                # Narrow on purpose: a bad file or unreadable disk is
-                # something we recover from by falling back to defaults,
-                # but a programming error (KeyError, AttributeError…)
-                # should surface, not be silently downgraded.
-                logger.warning("Failed to load state from '%s': %s", path, exc)
-        return None
+        try:
+            with runtime_session() as db:
+                row = db.get(OverlayRuntimeState, overlay_id)
+                state = None if row is None else row.state
+        except Exception as exc:
+            logger.warning("Failed to load state for '%s': %s", overlay_id, exc)
+            raise
+        return copy.deepcopy(state) if isinstance(state, dict) else None
 
     @staticmethod
-    def _write_state_sync(path: str, state: dict) -> None:
-        """Write state to disk atomically via temp file + rename."""
-        atomic_write_json(path, state)
+    def _write_row(overlay_id: str, state: dict) -> None:
+        with runtime_session() as db:
+            db.merge(
+                OverlayRuntimeState(
+                    store_key=overlay_id, state=state, updated_at=time.time(),
+                )
+            )
+
+    @staticmethod
+    def _insert_row(overlay_id: str, state: dict) -> bool:
+        """INSERT a new row; ``False`` when one already exists.
+
+        ``create_overlay`` uses this instead of :meth:`_write_row` so it can
+        never overwrite a real row — not when an existence probe failed
+        transiently, and not when another process created it first.
+        """
+        from sqlalchemy.exc import IntegrityError
+
+        try:
+            with runtime_session() as db:
+                db.add(
+                    OverlayRuntimeState(
+                        store_key=overlay_id, state=state, updated_at=time.time(),
+                    )
+                )
+        except IntegrityError:
+            return False
+        return True
 
     @staticmethod
     def _stamp_meta(state: dict, overlay_id: str) -> dict:
-        """Inject ``_meta.overlay_id`` so the id can be recovered from the file.
+        """Inject ``_meta.overlay_id`` so a row is self-describing.
 
-        Needed because filenames no longer carry the id (they're hashes).
-        Returns *state* for call-site convenience.
+        Kept from the file era, where filenames were hashes; exported or
+        hand-inspected state still names its overlay. Returns *state*.
         """
         meta = state.setdefault("_meta", {})
         meta["overlay_id"] = overlay_id
         return state
 
     def load_persisted_state(self, overlay_id: str) -> dict:
-        path = self.get_state_file_path(overlay_id)
-        state = self._read_state_sync(path)
+        safe_id = self._sanitize_id(overlay_id)
+        state = self._read_row(safe_id)
         return state if state is not None else get_default_state()
 
     async def load_persisted_state_async(self, overlay_id: str) -> dict:
@@ -286,14 +300,17 @@ class OverlayStateStore:
 
     def _save_persisted_state_unlocked(self, overlay_id: str, state: dict) -> None:
         """Persist *state* while the caller holds the overlay's write lock."""
-        path = self.get_state_file_path(overlay_id)
-        self._stamp_meta(state, overlay_id)
+        safe_id = self._sanitize_id(overlay_id)
+        self._stamp_meta(state, safe_id)
         try:
-            self._write_state_sync(path, state)
-        except OSError as exc:
-            # _write_state_sync uses tempfile + os.replace; failure modes
-            # are filesystem-level (no space, permissions, missing dir).
+            self._write_row(safe_id, state)
+        except Exception as exc:
+            # Best-effort like the file writes it replaced: a failed write
+            # leaves the in-memory state authoritative until the next save.
             logger.warning("Failed to save state for '%s': %s", overlay_id, exc)
+            return
+        with self._lock:
+            self._existing.add(safe_id)
 
     def save_persisted_state(self, overlay_id: str, state: dict) -> None:
         with self._get_persistence_lock(overlay_id):
@@ -303,9 +320,19 @@ class OverlayStateStore:
         await asyncio.to_thread(self.save_persisted_state, overlay_id, state)
 
     def _get_persistence_lock(self, overlay_id: str) -> threading.Lock:
-        """Return the stable per-overlay lock used to order disk snapshots."""
+        """Return the stable per-overlay lock used to order snapshots."""
         with self._lock:
             return self._persistence_locks.setdefault(overlay_id, threading.Lock())
+
+    def _row_exists(self, overlay_id: str) -> bool:
+        """Probe for a row. An error reads as "absent" for the bool contract;
+        that is safe because creation is insert-only (:meth:`_insert_row`)."""
+        try:
+            with runtime_session() as db:
+                return db.get(OverlayRuntimeState, overlay_id) is not None
+        except Exception as exc:
+            logger.warning("Failed to probe state for '%s': %s", overlay_id, exc)
+            return False
 
     # -- In-memory context -------------------------------------------------
 
@@ -329,7 +356,7 @@ class OverlayStateStore:
             return copy.deepcopy(self.get_overlay_context(overlay_id)["state"])
 
     def overlay_exists(self, overlay_id: str) -> bool:
-        """Check whether a state file exists on disk for *overlay_id*.
+        """Check whether persisted state exists for *overlay_id*.
 
         Returns False for ids that fail the sanitizer so the public contract
         (a bool) is preserved — callers probing with arbitrary user input
@@ -337,10 +364,21 @@ class OverlayStateStore:
         id that happens to not exist.
         """
         try:
-            path = self.get_state_file_path(overlay_id)
+            safe_id = self._sanitize_id(overlay_id)
         except ValueError:
             return False
-        return os.path.exists(path)
+        with self._lock:
+            if safe_id in self._existing:
+                return True
+            generation = self._delete_generation.get(safe_id, 0)
+        if not self._row_exists(safe_id):
+            return False
+        with self._lock:
+            # A delete that landed after the probe makes its answer stale;
+            # report it, but do not cache it.
+            if self._delete_generation.get(safe_id, 0) == generation:
+                self._existing.add(safe_id)
+        return True
 
     # -- Output keys -------------------------------------------------------
 
@@ -359,7 +397,7 @@ class OverlayStateStore:
 
         Both forms are cached, and a "fully scanned" flag short-circuits
         lookups for unknown tokens so invalid requests do not keep
-        hammering ``os.listdir``.
+        re-scanning the table.
         """
         with self._lock:
             cached = self._output_key_cache.get(token)
@@ -370,40 +408,33 @@ class OverlayStateStore:
             self._populate_cache_locked()
             return self._output_key_cache.get(token)
 
-    def _iter_persisted_ids(self) -> Iterator[tuple[str, str]]:
-        """Yield ``(overlay_id, basename)`` for every state file on disk.
+    def _iter_persisted_ids(self) -> Iterator[str]:
+        """Yield every persisted overlay id, skipping malformed keys.
 
-        Filenames are hash-based so the id is recovered from
-        ``_meta.overlay_id`` inside each payload. Files whose contents do
-        not parse or lack ``_meta.overlay_id`` are skipped with a warning
-        (they never round-trip through :meth:`save_persisted_state` and
-        should not exist in a healthy deployment).
+        A database error propagates, so a failed scan is never mistaken for
+        an empty table (see :meth:`_populate_cache_locked`).
         """
-        if not os.path.isdir(self._data_dir):
-            return
-        for filename in os.listdir(self._data_dir):
-            if not _HASHED_FILENAME_PATTERN.fullmatch(filename):
-                continue
-            path = os.path.join(self._data_dir, filename)
-            try:
-                with open(path, encoding="utf-8") as f:
-                    payload = json.load(f)
-            except (OSError, json.JSONDecodeError) as exc:
-                logger.warning("Skipping unreadable state file '%s': %s", filename, exc)
-                continue
-            oid = (payload or {}).get("_meta", {}).get("overlay_id")
-            if not (is_valid_overlay_id(oid) or is_valid_skey(oid)):
-                logger.warning("State file '%s' missing valid _meta.overlay_id", filename)
-                continue
-            yield oid, filename
+        with runtime_session() as db:
+            keys = list(db.scalars(select(OverlayRuntimeState.store_key)))
+        for oid in keys:
+            if is_valid_overlay_id(oid) or is_valid_skey(oid):
+                yield oid
+            else:
+                logger.warning("Skipping overlay state with invalid key %r", oid)
 
     def _populate_cache_locked(self) -> None:
-        """Walk the data directory once and index every overlay by both
+        """Scan the persisted ids once and index every overlay by both
         its raw id and its output key. Caller must hold ``self._lock``.
         """
         if self._all_overlays_scanned:
             return
-        for oid, _ in self._iter_persisted_ids():
+        try:
+            ids = list(self._iter_persisted_ids())
+        except Exception as exc:
+            # Leave the flag unset so the next lookup retries the scan.
+            logger.warning("Failed to list overlay states: %s", exc)
+            return
+        for oid in ids:
             self._output_key_cache[oid] = oid
             self._output_key_cache[self.get_output_key(oid)] = oid
         self._all_overlays_scanned = True
@@ -455,21 +486,30 @@ class OverlayStateStore:
     def create_overlay(self, overlay_id: str) -> bool:
         """Create a new overlay with default state.  Returns True if created."""
         try:
-            path = self.get_state_file_path(overlay_id)
+            safe_id = self._sanitize_id(overlay_id)
         except ValueError:
             logger.warning("create_overlay rejected invalid id: %r", overlay_id)
             return False
-        with self._get_persistence_lock(overlay_id), self._lock:
-            # Hold both locks across the existence check and write so two
-            # concurrent first-touches cannot both create default state.
-            if os.path.exists(path):
+        with self._get_persistence_lock(safe_id):
+            # Hold the overlay's write lock across the existence check and
+            # write so two concurrent first-touches cannot both create
+            # default state.
+            if self.overlay_exists(safe_id):
                 return False
-            self._save_persisted_state_unlocked(
-                overlay_id, get_default_state()
-            )
-            self._output_key_cache[overlay_id] = overlay_id
-            self._output_key_cache[self.get_output_key(overlay_id)] = overlay_id
-        logger.info("Overlay '%s' created", overlay_id)
+            state = self._stamp_meta(get_default_state(), safe_id)
+            try:
+                created = self._insert_row(safe_id, state)
+            except Exception as exc:
+                logger.warning("Failed to create state for '%s': %s", safe_id, exc)
+                return False
+            with self._lock:
+                self._existing.add(safe_id)
+            if not created:
+                return False
+            with self._lock:
+                self._output_key_cache[safe_id] = safe_id
+                self._output_key_cache[self.get_output_key(safe_id)] = safe_id
+        logger.info("Overlay '%s' created", safe_id)
         return True
 
     def ensure_overlay(self, overlay_id: str) -> None:
@@ -478,32 +518,43 @@ class OverlayStateStore:
             self.create_overlay(overlay_id)
 
     def delete_overlay(self, overlay_id: str) -> bool:
-        """Delete an overlay's state file and in-memory context."""
+        """Delete an overlay's persisted state and in-memory context."""
         try:
-            path = self.get_state_file_path(overlay_id)
+            safe_id = self._sanitize_id(overlay_id)
         except ValueError:
             logger.warning("delete_overlay rejected invalid id: %r", overlay_id)
             return False
         existed = False
-        with self._get_persistence_lock(overlay_id):
-            if os.path.exists(path):
-                os.remove(path)
-                existed = True
+        with self._get_persistence_lock(safe_id):
+            try:
+                with runtime_session() as db:
+                    result = db.execute(
+                        delete(OverlayRuntimeState).where(
+                            OverlayRuntimeState.store_key == safe_id
+                        )
+                    )
+                    existed = bool(getattr(result, "rowcount", 0))
+            except Exception as exc:
+                logger.warning("Failed to delete state for '%s': %s", safe_id, exc)
             with self._lock:
-                if overlay_id in self._overlays:
-                    del self._overlays[overlay_id]
+                self._existing.discard(safe_id)
+                self._delete_generation[safe_id] = (
+                    self._delete_generation.get(safe_id, 0) + 1
+                )
+                if safe_id in self._overlays:
+                    del self._overlays[safe_id]
                     existed = True
-                self._output_key_cache.pop(overlay_id, None)
-                self._output_key_cache.pop(self.get_output_key(overlay_id), None)
+                self._output_key_cache.pop(safe_id, None)
+                self._output_key_cache.pop(self.get_output_key(safe_id), None)
         if existed:
-            logger.info("Overlay '%s' deleted", overlay_id)
+            logger.info("Overlay '%s' deleted", safe_id)
         return existed
 
     def list_overlays(self) -> list:
         """Return a list of ``{id, output_key}`` for all persisted overlays."""
         entries = [
             {"id": oid, "output_key": self.get_output_key(oid)}
-            for oid, _ in self._iter_persisted_ids()
+            for oid in self._iter_persisted_ids()
         ]
         entries.sort(key=lambda e: e["id"])
         return entries

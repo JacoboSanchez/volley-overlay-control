@@ -457,7 +457,7 @@ body required.
 - Returns `success: false` with `message: "Nothing to undo."` when
   no undoable forward record exists for this OID.
 - The stack is sourced from the per-OID audit log
-  (`data/audit_<hash>.jsonl`), so it survives reload, is shared
+  (the `runtime_audit_events` table), so it survives reload, is shared
   between concurrent clients, and skips past non-undoable actions
   (`change_serve`, `set_score`, `set_sets_value`, `reset`) that
   remain in the log untouched.

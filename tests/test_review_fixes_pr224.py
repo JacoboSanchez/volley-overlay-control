@@ -40,39 +40,32 @@ def sync_dispatcher(monkeypatch):
 # ---------------------------------------------------------------------------
 
 class TestPopAtomicRewrite:
-    def test_pop_uses_atomic_replace(self, monkeypatch):
-        """Verify ``pop_last_forward`` writes via mkstemp + os.replace
-        rather than truncating the original file.
+    def test_pop_never_rewrites_existing_rows(self, runtime_db):
+        """``pop_last_forward`` only appends a tombstone row.
 
-        We patch ``open`` to record the modes it's called with.
-        Pre-fix the path was opened with mode ``"w"`` (truncates
-        immediately, lose-everything-on-crash). Post-fix the
-        rewrite goes through ``os.fdopen`` of an mkstemp fd, so
-        the original path is never opened ``"w"``.
+        The original fix replaced a truncate-then-rewrite of the JSONL file
+        with an atomic rewrite. With the log in the runtime table the
+        stronger property holds: rows already written are never updated or
+        deleted by a pop, so a crash mid-pop can lose nothing.
         """
+        from sqlalchemy import event
+
         action_log.append("oid-atomic", "add_point", {"team": 1}, {})
-        path = action_log._path("oid-atomic")
+        mutations: list[str] = []
 
-        opened_modes: list[tuple[str, str]] = []
-        real_open = open
+        def _on_execute(conn, cursor, statement, params, context, executemany):
+            head = statement.lstrip().upper()
+            if head.startswith(("UPDATE", "DELETE")):
+                mutations.append(statement)
 
-        def tracking_open(file, mode="r", *args, **kwargs):
-            opened_modes.append((str(file), mode))
-            return real_open(file, mode, *args, **kwargs)
-
-        monkeypatch.setattr("builtins.open", tracking_open)
-
-        action_log.pop_last_forward(
-            "oid-atomic", allowed_actions={"add_point"},
-        )
-
-        # The original audit path must NOT be opened with truncating
-        # write mode anywhere in pop_last_forward.
-        truncating_writes_to_audit = [
-            (p, m) for (p, m) in opened_modes
-            if p == path and m == "w"
-        ]
-        assert truncating_writes_to_audit == []
+        event.listen(runtime_db, "before_cursor_execute", _on_execute)
+        try:
+            action_log.pop_last_forward(
+                "oid-atomic", allowed_actions={"add_point"},
+            )
+        finally:
+            event.remove(runtime_db, "before_cursor_execute", _on_execute)
+        assert mutations == []
 
     def test_pop_survives_concurrent_truncation_simulation(self):
         """End-to-end check: the file ends up containing the right

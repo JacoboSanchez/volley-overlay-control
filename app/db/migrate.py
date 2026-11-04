@@ -70,8 +70,18 @@ def _migration_lock() -> Iterator[None]:
 
 
 def run_migrations() -> None:
-    """Upgrade the database to ``head``. Safe to call repeatedly."""
+    """Upgrade the database to ``head``. Safe to call repeatedly.
+
+    Also prepares the runtime-state database (:mod:`app.db.runtime`), which
+    Alembic does not manage, and imports any pre-database runtime files —
+    both idempotent, both under the same cross-process lock.
+    """
+    from app.db.runtime import init_runtime_schema
+    from app.db.runtime_import import import_legacy_runtime_files
+
     with _migration_lock():
         cfg = _alembic_config()
         logger.info("Running database migrations (alembic upgrade head)")
         command.upgrade(cfg, "head")
+        init_runtime_schema()
+        import_legacy_runtime_files()

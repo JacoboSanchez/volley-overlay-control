@@ -151,8 +151,8 @@ dependency.
 │   └── pwa/                 # Legacy PWA assets (icons).
 ├── overlay_templates/       # Jinja2 HTML templates for overlay styles (16 templates).
 ├── overlay_static/          # Static assets for overlays (JS, CSS, images).
-├── data/                    # Runtime data dir: SQLite app.db (default), live overlay state JSON,
-│                            #   audit logs, and minted-token files (.session_secret, .admin_bootstrap_token, etc.).
+├── data/                    # Runtime data dir: SQLite app.db + runtime.db (default), media/,
+│                            #   and minted-token files (.session_secret, .admin_bootstrap_token, etc.).
 ├── font/                    # Custom font files for the overlay.
 └── tests/                   # Pytest suite.
     ├── conftest.py          # Test fixtures: in-memory SQLite db_session, make_user, login_client, auth_client, app_client.
@@ -511,7 +511,7 @@ Every overlay is managed **in-process** by `LocalOverlayBackend`. State flows di
 
 ### OID resolution
 
-`resolve_overlay_kind` (in `app/overlay_backends/utils.py`) maps every request to the in-process `LocalOverlayBackend`. A bare OID (or the legacy `C-<id>` form) resolves to the in-process engine; the `OverlayStateStore` holds its render state on disk in `data/overlay_state_<hash>.json`, where the hashed input is the per-user storage key (`skey`), not the bare id.
+`resolve_overlay_kind` (in `app/overlay_backends/utils.py`) maps every request to the in-process `LocalOverlayBackend`. A bare OID (or the legacy `C-<id>` form) resolves to the in-process engine; the `OverlayStateStore` holds its render state as a `runtime_overlay_state` row (see `app/db/runtime.py`) keyed by the per-user storage key (`skey`), not the bare id.
 
 The bare ID is always preferred; the `C-` prefix is accepted for backwards compatibility but omitted from the UI.
 

@@ -107,12 +107,12 @@ class TestObserverContract:
         assert [e for _, e, _, _ in events] == [action_log.EVENT_INVALIDATE]
 
     def test_rotation_downgrades_an_append_to_invalidate(self, events):
-        # Rotation can discard the oldest slot, so a client whose window
-        # reaches into the dropped file cannot simply extend.
+        # Retention pruning discards the oldest rows, so a client whose
+        # window reaches into them cannot simply extend.
         action_log.append("oid-a", "add_point", {"team": 1}, {})
         events.clear()
 
-        with patch("app.api.action_log._rotate_if_needed_locked", return_value=True):
+        with patch("app.api.action_log._prune_if_needed_locked", return_value=True):
             action_log.append("oid-a", "add_point", {"team": 2}, {})
 
         assert len(events) == 1
@@ -228,24 +228,24 @@ class TestPageVersionAtomicity:
         assert zero_limit_version == action_log.version("oid-a")
 
     def test_empty_log_check_happens_under_the_lock(self):
-        # The "no file yet" shortcut has to be inside the same lock as the
+        # Reading an empty log has to happen inside the same lock as the
         # populated path. Outside it, the first append can land between
-        # the existence test and the version sample, and the caller is
-        # told "empty, at version 1" — after which it reads the *next*
-        # append as contiguous and loses the first record for good.
+        # the read and the version sample, and the caller is told "empty,
+        # at version 1" — after which it reads the *next* append as
+        # contiguous and loses the first record for good.
         held_during_check: list[bool] = []
-        real_has_any = action_log._has_any_log_file
+        real_read_raw = action_log._read_raw_locked
 
-        def _spy(path):
+        def _spy(oid):
             lock = action_log._lock_for("oid-empty")
             acquired = lock.acquire(blocking=False)
             # Failing to acquire means this thread already holds it.
             held_during_check.append(not acquired)
             if acquired:
                 lock.release()
-            return real_has_any(path)
+            return real_read_raw(oid)
 
-        with patch.object(action_log, "_has_any_log_file", _spy):
+        with patch.object(action_log, "_read_raw_locked", _spy):
             records, _, log_version = action_log.read_page("oid-empty", limit=10)
 
         assert records == []
@@ -257,13 +257,13 @@ class TestPageVersionAtomicity:
         held_during_read: list[bool] = []
         real_read = action_log._read_visible_locked
 
-        def _spy(path, oid):
+        def _spy(oid):
             lock = action_log._lock_for(oid)
             acquired = lock.acquire(blocking=False)
             held_during_read.append(not acquired)
             if acquired:
                 lock.release()
-            return real_read(path, oid)
+            return real_read(oid)
 
         with patch.object(action_log, "_read_visible_locked", _spy):
             records, _, log_version = action_log.read_page("oid-a", limit=10)

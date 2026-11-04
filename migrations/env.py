@@ -30,6 +30,19 @@ config.set_main_option("sqlalchemy.url", database_url())
 target_metadata = Base.metadata
 
 
+def _include_object(obj, name, type_, reflected, compare_to):
+    """Keep autogenerate away from the runtime-state tables.
+
+    ``app.db.runtime`` owns ``runtime_*`` tables with its own metadata (on
+    PostgreSQL they share this database). Without this filter an
+    autogenerate run would see them as "removed" and emit drops.
+    """
+    from app.db.runtime import is_runtime_table
+
+    table_name = name if type_ == "table" else getattr(getattr(obj, "table", None), "name", None)
+    return not is_runtime_table(table_name)
+
+
 def run_migrations_offline() -> None:
     context.configure(
         url=config.get_main_option("sqlalchemy.url"),
@@ -38,6 +51,7 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
         render_as_batch=True,
         compare_type=True,
+        include_object=_include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -88,6 +102,7 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
             render_as_batch=True,
             compare_type=True,
+            include_object=_include_object,
         )
         with context.begin_transaction():
             context.run_migrations()

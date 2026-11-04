@@ -232,10 +232,13 @@ single instance and all runtime files are shared carefully.
 
 ### Proposal
 
-- Introduce a runtime-state interface independent of local JSON files.
-- Use Redis Pub/Sub or Streams for cross-process state and presence broadcasts.
-- Store durable runtime/audit data in the database or an explicitly configured
-  shared store.
+- ✅ Store durable runtime/audit data in the database: overlay state, session
+  flags and the audit log are `runtime_*` tables (`app/db/runtime.py`), in the
+  main database on PostgreSQL. What remains process-local is the in-memory
+  caches over them (overlay contexts, parsed audit records, version counters),
+  which a second replica would not see invalidated.
+- Use Redis Pub/Sub or Streams for cross-process state and presence
+  broadcasts, and to invalidate those caches across replicas.
 - Document sticky sessions as an interim deployment constraint.
 - Move authentication throttling to a shared edge layer for multi-replica
   deployments.

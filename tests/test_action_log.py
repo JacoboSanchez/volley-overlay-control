@@ -1,6 +1,4 @@
 """Tests for app/api/action_log.py and the GameService write path."""
-import json
-import os
 
 import pytest
 
@@ -9,6 +7,46 @@ from app.api.game_service import GameService
 from app.api.session_manager import SessionManager
 
 pytestmark = pytest.mark.usefixtures("clean_sessions")
+
+
+def _stored_records(engine, oid: str) -> list[dict]:
+    from sqlalchemy import select
+    from sqlalchemy.orm import Session
+
+    from app.db.runtime import AuditEvent
+
+    with Session(engine) as db:
+        return list(db.scalars(
+            select(AuditEvent.record)
+            .where(AuditEvent.store_key == oid)
+            .order_by(AuditEvent.id)
+        ))
+
+
+def _row_count(engine, oid: str | None = None) -> int:
+    from sqlalchemy import func, select
+    from sqlalchemy.orm import Session
+
+    from app.db.runtime import AuditEvent
+
+    query = select(func.count()).select_from(AuditEvent)
+    if oid is not None:
+        query = query.where(AuditEvent.store_key == oid)
+    with Session(engine) as db:
+        return int(db.scalar(query) or 0)
+
+
+def _stored_bytes(engine, oid: str) -> int:
+    from sqlalchemy import func, select
+    from sqlalchemy.orm import Session
+
+    from app.db.runtime import AuditEvent
+
+    with Session(engine) as db:
+        return int(db.scalar(
+            select(func.coalesce(func.sum(AuditEvent.size), 0))
+            .where(AuditEvent.store_key == oid)
+        ) or 0)
 
 
 # ---------------------------------------------------------------------------
@@ -29,19 +67,14 @@ class TestActionLog:
     def test_read_all_when_missing(self):
         assert action_log.read_all("never-written") == []
 
-    def test_invalid_oid_silently_ignored(self):
+    def test_invalid_oid_silently_ignored(self, runtime_db):
         # ``with/slash`` is intentionally omitted: custom-overlay OIDs
-        # legitimately contain slashes and the basename hashes the OID
-        # before touching the filesystem, so slash is safe.
+        # legitimately contain slashes.
         action_log.append("../bad", "add_point", {}, {})
         action_log.append("", "add_point", {}, {})
         action_log.append("white space", "add_point", {}, {})
-        # Verify no files were created.
-        files = [
-            f for f in os.listdir(action_log._data_dir())
-            if f.startswith("audit_")
-        ]
-        assert files == []
+        # Verify no rows were created.
+        assert _row_count(runtime_db) == 0
 
     def test_read_recent_returns_tail(self):
         for i in range(10):
@@ -138,66 +171,72 @@ class TestActionLog:
         assert len(remaining) == 1
         assert remaining[0]["params"] == {"team": 1}
 
-    def test_pop_last_forward_appends_tombstone_no_rewrite(self):
-        """Pop must be append-only: the file size before+after a pop
-        differs by exactly the tombstone line, not by a rewrite. This
-        is the perf invariant — undo cost stays O(1) regardless of
-        how many records the audit log already holds."""
+    def test_pop_last_forward_appends_tombstone_no_rewrite(self, runtime_db):
+        """Pop must be append-only: the stored rows before a pop are left
+        exactly as they were and a single tombstone row is added. This is
+        the perf invariant — undo cost stays O(1) regardless of how many
+        records the audit log already holds."""
         for i in range(20):
             action_log.append(
                 "oid-tomb", "add_point", {"team": 1, "undo": False},
                 {"i": i},
             )
-        path = action_log._path("oid-tomb")
-        size_before = os.path.getsize(path)
-        with open(path, "rb") as f:
-            content_before = f.read()
+        rows_before = _stored_records(runtime_db, "oid-tomb")
 
         popped = action_log.pop_last_forward("oid-tomb")
         assert popped is not None
         assert popped["params"]["team"] == 1
 
-        with open(path, "rb") as f:
-            content_after = f.read()
-        # The original 20 lines must remain byte-identical at the head
-        # of the file (append-only). Only a single tombstone line is
-        # added at the end.
-        assert content_after.startswith(content_before)
-        size_after = os.path.getsize(path)
-        assert size_after > size_before
+        rows_after = _stored_records(runtime_db, "oid-tomb")
+        # The original 20 rows remain identical at the head (append-only);
+        # only a single tombstone row is added at the end.
+        assert rows_after[:20] == rows_before
+        assert len(rows_after) == 21
+        assert rows_after[-1]["action"] == "_pop"
+        assert rows_after[-1]["ref_ts"] == popped["ts"]
         # read_all hides both the popped record and the tombstone.
         remaining = action_log.read_all("oid-tomb")
         assert len(remaining) == 19
         assert all(r["action"] == "add_point" for r in remaining)
 
-    def test_skips_malformed_lines(self):
-        path = action_log._path("oid-bad")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write("not json\n")
-            f.write(json.dumps({"ts": 1, "action": "ok"}) + "\n")
-            f.write("\n")
-            f.write("garbage{}garbage\n")
+    def test_skips_non_object_records(self):
+        """A stored value that is not a JSON object is ignored, not fatal."""
+        from app.db.runtime import AuditEvent, runtime_session
+
+        with runtime_session() as db:
+            db.add(AuditEvent(store_key="oid-bad", ts=0.5, size=6, record=["x"]))
+            db.add(AuditEvent(store_key="oid-bad", ts=1.0, size=20,
+                              record={"ts": 1, "action": "ok"}))
         records = action_log.read_all("oid-bad")
         assert len(records) == 1
         assert records[0]["action"] == "ok"
 
+    def test_float_timestamps_round_trip_exactly(self):
+        """Tombstones match their target by ``ts`` equality, so the stored
+        float must come back bit-identical after a cold read."""
+        written = action_log.append("oid-ts", "add_point", {"team": 1}, {})
+        action_log._raw_cache.clear()
+        (record,) = action_log.read_all("oid-ts")
+        assert record["ts"] == written["ts"]
+        assert action_log.pop_last_forward("oid-ts") is not None
+        action_log._raw_cache.clear()
+        assert action_log.read_all("oid-ts") == []
+
 
 # ---------------------------------------------------------------------------
-# Rotation (M13)
+# Retention cap (replaces file rotation)
 # ---------------------------------------------------------------------------
 
 
-class TestActionLogRotation:
-    """Verify size-based rotation, cross-file reads, and cleanup."""
+class TestActionLogRetention:
+    """The per-OID byte cap drops the oldest rows, one "file" at a time."""
 
     @pytest.fixture
-    def small_rotation(self, monkeypatch):
-        """Shrink AUDIT_LOG_MAX_BYTES so rotation is reachable from a test.
+    def small_cap(self, monkeypatch):
+        """Shrink the cap so it is reachable from a test.
 
-        The constant is read at import time; setting the env var afterwards
-        is too late. Patch the module attribute directly instead so the
-        next ``append`` sees the new threshold.
+        The constants are read at import time; patch the module attributes
+        so the next ``append`` sees them. Cap = 200 B x 3 = 600 B.
         """
         monkeypatch.setattr(action_log, "AUDIT_LOG_MAX_BYTES", 200)
         monkeypatch.setattr(action_log, "AUDIT_LOG_MAX_FILES", 3)
@@ -207,85 +246,96 @@ class TestActionLogRotation:
         for i in range(n):
             action_log.append(oid, "add_point", {"team": 1, "i": i}, {"x": i})
 
-    def test_no_rotation_under_threshold(self, small_rotation):
-        # Two small records stay well under 200 bytes — file should not rotate.
+    def test_nothing_dropped_under_cap(self, small_cap):
         action_log.append("rot-1", "add_point", {"team": 1}, {"x": 1})
         action_log.append("rot-1", "add_point", {"team": 2}, {"x": 2})
-        path = action_log._path("rot-1")
-        assert os.path.exists(path)
-        assert not os.path.exists(action_log._rotated_path(path, 1))
         assert len(action_log.read_all("rot-1")) == 2
 
-    def test_rotates_when_active_exceeds_threshold(self, monkeypatch):
-        # Cap=10 is generous enough that 10 records (~95 B each, threshold
-        # 200 B → rotation every ~3 records → ~4 files) all survive. This
-        # specifically exercises read_all stitching across the rotation
-        # boundary; the cap-eviction case is covered by
-        # test_oldest_records_dropped_when_cap_hit below.
+    def test_large_cap_keeps_everything_in_order(self, monkeypatch):
         monkeypatch.setattr(action_log, "AUDIT_LOG_MAX_BYTES", 200)
         monkeypatch.setattr(action_log, "AUDIT_LOG_MAX_FILES", 10)
         self._spam("rot-2", 10)
-        path = action_log._path("rot-2")
-        assert os.path.exists(action_log._rotated_path(path, 1))
         records = action_log.read_all("rot-2")
-        assert len(records) == 10
         assert [r["params"]["i"] for r in records] == list(range(10))
 
-    def test_rotation_caps_at_max_files(self, small_rotation):
-        # AUDIT_LOG_MAX_FILES=3 means active + .1 + .2 (3 files total).
-        self._spam("rot-3", 60)
-        path = action_log._path("rot-3")
-        # Slot .3 must never appear.
-        assert not os.path.exists(action_log._rotated_path(path, 3))
-        # Slot .2 (oldest survivor) and .1 (newest rotated) may exist.
-        assert os.path.exists(action_log._rotated_path(path, 2))
-        assert os.path.exists(action_log._rotated_path(path, 1))
+    def test_stored_bytes_never_exceed_cap_after_an_append(self, small_cap, runtime_db):
+        cap = 200 * 3
+        for i in range(60):
+            action_log.append("rot-3", "add_point", {"team": 1, "i": i}, {"x": i})
+            # The cap is enforced before each insert, so the total may exceed
+            # it by at most the one record just written.
+            assert _stored_bytes(runtime_db, "rot-3") <= cap + 200
 
-    def test_oldest_records_dropped_when_cap_hit(self, small_rotation):
+    def test_oldest_records_dropped_when_cap_hit(self, small_cap):
         self._spam("rot-4", 60)
         records = action_log.read_all("rot-4")
-        # Some prefix of records was lost to the cap; every surviving
-        # record's index must be strictly increasing (no shuffling).
         ids = [r["params"]["i"] for r in records]
         assert ids == sorted(ids)
-        # The newest record (i=59) must always survive — it's in the
-        # active file.
         assert ids[-1] == 59
+        assert ids[0] > 0
 
-    def test_clear_removes_all_rotated_files(self, small_rotation):
+    def test_prune_drops_a_whole_file_worth_at_once(self, small_cap, runtime_db):
+        """Pruning frees ~AUDIT_LOG_MAX_BYTES, not just one row, so it does
+        not run on every append once the cap is reached."""
+        self._spam("rot-8", 60)
+        assert _stored_bytes(runtime_db, "rot-8") <= 200 * 2 + 200
+
+    def test_running_total_reseeds_from_the_table(self, small_cap, runtime_db):
+        """A fresh process has no in-memory byte total; it must seed from
+        the stored rows rather than assume zero and overrun the cap."""
+        self._spam("rot-9", 20)
+        action_log._bytes_per_oid.clear()
+        self._spam("rot-9", 40)
+        assert _stored_bytes(runtime_db, "rot-9") <= 200 * 3 + 200
+
+    def test_pop_first_after_restart_seeds_the_running_total(self, small_cap, runtime_db):
+        """A tombstone can be the first write after a restart; it must seed
+        the byte total from the table instead of counting from zero."""
+        self._spam("rot-11", 5)
+        stored = _stored_bytes(runtime_db, "rot-11")
+        action_log._bytes_per_oid.clear()
+        action_log._raw_cache.clear()
+        assert action_log.pop_last_forward("rot-11") is not None
+        assert action_log._bytes_per_oid["rot-11"] == _stored_bytes(runtime_db, "rot-11")
+        assert action_log._bytes_per_oid["rot-11"] > stored
+
+    def test_overcounted_total_is_corrected_by_a_prune(self, small_cap, runtime_db):
+        self._spam("rot-12", 3)
+        action_log._bytes_per_oid["rot-12"] = 10_000  # rows vanished elsewhere
+        action_log.append("rot-12", "add_point", {"team": 1}, {})
+        assert action_log._bytes_per_oid["rot-12"] == _stored_bytes(runtime_db, "rot-12")
+
+    def test_single_slot_cap_truncates_on_overflow(self, monkeypatch):
+        monkeypatch.setattr(action_log, "AUDIT_LOG_MAX_BYTES", 200)
+        monkeypatch.setattr(action_log, "AUDIT_LOG_MAX_FILES", 1)
+        self._spam("rot-10", 30)
+        assert len(action_log.read_all("rot-10")) < 30
+
+    def test_clear_removes_all_rows(self, small_cap, runtime_db):
         self._spam("rot-5", 60)
-        path = action_log._path("rot-5")
-        assert os.path.exists(action_log._rotated_path(path, 1))
         action_log.clear("rot-5")
-        assert not os.path.exists(path)
-        for i in range(1, 5):
-            assert not os.path.exists(action_log._rotated_path(path, i))
+        assert _row_count(runtime_db, "rot-5") == 0
         assert action_log.read_all("rot-5") == []
 
-    def test_delete_removes_all_rotated_files(self, small_rotation):
+    def test_delete_removes_all_rows(self, small_cap, runtime_db):
         self._spam("rot-6", 60)
-        path = action_log._path("rot-6")
         assert action_log.delete("rot-6") is True
-        assert not os.path.exists(path)
-        for i in range(1, 5):
-            assert not os.path.exists(action_log._rotated_path(path, i))
+        assert _row_count(runtime_db, "rot-6") == 0
         # Second delete returns False (idempotent).
         assert action_log.delete("rot-6") is False
 
-    def test_pop_can_tombstone_record_in_rotated_file(self, small_rotation):
-        # Forward record lands in rotated archive after enough spam;
-        # tombstone goes to the active file. read_all must hide both.
+    def test_delete_leaves_other_overlays_alone(self, runtime_db):
+        self._spam("keep-me", 3)
+        self._spam("drop-me", 3)
+        action_log.delete("drop-me")
+        assert len(action_log.read_all("keep-me")) == 3
+
+    def test_pop_after_pruning_still_hides_target(self, small_cap):
         self._spam("rot-7", 30)
-        path = action_log._path("rot-7")
-        assert os.path.exists(action_log._rotated_path(path, 1))
-        # Pop the most recent forward; target may live in the active
-        # file but the cross-file machinery is exercised regardless.
         target = action_log.pop_last_forward("rot-7")
         assert target is not None
         records = action_log.read_all("rot-7")
-        # The popped record must not appear in the visible view.
         assert target not in records
-        # The tombstone itself must also be hidden.
         assert all(r["action"] != "_pop" for r in records)
 
 
@@ -299,31 +349,35 @@ class TestParsedRecordCache:
 
     ``GameService.add_point`` audits before building its state response,
     which invalidates the live-stats memo, whose recompute calls
-    ``read_all``. Before the cache that made every scored point re-read and
-    re-parse the whole log (active file plus every rotated one).
+    ``read_all``. Without the cache every scored point would re-read the
+    whole log.
     """
 
     @pytest.fixture
-    def count_file_reads(self, monkeypatch):
-        """Count how many log files get opened and parsed."""
+    def count_file_reads(self, runtime_db):
+        """Count full-log SELECTs against the audit table."""
+        from sqlalchemy import event
+
         calls = []
-        original = action_log._read_one_file_locked
 
-        def counting(path, oid):
-            calls.append(path)
-            return original(path, oid)
+        def _on_execute(conn, cursor, statement, params, context, executemany):
+            if statement.lstrip().upper().startswith("SELECT") and (
+                "runtime_audit_events.record" in statement
+            ):
+                calls.append(statement)
 
-        monkeypatch.setattr(action_log, "_read_one_file_locked", counting)
-        return calls
+        event.listen(runtime_db, "before_cursor_execute", _on_execute)
+        yield calls
+        event.remove(runtime_db, "before_cursor_execute", _on_execute)
 
     def test_append_then_read_does_not_reparse(self, count_file_reads):
         action_log.append("cache-1", "add_point", {"team": 1}, {"x": 1})
-        # First read populates the cache from disk.
+        # First read populates the cache from the table.
         assert len(action_log.read_all("cache-1")) == 1
         assert len(count_file_reads) == 1
 
         # Steady state: each append folds itself into the cache, so the
-        # follow-up read costs zero file reads.
+        # follow-up read costs zero table reads.
         count_file_reads.clear()
         for i in range(20):
             action_log.append("cache-1", "add_point", {"team": 1}, {"x": i})
@@ -332,20 +386,20 @@ class TestParsedRecordCache:
         assert len(action_log.read_all("cache-1")) == 21
 
     def test_cached_view_matches_disk(self):
-        """The cache must never diverge from a cold read of the files."""
+        """The cache must never diverge from a cold read of the table."""
         for i in range(10):
             action_log.append("cache-2", "add_point", {"team": 1, "i": i}, {"x": i})
         action_log.pop_last_forward("cache-2")
         warm = action_log.read_all("cache-2")
 
-        # Drop the cache and read the same log straight from disk.
+        # Drop the cache and read the same log straight from the table.
         action_log._raw_cache.pop("cache-2", None)
         cold = action_log.read_all("cache-2")
         assert warm == cold
 
     def test_rotation_invalidates_cache(self, monkeypatch):
-        """Rotation can discard the oldest file; the cache must not
-        keep serving records that are no longer on disk."""
+        """Pruning discards the oldest rows; the cache must not keep
+        serving records that are no longer stored."""
         monkeypatch.setattr(action_log, "AUDIT_LOG_MAX_BYTES", 200)
         monkeypatch.setattr(action_log, "AUDIT_LOG_MAX_FILES", 2)
         for i in range(40):
@@ -356,7 +410,7 @@ class TestParsedRecordCache:
         action_log._raw_cache.pop("cache-3", None)
         cold = action_log.read_all("cache-3")
         assert warm == cold
-        # Rotation actually dropped records, so this is a real check.
+        # Pruning actually dropped records, so this is a real check.
         assert len(cold) < 40
 
     def test_clear_drops_cache(self):
@@ -372,15 +426,15 @@ class TestParsedRecordCache:
         assert "cache-5" in action_log._raw_cache
         action_log.evict_cache("cache-5")
         assert "cache-5" not in action_log._raw_cache
-        # Eviction is a memory concern only — the records survive on disk.
+        # Eviction is a memory concern only — the records stay stored.
         assert len(action_log.read_all("cache-5")) == 1
 
     def test_evict_cache_keeps_timestamps_monotonic(self, monkeypatch):
         """Eviction must not drop the monotonic timestamp tracker.
 
-        The log files outlive the session, so if ``_last_ts_per_oid`` were
+        The log rows outlive the session, so if ``_last_ts_per_oid`` were
         cleared here a wall-clock rollback would let the next append reuse a
-        timestamp already on disk. Tombstones reference records by ``ts``, so
+        timestamp already stored. Tombstones reference records by ``ts``, so
         a duplicate lets one ``_pop`` cancel two records.
         """
         clock = [1_000_000.0]
@@ -389,7 +443,7 @@ class TestParsedRecordCache:
         action_log.append("cache-7", "add_point", {"team": 1}, {"x": 1})
         action_log.evict_cache("cache-7")
 
-        # Clock jumps backwards while the log file is still on disk.
+        # Clock jumps backwards while the log rows are still stored.
         clock[0] -= 60.0
         action_log.append("cache-7", "add_point", {"team": 1}, {"x": 2})
 

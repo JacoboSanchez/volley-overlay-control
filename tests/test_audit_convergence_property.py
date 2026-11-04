@@ -324,29 +324,23 @@ def _fire_seam() -> None:
 
 def _read_page_version_outside_lock(oid: str, limit: int) -> tuple:
     """Defect (1): sample the counter, *then* build the page."""
-    path = action_log._path(oid)
-    if path is None:
+    if not action_log._valid(oid):
         return [], None, action_log.version(oid)
     log_version = action_log.version(oid)
     _fire_seam()
     try:
         with action_log._lock_for(oid):
-            records = (
-                action_log._read_visible_locked(path, oid)
-                if limit > 0 and action_log._has_any_log_file(path)
-                else []
-            )
+            records = action_log._read_visible_locked(oid) if limit > 0 else []
     except Exception:
         return [], None, None
     return records[-limit:] if limit > 0 else [], None, log_version
 
 
 def _read_page_empty_fast_path_outside_lock(oid: str, limit: int) -> tuple:
-    """Defect (4): test for "no file yet" before taking the lock."""
-    path = action_log._path(oid)
-    if path is None:
+    """Defect (4): test for "no rows yet" before taking the lock."""
+    if not action_log._valid(oid):
         return [], None, action_log.version(oid)
-    if not action_log._has_any_log_file(path):
+    if not action_log._read_raw_locked(oid):  # deliberately unlocked
         _fire_seam()
         return [], None, action_log.version(oid)
     return _real_read_page(oid, limit)
