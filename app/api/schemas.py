@@ -779,3 +779,26 @@ class UpdateOverlayRequest(BaseModel):
     description: str | None = Field(None, max_length=120)
     public_control: bool | None = Field(None, description="Toggle no-login username+oid control")
     is_favorite: bool | None = Field(None, description="Pin or unpin this overlay in the owner's list")
+
+
+class AuditDivergence(BaseModel):
+    field: Literal["current_set", "serve", "sets", "score", "timeouts"] = Field(
+        ..., description="Which part of the match state disagrees"
+    )
+    set_number: int | None = Field(None, description="Set the field belongs to (score / timeouts)")
+    team: int | None = Field(None, description="Team the field belongs to (1 or 2)")
+    replayed: int | str = Field(..., description="Value rebuilt from the audit log")
+    live: int | str = Field(..., description="Value in the live match state")
+
+
+class AuditConsistencyResponse(BaseModel):
+    consistent: bool = Field(..., description="True when the replayed history matches the live state")
+    records: int = Field(..., description="Visible audit records replayed")
+    skipped: int = Field(..., description="Records without a usable post-state snapshot")
+    starts_at_reset: bool = Field(
+        ..., description="History begins at a reset, so it covers the whole match"
+    )
+    covered_sets: list[int] = Field(
+        ..., description="Sets the surviving history scored in (others were pruned or never played)"
+    )
+    divergences: list[AuditDivergence] = Field(default_factory=list)

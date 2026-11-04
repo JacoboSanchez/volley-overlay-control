@@ -493,6 +493,7 @@ Because whatever answers gets to set most of this app's configuration — includ
 | `/api/v1/ws?oid=X` | WebSocket for real-time state updates (frontend; cookie-authenticated). |
 | `/api/v1/session/rules?oid=X` | `POST` — update match rules (`mode` indoor/beach, `points_limit`, `points_limit_last_set`, `sets_limit`, `reset_to_defaults`). Backs the React config panel's "Match rules" section. |
 | `/api/v1/audit?oid=X[&limit=N]` | `GET` — recent records from the per-OID action audit log (default `limit=100`, max `1000`). |
+| `/api/v1/audit/consistency?oid=X` | `GET` — rebuild the match from the audit log and list any field where it disagrees with the live scoreboard. |
 | `/api/v1/matches[?oid=X]` | `GET` — list the user's archived match reports with owner-scoped OID/mode/date filters, stable sorting and `limit`/`offset` paging. |
 | `/api/v1/matches/days` | `GET` — distinct local calendar days containing the user's archived matches (optional OID/mode filters). |
 | `/api/v1/matches/bulk-delete` | `POST` — transactionally delete up to 100 selected reports owned by the caller. |

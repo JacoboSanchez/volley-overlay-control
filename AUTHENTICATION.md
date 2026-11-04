@@ -224,6 +224,7 @@ board and cannot touch the owner's account.
 | `GET` | `/customization` | B | |
 | `GET` | `/config` | B | |
 | `GET` | `/audit` | B | Most-recent records from the board's audit log. |
+| `GET` | `/audit/consistency` | B | Replays the board's audit log and reports where it disagrees with the live state. |
 | `GET` | `/matches/live/stats` | B | Live stats for the *active* board session, computed from its audit log — not an archived match. |
 | `POST` | `/session/rules` | B | Update the board's match rules (mode, points, sets). |
 | `POST` | `/game/add-point` | B | |

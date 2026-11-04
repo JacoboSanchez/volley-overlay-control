@@ -20,6 +20,11 @@ from app.api.schemas import (
     GameStateResponse,
 )
 from app.customization_cache_ttl import customization_cache_ttl_seconds
+from app.state import State
+
+# Bound on stale forwards ``undo_last`` retires in one press; a log can only
+# accumulate them through manual corrections, one per corrected action.
+_MAX_STALE_FORWARDS = 50
 
 if TYPE_CHECKING:
     from app.api.game_service import GameService
@@ -141,6 +146,7 @@ class GameActions:
         undo: bool,
         point_type: str | None = None,
         error_type: str | None = None,
+        landing_set: int | None = None,
     ) -> bool:
         return _rapid_pair.consume_rapid_pair(
             session,
@@ -148,6 +154,7 @@ class GameActions:
             undo,
             point_type,
             error_type,
+            landing_set,
         )
 
     @classmethod
@@ -158,8 +165,44 @@ class GameActions:
         undo: bool,
         audit_record: dict[str, Any] | None,
         popped: dict[str, Any] | None,
+        serve_before: str | None = None,
+        popped_was_newest: bool = False,
     ) -> None:
-        _rapid_pair.record_rapid_pair_seed(session, team, undo, audit_record, popped)
+        _rapid_pair.record_rapid_pair_seed(
+            session, team, undo, audit_record, popped, serve_before, popped_was_newest,
+        )
+
+    @classmethod
+    def _undo_is_noop(cls, session: GameSession, record: dict[str, Any]) -> bool:
+        """Whether undoing *record* through its per-type API changes nothing."""
+        team = (record.get("params") or {}).get("team")
+        if team not in (1, 2) or not isinstance(record.get("ts"), (int, float)):
+            return False
+        action = record.get("action")
+        state = session.game_manager.get_current_state()
+        if action == "add_point":
+            return cls._undo_target_set(session, team) is None
+        if action == "add_timeout":
+            return state.get_timeout(team) <= 0
+        if action == "add_set":
+            return state.get_sets(team) <= 0
+        return False
+
+    @staticmethod
+    def _undo_target_set(session: GameSession, team: int) -> int | None:
+        """The set ``add_game(undo=True)`` would remove *team*'s point from.
+
+        Mirrors its rule: the current set, or the previous one when the
+        current set has no score for the team yet. ``None`` when there is
+        no point to remove.
+        """
+        state = session.game_manager.get_current_state()
+        target = session.current_set
+        if not 1 <= target <= State.MAX_SETS:
+            return None
+        if state.get_game(team, target) == 0 and target > 1:
+            target -= 1
+        return target if state.get_game(team, target) > 0 else None
 
     @classmethod
     def _invalidate_rapid_pair_cache(cls, session: GameSession) -> None:
@@ -194,6 +237,11 @@ class GameActions:
         # records the final score (e.g. 25-23) of the set that just
         # ended rather than the next set's empty 0-0.
         target_set_before_advance = session.current_set
+        undo_target = cls._undo_target_set(session, team) if undo else None
+        if undo_target is not None:
+            # An undo can fall back to the previous set; audit the set it
+            # actually changes so the snapshot describes that set.
+            target_set_before_advance = undo_target
 
         # Rapid-pair recovery: if the operator just performed the
         # opposite action on the same team within
@@ -201,12 +249,18 @@ class GameActions:
         # audit-log level. The state still mutates normally (set-end
         # / match-end / serve-change side effects re-fire) so a
         # set-winning recovery is honoured the same as any forward.
-        rapid_pair = _service(cls)._consume_rapid_pair(
+        pending_pair = dict(session.rapid_pair_cache.get(team) or {})
+        # An undo with nothing to remove cannot cancel a forward: collapsing
+        # would hide the forward's record while its point stays on the board.
+        rapid_pair = not (undo and undo_target is None) and _service(cls)._consume_rapid_pair(
             session,
             team,
             undo,
             point_type,
             error_type,
+            # Where this tap lands: an undo decrements the set it targets
+            # (possibly the previous one), a forward scores in the current.
+            landing_set=undo_target if undo else session.current_set,
         )
 
         # When the audit-log half is handled by the rapid-pair path
@@ -218,14 +272,24 @@ class GameActions:
         # callers manipulating state without a corresponding audit
         # record (e.g. via ``set_score``) keep their backward-
         # compatible no-op-on-zero semantics.
+        # An undo with nothing to remove (``add_game`` finds no point in the
+        # current set or the one before) must not pop a forward either:
+        # hiding a record for a point still on the board would make the log
+        # disagree with the state it is meant to describe.
+        will_pop = undo and not rapid_pair and undo_target is not None
+        newest = action_log.read_recent(session.oid, 1) if will_pop else []
         popped = (
             action_log.pop_last_forward(
                 session.oid,
                 allowed_actions={"add_point"},
                 team=team,
+                score_set=undo_target,
             )
-            if undo and not rapid_pair
+            if will_pop
             else None
+        )
+        popped_was_newest = bool(
+            popped is not None and newest and newest[-1].get("ts") == popped.get("ts")
         )
 
         set_won = session.game_manager.add_game(
@@ -239,6 +303,17 @@ class GameActions:
 
         if undo and session.undo:
             session.undo = False
+
+        if rapid_pair and undo:
+            # The undo cancelled a forward the audit log now forgets
+            # entirely, so the pair must be a true no-op on the state too:
+            # ``add_game`` hands the serve to the undoing team, which would
+            # leave a mistapped point's serve flip on air.
+            previous = pending_pair.get("serve_before")
+            if isinstance(previous, str):
+                session.game_manager.get_current_state().set_current_serve(
+                    State._parse_serve(previous)
+                )
 
         # ``_compute_current_set`` already handles the match-finished
         # case (returns t1+t2 without a +1 advance), so an extra
@@ -276,6 +351,8 @@ class GameActions:
                 undo,
                 audit_record,
                 popped,
+                serve_before.value if hasattr(serve_before, "value") else str(serve_before),
+                popped_was_newest,
             )
 
         # Compute the post-mutation state once and reuse it for the
@@ -425,13 +502,19 @@ class GameActions:
                 )
 
         _service(cls)._invalidate_rapid_pair_cache(session)
+        # ``GameManager.add_timeout`` undoes in the current set only, and is
+        # a no-op when that set has none; pop only a forward it actually
+        # reverses, so the log never hides a timeout still on the board.
+        state = session.game_manager.get_current_state()
+        undo_reverses = undo and state.get_timeout(team) > 0
         popped = (
             action_log.pop_last_forward(
                 session.oid,
                 allowed_actions={"add_timeout"},
                 team=team,
+                score_set=state.get_current_set(),
             )
-            if undo
+            if undo_reverses
             else None
         )
 
@@ -569,6 +652,22 @@ class GameActions:
             session.oid,
             allowed_actions=action_log.UNDOABLE_ACTIONS,
         )
+        # A manual correction can leave the newest forward with nothing to
+        # reverse (``set-score`` already zeroed that point; ``set-sets``
+        # moved the match to a set with no timeouts). Its per-type undo is a
+        # no-op that pops nothing, so dispatching to it would leave the
+        # operator stuck on it forever. Such a forward's effect is already
+        # gone from the board: retire it and keep walking to the newest
+        # action that can actually be undone.
+        for _ in range(_MAX_STALE_FORWARDS):
+            if record is None or not cls._undo_is_noop(session, record):
+                break
+            action_log.tombstone_ts(session.oid, record["ts"])
+            session.undoable_forward_count = max(0, session.undoable_forward_count - 1)
+            record = action_log.peek_last_forward(
+                session.oid,
+                allowed_actions=action_log.UNDOABLE_ACTIONS,
+            )
         if record is None:
             return ActionResponse(
                 success=False,

@@ -705,10 +705,17 @@ def delete(oid: str) -> bool:
     return removed
 
 
+def _record_score_set(record: dict) -> object:
+    """The set a record's snapshot scored in (older records: current set)."""
+    result = record.get("result") or {}
+    return result.get("score_set", result.get("current_set"))
+
+
 def _find_last_forward(
     records: list[dict],
     allowed_actions: AbstractSet[str] | None = None,
     team: int | None = None,
+    score_set: int | None = None,
 ) -> dict | None:
     """Walk *records* (already tombstone-filtered) in reverse and
     return the most recent non-undo record matching the filters."""
@@ -721,6 +728,8 @@ def _find_last_forward(
             continue
         if team is not None and params.get("team") != team:
             continue
+        if score_set is not None and _record_score_set(record) != score_set:
+            continue
         return record
     return None
 
@@ -729,6 +738,7 @@ def pop_last_forward(
     oid: str,
     allowed_actions: AbstractSet[str] | None = None,
     team: int | None = None,
+    score_set: int | None = None,
 ) -> dict | None:
     """Remove and return the most recent non-undo, allowed record.
 
@@ -738,6 +748,9 @@ def pop_last_forward(
     * If *team* is provided, records whose ``params.team`` does not
       match are also skipped. Used by the per-type undo path
       (``add_point(undo=True)`` etc.) to pop only the matching team.
+    * If *score_set* is provided, only a record that scored in that set
+      matches. A point undo passes the set it actually decrements, so it
+      never hides a point that is still on the board in another set.
     * The popped entry is NOT re-appended as an undo record; callers
       write a fresh record via :func:`append` after performing the
       inverse mutation.
@@ -755,7 +768,7 @@ def pop_last_forward(
         with _lock_for(oid):
             raw = _read_raw_locked(oid)
             filtered = _apply_tombstones(raw)
-            target = _find_last_forward(filtered, allowed_actions, team)
+            target = _find_last_forward(filtered, allowed_actions, team, score_set)
             if target is None:
                 return None
             target_ts = target.get("ts")

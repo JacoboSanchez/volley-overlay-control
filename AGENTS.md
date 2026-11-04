@@ -317,6 +317,7 @@ inventory; this table is a "what exists" index only.
 | `/api/v1/matches/{match_id}/sign-url` | `POST` — owner mints an HMAC-signed (`MATCH_REPORT_SIGNING_SECRET`) capability URL for `/match/{id}/report` |
 | `/api/v1/session/rules?oid=X` | `POST` — update match rules (mode, points, sets) for the session |
 | `/api/v1/audit?oid=X[&limit=N]` | Most-recent records from the per-overlay action audit log |
+| `/api/v1/audit/consistency?oid=X` | Replay the audit log and report where it disagrees with live state (`app/api/audit_replay.py`) |
 | `/api/v1/matches[?oid=X]` | List archived match snapshots (newest first) |
 | `/api/v1/matches/{match_id}` | Full archived snapshot (final_state, customization, audit_log, config) |
 | `/api/v1/game/undo` | Pop the last forward add_point/add_set/add_timeout and reverse it |
@@ -416,6 +417,7 @@ Use `app/oid_utils.py` for `extract_oid()` and `compose_output()` — do not imp
 - **Overlay detection:** `Backend.is_custom_overlay()` calls `resolve_overlay_kind()` (in `app/overlay_backends/utils.py`), which returns `OverlayKind.CUSTOM` only if the local overlay store has a file for that id. The legacy `C-` prefix is still accepted (and stripped) but never auto-creates a missing overlay.
 - **Do not bypass `run_security_bootstrap`.** `bootstrap.create_app` calls it before any router is registered so `SESSION_SECRET` and `MATCH_REPORT_SIGNING_SECRET` are generated / loaded before auth and report signing read them. Tests that build a real app via `create_app()` rely on the autouse `isolate_security_bootstrap` fixture in `tests/conftest.py` to redirect secret persistence to a per-test temp dir; do not call either bootstrap helper directly without that isolation.
 - **Credentials never compare with `==`.** User passwords (`app/auth/service.py` via `app/auth/passwords.verify_password`) go through `app.password_hash.verify_password`, which accepts a scrypt hash record (constant-time compare). Per-user passwords are stored as scrypt hashes (`users.password_hash`).
+- **Every mutation must leave a truthful audit snapshot.** The audit log is the source of truth for undo, reports and `audit_replay` (folding the visible records' post-state snapshots must reproduce `State`); `tests/test_audit_replay.py` random-walks the real `GameService` to enforce it. A new mutation path must audit *after* it mutates, with `target_set` set to the set it changed; an undo must pop only a forward it actually reverses; and anything that hides a record without writing one (the rapid-pair collapse) is only sound while the pair is adjacent in the log.
 - **Undo is a per-call flag, not a stack** — `add_game`, `add_set`, and `add_timeout` reverse only the most recent action of that type. `add_game(undo=True)` additionally falls back to `current_set - 1` when the current set has no score for the requested team, so a set-winning point can be undone after the session has advanced. The bundled React UI tracks its own short history of forward actions in `App.tsx` to drive the bottom-bar undo button — that stack is client-side only and does not survive page reloads or other clients.
 
 ---

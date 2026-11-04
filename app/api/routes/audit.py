@@ -1,11 +1,15 @@
 """GET /audit — read recent action audit records for a session."""
 
+from functools import partial
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from starlette.concurrency import run_in_threadpool
 
 from app.api import action_log
+from app.api.audit_replay import check_consistency
 from app.api.dependencies import get_session
+from app.api.schemas import AuditConsistencyResponse
 from app.api.session_manager import GameSession
 
 router = APIRouter()
@@ -89,3 +93,44 @@ async def get_audit_log(
         "records": records,
         "next_cursor": next_cursor,
     }
+
+
+@router.get(
+    "/audit/consistency",
+    response_model=AuditConsistencyResponse,
+    summary="Check the live match state against a replay of the audit log",
+)
+async def get_audit_consistency(
+    session: GameSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Rebuild the match from the audit log and compare it with live state.
+
+    Every mutation records a post-state snapshot, so folding the visible
+    (tombstone-filtered) history must reproduce the scoreboard. A
+    divergence means an audit append failed or a mutation path skipped the
+    log; the response names each disagreeing field. Sets the surviving
+    history never scored in (retention pruning, or not yet played) are left
+    out of ``covered_sets`` and never reported as divergent.
+
+    The log and the state are sampled under ``session.lock`` — the lock
+    every mutation holds — so a point scored mid-check cannot show up in one
+    and not the other. Returns **503** when the log cannot be read.
+    """
+    async with session.lock:
+        # A cold read hits the runtime database; keep it off the event loop.
+        records, _, version = await run_in_threadpool(
+            action_log.read_page, session.oid, 1_000_000_000,
+        )
+        live = session.game_manager.get_current_state().copy()
+        # Table tennis derives the serve in ``get_state`` after the audit
+        # snapshot is taken, so a recorded serve is not meaningful there.
+        compare_serve = session.mode != "table_tennis"
+    if version is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Audit log is temporarily unreadable.",
+        )
+    # The fold is pure CPU over the whole history; keep it off the loop.
+    return await run_in_threadpool(
+        partial(check_consistency, records, live, compare_serve=compare_serve),
+    )

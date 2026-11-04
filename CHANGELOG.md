@@ -14,6 +14,38 @@ archive by hand.
 
 ## [Unreleased]
 
+### Added
+
+- **`GET /api/v1/audit/consistency`** rebuilds the match from the action
+  audit log and reports every field (score, sets, current set, timeouts,
+  serve) where it disagrees with the live scoreboard. Every action records a
+  post-state snapshot, so the history alone reproduces the board; the new
+  `app/api/audit_replay.py` makes that a checked invariant, enforced by
+  random-walk tests over the real scoring service.
+
+### Fixed
+
+- **Correcting a mistapped point no longer moves the serve.** Tapping +1
+  and immediately −1 on the same team is folded into a no-op in the audit
+  log, but the serve indicator stayed with the mistapped team; it now goes
+  back to where it was.
+- **Undo no longer hides a point or timeout that is still on the board.**
+  A point undo that fell back to the previous set could tombstone that
+  team's newest point in *another* set; an undo with nothing to remove still
+  consumed a history entry; a timeout undo could consume a timeout from an
+  earlier set while removing one from the current set; and a quick re-tap
+  after such an undo could restore a record in the wrong place. Each left
+  the history (and so the timeline, match report and server-side undo
+  stack) disagreeing with the scoreboard. Undo now only consumes the entry
+  it actually reverses, and the quick "undo the undo" shortcut only applies
+  when the two taps are adjacent in the history.
+- **Undo across a set boundary records the set it changed**, including that
+  set's timeouts, instead of the set the match had moved on to.
+- **The Undo button no longer gets stuck after a manual correction.** When a
+  score or sets edit had already removed the effect of the newest point or
+  timeout, Undo kept "undoing" that entry without changing anything; it now
+  retires it and undoes the newest action that is still on the board.
+
 ### Changed
 
 - **Live scoreboard state, session settings and the action audit log now

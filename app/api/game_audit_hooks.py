@@ -76,15 +76,18 @@ def audit(
             "current_set": session.current_set,
             "score_set": score_set,
             "match_finished": session.game_manager.match_finished(session.sets_limit),
+            # Timeouts are reported for ``score_set``, the set the snapshot
+            # describes. That is the state's own current set in every case
+            # but an undo that fell back a set, which this keeps truthful.
             "team_1": {
                 "sets": state.get_sets(1),
                 "score": t1_score,
-                "timeouts": state.get_timeout(1),
+                "timeouts": state.get_timeout(1, score_set),
             },
             "team_2": {
                 "sets": state.get_sets(2),
                 "score": t2_score,
-                "timeouts": state.get_timeout(2),
+                "timeouts": state.get_timeout(2, score_set),
             },
             "serve": serve.value if hasattr(serve, "value") else str(serve),
         }
