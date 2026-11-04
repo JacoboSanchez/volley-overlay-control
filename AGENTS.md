@@ -204,7 +204,7 @@ JS Frontend: POST /api/v1/game/add-point?oid=X
 
 ## State Model
 
-The entire match lives in a flat dictionary with these keys:
+The match is serialized (for persistence) as a flat dictionary with these keys:
 
 ```python
 {
@@ -223,7 +223,7 @@ The entire match lives in a flat dictionary with these keys:
 
 - Access scores via `state.get_game(team, set_num)` / `state.set_game(team, set_num, value)`.
 - Access timeouts via `state.get_timeout(team, set_num=None)` / `state.set_timeout(team, value, set_num=None)`; `set_num=None` (the default) targets the current set, preserving the legacy `get_timeout(team)` call shape. Full history is available via `state.get_timeouts_by_set(team)`.
-- The `simplify_model()` method strips all but the current set's data for "simple mode".
+- That flat dict is the **persisted wire format only**. Inside the app the match is the typed `GameState` behind `State`; the payload builder and `Backend.save_model` take a `State`. Parse a dict into `State` at the edge instead of reading key names. Simple mode is applied by the overlay itself (`match_info.show_only_current_set`), not by rewriting the model.
 
 ---
 

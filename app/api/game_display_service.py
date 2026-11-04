@@ -58,8 +58,6 @@ class GameDisplayService:
     @classmethod
     def set_simple_mode(cls, session: GameSession, enabled: bool) -> ActionResponse:
         session.simple = enabled
-        if enabled:
-            session.backend.reduce_games_to_one()
         state_response = _service(cls).get_state(session)
         _service(cls)._save_and_broadcast(session, state_response)
         return ActionResponse(success=True, state=state_response)

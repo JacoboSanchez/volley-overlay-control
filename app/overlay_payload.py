@@ -8,7 +8,7 @@ from collections.abc import Callable
 from typing import Any
 
 from app.customization import Customization
-from app.state import State
+from app.state import Serve, State
 
 
 def _rule_context(
@@ -66,16 +66,27 @@ def _rule_context(
     return context
 
 
-def _set_history(current_model: dict, team: int) -> dict[str, int]:
+def _score(state: State, team: int, set_num: int) -> int:
+    """Points *team* scored in *set_num*, ``0`` for a set outside the model.
+
+    The flat model this replaced answered ``.get(..., 0)`` for any set
+    number, so a ``current_set`` above :attr:`State.MAX_SETS` (a manual
+    edit past ``sets_limit``) rendered as zero instead of raising. Keep that
+    tolerance here: the payload is built on the broadcast hot path.
+    """
+    if not 1 <= set_num <= State.MAX_SETS:
+        return 0
+    return state.get_game(team, set_num)
+
+
+def _set_history(state: State, team: int) -> dict[str, int]:
     return {
-        f"set_{index}": int(
-            current_model.get(f"Team {team} Game {index} Score", 0)
-        )
-        for index in range(1, 8)
+        f"set_{index}": state.get_game(team, index)
+        for index in range(1, State.MAX_SETS + 1)
     }
 
 
-def _timeouts_history(current_model: dict, team: int) -> dict[str, int]:
+def _timeouts_history(state: State, team: int) -> dict[str, int]:
     """Per-set timeout counts from the persisted game state.
 
     The audit log is best-effort, so an append that fails would leave the
@@ -84,16 +95,16 @@ def _timeouts_history(current_model: dict, team: int) -> dict[str, int]:
     already recorded the timeout. Overlay recaps read these totals; the event
     array stays reserved for timeline markers.
 
-    Built through :class:`State` so a model written before per-set timeout
-    keys existed (only the flat ``Team N Timeouts`` key) migrates that value
-    into the current set exactly as ``State._from_dict`` does everywhere else.
+    A model written before per-set timeout keys existed (only the flat
+    ``Team N Timeouts`` key) was already migrated into the current set when
+    it was parsed into :class:`State`.
     """
-    per_set = State(current_model).get_timeouts_by_set(team)
-    return {f"set_{index}": per_set[index] for index in range(1, 8)}
+    per_set = state.get_timeouts_by_set(team)
+    return {f"set_{index}": per_set[index] for index in range(1, State.MAX_SETS + 1)}
 
 
 def _team_payload(
-    current_model: dict,
+    state: State,
     customization: Customization,
     team: int,
     current_set: int,
@@ -106,28 +117,19 @@ def _team_payload(
         "color_primary": customization.get_team_color(team),
         "color_secondary": customization.get_team_text_color(team),
         "logo_url": customization.get_team_logo(team),
-        "sets_won": int(
-            current_model.get(State.T1SETS_INT if home else State.T2SETS_INT, 0)
-        ),
-        "points": int(
-            current_model.get(f"Team {team} Game {current_set} Score", 0)
-        ),
-        "serving": current_model.get(State.SERVE)
-        == (State.SERVE_1 if home else State.SERVE_2),
-        "timeouts_taken": int(
-            current_model.get(
-                State.T1TIMEOUTS_INT if home else State.T2TIMEOUTS_INT,
-                0,
-            )
-        ),
-        "timeouts_by_set": _timeouts_history(current_model, team),
-        "set_history": _set_history(current_model, team),
+        "sets_won": state.get_sets(team),
+        "points": _score(state, team, current_set),
+        "serving": state.get_current_serve()
+        == (Serve.TEAM_1 if home else Serve.TEAM_2),
+        "timeouts_taken": state.get_timeout(team),
+        "timeouts_by_set": _timeouts_history(state, team),
+        "set_history": _set_history(state, team),
     }
 
 
 def _add_rule_indicators(
     payload: dict,
-    current_model: dict,
+    state: State,
     rules: dict[str, Any],
     current_set: int,
     logger: logging.Logger,
@@ -139,14 +141,10 @@ def _add_rule_indicators(
             compute_sides_swapped_auto,
         )
 
-        team1_score = int(
-            current_model.get(f"Team 1 Game {current_set} Score", 0)
-        )
-        team2_score = int(
-            current_model.get(f"Team 2 Game {current_set} Score", 0)
-        )
-        team1_sets = int(current_model.get(State.T1SETS_INT, 0))
-        team2_sets = int(current_model.get(State.T2SETS_INT, 0))
+        team1_score = _score(state, 1, current_set)
+        team2_score = _score(state, 2, current_set)
+        team1_sets = state.get_sets(1)
+        team2_sets = state.get_sets(2)
         control = payload["overlay_control"]
         control["match_point_info"] = compute_match_point_info(
             current_set=current_set,
@@ -172,10 +170,7 @@ def _add_rule_indicators(
             control["beach_side_switch"] = side_switch
         if rules["auto_swap_sides"]:
             completed = [
-                (
-                    int(current_model.get(f"Team 1 Game {index} Score", 0)),
-                    int(current_model.get(f"Team 2 Game {index} Score", 0)),
-                )
+                (_score(state, 1, index), _score(state, 2, index))
                 for index in range(1, current_set)
             ]
             payload["match_info"]["sides_swapped"] = (
@@ -279,7 +274,7 @@ def _add_live_stats(payload: dict, storage_key: str, logger: logging.Logger) -> 
 
 
 def build_overlay_payload(
-    current_model: dict,
+    current_model: State | dict,
     customization_state: dict,
     *,
     conf: Any,
@@ -288,9 +283,15 @@ def build_overlay_payload(
     force_visibility: bool | None = None,
     show_only_current_set: bool | None = None,
 ) -> dict[str, Any]:
-    """Build the standardized overlay state JSON payload."""
+    """Build the standardized overlay state JSON payload.
+
+    *current_model* is the typed :class:`State`. A flat string-keyed model
+    dict (the persisted ``raw_remote_model`` shape) is still accepted and
+    parsed once here, so the legacy key names never travel past this edge.
+    """
+    state = current_model if isinstance(current_model, State) else State(current_model)
     customization = Customization(customization_state)
-    current_set = int(current_model.get(State.CURRENT_SET_INT, 1))
+    current_set = state.get_current_set()
     rules = _rule_context(conf, rule_overrides_getter, logger)
 
     payload: dict[str, Any] = {
@@ -310,12 +311,8 @@ def build_overlay_payload(
             "set_summary_style": rules["set_summary_style"],
             "sides_swapped": rules["sides_swapped_manual"],
         },
-        "team_home": _team_payload(
-            current_model, customization, 1, current_set
-        ),
-        "team_away": _team_payload(
-            current_model, customization, 2, current_set
-        ),
+        "team_home": _team_payload(state, customization, 1, current_set),
+        "team_away": _team_payload(state, customization, 2, current_set),
         "overlay_control": {
             "show_bottom_ticker": False,
             "ticker_message": "",
@@ -344,7 +341,7 @@ def build_overlay_payload(
         },
     }
 
-    _add_rule_indicators(payload, current_model, rules, current_set, logger)
+    _add_rule_indicators(payload, state, rules, current_set, logger)
     _add_live_stats(payload, conf.skey or conf.oid, logger)
 
     if show_only_current_set is not None:

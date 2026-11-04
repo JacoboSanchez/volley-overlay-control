@@ -232,11 +232,12 @@ See [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md) for the complete API refe
 
 Represents the data structure of the match.
 
-- **Responsibility**: Holds the "Single Source of Truth" dictionary (`current_model`) that maps keys (e.g., `'Team 1 Sets'`) to values.
+- **Responsibility**: Holds the match as a typed `GameState` dataclass. The flat string-keyed dict (`'Team 1 Game 3 Score'`, …) is only a wire format: the constructor parses it and `get_current_model()` produces it, for persistence (`raw_remote_model` in the overlay store) and hand-reading integrators. Everything else — including the overlay payload builder and `Backend.save_model` — takes a `State` and uses the accessors; do not index the dict by key name.
 - **Key Methods**:
   - `get_game(team, set)` / `set_game(...)` — Get/Set points for a specific set.
   - `get_sets(team)` / `set_sets(...)` — Get/Set sets won.
-  - `simplify_model(simplified)` — Prepares the state for "simple mode" (reduced data payload).
+  - `get_current_set()` / `set_current_set(...)`, `get_timeout(team[, set])`, `get_current_serve()`.
+  - `get_current_model()` — Serialize to the legacy flat dict (persistence edge only).
 
 #### `app/game_manager.py` — class `GameManager`
 

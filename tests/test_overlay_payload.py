@@ -132,3 +132,37 @@ def test_hidden_rallies_recap_keeps_the_transport_cap(monkeypatch):
 
     assert calls == [{"history_limit": 30}]
     assert len(payload["overlay_control"]["points_by_set"]["1"]) == 60
+
+
+def test_payload_accepts_typed_state_and_matches_dict_form():
+    """The typed ``State`` and its flat wire dict must build the same payload."""
+    state = State()
+    state.set_current_set(2)
+    state.set_game(1, 1, 25)
+    state.set_game(1, 2, 20)
+    state.set_game(2, 1, 9)
+    state.set_game(2, 2, 7)
+    state.set_sets(1, 1)
+    state.set_timeout(2, 1)
+    state.set_current_serve(State.SERVE_2)
+
+    from_state = _build(state)
+    from_dict = _build(state.get_current_model())
+
+    for payload in (from_state, from_dict):
+        payload["match_info"].pop("server_time")
+    assert from_state == from_dict
+    home, away = from_state["team_home"], from_state["team_away"]
+    assert home["points"] == 9 and away["points"] == 7
+    assert home["sets_won"] == 1 and away["sets_won"] == 0
+    assert away["serving"] is True and home["serving"] is False
+    assert away["timeouts_taken"] == 1
+    assert home["set_history"]["set_1"] == 25
+
+
+def test_payload_tolerates_current_set_beyond_model():
+    """A manual edit past the per-set slots renders zero, never raises."""
+    payload = _build({State.CURRENT_SET_INT: str(State.MAX_SETS + 1)})
+    assert payload["team_home"]["points"] == 0
+    assert payload["team_away"]["points"] == 0
+    assert payload["match_info"]["current_set"] == State.MAX_SETS + 1

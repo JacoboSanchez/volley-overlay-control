@@ -14,6 +14,18 @@ archive by hand.
 
 ## [Unreleased]
 
+### Changed
+
+- **Internal: the typed match state is now the only in-app model.** The
+  overlay payload builder and `Backend.save_model` take the typed `State`
+  instead of reading the legacy flat `"Team 1 Game 3 Score"` dict by key
+  name; that dict remains the persisted wire format only, so existing state
+  files load unchanged. Dead leftovers of the removed cloud backend
+  (`State.simplify_model`, `Backend.save_json_model`,
+  `reduce_games_to_one`) were dropped, and an unknown persisted serve marker
+  now loads as "nobody serving" instead of failing to parse. No overlay or
+  API output changes.
+
 ## [7.4.2] - 2026-11-03
 
 ### Changed
