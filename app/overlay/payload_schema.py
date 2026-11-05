@@ -211,4 +211,16 @@ def public_overlay_state(state: dict[str, Any]) -> dict[str, Any]:
     match_info = out.get("match_info")
     if isinstance(match_info, dict):
         out["match_info"] = {**match_info, "server_time": time.time()}
+        # A beach side-switch countdown only means something in beach mode.
+        # Releases before 7.5.1 omitted the key outside beach instead of
+        # sending null, and the store's deep-merge kept the last beach value
+        # ("Switch in 5") in the stored state; clear it here so such a state
+        # is right from the very first frame, before any new push.
+        control = out.get("overlay_control")
+        if (
+            match_info.get("mode") != "beach"
+            and isinstance(control, dict)
+            and control.get("beach_side_switch") is not None
+        ):
+            out["overlay_control"] = {**control, "beach_side_switch": None}
     return out

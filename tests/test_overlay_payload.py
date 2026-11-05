@@ -166,3 +166,35 @@ def test_payload_tolerates_current_set_beyond_model():
     assert payload["team_home"]["points"] == 0
     assert payload["team_away"]["points"] == 0
     assert payload["match_info"]["current_set"] == State.MAX_SETS + 1
+
+
+def test_beach_side_switch_is_explicitly_null_outside_beach():
+    """The store deep-merges payloads and never drops an omitted key, so the
+    field must be sent as ``None`` to clear a countdown from beach mode."""
+    payload = _build({State.CURRENT_SET_INT: 1})
+    assert "beach_side_switch" in payload["overlay_control"]
+    assert payload["overlay_control"]["beach_side_switch"] is None
+
+
+def test_switching_beach_to_indoor_clears_the_stored_countdown():
+    from app.overlay import overlay_state_store
+
+    oid = "beach-then-indoor"
+    overlay_state_store.create_overlay(oid)
+    model = {State.CURRENT_SET_INT: 1, "Team 1 Game 1 Score": "2"}
+
+    def push(mode):
+        payload = build_overlay_payload(
+            model,
+            dict(Customization.reset_state),
+            conf=Conf(),
+            rule_overrides_getter=lambda: {"mode": mode},
+            logger=logging.getLogger("test"),
+        )
+        overlay_state_store.update_state_sync(oid, payload)
+
+    push("beach")
+    stored = overlay_state_store.get_state(oid)["overlay_control"]["beach_side_switch"]
+    assert stored["points_until_switch"] == 5
+    push("indoor")
+    assert overlay_state_store.get_state(oid)["overlay_control"]["beach_side_switch"] is None

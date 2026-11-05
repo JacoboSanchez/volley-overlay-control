@@ -175,3 +175,20 @@ def test_server_time_is_stamped_at_send_time(monkeypatch):
     out = public_overlay_state(stored)
     assert out["match_info"]["server_time"] == 1_800_000_000.0
     assert stored["match_info"]["server_time"] == 1_700_000_000.0  # not mutated
+
+
+def test_stale_beach_countdown_is_not_sent_outside_beach_mode():
+    """State stored by an older release can still hold a beach countdown
+    after the rules changed to indoor; the feed must not show it."""
+    countdown = {"interval": 7, "points_in_set": 2, "next_switch_at": 7,
+                 "points_until_switch": 5, "is_switch_pending": False}
+    stored = {
+        "match_info": {"mode": "indoor", "current_set": 1},
+        "overlay_control": {"beach_side_switch": countdown},
+    }
+    out = public_overlay_state(stored)
+    assert out["overlay_control"]["beach_side_switch"] is None
+    assert stored["overlay_control"]["beach_side_switch"] == countdown  # not mutated
+
+    stored["match_info"]["mode"] = "beach"
+    assert public_overlay_state(stored)["overlay_control"]["beach_side_switch"] == countdown

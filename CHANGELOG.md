@@ -14,6 +14,18 @@ archive by hand.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The spectator page no longer shows a beach side-switch countdown on an
+  indoor match.** After an overlay had been used in beach mode, switching
+  its rules to indoor (even with a reset) left the last beach countdown —
+  "Switch in 5 pts" — on the spectator page, including before the first
+  point, although indoor teams only switch sides in the deciding set. The
+  overlay payload now always sends the field (`null` outside beach mode), so
+  the stored state is cleared, and the OBS/spectator feed drops a stale
+  countdown for any non-beach match right away, without waiting for the
+  next action.
+
 ## [7.5.0] - 2026-11-05
 
 ### Added
