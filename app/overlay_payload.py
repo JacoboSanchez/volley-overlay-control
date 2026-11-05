@@ -166,8 +166,12 @@ def _add_rule_indicators(
             points_limit=rules["points_limit"],
             points_limit_last_set=rules["points_limit_last_set"],
         )
-        if side_switch is not None:
-            control["beach_side_switch"] = side_switch
+        # Always sent, ``None`` outside beach mode. The overlay store
+        # deep-merges every payload into the stored state and never drops a
+        # key a later payload omits, so leaving it out would keep the last
+        # beach countdown ("Switch in 5") on air forever after the rules
+        # change to indoor, even across a reset.
+        control["beach_side_switch"] = side_switch
         if rules["auto_swap_sides"]:
             completed = [
                 (_score(state, 1, index), _score(state, 2, index))
