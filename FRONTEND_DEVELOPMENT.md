@@ -456,8 +456,14 @@ body required.
 
 - Returns `success: false` with `message: "Nothing to undo."` when
   no undoable forward record exists for this OID.
+- A forward a manual correction left with nothing to undo (e.g.
+  `set-score` zeroed that point, or `set-sets` moved the match past the
+  set of that timeout) is skipped, not removed from the history, and the
+  undo applies to the newest action it can reverse. Such entries can still
+  make `can_undo` read `true` when nothing is reversible; the undo then
+  answers `"Nothing to undo."`.
 - The stack is sourced from the per-OID audit log
-  (`data/audit_<hash>.jsonl`), so it survives reload, is shared
+  (the `runtime_audit_events` table), so it survives reload, is shared
   between concurrent clients, and skips past non-undoable actions
   (`change_serve`, `set_score`, `set_sets_value`, `reset`) that
   remain in the log untouched.
@@ -473,7 +479,11 @@ share the same audit-log stack:
   `undo: true` pops the most recent forward of *that specific
   action and team*. Useful for team-scoped undo gestures
   (e.g. a Stream Deck button that says "undo last point for
-  Team 1").
+  Team 1"). A point or timeout undo pops only a forward from the
+  set it actually changes (a point undo falls back to the previous
+  set when the current one has no score for that team), and pops
+  nothing when there is nothing to undo — so the log never hides a
+  point or timeout that is still on the board.
 
 Pick whichever ergonomics fit your client; mixing them is safe
 because both code paths consume from the same log.
@@ -488,6 +498,44 @@ inverse for backward compatibility.
 #### `POST /api/v1/game/reset?oid=<OID>`
 
 Reset the match to initial state. No body required.
+
+#### `GET /api/v1/audit/consistency?oid=<OID>`
+
+Rebuild the match from the audit log and compare it with the live
+state. Every mutation records a post-state snapshot, so folding the
+visible (undo-filtered) history reproduces the scoreboard; any
+disagreement means an audit write failed or a mutation skipped the
+log. Same board credentials as `GET /audit`; returns **503** when the
+log cannot be read.
+
+```json
+{
+  "consistent": false,
+  "records": 57,
+  "skipped": 0,
+  "starts_at_reset": true,
+  "covered_sets": [1, 2],
+  "divergences": [
+    {"field": "score", "set_number": 2, "team": 1, "replayed": 11, "live": 12}
+  ]
+}
+```
+
+- `field` is one of `current_set`, `serve`, `sets`, `score`,
+  `timeouts`; `set_number` / `team` locate it where relevant.
+- Only sets the surviving history scored in (`covered_sets`) are
+  compared, so retention pruning of a very long match never reads as
+  drift. In table-tennis mode the serve is derived rather than recorded,
+  so it is not compared there. The check is a drift detector: each
+  snapshot is the last word on its set, so an inconsistency is reported
+  while it is still the newest thing the history says about that set. `starts_at_reset: true` means the history covers the whole
+  match.
+- Normal play (points, timeouts, serve, and their undos) always
+  replays exactly. Manual corrections (`set-score`, `set-sets`,
+  rules) replay exactly too, but can leave the board in a state the
+  scoring rules never produce (a won set left current); an undo
+  across such a correction may then be flagged — which is what this
+  check is for.
 
 ### Display Controls
 

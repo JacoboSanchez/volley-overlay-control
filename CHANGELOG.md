@@ -14,6 +14,94 @@ archive by hand.
 
 ## [Unreleased]
 
+### Added
+
+- **A published overlay state contract.** What OBS browser sources receive
+  over `/ws/{public_token}` is now defined in
+  `app/overlay/payload_schema.py` and published as a JSON Schema
+  (`overlay_static/schema/overlay-state.schema.json`) for anyone writing
+  an overlay template or consumer. The overlay scripts are type-checked
+  against it (`npm run typecheck` now includes `typecheck:overlays`), and a
+  contract test fails when the payload builder and the schema disagree. A
+  brand-new overlay's first frame now carries the full contract too,
+  instead of a partial placeholder.
+
+- **`GET /api/v1/audit/consistency`** rebuilds the match from the action
+  audit log and reports every field (score, sets, current set, timeouts,
+  serve) where it disagrees with the live scoreboard. Every action records a
+  post-state snapshot, so the history alone reproduces the board; the new
+  `app/api/audit_replay.py` makes that a checked invariant, enforced by
+  random-walk tests over the real scoring service.
+
+### Fixed
+
+- **On-air timers no longer jump when an OBS source reconnects.** The
+  first frame a reconnecting browser source received carried the server
+  time of the overlay's last broadcast — possibly hours old — and the
+  overlay derives its clock skew from it. The server time is now stamped
+  when each frame is sent.
+
+- **Correcting a mistapped point no longer moves the serve.** Tapping +1
+  and immediately −1 on the same team is folded into a no-op in the audit
+  log, but the serve indicator stayed with the mistapped team; it now goes
+  back to where it was.
+- **Undo no longer hides a point or timeout that is still on the board.**
+  A point undo that fell back to the previous set could tombstone that
+  team's newest point in *another* set; an undo with nothing to remove still
+  consumed a history entry; a timeout undo could consume a timeout from an
+  earlier set while removing one from the current set; and a quick re-tap
+  after such an undo could restore a record in the wrong place. Each left
+  the history (and so the timeline, match report and server-side undo
+  stack) disagreeing with the scoreboard. Undo now only consumes the entry
+  it actually reverses, and the quick "undo the undo" shortcut only applies
+  when the two taps are adjacent in the history.
+- **Undo across a set boundary records the set it changed**, including that
+  set's timeouts, instead of the set the match had moved on to.
+- **The Undo button no longer gets stuck after a manual correction.** When a
+  score or sets edit left the newest point or timeout with nothing to undo
+  from where the match now stands, Undo kept "undoing" that entry without
+  changing anything. It now skips such entries, leaving them in the history
+  that reports and live stats read, and undoes the newest action it can.
+
+### Security
+
+- **Documented and enforced the overlay template trust boundary.**
+  Overlay templates and scripts run on the app's origin with the viewing
+  owner's session (the control UI previews them same-origin), so they are
+  trusted code. `AUTHENTICATION.md` §2.5.1 records why templates must never
+  be user-uploadable and what a safe design for custom templates would
+  need. New tripwire tests keep templates catalog-only, keep operator data
+  out of HTML sinks (`|safe`, `innerHTML`, …), and keep uploads inert.
+- **The OBS feed no longer reveals the owner's account id.** The state
+  pushed over `/ws/{public_token}` included internal bookkeeping — the
+  storage key `"<user_id>:<oid>"` and the raw score model — to anyone
+  holding the public overlay URL. Only the documented overlay state is sent
+  now.
+
+### Changed
+
+- **Live scoreboard state, session settings and the action audit log now
+  live in the database** instead of one file per overlay under `data/`.
+  On SQLite (the default) they go to `data/runtime.db` next to `app.db`; on
+  PostgreSQL they share the main database, so a `pg_dump` now backs up every
+  scoreboard and audit log (icons and secrets still live in `data/`). On the
+  first start after upgrading, existing `overlay_state_*.json`,
+  `session_meta_*.json` and `audit_*.jsonl` files (rotations included) are
+  imported automatically and renamed to `*.imported`; nothing is deleted.
+  `AUDIT_LOG_MAX_BYTES` × `AUDIT_LOG_MAX_FILES` still bounds each overlay's
+  audit history (now a byte budget on rows rather than a set of rotated
+  files), and `/health/ready` reports a new `runtime_db` check.
+
+- **Internal: the typed match state is now the only in-app model.** The
+  overlay payload builder and `Backend.save_model` take the typed `State`
+  instead of reading the legacy flat `"Team 1 Game 3 Score"` dict by key
+  name; that dict remains the persisted wire format only, so existing state
+  files load unchanged. Dead leftovers of the removed cloud backend
+  (`State.simplify_model`, `Backend.save_json_model`,
+  `reduce_games_to_one`) were dropped, and an unknown persisted serve marker
+  now loads as "nobody serving" instead of failing to parse. No overlay or
+  API output changes.
+
 ## [7.4.2] - 2026-11-03
 
 ### Changed

@@ -224,6 +224,7 @@ board and cannot touch the owner's account.
 | `GET` | `/customization` | B | |
 | `GET` | `/config` | B | |
 | `GET` | `/audit` | B | Most-recent records from the board's audit log. |
+| `GET` | `/audit/consistency` | B | Replays the board's audit log and reports where it disagrees with the live state. |
 | `GET` | `/matches/live/stats` | B | Live stats for the *active* board session, computed from its audit log — not an archived match. |
 | `POST` | `/session/rules` | B | Update the board's match rules (mode, points, sets). |
 | `POST` | `/game/add-point` | B | |
@@ -353,6 +354,68 @@ state, and cannot mutate anything. Control needs one of credentials 1–3.
 > the store boundary — `create_overlay` / `delete_overlay` return
 > `False`, `overlay_exists` returns `False`, and read/write helpers
 > raise `ValueError`.
+
+### 2.5.1 Overlay templates and scripts are trusted code
+
+Overlay pages are **not** a sandbox. The templates in `overlay_templates/`
+and the scripts in `overlay_static/js/` run with the same authority as the
+control SPA itself:
+
+- In the default single-origin deployment they are served from the app's
+  own origin. The SPA previews them in an
+  `<iframe sandbox="allow-scripts allow-same-origin">`
+  (`frontend/src/components/OverlayPreview.tsx`), and an owner may simply
+  open `/overlay/{token}` or `/follow/{token}` in the same browser.
+  Same-origin script can call every `/api/v1/*` route, and the browser
+  attaches the viewing owner's `vsession` cookie to those requests. That
+  includes account changes and overlay or token management. The cookie
+  being `HttpOnly` stops script *reading* it, not *using* it, and
+  `SameSite=Lax` does not apply to same-origin requests.
+  (`OVERLAY_PUBLIC_URL` on a separate host moves overlays to an origin
+  without the session cookie. That is defence in depth, not the default.)
+- The HTML CSP allows `script-src 'self' 'unsafe-inline'`, because the
+  templates bootstrap with inline scripts, and `/overlay/*` keeps that.
+  `connect-src` allows `https:`, so the CSP neither blocks injected script
+  nor stops it sending data out.
+
+A template is therefore part of the trusted code base, exactly like a
+Python module. The rules that keep that boundary intact:
+
+1. **Templates come only from the deployed `overlay_templates/`
+   directory.** No route, admin page or import accepts template HTML,
+   JavaScript or CSS. The style an overlay renders is chosen by name from
+   the renderable catalog (the scanned templates plus meta-styles such as
+   `mosaic`, all files in `overlay_templates/`). A persisted
+   `preferredStyle` outside the picker's list falls back to `default`, and
+   `?style=` outside the renderable catalog is a 404.
+2. **Operator-supplied data reaches overlay pages only as data.**
+   Customization (team names, colors, logo URLs, locale) and the live
+   state travel as JSON over `/ws/{public_token}`. Jinja autoescaping
+   stays on: no `|safe` and no `Markup` in templates. Overlay scripts
+   write text with `textContent`, never `innerHTML`, `outerHTML`,
+   `insertAdjacentHTML` or `document.write`; logo URLs pass the http(s)
+   filter in the scripts. This matters even without uploads. Operators on
+   credential 2 (control link) or credential 3 (the deliberately guessable
+   public bookmark) can set team names, colours and logos, and the owner's
+   preview renders them in the owner's origin. Jinja escapes HTML, not
+   JavaScript string context, so a `{{ value }}` inside an inline
+   `<script>` is safe only for server-constrained values: the output token,
+   a catalog style, the native theme, a supported locale, or anything
+   passed through `|tojson`. Never interpolate an operator-controlled
+   value there.
+3. **Uploads stay inert.** Hosted icons are decoded and re-encoded to WebP
+   before they are stored (`process_icon_upload`), so `/media` never
+   serves uploaded HTML or SVG from the app origin.
+
+User-provided templates would need a different design, not a relaxed
+rule. Serve them from a separate site that receives no session cookie,
+preview them in an iframe sandbox *without* `allow-same-origin`, and give
+them only the public overlay contract
+(`overlay_static/schema/overlay-state.schema.json`). Alternatively, offer
+declarative themes (data validated against a schema, like the presets in
+`app/overlay/themes.py`) instead of code.
+
+`tests/test_template_trust_boundary.py` pins rules 1–3.
 
 ### 2.6 Static mounts and system endpoints — `app/bootstrap.py`
 

@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -29,6 +30,21 @@ class GameState:
 
 
 class State:
+    """Typed match state with a legacy string-keyed serialization.
+
+    Internally the match is a :class:`GameState`; every consumer inside the
+    app reads and writes it through the typed accessors below. The flat
+    ``{"Team 1 Game 3 Score": "12", ...}`` dict is a *wire format* only,
+    produced by :meth:`get_current_model` and parsed by the constructor, and
+    it exists for exactly two edges:
+
+    * persistence — the overlay store keeps it as ``raw_remote_model`` so
+      state files written by every earlier release still load;
+    * external integrators that read that persisted JSON by hand.
+
+    Do not index the dict by key names elsewhere; parse it into a
+    ``State`` and use the accessors.
+    """
 
     OIDStatus = Enum('OIDStatus', [('VALID', 'valid'), ('INVALID', 'invalid'), ('DEPRECATED', 'deprecated'), ('EMPTY', 'empty')])
 
@@ -98,27 +114,6 @@ class State:
         """Per-set timeout key in the legacy string-keyed dict shape."""
         return f'Team {team} Set {set_num} Timeouts'
 
-    @staticmethod
-    def keys_to_reset_simple_mode() -> set[str]:
-        keys = {State.T1SET7_INT,
-                State.T2SET7_INT,
-                State.T1SET6_INT,
-                State.T2SET6_INT,
-                State.T1SET5_INT,
-                State.T2SET5_INT,
-                State.T1SET4_INT,
-                State.T2SET4_INT,
-                State.T1SET3_INT,
-                State.T2SET3_INT,
-                State.T1SET2_INT,
-                State.T2SET2_INT,
-                State.T1SET1_INT,
-                State.T2SET1_INT}
-        for team in (1, 2):
-            for set_num in range(1, 8):
-                keys.add(State._t_timeouts_key(team, set_num))
-        return keys
-
     # ------------------------------------------------------------------
     # Construction & serialization
     # ------------------------------------------------------------------
@@ -156,7 +151,7 @@ class State:
             return slots
 
         return GameState(
-            serve=Serve(d.get('Serve', 'None')),
+            serve=State._parse_serve(d.get('Serve', 'None')),
             current_set=current_set,
             team1_sets=int(d.get('Team 1 Sets', 0)),
             team2_sets=int(d.get('Team 2 Sets', 0)),
@@ -165,6 +160,25 @@ class State:
             team1_scores=[0] + [int(d.get(f'Team 1 Game {i} Score', 0)) for i in range(1, 8)],
             team2_scores=[0] + [int(d.get(f'Team 2 Game {i} Score', 0)) for i in range(1, 8)],
         )
+
+    @staticmethod
+    def _parse_serve(value: Any) -> Serve:
+        """Parse a persisted serve marker, treating unknown values as NONE.
+
+        The flat dict comes from disk; a hand-edited or corrupted marker
+        should mean "nobody serving", not a ``ValueError`` that stops the
+        overlay from loading.
+        """
+        try:
+            return Serve(value)
+        except ValueError:
+            return Serve.NONE
+
+    def copy(self) -> State:
+        """Return an independent deep copy of this state."""
+        clone = State.__new__(State)
+        clone._state = copy.deepcopy(self._state)
+        return clone
 
     def _to_dict(self) -> dict[str, str]:
         """Serialize to the legacy string-keyed dict format.
@@ -202,38 +216,11 @@ class State:
         return self._to_dict()
 
     # ------------------------------------------------------------------
-    # Static dict helpers (operate on legacy dicts, not on GameState)
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def simplify_model(simplified: dict[str, str]) -> dict[str, str]:
-        current_set = int(simplified[State.CURRENT_SET_INT])
-        t1_points = simplified[f'Team 1 Game {current_set} Score']
-        t2_points = simplified[f'Team 2 Game {current_set} Score']
-        # Capture per-set timeout values for the current set before we
-        # zero the per-set keys — so the moved-to-set-1 representation
-        # still reflects the timeouts the operator has taken.
-        t1_timeouts_current = simplified.get(
-            State._t_timeouts_key(1, current_set), '0',
-        )
-        t2_timeouts_current = simplified.get(
-            State._t_timeouts_key(2, current_set), '0',
-        )
-        for key in State.keys_to_reset_simple_mode():
-            if key in simplified:
-                simplified[key] = '0'
-
-        simplified[State.T1SET1_INT] = t1_points
-        simplified[State.T2SET1_INT] = t2_points
-        if State._t_timeouts_key(1, 1) in simplified:
-            simplified[State._t_timeouts_key(1, 1)] = t1_timeouts_current
-        if State._t_timeouts_key(2, 1) in simplified:
-            simplified[State._t_timeouts_key(2, 1)] = t2_timeouts_current
-        return simplified
-
-    # ------------------------------------------------------------------
     # Typed getters & setters
     # ------------------------------------------------------------------
+
+    def get_current_set(self) -> int:
+        return self._state.current_set
 
     def set_current_set(self, value: int | str) -> None:
         self._state.current_set = int(value)

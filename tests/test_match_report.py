@@ -1,6 +1,4 @@
 """Tests for the print-friendly match report at /match/{match_id}/report."""
-import json
-import os
 import re
 import time
 
@@ -11,6 +9,7 @@ from fastapi.testclient import TestClient
 from app.api import action_log, match_archive
 from app.match_report import match_report_router
 from app.overlay_key import is_valid_skey, make_skey
+from tests.helpers.audit import write_audit_records
 
 pytestmark = pytest.mark.usefixtures("clean_sessions")
 
@@ -53,10 +52,7 @@ def _seed_realistic_audit(oid: str, base_ts: float) -> None:
     running-score and undo paths. Bypasses ``action_log.append`` so the
     timestamps we care about don't depend on wallclock.
     """
-    import json
-    import os
 
-    from app.api import action_log as _al
 
     records: list[dict] = []
 
@@ -106,12 +102,7 @@ def _seed_realistic_audit(oid: str, base_ts: float) -> None:
          {"current_set": 2, "team_1": {"score": 22},
           "team_2": {"score": 25}}, offset=1500)
 
-    path = _al._path(_sk(oid))
-    assert path is not None, "action_log path resolution failed in test"
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        for record in records:
-            f.write(json.dumps(record, separators=(",", ":"), ensure_ascii=False) + "\n")
+    write_audit_records(_sk(oid), records)
 
 
 @pytest.fixture
@@ -401,7 +392,6 @@ class TestMatchReport:
 
     def _seed_minimal_chart_audit(self, oid: str) -> None:
         """Two-point audit log so the chart layer has something to plot."""
-        from app.api import action_log as _al
         records = [
             {"ts": time.time(), "action": "add_point",
              "params": {"team": 1, "undo": False},
@@ -412,12 +402,7 @@ class TestMatchReport:
              "result": {"current_set": 1, "team_1": {"score": 1},
                         "team_2": {"score": 1}}},
         ]
-        path = _al._path(_sk(oid))
-        assert path is not None
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            for r in records:
-                f.write(json.dumps(r) + "\n")
+        write_audit_records(_sk(oid), records)
 
     def test_team_color_priority_prefers_team_identity_keys(self, client):
         # The customization separates *overlay* colours (alternating
@@ -873,7 +858,6 @@ class TestMatchReportRichSections:
         # the report must use it so the winning point doesn't
         # leak into the *next* set's timeline / chart.
         oid = "score-set-bug"
-        from app.api import action_log as _al
         records = [
             # Set 1: just one point to keep the fixture small.
             {"ts": 1700000000, "action": "add_point",
@@ -895,12 +879,7 @@ class TestMatchReportRichSections:
                         "team_1": {"score": 1},
                         "team_2": {"score": 0}}},
         ]
-        path = _al._path(_sk(oid))
-        assert path is not None
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            for r in records:
-                f.write(json.dumps(r) + "\n")
+        write_audit_records(_sk(oid), records)
         match_id = match_archive.archive_match(
             oid=oid,
             final_state={
@@ -931,7 +910,6 @@ class TestMatchReportRichSections:
         # Two points 90 s apart in set 1 → time-axis kicks in. Right
         # label should be ``1:30``, left label ``0:00``.
         oid = "axis-time-label"
-        from app.api import action_log as _al
         records = [
             {"ts": 1700000000, "action": "add_point",
              "params": {"team": 1, "undo": False},
@@ -944,12 +922,7 @@ class TestMatchReportRichSections:
                         "team_1": {"score": 1},
                         "team_2": {"score": 1}}},
         ]
-        path = _al._path(_sk(oid))
-        assert path is not None
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            for r in records:
-                f.write(json.dumps(r) + "\n")
+        write_audit_records(_sk(oid), records)
         match_id = match_archive.archive_match(
             oid=oid,
             final_state={"team_1": {"scores": {"set_1": 1}},
@@ -969,7 +942,6 @@ class TestMatchReportRichSections:
         # play. Chart falls back to rally-number indexing — left
         # label ``1``, right label = number of points (3 here).
         oid = "axis-fallback"
-        from app.api import action_log as _al
         records = [
             {"ts": 1700000000, "action": "add_point",
              "params": {"team": 1, "undo": False},
@@ -988,12 +960,7 @@ class TestMatchReportRichSections:
                         "team_1": {"score": 2},
                         "team_2": {"score": 1}}},
         ]
-        path = _al._path(_sk(oid))
-        assert path is not None
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            for r in records:
-                f.write(json.dumps(r) + "\n")
+        write_audit_records(_sk(oid), records)
         match_id = match_archive.archive_match(
             oid=oid,
             final_state={"team_1": {"scores": {"set_1": 2}},
@@ -1014,7 +981,6 @@ class TestMatchReportRichSections:
         # the second point at a negative x and outside the SVG
         # viewport — fall back to rally-number indexing instead.
         oid = "axis-skew"
-        from app.api import action_log as _al
         records = [
             {"ts": 1700000100, "action": "add_point",
              "params": {"team": 1, "undo": False},
@@ -1028,12 +994,7 @@ class TestMatchReportRichSections:
                         "team_1": {"score": 1},
                         "team_2": {"score": 1}}},
         ]
-        path = _al._path(_sk(oid))
-        assert path is not None
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            for r in records:
-                f.write(json.dumps(r) + "\n")
+        write_audit_records(_sk(oid), records)
         match_id = match_archive.archive_match(
             oid=oid,
             final_state={"team_1": {"scores": {"set_1": 1}},
@@ -1061,7 +1022,6 @@ class TestMatchReportRichSections:
         # cadence (which here is just a single point, not enough
         # for a rally calculation).
         oid = "rally-edit"
-        from app.api import action_log as _al
         records = [
             {"ts": 1700000000, "action": "add_point",
              "params": {"team": 1, "undo": False},
@@ -1072,12 +1032,7 @@ class TestMatchReportRichSections:
              "result": {"current_set": 1, "team_1": {"score": 5},
                         "team_2": {"score": 0}}},
         ]
-        path = _al._path(_sk(oid))
-        assert path is not None
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            for r in records:
-                f.write(json.dumps(r) + "\n")
+        write_audit_records(_sk(oid), records)
         match_id = match_archive.archive_match(
             oid=oid,
             final_state={"team_1": {"scores": {"set_1": 5}},
@@ -1249,7 +1204,6 @@ class TestMatchReportComebacks:
         scores after every ``add_point`` action; the team that scored
         is inferred from the diff vs. the previous record.
         """
-        from app.api import action_log as _al
         records: list[dict] = []
         ts = 1700000000.0
         for set_idx, scores in enumerate(sets, start=1):
@@ -1269,12 +1223,7 @@ class TestMatchReportComebacks:
                 })
                 ts += 30.0
                 prev = (s1, s2)
-        path = _al._path(_sk(oid))
-        assert path is not None
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            for r in records:
-                f.write(json.dumps(r) + "\n")
+        write_audit_records(_sk(oid), records)
 
     def _archive(self, oid: str, *, winning_team: int = 1) -> str:
         match_id = match_archive.archive_match(
@@ -1463,13 +1412,7 @@ class TestMatchReportPregameTrim:
     """Reset / pregame records must not anchor the report timeline."""
 
     def _seed_audit(self, oid: str, records: list[dict]) -> None:
-        from app.api import action_log as _al
-        path = _al._path(_sk(oid))
-        assert path is not None
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            for r in records:
-                f.write(json.dumps(r) + "\n")
+        write_audit_records(_sk(oid), records)
 
     def test_relative_timestamps_anchor_at_first_point_not_reset(self, client):
         # Reset 5 min before the first point; the first point must
@@ -1633,13 +1576,7 @@ class TestMatchReportTimeoutsInline:
     """
 
     def _seed_audit(self, oid: str, records: list[dict]) -> None:
-        from app.api import action_log as _al
-        path = _al._path(_sk(oid))
-        assert path is not None
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            for r in records:
-                f.write(json.dumps(r) + "\n")
+        write_audit_records(_sk(oid), records)
 
     def test_set_score_cell_appends_timeout_count(self, client):
         # Set 1: team_1 took 2 timeouts; set 2: team_2 took 1; set 3:

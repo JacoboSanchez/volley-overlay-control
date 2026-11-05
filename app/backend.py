@@ -1,4 +1,3 @@
-import copy
 import logging
 import threading
 import time
@@ -160,7 +159,7 @@ class Backend:
 
     def _build_overlay_payload(
         self,
-        current_model: dict[str, Any],
+        current_model: State | dict[str, Any],
         force_visibility: bool | None = None,
         customization_state: dict[str, Any] | None = None,
         show_only_current_set: bool | None = None,
@@ -187,26 +186,36 @@ class Backend:
 
     def save_model(
         self,
-        current_model: dict[str, Any],
+        current_model: State | dict[str, Any],
         simple: bool,
     ) -> None:
+        """Persist the match and push it to the overlay.
+
+        Accepts the typed :class:`State` (the normal path) or its flat model
+        dict. The dict form is what the overlay store persists; the typed
+        state is what the payload builder consumes, so it is parsed exactly
+        once here rather than re-parsed from key names downstream.
+        """
+        # Always work on a private snapshot: the push may run on the executor
+        # after the caller has already mutated its live ``State`` for the
+        # next action.
+        state = (
+            current_model.copy()
+            if isinstance(current_model, State)
+            else State(current_model)
+        )
+        model = state.get_current_model()
         with self._lifecycle_lock:
             if self._shutdown:
                 return
             Backend.logger.debug("saving model...")
-            self._ensure_overlay_backend()
             with _timed("save_model.model", Backend.logger):
-                self._overlay.save_model(current_model)
-
-            to_save = copy.copy(current_model)
-            if simple:
-                to_save = State.simplify_model(to_save)
+                self._overlay.save_model(model)
 
             def _push() -> None:
                 with _timed("save_model.push", Backend.logger):
                     self._overlay.push_model_update(
-                        current_model,
-                        to_save,
+                        state,
                         show_only_current_set=simple,
                     )
 
@@ -214,15 +223,6 @@ class Backend:
                 self.executor.submit(self._executor_key(), _push)
             else:
                 _push()
-
-    def reduce_games_to_one(self) -> None:
-        self._ensure_overlay_backend()
-        self._overlay.reduce_games_to_one()
-
-    def save_json_model(self, to_save: dict[str, Any]) -> None:
-        Backend.logger.debug("saving JSON model...")
-        self._ensure_overlay_backend()
-        self._overlay.send_json_model(to_save)
 
     def save_json_customization(self, to_save: dict[str, Any]) -> None:
         with self._lifecycle_lock:
@@ -322,18 +322,15 @@ class Backend:
     # -- High-level helpers ------------------------------------------------
 
     def reset(self, state: State) -> None:
-        current = state.get_current_model()
-        reset_model = state.get_reset_model()
-        new_state = copy.copy(current)
-        new_state.update(reset_model)
-        self.save_model(new_state, False)
+        """Persist a blank match. *state* is unused but kept for call shape."""
+        self.save_model(State(), False)
 
     def save(self, state: State, simple: bool) -> None:
-        self.save_model(state.get_current_model(), simple)
+        self.save_model(state, simple)
 
     def update_local_overlay(
         self,
-        current_model: dict[str, Any],
+        current_model: State | dict[str, Any],
         force_visibility: bool | None = None,
         customization_state: dict[str, Any] | None = None,
         show_only_current_set: bool | None = None,

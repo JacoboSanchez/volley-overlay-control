@@ -179,21 +179,14 @@ class LocalOverlayBackend(CustomOidMixin, OverlayBackend):
         self._store().ensure_overlay(custom_id)
         self._store().update_state_sync(custom_id, payload)
 
-    def send_json_model(self, to_save: dict[str, Any]) -> None:
-        pass  # Local overlays don't use Uno's SetOverlayContent
-
-    def reduce_games_to_one(self) -> None:
-        pass  # Local overlays don't use Uno's SetOverlayContent
-
     def push_model_update(
         self,
-        current_model: dict[str, Any],
-        to_save: dict[str, Any],
+        state: State,
         show_only_current_set: bool | None = None,
     ) -> None:
         if self._build_payload:
             payload = self._build_payload(
-                current_model, show_only_current_set=show_only_current_set,
+                state, show_only_current_set=show_only_current_set,
             )
             self.send_overlay_state(payload)
 

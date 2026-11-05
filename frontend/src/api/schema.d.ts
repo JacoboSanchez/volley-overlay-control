@@ -568,6 +568,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audit/consistency": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check the live match state against a replay of the audit log
+         * @description Rebuild the match from the audit log and compare it with live state.
+         *
+         *     Every mutation records a post-state snapshot, so folding the visible
+         *     (tombstone-filtered) history must reproduce the scoreboard. A
+         *     divergence means an audit append failed or a mutation path skipped the
+         *     log; the response names each disagreeing field. Sets the surviving
+         *     history never scored in (retention pruning, or not yet played) are left
+         *     out of ``covered_sets`` and never reported as divergent.
+         *
+         *     The log and the state are sampled under ``session.lock`` — the lock
+         *     every mutation holds — so a point scored mid-check cannot show up in one
+         *     and not the other. Returns **503** when the log cannot be read.
+         */
+        get: operations["get_audit_consistency_api_v1_audit_consistency_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/change-password": {
         parameters: {
             query?: never;
@@ -1762,7 +1793,7 @@ export interface paths {
         };
         /**
          * Readiness Check
-         * @description Readiness probe for writable local persistence.
+         * @description Readiness probe for writable local persistence and the runtime DB.
          */
         get: operations["readiness_check_health_ready_get"];
         put?: never;
@@ -2052,6 +2083,65 @@ export interface components {
             stale_set_threshold_minutes: number;
             /** Title */
             title: string;
+        };
+        /** AuditConsistencyResponse */
+        AuditConsistencyResponse: {
+            /**
+             * Consistent
+             * @description True when the replayed history matches the live state
+             */
+            consistent: boolean;
+            /**
+             * Covered Sets
+             * @description Sets the surviving history scored in (others were pruned or never played)
+             */
+            covered_sets: number[];
+            /** Divergences */
+            divergences?: components["schemas"]["AuditDivergence"][];
+            /**
+             * Records
+             * @description Visible audit records replayed
+             */
+            records: number;
+            /**
+             * Skipped
+             * @description Records without a usable post-state snapshot
+             */
+            skipped: number;
+            /**
+             * Starts At Reset
+             * @description History begins at a reset, so it covers the whole match
+             */
+            starts_at_reset: boolean;
+        };
+        /** AuditDivergence */
+        AuditDivergence: {
+            /**
+             * Field
+             * @description Which part of the match state disagrees
+             * @enum {string}
+             */
+            field: "current_set" | "serve" | "sets" | "score" | "timeouts";
+            /**
+             * Live
+             * @description Value in the live match state
+             */
+            live: number | string;
+            /**
+             * Replayed
+             * @description Value rebuilt from the audit log
+             */
+            replayed: number | string;
+            /**
+             * Set Number
+             * @description Set the field belongs to (score / timeouts)
+             */
+            set_number?: number | null;
+            /**
+             * Team
+             * @description Team the field belongs to (1 or 2)
+             */
+            team?: number | null;
         };
         /**
          * AuthContext
@@ -4219,6 +4309,49 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_audit_consistency_api_v1_audit_consistency_get: {
+        parameters: {
+            query?: {
+                /** @description Overlay ID */
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
+            };
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditConsistencyResponse"];
                 };
             };
             /** @description Validation Error */

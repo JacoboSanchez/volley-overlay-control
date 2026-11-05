@@ -1,10 +1,10 @@
 """Tests for OverlayStateStore._sanitize_id — the single choke point between
-user-provided overlay ids and on-disk ``overlay_state_<id>.json`` paths."""
-
-import os
+user-provided overlay ids and persisted ``runtime_overlay_state`` rows."""
 
 import pytest
+from sqlalchemy.orm import Session
 
+from app.db.runtime import OverlayRuntimeState
 from app.overlay.state_store import OverlayStateStore
 
 
@@ -67,12 +67,11 @@ def test_overlay_exists_returns_false_for_invalid_id(store):
     assert store.overlay_exists("") is False
 
 
-def test_create_overlay_rejects_invalid_id(store):
-    """create_overlay returns False on invalid id instead of writing a file."""
-    data_dir = store._data_dir
+def test_create_overlay_rejects_invalid_id(store, runtime_db):
+    """create_overlay returns False on invalid id instead of writing a row."""
     assert store.create_overlay("../escape") is False
-    # No file should have been written anywhere under or near data_dir.
-    assert not any(f.startswith("overlay_state_") for f in os.listdir(data_dir))
+    with Session(runtime_db) as db:
+        assert db.get(OverlayRuntimeState, "../escape") is None
 
 
 def test_delete_overlay_rejects_invalid_id(store):
@@ -89,56 +88,111 @@ def test_valid_id_round_trip(store):
     assert store.overlay_exists(oid) is False
 
 
-def test_read_state_falls_back_to_default_on_corrupt_json(store, caplog):
-    """A corrupt JSON file must not raise; we log a warning and fall
-    back to the default state. Previously a bare ``except Exception``
-    masked everything and made debugging hard — the narrow
-    ``OSError | json.JSONDecodeError`` handler keeps the recovery path
-    while letting unexpected errors surface."""
-    import json
-    import logging
-
+def test_read_state_falls_back_to_default_on_non_object_row(store, runtime_db):
+    """A stored value that is not a JSON object loads as default state."""
     oid = "corrupt-1"
-    # Create the overlay so the on-disk path exists, then overwrite with garbage.
     assert store.create_overlay(oid) is True
-    path = store.get_state_file_path(oid)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write("{not valid json")
+    with Session(runtime_db) as db, db.begin():
+        db.get(OverlayRuntimeState, oid).state = ["not", "a", "dict"]
 
-    with caplog.at_level(logging.WARNING, logger="app.overlay.state_store"):
-        loaded = store.load_persisted_state(oid)
-
-    # Falls back to a fresh default rather than raising.
+    loaded = store.load_persisted_state(oid)
     assert isinstance(loaded, dict)
-    assert any(
-        "Failed to load state from" in rec.getMessage()
-        for rec in caplog.records
-    ), "expected a warning log for the corrupt-JSON file"
+    assert "team_home" in loaded
 
     # And a proper write still works after the recovery.
     loaded["_meta"] = {"overlay_id": oid, "smoke": True}
     store.save_persisted_state(oid, loaded)
-    with open(path, encoding="utf-8") as f:
-        roundtripped = json.load(f)
-    assert roundtripped["_meta"]["smoke"] is True
+    assert store.load_persisted_state(oid)["_meta"]["smoke"] is True
 
 
-def test_read_state_falls_back_when_file_unreadable(store, tmp_path, monkeypatch):
-    """Permission / OS errors during read should log and fall back to
-    defaults instead of crashing the caller."""
-    oid = "perm-denied"
+def test_read_error_propagates_instead_of_caching_defaults(store, monkeypatch, caplog):
+    """A database error must not read as "no state".
+
+    Answering with defaults would put them in the in-memory context, and the
+    next mutation would persist them over the real row.
+    """
+    import logging
+
+    from app.overlay import state_store as module
+
+    oid = "db-down"
     assert store.create_overlay(oid) is True
-    path = store.get_state_file_path(oid)
+    store.update_state_sync(oid, {"team_home": {"points": 9}})
+    store._overlays.clear()  # force the next read to hit the database
 
-    # Simulate an OSError without actually chmoding (test runner often
-    # runs as root and chmod 000 is a no-op).
-    real_open = open
+    real_session = module.runtime_session
 
-    def fake_open(p, *args, **kwargs):
-        if p == path:
-            raise OSError("simulated EACCES")
-        return real_open(p, *args, **kwargs)
+    def broken_session():
+        raise RuntimeError("simulated outage")
 
-    monkeypatch.setattr("builtins.open", fake_open)
-    loaded = store.load_persisted_state(oid)
-    assert isinstance(loaded, dict)
+    monkeypatch.setattr(module, "runtime_session", broken_session)
+    with caplog.at_level(logging.WARNING, logger="app.overlay.state_store"), pytest.raises(RuntimeError):
+        store.get_state(oid)
+    assert oid not in store._overlays
+    assert any("Failed to load state for" in r.getMessage() for r in caplog.records)
+
+    monkeypatch.setattr(module, "runtime_session", real_session)
+    assert store.get_state(oid)["team_home"]["points"] == 9
+
+
+def test_create_never_overwrites_an_existing_row(store, monkeypatch):
+    """Even when the existence probe wrongly answers "absent" (a transient
+    error), creation is insert-only and leaves the real row alone."""
+    oid = "keep-me"
+    assert store.create_overlay(oid) is True
+    store.update_state_sync(oid, {"team_home": {"points": 5}})
+    store._existing.clear()
+    store._overlays.clear()
+    monkeypatch.setattr(store, "_row_exists", lambda _oid: False)
+
+    assert store.create_overlay(oid) is False
+    assert store.load_persisted_state(oid)["team_home"]["points"] == 5
+
+
+def test_failed_scan_is_retried_not_cached_as_empty(store, monkeypatch):
+    oid = "scan-me"
+    assert store.create_overlay(oid) is True
+    store._output_key_cache.clear()
+    store._all_overlays_scanned = False
+
+    def broken():
+        raise RuntimeError("simulated outage")
+
+    monkeypatch.setattr(store, "_iter_persisted_ids", broken)
+    assert store.resolve_overlay_id(oid) is None
+    assert store._all_overlays_scanned is False
+    monkeypatch.undo()
+    assert store.resolve_overlay_id(oid) == oid
+
+
+def test_existence_probe_racing_a_delete_is_not_cached(store, monkeypatch):
+    """A probe that saw the row before a concurrent delete must not put a
+    stale "exists" back into the cache."""
+    oid = "racy"
+    assert store.create_overlay(oid) is True
+    store._existing.clear()
+    real_probe = store._row_exists
+
+    def probe_then_delete(overlay_id):
+        found = real_probe(overlay_id)
+        store.delete_overlay(overlay_id)  # lands between probe and cache write
+        return found
+
+    monkeypatch.setattr(store, "_row_exists", probe_then_delete)
+    assert store.overlay_exists(oid) is True  # the probe's (now stale) answer
+    monkeypatch.undo()
+    assert oid not in store._existing
+    assert store.overlay_exists(oid) is False
+
+
+def test_write_failure_keeps_in_memory_state(store, monkeypatch):
+    """A failed save is logged, not raised, so a live match keeps going."""
+    oid = "write-fail"
+    assert store.create_overlay(oid) is True
+
+    def broken_write(overlay_id, state):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(store, "_write_row", broken_write)
+    store.update_state_sync(oid, {"team_home": {"points": 7}})
+    assert store.get_state(oid)["team_home"]["points"] == 7

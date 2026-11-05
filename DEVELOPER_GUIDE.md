@@ -151,8 +151,8 @@ dependency.
 │   └── pwa/                 # Legacy PWA assets (icons).
 ├── overlay_templates/       # Jinja2 HTML templates for overlay styles (16 templates).
 ├── overlay_static/          # Static assets for overlays (JS, CSS, images).
-├── data/                    # Runtime data dir: SQLite app.db (default), live overlay state JSON,
-│                            #   audit logs, and minted-token files (.session_secret, .admin_bootstrap_token, etc.).
+├── data/                    # Runtime data dir: SQLite app.db + runtime.db (default), media/,
+│                            #   and minted-token files (.session_secret, .admin_bootstrap_token, etc.).
 ├── font/                    # Custom font files for the overlay.
 └── tests/                   # Pytest suite.
     ├── conftest.py          # Test fixtures: in-memory SQLite db_session, make_user, login_client, auth_client, app_client.
@@ -232,11 +232,12 @@ See [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md) for the complete API refe
 
 Represents the data structure of the match.
 
-- **Responsibility**: Holds the "Single Source of Truth" dictionary (`current_model`) that maps keys (e.g., `'Team 1 Sets'`) to values.
+- **Responsibility**: Holds the match as a typed `GameState` dataclass. The flat string-keyed dict (`'Team 1 Game 3 Score'`, …) is only a wire format: the constructor parses it and `get_current_model()` produces it, for persistence (`raw_remote_model` in the overlay store) and hand-reading integrators. Everything else — including the overlay payload builder and `Backend.save_model` — takes a `State` and uses the accessors; do not index the dict by key name.
 - **Key Methods**:
   - `get_game(team, set)` / `set_game(...)` — Get/Set points for a specific set.
   - `get_sets(team)` / `set_sets(...)` — Get/Set sets won.
-  - `simplify_model(simplified)` — Prepares the state for "simple mode" (reduced data payload).
+  - `get_current_set()` / `set_current_set(...)`, `get_timeout(team[, set])`, `get_current_serve()`.
+  - `get_current_model()` — Serialize to the legacy flat dict (persistence edge only).
 
 #### `app/game_manager.py` — class `GameManager`
 
@@ -508,9 +509,22 @@ The app assumes it is the **primary controller**. However, `GameManager.reset()`
 
 Every overlay is managed **in-process** by `LocalOverlayBackend`. State flows directly from `GameManager` → `LocalOverlayBackend` → `OverlayStateStore` → `ObsBroadcastHub` → OBS browser sources — no inter-process communication needed.
 
+**The overlay state contract.** What `/ws/{public_token}` sends is defined by the Pydantic models in `app/overlay/payload_schema.py` (`OverlayPayload` for one builder payload, `OverlayState` for what a client receives). The hub sends `public_overlay_state(...)`, a projection that drops server bookkeeping (`_meta`, `raw_remote_model`) and stamps `match_info.server_time` at send time. Template authors and third-party consumers read the published JSON Schema, `overlay_static/schema/overlay-state.schema.json`. The overlay scripts are type-checked against the generated `overlay_static/js/types/overlay-state.d.ts` (`cd frontend && npm run typecheck:overlays`, part of `npm run typecheck`).
+
+To add a field the overlays need:
+
+1. Emit it from `app/overlay_payload.py`.
+2. Declare it on the matching model in `app/overlay/payload_schema.py`. The sections forbid unknown keys, so `tests/test_overlay_payload_contract.py` fails until you do.
+3. Regenerate the schema and types:
+
+```bash
+python scripts/generate_overlay_schema.py
+(cd frontend && npm run gen:overlay-types)
+```
+
 ### OID resolution
 
-`resolve_overlay_kind` (in `app/overlay_backends/utils.py`) maps every request to the in-process `LocalOverlayBackend`. A bare OID (or the legacy `C-<id>` form) resolves to the in-process engine; the `OverlayStateStore` holds its render state on disk in `data/overlay_state_<hash>.json`, where the hashed input is the per-user storage key (`skey`), not the bare id.
+`resolve_overlay_kind` (in `app/overlay_backends/utils.py`) maps every request to the in-process `LocalOverlayBackend`. A bare OID (or the legacy `C-<id>` form) resolves to the in-process engine; the `OverlayStateStore` holds its render state as a `runtime_overlay_state` row (see `app/db/runtime.py`) keyed by the per-user storage key (`skey`), not the bare id.
 
 The bare ID is always preferred; the `C-` prefix is accepted for backwards compatibility but omitted from the UI.
 

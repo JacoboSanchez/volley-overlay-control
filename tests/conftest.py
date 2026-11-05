@@ -30,7 +30,39 @@ def load_test_env(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def isolate_overlay_store(tmp_path_factory):
+def runtime_db():
+    """Give every test a fresh in-memory runtime-state database.
+
+    Overlay state, session meta and the audit log live in the runtime
+    tables (:mod:`app.db.runtime`). Production keeps them on their own
+    engine (a sibling SQLite file); tests mirror that with a dedicated
+    in-memory ``StaticPool`` engine, separate from ``db_session``'s, so a
+    test can never pass only because both stores happen to share one
+    connection. Declared before every fixture that touches the stores.
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy.pool import StaticPool
+
+    from app.db import runtime
+
+    saved = (runtime._engine, runtime._SessionLocal)
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        future=True,
+    )
+    runtime.configure_runtime_engine(engine=engine)
+    runtime.init_runtime_schema(engine)
+    try:
+        yield engine
+    finally:
+        runtime._engine, runtime._SessionLocal = saved
+        engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def isolate_overlay_store(tmp_path_factory, runtime_db):
     """Point the overlay state store at a per-test temp dir and seed
     ``test_overlay`` so the OID resolver classifies it as CUSTOM.
 
@@ -54,6 +86,7 @@ def isolate_overlay_store(tmp_path_factory):
         "_available_styles": overlay_state_store._available_styles,
         "_renderable_styles": overlay_state_store._renderable_styles,
         "_all_overlays_scanned": overlay_state_store._all_overlays_scanned,
+        "_existing": overlay_state_store._existing,
     }
     overlay_state_store._data_dir = str(seed_dir)
     overlay_state_store._overlays = {}
@@ -62,6 +95,7 @@ def isolate_overlay_store(tmp_path_factory):
     overlay_state_store._available_styles = None
     overlay_state_store._renderable_styles = None
     overlay_state_store._all_overlays_scanned = False
+    overlay_state_store._existing = set()
     overlay_state_store.create_overlay("test_overlay")
 
     yield
@@ -73,42 +107,27 @@ def isolate_overlay_store(tmp_path_factory):
     overlay_state_store._available_styles = saved["_available_styles"]
     overlay_state_store._renderable_styles = saved["_renderable_styles"]
     overlay_state_store._all_overlays_scanned = saved["_all_overlays_scanned"]
+    overlay_state_store._existing = saved["_existing"]
 
 
 @pytest.fixture(autouse=True)
-def isolate_session_meta(tmp_path_factory, monkeypatch):
-    """Redirect session-meta persistence to a per-test temp dir.
+def isolate_action_log(runtime_db):
+    """Reset ``action_log``'s in-memory per-OID state.
 
-    SessionManager.get_or_create persists a small JSON file per OID to
-    survive process restarts. Without isolation those files would leak
-    between tests via the real ``data/`` directory and rehydrate
-    sessions with stale limits/simple-mode flags.
-    """
-    from app.api import session_persistence
-
-    seed_dir = tmp_path_factory.mktemp("session_meta")
-    monkeypatch.setattr(session_persistence, "_data_dir", lambda: str(seed_dir))
-
-
-@pytest.fixture(autouse=True)
-def isolate_action_log(tmp_path_factory, monkeypatch):
-    """Redirect the per-OID audit log to a per-test temp dir.
-
-    Also resets ``action_log``'s in-memory per-OID state (the monotonic
-    timestamp tracker, the mutation-version counter and the parsed-record
-    cache) and drops the ``live_stats`` memoization cache. These live at
-    module scope and are deliberately not persisted, so without an explicit
-    reset a fresh test reusing an OID would inherit the previous test's
-    version counter and could be served stale cached records for what is now
-    an empty log in a brand-new temp dir.
+    The rows themselves live in the per-test ``runtime_db``. The monotonic
+    timestamp tracker, the mutation-version counter, the parsed-record cache
+    and the retention byte totals live at module scope and are deliberately
+    not persisted, so without an explicit reset a fresh test reusing an OID
+    would inherit the previous test's version counter and could be served
+    stale cached records for what is now an empty table. The ``live_stats``
+    memoization cache is dropped for the same reason.
     """
     from app.api import action_log, live_stats
 
-    seed_dir = tmp_path_factory.mktemp("action_log")
-    monkeypatch.setattr(action_log, "_data_dir", lambda: str(seed_dir))
     action_log._version_per_oid.clear()
     action_log._last_ts_per_oid.clear()
     action_log._raw_cache.clear()
+    action_log._bytes_per_oid.clear()
     live_stats.clear_cache()
 
 

@@ -76,7 +76,7 @@ placement and adjust the offset to leave a safe margin.
 ### Match History
 *   **Auto-archive on match end**: Every finished match is recorded as a row in the `match_reports` table (DB-backed, scoped to the owning user) with the final state, customization, audit log, and config — frozen so cosmetic edits made afterwards do not retroactively rewrite history. Browse your own reports from the account area via the server-filtered and paginated `GET /api/v1/matches`, fetch or delete one via `GET`/`DELETE /api/v1/matches/{id}`, or delete a selected group transactionally via `POST /api/v1/matches/bulk-delete`.
 *   **Print-friendly per-match report** at `/match/{match_id}/report` (designed for the browser's "Save as PDF" workflow). The route is gated three ways: the owner's session cookie, an owner-minted signed share URL (`POST /api/v1/matches/{match_id}/sign-url`, HMAC-keyed by the separately persisted `MATCH_REPORT_SIGNING_SECRET`), or fully open when `MATCH_REPORT_PUBLIC=true`.
-*   **Per-OID action audit log** capturing every state mutation with a compact post-state snapshot, kept on disk as JSONL re-keyed by the per-user storage key. Exposed read-only via `GET /api/v1/audit?oid=...`.
+*   **Per-OID action audit log** capturing every state mutation with a compact post-state snapshot, stored as append-only database rows keyed by the per-user storage key. Exposed read-only via `GET /api/v1/audit?oid=...`.
 *   **Outbound webhooks** on `set_end`, `match_end`, `timeout`, and `serve_change` events. Configure via `WEBHOOKS_URL` (single endpoint) or `WEBHOOKS_JSON` (multi-target with per-event filtering); bodies are HMAC-SHA256-signed when a secret is set.
 
 ### Advanced Customization
@@ -361,7 +361,7 @@ Configure the application using the following environment variables:
 | `METRICS_TOKEN` | *(Optional)* Require `Authorization: Bearer <token>` on `/metrics`. Compared in constant time; never accepted in the query string. | *(unset → open)* |
 
 Rarely-needed knobs (auth rate limiting, security response headers, audit-log
-rotation, WebSocket hub limits, webhook retries, preset caps, list-endpoint
+retention, WebSocket hub limits, webhook retries, preset caps, list-endpoint
 paging via `LIST_DEFAULT_LIMIT` / `LIST_MAX_LIMIT`, expired-login-row sweeping
 via `AUTH_SESSION_SWEEP_INTERVAL_SECONDS`, idle game-session eviction via
 `SESSION_TTL_SECONDS` — not to be confused with `SESSION_TTL_HOURS`, the
@@ -405,19 +405,30 @@ Teams and presets are stored in the database, not in environment variables:
 
 #### Data directory and backups
 
-The database holds accounts, teams, presets and icon *metadata* — but the
-`data/` directory is part of the application state too: icon images live in
-`data/media/icons/` (served from the public `/media` mount), and per-overlay
-state, action logs and secrets (`.session_secret`) are files under `data/`.
+The database holds accounts, teams, presets, match reports and icon
+*metadata*, plus the live runtime state — each overlay's current scoreboard,
+its session flags and its action audit log. The `data/` directory is part of
+the application state too: icon images live in `data/media/icons/` (served
+from the public `/media` mount) and the generated secrets (`.session_secret`,
+…) are files there.
 
-*   **Default (SQLite)** — the database itself is `data/app.db`, so backing
-    up the `data/` directory (the `overlay_data` volume in the Docker
-    setups) captures everything in one place.
-*   **PostgreSQL** — a `pg_dump` alone does **not** include icon images or
-    the rest of `data/`; back up both the database and the `data/`
-    directory. Restoring only the database leaves teams pointing at missing
-    icon files (the UI falls back to the team initial; re-upload or re-run
-    the logo import to heal).
+*   **Default (SQLite)** — accounts live in `data/app.db` and runtime state
+    in `data/runtime.db` next to it (a separate file so live scoring never
+    waits on an account write), so backing up the `data/` directory (the
+    `overlay_data` volume in the Docker setups) captures everything in one
+    place. Stop the app or use `sqlite3 … .backup` for a consistent copy:
+    `runtime.db` runs in WAL mode, so copy its `-wal`/`-shm` files with it.
+*   **PostgreSQL** — runtime state lives in the same database (`runtime_*`
+    tables), so a `pg_dump` captures every scoreboard and audit log; back up
+    the `data/` directory as well for icon images and secrets. Restoring
+    only the database leaves teams pointing at missing icon files (the UI
+    falls back to the team initial; re-upload or re-run the logo import to
+    heal).
+*   **Upgrading from a release that kept runtime files** — on first start
+    the app imports every `data/overlay_state_*.json`,
+    `data/session_meta_*.json` and `data/audit_*.jsonl[.N]` into the
+    database and renames each to `*.imported`. Nothing is deleted; remove
+    the `*.imported` files once you are happy with the upgrade.
 
 #### Team import/export JSON (`APP_TEAMS` shape)
 ```json
@@ -482,6 +493,7 @@ Because whatever answers gets to set most of this app's configuration — includ
 | `/api/v1/ws?oid=X` | WebSocket for real-time state updates (frontend; cookie-authenticated). |
 | `/api/v1/session/rules?oid=X` | `POST` — update match rules (`mode` indoor/beach, `points_limit`, `points_limit_last_set`, `sets_limit`, `reset_to_defaults`). Backs the React config panel's "Match rules" section. |
 | `/api/v1/audit?oid=X[&limit=N]` | `GET` — recent records from the per-OID action audit log (default `limit=100`, max `1000`). |
+| `/api/v1/audit/consistency?oid=X` | `GET` — rebuild the match from the audit log and list any field where it disagrees with the live scoreboard. |
 | `/api/v1/matches[?oid=X]` | `GET` — list the user's archived match reports with owner-scoped OID/mode/date filters, stable sorting and `limit`/`offset` paging. |
 | `/api/v1/matches/days` | `GET` — distinct local calendar days containing the user's archived matches (optional OID/mode filters). |
 | `/api/v1/matches/bulk-delete` | `POST` — transactionally delete up to 100 selected reports owned by the caller. |

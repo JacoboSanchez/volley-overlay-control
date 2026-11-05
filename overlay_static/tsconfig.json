@@ -1,0 +1,14 @@
+{
+  "//": "Type-checks the plain-JS overlay scripts against the generated overlay state contract. Run with `cd frontend && npm run typecheck:overlays`.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["js/app.js", "js/set_summary.js", "js/spectator.js", "js/i18n_labels.js", "js/types/*.d.ts"]
+}

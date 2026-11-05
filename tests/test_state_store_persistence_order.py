@@ -27,7 +27,7 @@ async def test_concurrent_async_updates_cannot_persist_an_older_snapshot(
     oid = "async-order"
     assert store.create_overlay(oid) is True
 
-    real_write = store._write_state_sync
+    real_write = store._write_row
     first_write_started = threading.Event()
     second_write_finished = threading.Event()
 
@@ -40,7 +40,7 @@ async def test_concurrent_async_updates_cannot_persist_an_older_snapshot(
         if points == 2:
             second_write_finished.set()
 
-    monkeypatch.setattr(store, "_write_state_sync", delayed_write)
+    monkeypatch.setattr(store, "_write_row", delayed_write)
 
     first = asyncio.create_task(
         store.update_state(
@@ -67,7 +67,7 @@ def test_sync_update_and_visibility_write_in_mutation_order(store, monkeypatch):
     oid = "sync-order"
     assert store.create_overlay(oid) is True
 
-    real_write = store._write_state_sync
+    real_write = store._write_row
     first_write_started = threading.Event()
     visibility_write_finished = threading.Event()
 
@@ -80,7 +80,7 @@ def test_sync_update_and_visibility_write_in_mutation_order(store, monkeypatch):
         if not visible:
             visibility_write_finished.set()
 
-    monkeypatch.setattr(store, "_write_state_sync", delayed_write)
+    monkeypatch.setattr(store, "_write_row", delayed_write)
 
     first = threading.Thread(
         target=store.update_state_sync,

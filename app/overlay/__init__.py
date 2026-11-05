@@ -10,6 +10,7 @@ and the LocalOverlayBackend.
 import os
 
 from app.overlay.broadcast import ObsBroadcastHub
+from app.overlay.payload_schema import public_overlay_state
 from app.overlay.state_store import OverlayStateStore
 
 _base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,9 +22,15 @@ obs_broadcast_hub = ObsBroadcastHub()
 
 
 def _on_state_changed(overlay_id: str) -> None:
-    """Broadcast callback — triggered after every state change."""
+    """Broadcast callback — triggered after every state change.
+
+    Clients receive the public projection only (see
+    :mod:`app.overlay.payload_schema`): the stored state also holds the
+    owner's storage key and the raw model, which no template needs.
+    """
     obs_broadcast_hub.schedule_broadcast_from_sync(
-        overlay_id, lambda: overlay_state_store.get_state(overlay_id)
+        overlay_id,
+        lambda: public_overlay_state(overlay_state_store.get_state(overlay_id)),
     )
 
 

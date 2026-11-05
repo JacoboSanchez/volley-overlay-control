@@ -114,25 +114,12 @@ class OverlayBackend(ABC):
         """Push a full overlay state update to connected displays."""
 
     @abstractmethod
-    def send_json_model(self, to_save: dict[str, Any]) -> None:
-        """Send a partial model update to the overlay provider."""
-
-    @abstractmethod
-    def reduce_games_to_one(self) -> None:
-        """Reset scores of sets 2-5 to zero."""
-
     def push_model_update(
         self,
-        current_model: dict[str, Any],
-        to_save: dict[str, Any],
+        state: State,
         show_only_current_set: bool | None = None,
     ) -> None:
-        """Push a model update using the backend-appropriate mechanism.
-
-        :class:`LocalOverlayBackend` overrides this to send a full overlay
-        state payload to the in-process display hub.
-        """
-        self.send_json_model(to_save)
+        """Push the typed match *state* to the overlay output."""
 
     def on_customization_saved(
         self,

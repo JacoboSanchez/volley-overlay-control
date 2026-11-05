@@ -12,7 +12,7 @@ from app.api.session_manager import GameSession, SessionManager
 pytestmark = pytest.mark.usefixtures("clean_sessions")
 
 
-# Session-meta isolation comes from the autouse ``isolate_session_meta``
+# Session-meta isolation comes from the autouse ``runtime_db``
 # fixture in tests/conftest.py.
 
 
@@ -49,19 +49,31 @@ class TestSessionPersistenceFile:
         # Idempotent: second delete returns False but does not raise.
         assert session_persistence.delete_session_meta("oid-b") is False
 
-    def test_meta_payload_includes_oid_marker(self):
-        import json
-        import os
+    def test_meta_is_one_row_keyed_by_oid(self, runtime_db):
+        from sqlalchemy.orm import Session
+
+        from app.db.runtime import RuntimeSessionMeta
+
         session_persistence.save_session_meta(
             "oid-c", {"simple": False, "sets_limit": 5}
         )
-        data_dir = session_persistence._data_dir()
-        files = [f for f in os.listdir(data_dir) if f.startswith("session_meta_")]
-        assert len(files) == 1
-        with open(os.path.join(data_dir, files[0]), encoding="utf-8") as f:
-            payload = json.load(f)
-        assert payload["_meta"]["oid"] == "oid-c"
-        assert payload["sets_limit"] == 5
+        session_persistence.save_session_meta(
+            "oid-c", {"simple": True, "sets_limit": 3}
+        )
+        with Session(runtime_db) as db:
+            rows = db.query(RuntimeSessionMeta).all()
+        assert [r.store_key for r in rows] == ["oid-c"]
+        assert rows[0].data == {"simple": True, "sets_limit": 3}
+
+    def test_invalid_oid_is_never_stored(self, runtime_db):
+        from sqlalchemy.orm import Session
+
+        from app.db.runtime import RuntimeSessionMeta
+
+        session_persistence.save_session_meta("../evil", {"simple": True})
+        assert session_persistence.load_session_meta("../evil") is None
+        with Session(runtime_db) as db:
+            assert db.query(RuntimeSessionMeta).count() == 0
 
 
 # ---------------------------------------------------------------------------

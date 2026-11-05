@@ -354,6 +354,125 @@
         "title": "AppConfigResponse",
         "type": "object"
       },
+      "AuditConsistencyResponse": {
+        "properties": {
+          "consistent": {
+            "description": "True when the replayed history matches the live state",
+            "title": "Consistent",
+            "type": "boolean"
+          },
+          "covered_sets": {
+            "description": "Sets the surviving history scored in (others were pruned or never played)",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Covered Sets",
+            "type": "array"
+          },
+          "divergences": {
+            "items": {
+              "$ref": "#/components/schemas/AuditDivergence"
+            },
+            "title": "Divergences",
+            "type": "array"
+          },
+          "records": {
+            "description": "Visible audit records replayed",
+            "title": "Records",
+            "type": "integer"
+          },
+          "skipped": {
+            "description": "Records without a usable post-state snapshot",
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "starts_at_reset": {
+            "description": "History begins at a reset, so it covers the whole match",
+            "title": "Starts At Reset",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "consistent",
+          "records",
+          "skipped",
+          "starts_at_reset",
+          "covered_sets"
+        ],
+        "title": "AuditConsistencyResponse",
+        "type": "object"
+      },
+      "AuditDivergence": {
+        "properties": {
+          "field": {
+            "description": "Which part of the match state disagrees",
+            "enum": [
+              "current_set",
+              "serve",
+              "sets",
+              "score",
+              "timeouts"
+            ],
+            "title": "Field",
+            "type": "string"
+          },
+          "live": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Value in the live match state",
+            "title": "Live"
+          },
+          "replayed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Value rebuilt from the audit log",
+            "title": "Replayed"
+          },
+          "set_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set the field belongs to (score / timeouts)",
+            "title": "Set Number"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Team the field belongs to (1 or 2)",
+            "title": "Team"
+          }
+        },
+        "required": [
+          "field",
+          "replayed",
+          "live"
+        ],
+        "title": "AuditDivergence",
+        "type": "object"
+      },
       "AuthContext": {
         "description": "Public boot payload for the SPA guard \u2014 never requires auth.",
         "properties": {
@@ -5095,6 +5214,146 @@
           }
         },
         "summary": "Recent action audit log (cursor-paginated)",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/audit/consistency": {
+      "get": {
+        "description": "Rebuild the match from the audit log and compare it with live state.\n\nEvery mutation records a post-state snapshot, so folding the visible\n(tombstone-filtered) history must reproduce the scoreboard. A\ndivergence means an audit append failed or a mutation path skipped the\nlog; the response names each disagreeing field. Sets the surviving\nhistory never scored in (retention pruning, or not yet played) are left\nout of ``covered_sets`` and never reported as divergent.\n\nThe log and the state are sampled under ``session.lock`` \u2014 the lock\nevery mutation holds \u2014 so a point scored mid-check cannot show up in one\nand not the other. Returns **503** when the log cannot be read.",
+        "operationId": "get_audit_consistency_api_v1_audit_consistency_get",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Overlay ID",
+              "title": "Oid"
+            }
+          },
+          {
+            "description": "Alias of `oid` for backward compatibility",
+            "in": "query",
+            "name": "control",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of `oid` for backward compatibility",
+              "title": "Control"
+            }
+          },
+          {
+            "description": "Username for a public ?u=&oid= board URL",
+            "in": "query",
+            "name": "u",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
+            }
+          },
+          {
+            "description": "Control capability token (alternative to ?c=)",
+            "in": "header",
+            "name": "x-control-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (alternative to ?c=)",
+              "title": "X-Control-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditConsistencyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check the live match state against a replay of the audit log",
         "tags": [
           "Scoreboard API v1"
         ]
@@ -12919,7 +13178,7 @@
     },
     "/health/ready": {
       "get": {
-        "description": "Readiness probe for writable local persistence.",
+        "description": "Readiness probe for writable local persistence and the runtime DB.",
         "operationId": "readiness_check_health_ready_get",
         "responses": {
           "200": {

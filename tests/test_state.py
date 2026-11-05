@@ -1,4 +1,3 @@
-import copy
 import os
 import sys
 
@@ -200,76 +199,11 @@ def test_set_current_set(state):
     state.set_current_set(4)
     assert state.get_current_model()[State.CURRENT_SET_INT] == '4'
 
-# --- simplify_model Scenarios ---
-
-def test_simplify_model_logic(state):
-    """Tests the logic for simplifying the model for the backend API."""
-    # Setup a complex state
-    model = state.get_current_model()
-    model[State.CURRENT_SET_INT] = 3
-    model[State.T1SET1_INT] = '25'
-    model[State.T2SET1_INT] = '20'
-    model[State.T1SET2_INT] = '22'
-    model[State.T2SET2_INT] = '25'
-    model[State.T1SET3_INT] = '10'
-    model[State.T2SET3_INT] = '12'
-
-    # Simplify the model
-    simplified = State.simplify_model(copy.copy(model))
-
-    # The scores from the current set (3) should be moved to set 1
-    assert simplified[State.T1SET1_INT] == '10'
-    assert simplified[State.T2SET1_INT] == '12'
-    # All other set scores should be zeroed out
-    assert simplified[State.T1SET2_INT] == '0'
-    assert simplified[State.T2SET2_INT] == '0'
-    assert simplified[State.T1SET3_INT] == '0'
-    assert simplified[State.T2SET3_INT] == '0'
-    assert simplified[State.T1SET4_INT] == '0'
-    assert simplified[State.T2SET4_INT] == '0'
-    assert simplified[State.T1SET5_INT] == '0'
-    assert simplified[State.T2SET5_INT] == '0'
-    # The current set number itself should not be changed in the process
-    assert simplified[State.CURRENT_SET_INT] == 3
-
-def test_simplify_model_when_current_set_is_one(state):
-    """Tests that simplify_model works correctly when the current set is already 1."""
-    model = state.get_current_model()
-    model[State.CURRENT_SET_INT] = 1
-    model[State.T1SET1_INT] = '5'
-    model[State.T2SET1_INT] = '7'
-    model[State.T1SET2_INT] = '2' # Some leftover score
-
-    simplified = State.simplify_model(copy.copy(model))
-
-    # Scores for set 1 should remain
-    assert simplified[State.T1SET1_INT] == '5'
-    assert simplified[State.T2SET1_INT] == '7'
-    # Other scores should be cleared
-    assert simplified[State.T1SET2_INT] == '0'
-
-def test_simplify_model_preserves_other_state(state):
-    """Tests that simplify_model does not affect other parts of the state."""
-    model = state.get_current_model()
-    model[State.CURRENT_SET_INT] = 2
-    model[State.T1SET2_INT] = '10'
-    model[State.T2SET2_INT] = '10'
-    model[State.SERVE] = State.SERVE_2
-    model[State.T1TIMEOUTS_INT] = '1'
-    model[State.T1SETS_INT] = '1'
-
-    simplified = State.simplify_model(copy.copy(model))
-
-    assert simplified[State.SERVE] == State.SERVE_2
-    assert simplified[State.T1TIMEOUTS_INT] == '1'
-    assert simplified[State.T1SETS_INT] == '1'
-
-def test_simplify_model_with_invalid_current_set(state):
-    """Tests simplify_model with an invalid current_set value."""
-    model = state.get_current_model()
-    model[State.CURRENT_SET_INT] = 99 # Invalid set number
-    with pytest.raises(KeyError):
-        State.simplify_model(model)
+def test_get_current_set_is_typed(state):
+    """The typed accessor returns an int; the wire dict carries a string."""
+    state.set_current_set("3")
+    assert state.get_current_set() == 3
+    assert state.get_current_model()[State.CURRENT_SET_INT] == '3'
 
 def test_getters_with_invalid_keys(state):
     """Tests that getters raise KeyError for invalid team or set numbers."""
@@ -284,3 +218,15 @@ def test_setters_with_invalid_values(state):
     """Tests that setters reject non-integer values with a ValueError."""
     with pytest.raises(ValueError):
         state.set_timeout(1, "invalid")
+
+
+def test_unknown_serve_marker_parses_as_none():
+    """A corrupted persisted serve marker must not stop the state loading."""
+    assert State({'Serve': 'X'}).get_current_serve() == State.SERVE_NONE
+
+
+def test_copy_is_independent(state):
+    clone = state.copy()
+    clone.set_game(1, 1, 7)
+    assert state.get_game(1, 1) == 0
+    assert clone.get_game(1, 1) == 7

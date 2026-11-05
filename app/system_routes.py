@@ -117,13 +117,16 @@ def register_system_routes(
 
     @application.get("/health/ready")
     def readiness_check() -> JSONResponse:
-        """Readiness probe for writable local persistence."""
-        from app.api import action_log
+        """Readiness probe for writable local persistence and the runtime DB."""
+        from sqlalchemy import text
+
+        from app.api._persistence_paths import data_dir
+        from app.db.runtime import get_runtime_engine
 
         checks: dict[str, bool] = {}
         reasons: dict[str, str] = {}
         try:
-            path = action_log._data_dir()
+            path = data_dir()
             os.makedirs(path, exist_ok=True)
             with tempfile.NamedTemporaryFile(
                 dir=path,
@@ -137,6 +140,14 @@ def register_system_routes(
             logger.exception("Readiness probe: data dir write failed")
             checks["data_dir_writable"] = False
             reasons["data_dir_writable"] = "write_failed"
+        try:
+            with get_runtime_engine().connect() as conn:
+                conn.execute(text("SELECT 1"))
+            checks["runtime_db"] = True
+        except Exception:
+            logger.exception("Readiness probe: runtime database unreachable")
+            checks["runtime_db"] = False
+            reasons["runtime_db"] = "unreachable"
 
         all_ok = all(checks.values())
         payload: dict[str, object] = {

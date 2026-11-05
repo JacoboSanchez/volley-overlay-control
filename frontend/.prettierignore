@@ -6,3 +6,4 @@ src/api/schema.d.ts
 schema/openapi.json
 package-lock.json
 ../overlay_static/js/gsap.min.js
+../overlay_static/js/types/overlay-state.d.ts
