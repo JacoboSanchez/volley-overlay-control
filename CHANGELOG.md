@@ -58,9 +58,10 @@ archive by hand.
 - **Undo across a set boundary records the set it changed**, including that
   set's timeouts, instead of the set the match had moved on to.
 - **The Undo button no longer gets stuck after a manual correction.** When a
-  score or sets edit had already removed the effect of the newest point or
-  timeout, Undo kept "undoing" that entry without changing anything; it now
-  retires it and undoes the newest action that is still on the board.
+  score or sets edit left the newest point or timeout with nothing to undo
+  from where the match now stands, Undo kept "undoing" that entry without
+  changing anything. It now skips such entries, leaving them in the history
+  that reports and live stats read, and undoes the newest action it can.
 
 ### Security
 

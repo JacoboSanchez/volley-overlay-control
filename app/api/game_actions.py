@@ -22,10 +22,6 @@ from app.api.schemas import (
 from app.customization_cache_ttl import customization_cache_ttl_seconds
 from app.state import State
 
-# Bound on stale forwards ``undo_last`` retires in one press; a log can only
-# accumulate them through manual corrections, one per corrected action.
-_MAX_STALE_FORWARDS = 50
-
 if TYPE_CHECKING:
     from app.api.game_service import GameService
     from app.api.session_manager import GameSession
@@ -648,26 +644,20 @@ class GameActions:
         ``reset``, …) stay in the log; ``peek_last_forward`` skips
         them so undo walks past them rather than touching them.
         """
+        # A manual correction can leave the newest forward with nothing to
+        # reverse from where the match now stands (``set-score`` already
+        # zeroed that point; ``set-sets`` moved the match past the set whose
+        # timeout it was). Its per-type undo is a no-op that pops nothing,
+        # so dispatching to it would leave the operator stuck on it forever.
+        # Walk past such forwards to the newest action that can actually be
+        # undone — without touching them: the history must keep them (a
+        # set-1 timeout is still on the board after the match moves to set
+        # 2, and reports and live stats count it from the log).
         record = action_log.peek_last_forward(
             session.oid,
             allowed_actions=action_log.UNDOABLE_ACTIONS,
+            accept=lambda r: not cls._undo_is_noop(session, r),
         )
-        # A manual correction can leave the newest forward with nothing to
-        # reverse (``set-score`` already zeroed that point; ``set-sets``
-        # moved the match to a set with no timeouts). Its per-type undo is a
-        # no-op that pops nothing, so dispatching to it would leave the
-        # operator stuck on it forever. Such a forward's effect is already
-        # gone from the board: retire it and keep walking to the newest
-        # action that can actually be undone.
-        for _ in range(_MAX_STALE_FORWARDS):
-            if record is None or not cls._undo_is_noop(session, record):
-                break
-            action_log.tombstone_ts(session.oid, record["ts"])
-            session.undoable_forward_count = max(0, session.undoable_forward_count - 1)
-            record = action_log.peek_last_forward(
-                session.oid,
-                allowed_actions=action_log.UNDOABLE_ACTIONS,
-            )
         if record is None:
             return ActionResponse(
                 success=False,

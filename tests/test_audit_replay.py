@@ -234,7 +234,13 @@ class TestUndoAfterManualCorrection:
         res = GameService.undo_last(session)
         assert res.success
         assert (state.get_game(1, 1), state.get_game(2, 1)) == (0, 0)
-        assert GameService.undo_last(session).success is False  # stack empty
+        assert GameService.undo_last(session).success is False  # nothing reversible
+        # The stale forward was walked past, not erased from the history.
+        visible = action_log.read_all("stale-pt")
+        assert any(
+            r["action"] == "add_point" and r["params"] == {"team": 1, "undo": False}
+            for r in visible
+        )
         report = check_consistency(action_log.read_all("stale-pt"), state)
         assert report["consistent"], report["divergences"]
 
@@ -251,9 +257,16 @@ class TestUndoAfterManualCorrection:
 
         assert GameService.undo_last(session).success
         assert state.get_game(2, 1) == 0
-        # The set-1 timeout is still on the board for set 1; only the
-        # unreachable forward was retired.
+        # The set-1 timeout is still on the board, so it must stay in the
+        # history that reports and live stats count timeouts from.
         assert state.get_timeout(1, 1) == 1
+        visible = action_log.read_all("stale-to")
+        assert sum(
+            1 for r in visible
+            if r["action"] == "add_timeout" and not r["params"].get("undo")
+        ) == 1
+        report = check_consistency(visible, state)
+        assert report["consistent"], report["divergences"]
 
 
 class TestConsistencyEndpoint:

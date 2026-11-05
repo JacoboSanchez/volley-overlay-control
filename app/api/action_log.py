@@ -716,6 +716,7 @@ def _find_last_forward(
     allowed_actions: AbstractSet[str] | None = None,
     team: int | None = None,
     score_set: int | None = None,
+    accept: Callable[[dict], bool] | None = None,
 ) -> dict | None:
     """Walk *records* (already tombstone-filtered) in reverse and
     return the most recent non-undo record matching the filters."""
@@ -729,6 +730,8 @@ def _find_last_forward(
         if team is not None and params.get("team") != team:
             continue
         if score_set is not None and _record_score_set(record) != score_set:
+            continue
+        if accept is not None and not accept(record):
             continue
         return record
     return None
@@ -847,11 +850,13 @@ def peek_last_forward(
     oid: str,
     allowed_actions: AbstractSet[str] | None = None,
     team: int | None = None,
+    accept: Callable[[dict], bool] | None = None,
 ) -> dict | None:
     """Return the most recent matching forward record without removing it.
 
-    Same filtering rules as :func:`pop_last_forward`. Used by
-    ``GameService.undo_last`` to identify *which* per-type undo to
+    Same filtering rules as :func:`pop_last_forward`, plus an optional
+    *accept* predicate that skips records without touching the log. Used
+    by ``GameService.undo_last`` to identify *which* per-type undo to
     dispatch — the dispatched call performs the actual pop.
     """
     if not _valid(oid):
@@ -863,7 +868,7 @@ def peek_last_forward(
         logger.warning("Failed to peek last forward record for %r: %s", oid, exc)
         return None
     filtered = _apply_tombstones(raw)
-    return _find_last_forward(filtered, allowed_actions, team)
+    return _find_last_forward(filtered, allowed_actions, team, accept=accept)
 
 
 def count_undoable_forwards(oid: str) -> int:

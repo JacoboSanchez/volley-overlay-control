@@ -456,9 +456,12 @@ body required.
 
 - Returns `success: false` with `message: "Nothing to undo."` when
   no undoable forward record exists for this OID.
-- A forward whose effect a manual correction already removed (e.g.
-  `set-score` zeroed that point) is retired silently, and the undo
-  applies to the newest action still on the board.
+- A forward a manual correction left with nothing to undo (e.g.
+  `set-score` zeroed that point, or `set-sets` moved the match past the
+  set of that timeout) is skipped, not removed from the history, and the
+  undo applies to the newest action it can reverse. Such entries can still
+  make `can_undo` read `true` when nothing is reversible; the undo then
+  answers `"Nothing to undo."`.
 - The stack is sourced from the per-OID audit log
   (the `runtime_audit_events` table), so it survives reload, is shared
   between concurrent clients, and skips past non-undoable actions

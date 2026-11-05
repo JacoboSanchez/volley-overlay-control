@@ -228,6 +228,26 @@ class TestLegacyImport:
         with Session(runtime_db) as db:
             assert db.get(OverlayRuntimeState, good) is not None
 
+    def test_invalid_utf8_is_skipped_not_fatal(self, tmp_path, runtime_db):
+        """Undecodable bytes must not abort startup: a bad JSON file is left
+        in place, and a bad audit line is skipped like any malformed line."""
+        bad = hashed_filename("overlay_state_", "9:bad-bytes")
+        (tmp_path / bad).write_bytes(b'{"_meta": {"overlay_id": "9:bad-bytes"}, "x": "\xff"}')
+        key = "9:ok"
+        _write_json(tmp_path / hashed_filename("overlay_state_", key), {"_meta": {"overlay_id": key}})
+        audit = tmp_path / hashed_filename("audit_", key, ".jsonl")
+        audit.write_bytes(
+            json.dumps({"ts": 1.0, "action": "add_point"}).encode() + b"\n"
+            + b"\xff\xfe garbage\n"
+            + json.dumps({"ts": 2.0, "action": "add_point"}).encode() + b"\n"
+        )
+
+        counts = import_legacy_runtime_files(str(tmp_path))
+
+        assert counts["overlay_state"] == 1 and counts["audit"] == 1
+        assert bad in os.listdir(tmp_path)
+        assert [r["ts"] for r in action_log.read_all(key)] == [1.0, 2.0]
+
     def test_missing_directory_is_fine(self, tmp_path):
         assert import_legacy_runtime_files(str(tmp_path / "nope")) == {
             "overlay_state": 0,

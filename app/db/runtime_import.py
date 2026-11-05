@@ -91,7 +91,9 @@ def _read_json(path: str) -> dict | None:
     try:
         with open(path, encoding="utf-8") as f:
             payload = json.load(f)
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError) as exc:
+        # ``ValueError`` covers malformed JSON and undecodable bytes
+        # (``UnicodeDecodeError``): log, leave the file, keep starting up.
         logger.warning("Skipping unreadable legacy file '%s': %s", path, exc)
         return None
     return payload if isinstance(payload, dict) else None
@@ -179,17 +181,20 @@ def _read_jsonl(path: str) -> list[tuple[dict, int]]:
     be imported partially and then renamed as if it had been.
     """
     rows: list[tuple[dict, int]] = []
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            stripped = line.strip()
+    # Read bytes and decode per line, so one corrupted line (bad UTF-8 or
+    # bad JSON) is skipped like any malformed line instead of costing the
+    # overlay its whole history.
+    with open(path, "rb") as f:
+        for raw in f:
+            stripped = raw.strip()
             if not stripped:
                 continue
             try:
-                record = json.loads(stripped)
-            except json.JSONDecodeError:
+                record = json.loads(stripped.decode("utf-8"))
+            except ValueError:
                 continue
             if isinstance(record, dict):
-                rows.append((record, len(stripped.encode("utf-8")) + 1))
+                rows.append((record, len(stripped) + 1))
     return rows
 
 
