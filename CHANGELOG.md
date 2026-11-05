@@ -102,6 +102,26 @@ archive by hand.
   now loads as "nobody serving" instead of failing to parse. No overlay or
   API output changes.
 
+### Dependencies
+
+- **Backend (runtime):** `python-multipart` `0.0.32` → `0.0.33` — a
+  `uv.lock` refresh only, since `pyproject.toml` floats at `>=0.0.32`.
+  [#615](https://github.com/JacoboSanchez/volley-overlay-control/pull/615)
+- **Backend (dev-only):** `ruff` `0.17.1` → `0.17.3` and `mypy` `2.4.0` →
+  `2.4.1` (both pinned in `pyproject.toml`); `pytest` `9.1.1` → `9.2.0` and
+  `pytest-asyncio` `1.4.1` → `1.4.1.post1` — `uv.lock` refreshes only, since
+  `pyproject.toml` floats at `>=9.1.1` and `>=1.4.0`.
+  [#617](https://github.com/JacoboSanchez/volley-overlay-control/pull/617),
+  [#614](https://github.com/JacoboSanchez/volley-overlay-control/pull/614),
+  [#616](https://github.com/JacoboSanchez/volley-overlay-control/pull/616),
+  [#613](https://github.com/JacoboSanchez/volley-overlay-control/pull/613)
+- **Frontend (dev-only):** `vite-plugin-pwa` `1.3.0` → `2.0.0`,
+  `vite-plugin-compression2` `2.5.3` → `2.5.4` and `globals` `17.13.0` →
+  `17.14.0`.
+  [#610](https://github.com/JacoboSanchez/volley-overlay-control/pull/610),
+  [#611](https://github.com/JacoboSanchez/volley-overlay-control/pull/611),
+  [#612](https://github.com/JacoboSanchez/volley-overlay-control/pull/612)
+
 ## [7.4.2] - 2026-11-03
 
 ### Changed
