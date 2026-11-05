@@ -509,6 +509,19 @@ The app assumes it is the **primary controller**. However, `GameManager.reset()`
 
 Every overlay is managed **in-process** by `LocalOverlayBackend`. State flows directly from `GameManager` → `LocalOverlayBackend` → `OverlayStateStore` → `ObsBroadcastHub` → OBS browser sources — no inter-process communication needed.
 
+**The overlay state contract.** What `/ws/{public_token}` sends is defined by the Pydantic models in `app/overlay/payload_schema.py` (`OverlayPayload` for one builder payload, `OverlayState` for what a client receives). The hub sends `public_overlay_state(...)`, a projection that drops server bookkeeping (`_meta`, `raw_remote_model`) and stamps `match_info.server_time` at send time. Template authors and third-party consumers read the published JSON Schema, `overlay_static/schema/overlay-state.schema.json`. The overlay scripts are type-checked against the generated `overlay_static/js/types/overlay-state.d.ts` (`cd frontend && npm run typecheck:overlays`, part of `npm run typecheck`).
+
+To add a field the overlays need:
+
+1. Emit it from `app/overlay_payload.py`.
+2. Declare it on the matching model in `app/overlay/payload_schema.py`. The sections forbid unknown keys, so `tests/test_overlay_payload_contract.py` fails until you do.
+3. Regenerate the schema and types:
+
+```bash
+python scripts/generate_overlay_schema.py
+(cd frontend && npm run gen:overlay-types)
+```
+
 ### OID resolution
 
 `resolve_overlay_kind` (in `app/overlay_backends/utils.py`) maps every request to the in-process `LocalOverlayBackend`. A bare OID (or the legacy `C-<id>` form) resolves to the in-process engine; the `OverlayStateStore` holds its render state as a `runtime_overlay_state` row (see `app/db/runtime.py`) keyed by the per-user storage key (`skey`), not the bare id.

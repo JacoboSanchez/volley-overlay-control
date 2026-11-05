@@ -441,11 +441,17 @@
   }
 
   // Pull all the values a renderer needs out of the live state once.
+  /** @param {OverlayState} state */
   function deriveViewModel(state) {
+    /** @type {Partial<OverlayState["match_info"]>} */
     const matchInfo = state.match_info || {};
+    /** @type {Partial<OverlayState["team_home"]>} */
     const home = state.team_home || {};
+    /** @type {Partial<OverlayState["team_away"]>} */
     const away = state.team_away || {};
+    /** @type {Partial<OverlayState["overlay_control"]>} */
     const oc = state.overlay_control || {};
+    /** @type {Partial<OverlayState["overlay_control"]["stats"]>} */
     const stats = oc.stats || {};
     const setNum = matchInfo.summary_set_num || matchInfo.current_set || 1;
     const setKey = `set_${setNum}`;
@@ -1050,7 +1056,7 @@
           class: `ss-set-pill ${vm.setFinished ? "is-final" : "is-live"}`,
           text: `${t("set")} ${vm.setNum} · ${vm.setFinished ? t("final") : t("live")}`,
         }),
-        buildChartWrap(vm, "brand_columns"),
+        buildChartWrap(vm),
         el("div", { class: "ss-vs", text: t("vs") }),
         el("div", {
           class: "ss-duration-block",
@@ -2112,6 +2118,7 @@
     }
   }
 
+  /** @param {OverlayState} state */
   function renderSetSummary(state) {
     if (!state || !state.match_info) return;
     // Refresh the client/server clock-skew offset from the freshly
@@ -2120,8 +2127,10 @@
     // server clock even when the operator's machine is wrong.
     applyClockSkew(state.match_info.server_time);
     const panel = ensurePanel();
-    const stage = panel.querySelector(".ss-stage");
-    const extras = panel.querySelector(".ss-extras");
+    const stage = /** @type {HTMLElement} */ (panel.querySelector(".ss-stage"));
+    const extras = /** @type {HTMLElement} */ (
+      panel.querySelector(".ss-extras")
+    );
 
     // Resolve the requested variant against the known dispatcher
     // keys. Anything else (typo, stale state, malicious payload)

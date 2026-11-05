@@ -16,6 +16,16 @@ archive by hand.
 
 ### Added
 
+- **A published overlay state contract.** What OBS browser sources receive
+  over `/ws/{public_token}` is now defined in
+  `app/overlay/payload_schema.py` and published as a JSON Schema
+  (`overlay_static/schema/overlay-state.schema.json`) for anyone writing
+  an overlay template or consumer. The overlay scripts are type-checked
+  against it (`npm run typecheck` now includes `typecheck:overlays`), and a
+  contract test fails when the payload builder and the schema disagree. A
+  brand-new overlay's first frame now carries the full contract too,
+  instead of a partial placeholder.
+
 - **`GET /api/v1/audit/consistency`** rebuilds the match from the action
   audit log and reports every field (score, sets, current set, timeouts,
   serve) where it disagrees with the live scoreboard. Every action records a
@@ -24,6 +34,12 @@ archive by hand.
   random-walk tests over the real scoring service.
 
 ### Fixed
+
+- **On-air timers no longer jump when an OBS source reconnects.** The
+  first frame a reconnecting browser source received carried the server
+  time of the overlay's last broadcast — possibly hours old — and the
+  overlay derives its clock skew from it. The server time is now stamped
+  when each frame is sent.
 
 - **Correcting a mistapped point no longer moves the serve.** Tapping +1
   and immediately −1 on the same team is folded into a no-op in the audit
@@ -45,6 +61,14 @@ archive by hand.
   score or sets edit had already removed the effect of the newest point or
   timeout, Undo kept "undoing" that entry without changing anything; it now
   retires it and undoes the newest action that is still on the board.
+
+### Security
+
+- **The OBS feed no longer reveals the owner's account id.** The state
+  pushed over `/ws/{public_token}` included internal bookkeeping — the
+  storage key `"<user_id>:<oid>"` and the raw score model — to anyone
+  holding the public overlay URL. Only the documented overlay state is sent
+  now.
 
 ### Changed
 

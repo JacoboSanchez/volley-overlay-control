@@ -57,6 +57,7 @@ function connectWebSocket() {
     // Ignore "pong" responses from our heartbeat ping
     if (event.data === "pong") return;
     try {
+      /** @type {OverlayState} */
       const state = JSON.parse(event.data);
       processStateUpdate(state);
     } catch (e) {
@@ -84,6 +85,7 @@ const SUPPORTED_OVERLAY_LOCALES = new Set(["en", "es", "pt", "it", "fr", "de"]);
 // operator (via raw_remote_customization.locale) lands before the next
 // SetSummary.render(state) — the OBS browser source URL is fixed in
 // the streaming app so we can't carry the locale in the URL.
+/** @param {OverlayState} state */
 function applyStateLocale(state) {
   const next =
     state && state.raw_remote_customization
@@ -109,10 +111,12 @@ function applyStateLocale(state) {
 let previousRawState = null;
 let lastSidesSwapped = false;
 
+/** @param {OverlayState} state */
 function sidesSwappedOf(state) {
   return !!(state && state.match_info && state.match_info.sides_swapped);
 }
 
+/** @param {OverlayState} state */
 function swappedTeamView(state) {
   if (!sidesSwappedOf(state)) return state;
   const view = Object.assign({}, state);
@@ -246,13 +250,14 @@ function setLabelText(currentSet) {
 // Broadcast-style "race to N sets" pips. Templates opt in by shipping
 // #home-set-pips / #away-set-pips containers: one pip per set needed
 // to take the match (ceil(bestOf / 2)), filled for each set won.
+/** @param {OverlayState} state */
 function renderSetPips(state) {
   const bestOf = state.match_info.best_of_sets || 5;
   const target = Math.ceil(bestOf / 2);
-  [
+  /** @type {[string, number][]} */ ([
     ["home-set-pips", state.team_home.sets_won],
     ["away-set-pips", state.team_away.sets_won],
-  ].forEach(([id, won]) => {
+  ]).forEach(([id, won]) => {
     withEl(id, (el) => {
       while (el.children.length > target) el.removeChild(el.lastElementChild);
       while (el.children.length < target) {
@@ -271,16 +276,17 @@ function renderSetPips(state) {
 // 15/25 deciding/regular indoor — the live limits ride in match_info).
 // Templates opt in with #home-set-progress / #away-set-progress
 // containers, each holding a single <i> fill element.
+/** @param {OverlayState} state */
 function renderSetProgress(state) {
   const info = state.match_info;
   const target =
     (info.current_set >= (info.best_of_sets || 5)
       ? info.points_limit_last_set
       : info.points_limit) || 25;
-  [
+  /** @type {[string, number][]} */ ([
     ["home-set-progress", state.team_home.points],
     ["away-set-progress", state.team_away.points],
-  ].forEach(([id, points]) => {
+  ]).forEach(([id, points]) => {
     withEl(id, (el) => {
       const fill = el.querySelector("i");
       if (!fill) return;
@@ -388,6 +394,7 @@ const THEME_URL_OVERRIDE = (() => {
   }
 })();
 
+/** @param {OverlayState} state */
 function applyOverlayTheme(state) {
   let theme = THEME_URL_OVERRIDE;
   if (!theme) {
@@ -427,6 +434,7 @@ const ANCHOR_URL_OVERRIDE = (() => {
   }
 })();
 
+/** @param {OverlayState} state */
 function applyVerticalAnchor(state) {
   const container = document.getElementById("scoreboard-container");
   if (!container) return;
@@ -1017,6 +1025,10 @@ function renderFullState(state, rawState) {
   renderPointsHistory(state);
 }
 
+/**
+ * @param {OverlayState} oldState
+ * @param {OverlayState} newState
+ */
 function updateStateDiff(oldState, newState, oldRawState, newRawState) {
   newRawState = newRawState || newState;
   // Check if the overall style template changed.
@@ -1297,7 +1309,9 @@ function updateStateDiff(oldState, newState, oldRawState, newRawState) {
   // because the underlying stats payload can change on every point
   // even when the toggles themselves don't move; the render
   // functions handle the hidden-by-default case internally.
+  /** @type {Partial<OverlayState["overlay_control"]>} */
   const oldOC = oldState.overlay_control || {};
+  /** @type {Partial<OverlayState["overlay_control"]>} */
   const newOC = newState.overlay_control || {};
   if (
     oldOC.show_stats !== newOC.show_stats ||
@@ -1443,8 +1457,12 @@ function fitBeachTwoLineNames() {
 
   // Non-name chrome measured live: sets numeral + fade tail + the two
   // gaps flanking the name + one-side bar padding + the name's own padding.
-  const sets = bar.querySelector(".tl-sets");
-  const tail = bar.querySelector(".tl-tail");
+  const sets = /** @type {HTMLElement | null} */ (
+    bar.querySelector(".tl-sets")
+  );
+  const tail = /** @type {HTMLElement | null} */ (
+    bar.querySelector(".tl-tail")
+  );
   const chrome =
     (sets ? sets.offsetWidth : 0) +
     (tail ? tail.offsetWidth : 0) +
@@ -1484,8 +1502,12 @@ function equalizeNamePanels() {
   const selector = document.querySelector(".team-home .name-panel")
     ? ".name-panel"
     : ".team-info";
-  const homePanel = document.querySelector(`.team-home ${selector}`);
-  const awayPanel = document.querySelector(`.team-away ${selector}`);
+  const homePanel = /** @type {HTMLElement | null} */ (
+    document.querySelector(`.team-home ${selector}`)
+  );
+  const awayPanel = /** @type {HTMLElement | null} */ (
+    document.querySelector(`.team-away ${selector}`)
+  );
   if (!homePanel || !awayPanel) return;
 
   // Clear old manual minWidths
@@ -1553,6 +1575,7 @@ function updateTimeouts(team, takenCount) {
   });
 }
 
+/** @param {OverlayState} state */
 function renderSetHistory(state, isInitial = false) {
   const homeContainer = document.getElementById("home-history");
   const awayContainer = document.getElementById("away-history");
@@ -1799,7 +1822,9 @@ function _setStatsRow(rowId, labelText, valueText, teamClass) {
   });
 }
 
+/** @param {OverlayState} state */
 function renderLiveStats(state) {
+  /** @type {Partial<OverlayState["overlay_control"]>} */
   const oc = (state && state.overlay_control) || {};
   const panel = document.getElementById("live-stats-panel");
   if (!panel) return;
@@ -1809,16 +1834,17 @@ function renderLiveStats(state) {
   if (!show) return;
 
   const stats = oc.stats;
+  /** @typedef {OverlayState["overlay_control"]["stats"]} LiveStats */
+  /** @type {Partial<LiveStats["current_streak"]>} */
   const cs = stats.current_streak || {};
+  /** @type {Partial<LiveStats["longest_streak"]>} */
   const ls = stats.longest_streak || {};
-  const pcHome =
-    (stats.partial_comeback || {})[1] ||
-    (stats.partial_comeback || {})["1"] ||
-    {};
-  const pcAway =
-    (stats.partial_comeback || {})[2] ||
-    (stats.partial_comeback || {})["2"] ||
-    {};
+  /** @type {Record<string, LiveStats["partial_comeback"][string]>} */
+  const comebacks = stats.partial_comeback || {};
+  /** @type {Partial<LiveStats["partial_comeback"][string]>} */
+  const pcHome = comebacks["1"] || {};
+  /** @type {Partial<LiveStats["partial_comeback"][string]>} */
+  const pcAway = comebacks["2"] || {};
 
   if (cs.team && cs.n >= 2) {
     const teamClass =
@@ -1851,7 +1877,9 @@ function renderLiveStats(state) {
   }
 }
 
+/** @param {OverlayState} state */
 function renderPointsHistory(state) {
+  /** @type {Partial<OverlayState["overlay_control"]>} */
   const oc = (state && state.overlay_control) || {};
   const strip = document.getElementById("points-history-strip");
   if (!strip) return;
@@ -2045,11 +2073,13 @@ function _flashAlertOnTeam(team, className, durationMs) {
   // any template variant (compact, jersey, glass…) catches at
   // least one of them. We don't depend on a single shared
   // selector because each template renames the visible block.
-  const targets = [
-    document.querySelector(`.team-${team}`),
-    document.getElementById(`${team}-points`),
-    document.getElementById(`${team}-sets`),
-  ].filter(Boolean);
+  const targets = /** @type {HTMLElement[]} */ (
+    [
+      document.querySelector(`.team-${team}`),
+      document.getElementById(`${team}-points`),
+      document.getElementById(`${team}-sets`),
+    ].filter(Boolean)
+  );
   targets.forEach((el) => {
     // Cancel any in-flight removal for the same element so a
     // rapid follow-up (e.g. operator un-does a set then re-applies
@@ -2085,6 +2115,10 @@ function triggerMatchFinishedAlert(team) {
   _flashAlertOnTeam(team, "alerts-match-finished", 2400);
 }
 
+/**
+ * @param {OverlayState} oldState
+ * @param {OverlayState} newState
+ */
 function dispatchAlertTransitions(oldState, newState) {
   if (!_alertsEnabled(newState)) return;
   // Set-won: each side independently — same operator can fix one
@@ -2146,7 +2180,8 @@ function applyStylePreviewAppearance(event) {
     state.overlay_control.show_logos = appearance.show_logos;
   }
   if (appearance.colors && typeof appearance.colors === "object") {
-    state.overlay_control.colors = {};
+    // Filled key by key below; only the keys the preview supplies are set.
+    state.overlay_control.colors = /** @type {any} */ ({});
     for (const key of ["set_bg", "set_text", "game_bg", "game_text"]) {
       if (typeof appearance.colors[key] === "string") {
         state.overlay_control.colors[key] = appearance.colors[key];

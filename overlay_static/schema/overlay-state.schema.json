@@ -1,0 +1,774 @@
+{
+  "$defs": {
+    "BeachSideSwitch": {
+      "additionalProperties": false,
+      "properties": {
+        "interval": {
+          "title": "Interval",
+          "type": "integer"
+        },
+        "is_switch_pending": {
+          "title": "Is Switch Pending",
+          "type": "boolean"
+        },
+        "next_switch_at": {
+          "title": "Next Switch At",
+          "type": "integer"
+        },
+        "points_in_set": {
+          "title": "Points In Set",
+          "type": "integer"
+        },
+        "points_until_switch": {
+          "title": "Points Until Switch",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "interval",
+        "points_in_set",
+        "next_switch_at",
+        "points_until_switch",
+        "is_switch_pending"
+      ],
+      "title": "BeachSideSwitch",
+      "type": "object"
+    },
+    "Colors": {
+      "additionalProperties": false,
+      "properties": {
+        "game_bg": {
+          "title": "Game Bg",
+          "type": "string"
+        },
+        "game_text": {
+          "title": "Game Text",
+          "type": "string"
+        },
+        "set_bg": {
+          "title": "Set Bg",
+          "type": "string"
+        },
+        "set_text": {
+          "title": "Set Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "set_bg",
+        "set_text",
+        "game_bg",
+        "game_text"
+      ],
+      "title": "Colors",
+      "type": "object"
+    },
+    "Comeback": {
+      "additionalProperties": false,
+      "properties": {
+        "deficit": {
+          "title": "Deficit",
+          "type": "integer"
+        },
+        "set": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Set"
+        }
+      },
+      "required": [
+        "deficit",
+        "set"
+      ],
+      "title": "Comeback",
+      "type": "object"
+    },
+    "Geometry": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "title": "Anchor",
+          "type": "string"
+        },
+        "height": {
+          "title": "Height",
+          "type": "number"
+        },
+        "margin": {
+          "title": "Margin",
+          "type": "number"
+        },
+        "scale": {
+          "title": "Scale",
+          "type": "number"
+        },
+        "width": {
+          "title": "Width",
+          "type": "number"
+        },
+        "xpos": {
+          "title": "Xpos",
+          "type": "number"
+        },
+        "ypos": {
+          "title": "Ypos",
+          "type": "number"
+        }
+      },
+      "required": [
+        "width",
+        "height",
+        "xpos",
+        "ypos",
+        "scale",
+        "margin",
+        "anchor"
+      ],
+      "title": "Geometry",
+      "type": "object"
+    },
+    "LiveStats": {
+      "additionalProperties": false,
+      "description": "Match statistics derived from the audit log (``app/api/live_stats.py``).\n\nTeam- and set-keyed maps use string keys (``\"1\"``, ``\"2\"``) because the\ndocument travels as JSON.",
+      "properties": {
+        "current_streak": {
+          "$ref": "#/$defs/Streak"
+        },
+        "error_types": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "title": "Error Types",
+          "type": "object"
+        },
+        "last_point": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Last Point"
+        },
+        "longest_streak": {
+          "$ref": "#/$defs/Streak"
+        },
+        "longest_streak_by_set": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "title": "Longest Streak By Set",
+          "type": "object"
+        },
+        "partial_comeback": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Comeback"
+          },
+          "title": "Partial Comeback",
+          "type": "object"
+        },
+        "point_types": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "title": "Point Types",
+          "type": "object"
+        },
+        "point_types_by_set": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "title": "Point Types By Set",
+          "type": "object"
+        },
+        "services": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ServiceCount"
+          },
+          "title": "Services",
+          "type": "object"
+        },
+        "services_by_set": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "$ref": "#/$defs/ServiceCount"
+            },
+            "type": "object"
+          },
+          "title": "Services By Set",
+          "type": "object"
+        },
+        "set_durations": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Set Durations",
+          "type": "object"
+        },
+        "set_win_comeback": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Comeback"
+          },
+          "title": "Set Win Comeback",
+          "type": "object"
+        },
+        "total_points": {
+          "title": "Total Points",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "current_streak",
+        "longest_streak",
+        "partial_comeback",
+        "set_win_comeback",
+        "total_points",
+        "set_durations",
+        "services",
+        "longest_streak_by_set",
+        "services_by_set",
+        "point_types",
+        "error_types",
+        "point_types_by_set",
+        "last_point"
+      ],
+      "title": "LiveStats",
+      "type": "object"
+    },
+    "MatchInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "best_of_sets": {
+          "description": "Sets in the match (3 = best of 3, \u2026)",
+          "title": "Best Of Sets",
+          "type": "integer"
+        },
+        "current_set": {
+          "description": "1-based set being played",
+          "title": "Current Set",
+          "type": "integer"
+        },
+        "match_finished": {
+          "title": "Match Finished",
+          "type": "boolean"
+        },
+        "match_finished_at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Unix seconds the match ended",
+          "title": "Match Finished At"
+        },
+        "match_started_at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Unix seconds the match clock started",
+          "title": "Match Started At"
+        },
+        "mode": {
+          "description": "Rules preset: indoor, beach, table_tennis, \u2026",
+          "title": "Mode",
+          "type": "string"
+        },
+        "phase": {
+          "description": "Competition round (placeholder until match metadata exists)",
+          "title": "Phase",
+          "type": "string"
+        },
+        "points_limit": {
+          "title": "Points Limit",
+          "type": "integer"
+        },
+        "points_limit_last_set": {
+          "title": "Points Limit Last Set",
+          "type": "integer"
+        },
+        "server_time": {
+          "description": "Server clock at send time, for client clock-skew correction",
+          "title": "Server Time",
+          "type": "number"
+        },
+        "set_summary_style": {
+          "title": "Set Summary Style",
+          "type": "string"
+        },
+        "show_only_current_set": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Simple mode: render only the current set",
+          "title": "Show Only Current Set"
+        },
+        "show_set_summary": {
+          "description": "Set-summary recap is on air",
+          "title": "Show Set Summary",
+          "type": "boolean"
+        },
+        "sides_swapped": {
+          "description": "Teams render mirrored (manual XOR auto side switch)",
+          "title": "Sides Swapped",
+          "type": "boolean"
+        },
+        "summary_set_num": {
+          "description": "Set the recap describes",
+          "title": "Summary Set Num",
+          "type": "integer"
+        },
+        "tournament": {
+          "description": "Competition name (placeholder until match metadata exists)",
+          "title": "Tournament",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tournament",
+        "phase",
+        "best_of_sets",
+        "current_set",
+        "mode",
+        "points_limit",
+        "points_limit_last_set",
+        "match_started_at",
+        "match_finished_at",
+        "server_time",
+        "match_finished",
+        "show_set_summary",
+        "set_summary_style",
+        "sides_swapped",
+        "summary_set_num"
+      ],
+      "title": "MatchInfo",
+      "type": "object"
+    },
+    "MatchPointInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "team_1_match_point": {
+          "title": "Team 1 Match Point",
+          "type": "boolean"
+        },
+        "team_1_set_point": {
+          "title": "Team 1 Set Point",
+          "type": "boolean"
+        },
+        "team_2_match_point": {
+          "title": "Team 2 Match Point",
+          "type": "boolean"
+        },
+        "team_2_set_point": {
+          "title": "Team 2 Set Point",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "team_1_set_point",
+        "team_2_set_point",
+        "team_1_match_point",
+        "team_2_match_point"
+      ],
+      "title": "MatchPointInfo",
+      "type": "object"
+    },
+    "OverlayControl": {
+      "additionalProperties": false,
+      "properties": {
+        "alerts_visual": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Style-preview pages only: suppress alert animations",
+          "title": "Alerts Visual"
+        },
+        "beach_side_switch": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BeachSideSwitch"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "colors": {
+          "$ref": "#/$defs/Colors"
+        },
+        "geometry": {
+          "$ref": "#/$defs/Geometry"
+        },
+        "match_point_info": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MatchPointInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "player_stats_data": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Player Stats Data"
+        },
+        "points_by_set": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Points By Set"
+        },
+        "points_history": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Points History"
+        },
+        "preferredStyle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Template the overlay URL serves",
+          "title": "Preferredstyle"
+        },
+        "show_bottom_ticker": {
+          "title": "Show Bottom Ticker",
+          "type": "boolean"
+        },
+        "show_logos": {
+          "title": "Show Logos",
+          "type": "boolean"
+        },
+        "show_main_scoreboard": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Scoreboard visible (absent until visibility was toggled)",
+          "title": "Show Main Scoreboard"
+        },
+        "show_player_stats": {
+          "title": "Show Player Stats",
+          "type": "boolean"
+        },
+        "show_points_history": {
+          "title": "Show Points History",
+          "type": "boolean"
+        },
+        "show_stats": {
+          "title": "Show Stats",
+          "type": "boolean"
+        },
+        "stats": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LiveStats"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Live match statistics derived from the audit log"
+        },
+        "ticker_message": {
+          "title": "Ticker Message",
+          "type": "string"
+        },
+        "timeouts_by_set": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timeouts By Set"
+        }
+      },
+      "required": [
+        "show_bottom_ticker",
+        "ticker_message",
+        "show_player_stats",
+        "player_stats_data",
+        "geometry",
+        "colors",
+        "preferredStyle",
+        "show_logos",
+        "show_stats",
+        "show_points_history"
+      ],
+      "title": "OverlayControl",
+      "type": "object"
+    },
+    "ServiceCount": {
+      "additionalProperties": false,
+      "properties": {
+        "served": {
+          "title": "Served",
+          "type": "integer"
+        },
+        "won": {
+          "title": "Won",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "served",
+        "won"
+      ],
+      "title": "ServiceCount",
+      "type": "object"
+    },
+    "Streak": {
+      "additionalProperties": false,
+      "properties": {
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "set": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Set"
+        },
+        "team": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Team"
+        }
+      },
+      "required": [
+        "team",
+        "n",
+        "set"
+      ],
+      "title": "Streak",
+      "type": "object"
+    },
+    "TeamPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "color_primary": {
+          "title": "Color Primary",
+          "type": "string"
+        },
+        "color_secondary": {
+          "title": "Color Secondary",
+          "type": "string"
+        },
+        "logo_url": {
+          "title": "Logo Url",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "points": {
+          "description": "Points in the current set",
+          "title": "Points",
+          "type": "integer"
+        },
+        "serving": {
+          "title": "Serving",
+          "type": "boolean"
+        },
+        "set_history": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Per-set points, keyed \"set_1\" \u2026 \"set_7\"",
+          "title": "Set History",
+          "type": "object"
+        },
+        "sets_won": {
+          "title": "Sets Won",
+          "type": "integer"
+        },
+        "short_name": {
+          "title": "Short Name",
+          "type": "string"
+        },
+        "timeouts_by_set": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Per-set timeouts, keyed \"set_1\" \u2026 \"set_7\"",
+          "title": "Timeouts By Set",
+          "type": "object"
+        },
+        "timeouts_taken": {
+          "description": "Timeouts in the current set",
+          "title": "Timeouts Taken",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "short_name",
+        "color_primary",
+        "color_secondary",
+        "logo_url",
+        "sets_won",
+        "points",
+        "serving",
+        "timeouts_taken",
+        "timeouts_by_set",
+        "set_history"
+      ],
+      "title": "TeamPayload",
+      "type": "object"
+    }
+  },
+  "$id": "overlay-state.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "What an overlay client receives over ``/ws/{public_token}``.",
+  "properties": {
+    "match_info": {
+      "$ref": "#/$defs/MatchInfo"
+    },
+    "overlay_control": {
+      "$ref": "#/$defs/OverlayControl"
+    },
+    "raw_remote_customization": {
+      "additionalProperties": true,
+      "description": "Operator customization (team names/colors/logos, locale, style options) as saved",
+      "title": "Raw Remote Customization",
+      "type": "object"
+    },
+    "team_away": {
+      "$ref": "#/$defs/TeamPayload"
+    },
+    "team_home": {
+      "$ref": "#/$defs/TeamPayload"
+    }
+  },
+  "required": [
+    "match_info",
+    "team_home",
+    "team_away",
+    "overlay_control"
+  ],
+  "title": "OverlayState",
+  "type": "object"
+}

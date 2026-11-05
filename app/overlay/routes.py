@@ -18,6 +18,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.overlay.broadcast import ObsBroadcastHub, ObsHubFull
 from app.overlay.locale import _resolve_overlay_locale
+from app.overlay.payload_schema import public_overlay_state
 from app.overlay.state_store import OverlayStateStore
 from app.overlay.style_preview import register_style_preview
 from app.overlay.themes import get_theme_names
@@ -224,7 +225,7 @@ def _register_page_routes(
         try:
             await websocket.accept()
             state = await run_in_threadpool(store.get_state, overlay_id)
-            await websocket.send_text(json.dumps(state))
+            await websocket.send_text(json.dumps(public_overlay_state(state)))
             while True:
                 data = await websocket.receive_text()
                 if data == "ping":

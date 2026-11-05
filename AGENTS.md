@@ -142,6 +142,7 @@ volley-overlay-control/
 │   ├── overlay/               # In-process overlay serving (from volleyball-scoreboard-overlay)
 │   │   ├── __init__.py        # Singletons: OverlayStateStore, ObsBroadcastHub
 │   │   ├── state_store.py     # Overlay state — in-memory cache + runtime_overlay_state rows
+│   │   ├── payload_schema.py  # Overlay state contract (what /ws/ sends) + public_overlay_state projection
 │   │   ├── style_catalog.py   # Template discovery and capability scanning
 │   │   ├── broadcast.py       # OBS WebSocket broadcast hub — 50ms debounced pushes
 │   │   └── routes.py          # HTTP/WS via public_token: /overlay/, /follow/, /ws/ + public /api/themes
@@ -511,6 +512,20 @@ frontend types do not drift:
 python scripts/generate_openapi.py   # writes frontend/schema/openapi.json
 (cd frontend && npm run gen:types)    # writes frontend/src/api/schema.d.ts
 ```
+
+The same applies to the **overlay state contract** — what OBS browser
+sources receive over `/ws/{public_token}` — whenever you change what
+`app/overlay_payload.py` emits. Declare the field in
+`app/overlay/payload_schema.py` (its sections forbid unknown keys, so the
+contract test fails until you do), then:
+
+```bash
+python scripts/generate_overlay_schema.py   # writes overlay_static/schema/*.json
+(cd frontend && npm run gen:overlay-types)   # writes overlay_static/js/types/overlay-state.d.ts
+```
+
+CI regenerates both contracts and fails on drift; `npm run typecheck`
+also type-checks the overlay scripts against the generated types.
 
 ### 3. Regenerate Screenshots on Visual Changes
 

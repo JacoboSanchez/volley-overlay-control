@@ -126,14 +126,16 @@ jobs:
     - name: Regenerate OpenAPI schema and TypeScript types
       run: |
         uv run python scripts/generate_openapi.py
-        cd frontend && npm run gen:types
+        uv run python scripts/generate_overlay_schema.py
+        cd frontend && npm run gen:types && npm run gen:overlay-types
 
     - name: Fail if generated schema files drift from committed copies
       run: |
-        if ! git diff --exit-code -- frontend/schema/openapi.json frontend/src/api/schema.d.ts; then
+        if ! git diff --exit-code -- frontend/schema/openapi.json frontend/src/api/schema.d.ts \
+            overlay_static/schema overlay_static/js/types/overlay-state.d.ts; then
           echo ""
           echo "::error::Generated schema is out of date."
-          echo "Run 'python scripts/generate_openapi.py && (cd frontend && npm run gen:types)' and commit the result."
+          echo "Run 'python scripts/generate_openapi.py && python scripts/generate_overlay_schema.py && (cd frontend && npm run gen:types && npm run gen:overlay-types)' and commit the result."
           exit 1
         fi
 

@@ -1222,8 +1222,8 @@
     });
 
     const best = Math.max(1, Math.min(7, match.best_of_sets || 5));
-    const prevBtn = $("set-prev");
-    const nextBtn = $("set-next");
+    const prevBtn = /** @type {HTMLButtonElement | null} */ ($("set-prev"));
+    const nextBtn = /** @type {HTMLButtonElement | null} */ ($("set-next"));
     if (prevBtn) prevBtn.disabled = setNum <= 1;
     if (nextBtn) nextBtn.disabled = setNum >= best || state.viewMode === "live";
 

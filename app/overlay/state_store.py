@@ -122,50 +122,48 @@ def normalize_state(state: dict) -> None:
 
 
 def get_default_state(best_of_sets: int = 5) -> dict:
-    """Return a blank overlay state."""
+    """Return the state a brand-new overlay serves before its first push.
+
+    Built by the real payload builder from a blank match, so even the very
+    first WebSocket frame satisfies the published overlay contract
+    (:mod:`app.overlay.payload_schema`) instead of a hand-maintained subset
+    of it. The neutral placeholder identity ("HOME TEAM" / "AWAY TEAM", the
+    ``DEFAULT_TEAM_LOGO``) is kept from the old hand-written default.
+    """
+    from app.conf import Conf
+    from app.customization import Customization
+    from app.overlay_payload import build_overlay_payload
+    from app.state import State
+
+    conf = Conf()
+    conf.sets = best_of_sets
+    conf.oid = ""
+    state = build_overlay_payload(
+        State(),
+        dict(Customization.reset_state),
+        conf=conf,
+        rule_overrides_getter=None,
+        logger=logger,
+        force_visibility=True,
+    )
     default_logo = EnvVarsManager.get_str_env(
         "DEFAULT_TEAM_LOGO", "/static/images/default_volleyball.svg"
     )
-    set_history = {f"set_{i}": 0 for i in range(1, best_of_sets + 1)}
-    return {
-        "match_info": {
-            "tournament": "Superliga Masculina",
-            "phase": "Playoffs - Final",
-            "best_of_sets": best_of_sets,
-            "current_set": 1,
-        },
-        "team_home": {
-            "name": "HOME TEAM",
-            "short_name": "HOM",
-            "color_primary": "#E21836",
-            "color_secondary": "#FFFFFF",
-            "logo_url": default_logo,
-            "sets_won": 0,
-            "points": 0,
-            "serving": False,
-            "timeouts_taken": 0,
-            "set_history": dict(set_history),
-        },
-        "team_away": {
-            "name": "AWAY TEAM",
-            "short_name": "AWA",
-            "color_primary": "#0047AB",
-            "color_secondary": "#FFD700",
-            "logo_url": default_logo,
-            "sets_won": 0,
-            "points": 0,
-            "serving": False,
-            "timeouts_taken": 0,
-            "set_history": dict(set_history),
-        },
-        "overlay_control": {
-            "show_main_scoreboard": True,
-            "show_bottom_ticker": False,
-            "ticker_message": "",
-            "show_player_stats": False,
-            "player_stats_data": None,
-        },
-    }
+    for key, name, short, primary, secondary in (
+        ("team_home", "HOME TEAM", "HOM", "#E21836", "#FFFFFF"),
+        ("team_away", "AWAY TEAM", "AWA", "#0047AB", "#FFD700"),
+    ):
+        team = state[key]
+        team.update(
+            name=name,
+            short_name=short,
+            color_primary=primary,
+            color_secondary=secondary,
+            logo_url=default_logo,
+        )
+        team["set_history"] = {f"set_{i}": 0 for i in range(1, best_of_sets + 1)}
+    state["match_info"]["server_time"] = 0.0
+    return state
 
 
 # ---------------------------------------------------------------------------
