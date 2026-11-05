@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.5.1] - 2026-11-05
+
 ### Fixed
 
 - **The spectator page no longer shows a beach side-switch countdown on an
