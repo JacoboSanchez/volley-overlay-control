@@ -9,6 +9,7 @@ operator data never reaches an HTML sink, and uploads stay inert.
 from __future__ import annotations
 
 import re
+from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
@@ -26,11 +27,44 @@ _JS_HTML_SINKS = re.compile(
     r"|\beval\s*\(|\bnew\s+Function\b"
     r"|setAttribute\(\s*[\"']on"
 )
-_INLINE_SCRIPT = re.compile(r"<script\b[^>]*>(.*?)</script>", re.S | re.I)
 _JINJA_EXPR = re.compile(r"\{\{(.*?)\}\}", re.S)
 # Values the server constrains before rendering (AUTHENTICATION.md §2.5.1):
 # the output token, a catalog style, the native theme, a supported locale.
 _SCRIPT_SAFE_VARIABLES = {"output_key", "target_id", "style", "native_theme", "locale"}
+
+
+class _InlineScripts(HTMLParser):
+    """Collect the text of every inline ``<script>`` element.
+
+    Uses the stdlib HTML tokenizer rather than a regex so every end-tag
+    form (``</script >``, ``</SCRIPT\n>``, …) closes the element exactly as
+    a browser would.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.bodies: list[str] = []
+        self._current: list[str] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "script":
+            self._current = []
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "script" and self._current is not None:
+            self.bodies.append("".join(self._current))
+            self._current = None
+
+    def handle_data(self, data: str) -> None:
+        if self._current is not None:
+            self._current.append(data)
+
+
+def _inline_scripts(html: str) -> list[str]:
+    parser = _InlineScripts()
+    parser.feed(html)
+    parser.close()
+    return parser.bodies
 
 
 def _strip_js_comments(source: str) -> str:
@@ -73,7 +107,8 @@ def test_overlay_scripts_write_text_not_html(path):
 def test_inline_scripts_have_no_sinks_and_only_constrained_values(path):
     """Jinja escapes HTML, not JS string context: inside <script> only
     server-constrained variables or ``|tojson`` may be interpolated."""
-    for body in _INLINE_SCRIPT.findall(path.read_text(encoding="utf-8")):
+    bodies = _inline_scripts(path.read_text(encoding="utf-8"))
+    for body in bodies:
         code = _strip_js_comments(body)
         assert not _JS_HTML_SINKS.search(code), (path.name, _JS_HTML_SINKS.search(code))
         for expr in _JINJA_EXPR.findall(body):
@@ -186,3 +221,8 @@ def test_icon_upload_is_reencoded_so_trailing_markup_is_dropped():
     out = process_icon_upload(polyglot).content
     assert out[:4] == b"RIFF" and out[8:12] == b"WEBP"
     assert b"<script" not in out
+
+
+def test_inline_script_extraction_handles_every_end_tag_form():
+    html = "<script>a()</script ><SCRIPT type=x>b()</SCRIPT\n><p>c()</p>"
+    assert _inline_scripts(html) == ["a()", "b()"]
