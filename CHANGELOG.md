@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.5.0] - 2026-11-05
+
 ### Added
 
 - **A published overlay state contract.** What OBS browser sources receive
