@@ -77,6 +77,16 @@ def _safe_float(value: Any) -> float:
     return number if number == number and number not in (float("inf"), float("-inf")) else 0.0
 
 
+def _meta_field(meta: Any, field: str) -> Any:
+    """Read *field* from a file's ``_meta`` block, tolerating any shape.
+
+    A hand-edited or corrupted file can carry ``_meta`` as a list, string or
+    number; that must read as "no key" (file logged and left in place), not
+    raise and abort startup.
+    """
+    return meta.get(field) if isinstance(meta, dict) else None
+
+
 def _read_json(path: str) -> dict | None:
     try:
         with open(path, encoding="utf-8") as f:
@@ -103,7 +113,7 @@ def _import_overlay_states(db: Session, directory: str, names: list[str]) -> set
         payload = _read_json(path)
         if payload is None:
             continue
-        key = (payload.get("_meta") or {}).get("overlay_id")
+        key = _meta_field(payload.get("_meta"), "overlay_id")
         if not isinstance(key, str) or not _valid_key(key):
             logger.warning("Legacy state file '%s' has no per-user _meta.overlay_id; left in place", name)
             continue
@@ -129,7 +139,7 @@ def _import_session_metas(db: Session, directory: str, names: list[str]) -> set[
         payload = _read_json(path)
         if payload is None:
             continue
-        key = (payload.pop("_meta", None) or {}).get("oid")
+        key = _meta_field(payload.pop("_meta", None), "oid")
         if not isinstance(key, str) or not _valid_key(key):
             logger.warning("Legacy session-meta file '%s' has no per-user _meta.oid; left in place", name)
             continue

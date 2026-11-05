@@ -206,6 +206,28 @@ class TestLegacyImport:
         with Session(runtime_db) as db:
             assert db.get(OverlayRuntimeState, "legacy-court") is None
 
+    @pytest.mark.parametrize("meta", [["invalid"], "x", 7, None])
+    def test_malformed_meta_is_skipped_not_fatal(self, tmp_path, runtime_db, meta):
+        """A non-object ``_meta`` must not abort startup; the file is left
+        in place and the rest of the directory still imports."""
+        bad_state = hashed_filename("overlay_state_", "bad-1")
+        bad_meta = hashed_filename("session_meta_", "bad-2")
+        _write_json(tmp_path / bad_state, {"_meta": meta, "team_home": {}})
+        _write_json(tmp_path / bad_meta, {"_meta": meta, "simple": True})
+        good = "5:court-ok"
+        _write_json(
+            tmp_path / hashed_filename("overlay_state_", good),
+            {"_meta": {"overlay_id": good}},
+        )
+
+        counts = import_legacy_runtime_files(str(tmp_path))
+
+        assert counts["overlay_state"] == 1
+        names = os.listdir(tmp_path)
+        assert bad_state in names and bad_meta in names
+        with Session(runtime_db) as db:
+            assert db.get(OverlayRuntimeState, good) is not None
+
     def test_missing_directory_is_fine(self, tmp_path):
         assert import_legacy_runtime_files(str(tmp_path / "nope")) == {
             "overlay_state": 0,
