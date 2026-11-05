@@ -64,6 +64,13 @@ archive by hand.
 
 ### Security
 
+- **Documented and enforced the overlay template trust boundary.**
+  Overlay templates and scripts run on the app's origin with the viewing
+  owner's session (the control UI previews them same-origin), so they are
+  trusted code. `AUTHENTICATION.md` §2.5.1 records why templates must never
+  be user-uploadable and what a safe design for custom templates would
+  need. New tripwire tests keep templates catalog-only, keep operator data
+  out of HTML sinks (`|safe`, `innerHTML`, …), and keep uploads inert.
 - **The OBS feed no longer reveals the owner's account id.** The state
   pushed over `/ws/{public_token}` included internal bookkeeping — the
   storage key `"<user_id>:<oid>"` and the raw score model — to anyone
