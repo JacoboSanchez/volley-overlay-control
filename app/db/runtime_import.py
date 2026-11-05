@@ -17,11 +17,16 @@ renames the file to ``<name>.imported`` (kept as a backup; never deleted).
 It runs on every startup, under the migration lock, and is idempotent and
 failure-tolerant:
 
-* a file whose row already exists is only renamed (covers a crash between
-  the commit and the rename), so a re-run never duplicates or overwrites;
-* each overlay's audit set is inserted in one transaction, so a crash can
-  never leave half a log behind, and audit files are matched against every
-  key already in the runtime tables, not just this run's;
+* a state or session-meta file whose row already exists is only renamed
+  (covers a crash between the commit and the rename). The row may have
+  moved on since, so a re-run never overwrites it;
+* each overlay's audit set is inserted in one transaction together with a
+  ``runtime_legacy_audit_imports`` marker. The marker, not the presence of
+  audit rows, says the import is done. If an earlier start failed to read
+  the files and the overlay has gained live rows since, the legacy history
+  is placed before them rather than skipped;
+* audit files are matched against every key already in the runtime tables,
+  not just this run's;
 * a file that cannot be read or stored is logged and left in place for the
   next start — one bad file never blocks startup;
 * only per-user storage keys are imported. Files keyed by a bare overlay id
@@ -37,12 +42,13 @@ import re
 import time
 from typing import Any
 
-from sqlalchemy import func, insert, select
+from sqlalchemy import delete, insert, select
 from sqlalchemy.orm import Session
 
 from app.api._persistence_paths import DEFAULT_HASH_LEN, data_dir, hashed_filename
 from app.db.runtime import (
     AuditEvent,
+    LegacyAuditImport,
     OverlayRuntimeState,
     RuntimeSessionMeta,
     get_runtime_engine,
@@ -211,6 +217,47 @@ def _known_keys(db: Session) -> set[str]:
     return {key for key in keys if _valid_key(key)}
 
 
+def _import_one_audit_log(db: Session, key: str, paths: list[str]) -> None:
+    """Insert *key*'s legacy history ahead of any live rows; stamp the marker.
+
+    The import normally runs before the app serves anything, so the table
+    holds no rows for *key*. But an earlier start may have failed to read
+    these files (they were left for retry) and the operator kept scoring
+    meanwhile. Those live rows are newer than every legacy record, and the
+    log's order is its ``id``, so they are re-inserted after the legacy
+    records in the same transaction. Nothing is lost and the order stays
+    chronological. The caller commits, so a failure leaves both untouched.
+    """
+    legacy = [
+        {
+            "store_key": key,
+            "ts": _safe_float(record.get("ts")),
+            "size": size,
+            "record": record,
+        }
+        for path in paths
+        for record, size in _read_jsonl(path)
+    ]
+    live = [
+        {"store_key": key, "ts": row.ts, "size": row.size, "record": row.record}
+        for row in db.scalars(
+            select(AuditEvent).where(AuditEvent.store_key == key).order_by(AuditEvent.id)
+        )
+    ]
+    if live:
+        logger.warning(
+            "Overlay already has %d audit record(s) written since a failed import; "
+            "placing its %d legacy record(s) before them",
+            len(live),
+            len(legacy),
+        )
+        db.execute(delete(AuditEvent).where(AuditEvent.store_key == key))
+    rows = legacy + live
+    if rows:
+        db.execute(insert(AuditEvent), rows)
+    db.add(LegacyAuditImport(store_key=key, imported_at=time.time(), records=len(legacy)))
+
+
 def _import_audit_logs(db: Session, directory: str, names: list[str], keys: set[str]) -> int:
     audit_names = {name for name in names if _AUDIT_RE.fullmatch(name)}
     claimed: set[str] = set()
@@ -220,22 +267,8 @@ def _import_audit_logs(db: Session, directory: str, names: list[str], keys: set[
             continue
         claimed.update(os.path.basename(p) for p in paths)
         try:
-            existing = db.scalar(
-                select(func.count()).select_from(AuditEvent).where(AuditEvent.store_key == key)
-            )
-            if not existing:
-                rows = [
-                    {
-                        "store_key": key,
-                        "ts": _safe_float(record.get("ts")),
-                        "size": size,
-                        "record": record,
-                    }
-                    for path in paths
-                    for record, size in _read_jsonl(path)
-                ]
-                if rows:
-                    db.execute(insert(AuditEvent), rows)
+            if db.get(LegacyAuditImport, key) is None:
+                _import_one_audit_log(db, key, paths)
                 db.commit()
         except Exception as exc:
             db.rollback()

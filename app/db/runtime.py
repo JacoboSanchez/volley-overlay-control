@@ -130,6 +130,22 @@ class AuditEvent(RuntimeBase):
     record: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
 
 
+class LegacyAuditImport(RuntimeBase):
+    """One row per storage key whose legacy audit files were imported.
+
+    Written in the same transaction as the imported rows, so it is the
+    durable "done" marker for :mod:`app.db.runtime_import`. Live audit rows
+    are not: an overlay can gain them while its legacy import is still
+    pending (a transient read error leaves the files for the next start).
+    """
+
+    __tablename__ = "runtime_legacy_audit_imports"
+
+    store_key: Mapped[str] = mapped_column(String(STORE_KEY_LENGTH), primary_key=True)
+    imported_at: Mapped[float] = mapped_column(Float, nullable=False)
+    records: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
 _engine: Engine | None = None
 _SessionLocal: sessionmaker[Session] | None = None
 

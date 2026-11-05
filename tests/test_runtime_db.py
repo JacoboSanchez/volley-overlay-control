@@ -127,25 +127,60 @@ class TestLegacyImport:
         with Session(runtime_db) as db:
             assert len(db.scalars(select(AuditEvent)).all()) == 4
 
-    def test_existing_rows_are_never_overwritten(self, legacy_dir, runtime_db):
+    def test_existing_state_row_is_never_overwritten(self, legacy_dir, runtime_db):
         """A crash between commit and rename leaves file + row; the re-run
         must keep the row (it may have moved on) and just rename."""
         directory, key = legacy_dir
         with Session(runtime_db) as db, db.begin():
             db.add(OverlayRuntimeState(store_key=key, state={"newer": True}, updated_at=0.0))
-            db.add(AuditEvent(store_key=key, ts=99.0, size=1, record={"ts": 99.0, "action": "x"}))
         import_legacy_runtime_files(str(directory))
         with Session(runtime_db) as db:
             assert db.get(OverlayRuntimeState, key).state == {"newer": True}
-            records = db.scalars(
-                select(AuditEvent.record).where(AuditEvent.store_key == key)
-            ).all()
-        assert records == [{"ts": 99.0, "action": "x"}]
+
+    def test_audit_marker_makes_a_rerun_after_commit_a_rename_only(self, legacy_dir, runtime_db):
+        """Crash after the audit commit, before the rename: the marker says
+        done, so the files are renamed without importing them twice."""
+        directory, key = legacy_dir
+        import_legacy_runtime_files(str(directory))
         base = hashed_filename("audit_", key, ".jsonl")
+        for name in os.listdir(directory):  # undo the renames: "crash"
+            if name.startswith(base) and name.endswith(IMPORTED_SUFFIX):
+                os.replace(directory / name, directory / name[: -len(IMPORTED_SUFFIX)])
+        import_legacy_runtime_files(str(directory))
+        with Session(runtime_db) as db:
+            assert len(db.scalars(select(AuditEvent)).all()) == 4
         assert not any(
-            n.startswith(base) and not n.endswith(IMPORTED_SUFFIX)
-            for n in os.listdir(directory)
+            n.startswith(base) and not n.endswith(IMPORTED_SUFFIX) for n in os.listdir(directory)
         )
+
+    def test_live_rows_from_after_a_failed_import_keep_legacy_history(
+        self, legacy_dir, runtime_db, monkeypatch,
+    ):
+        """A transient read failure leaves the files; the operator keeps
+        scoring; the next start must still import the legacy history, ahead
+        of the newer live records, instead of treating them as "done"."""
+        from app.db import runtime_import
+        from app.db.runtime import LegacyAuditImport
+
+        directory, key = legacy_dir
+
+        def unreadable(path):
+            raise OSError("simulated EIO")
+
+        monkeypatch.setattr(runtime_import, "_read_jsonl", unreadable)
+        import_legacy_runtime_files(str(directory))
+        monkeypatch.undo()
+        action_log.append(key, "add_point", {"team": 2}, {"live": True})
+        live_ts = action_log.read_all(key)[-1]["ts"]
+
+        import_legacy_runtime_files(str(directory))
+
+        action_log._raw_cache.clear()
+        visible = action_log.read_all(key)
+        assert [r["ts"] for r in visible] == [1.0, 2.0, live_ts]
+        with Session(runtime_db) as db:
+            marker = db.get(LegacyAuditImport, key)
+        assert marker is not None and marker.records == 4
 
     def test_audit_is_matched_to_keys_from_an_earlier_run(self, legacy_dir, runtime_db):
         """Crash after the state file was imported and renamed, before its
