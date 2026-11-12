@@ -14,11 +14,11 @@ RUN npm run build
 
 # ---- Stage 2: Python runtime ----
 # Only runtime artifacts land here — no Node, no frontend source, no dev deps.
-FROM python:3.14-slim AS runtime
+FROM python:3.15-slim AS runtime
 WORKDIR /app
 
 # Apply Debian security updates before anything else lands on top. The
-# ``python:3.14-slim`` tag is rebuilt on its own cadence, so between those
+# ``python:3.15-slim`` tag is rebuilt on its own cadence, so between those
 # rebuilds a published Debian fix sits unapplied in the base layer and the
 # Trivy gate goes red on packages no application change can reach — that is
 # how the util-linux cluster (CVE-2026-53613 / -53614 / -53615, fixed in
