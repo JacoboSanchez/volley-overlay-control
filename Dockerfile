@@ -14,7 +14,7 @@ RUN npm run build
 
 # ---- Stage 2: Python runtime ----
 # Only runtime artifacts land here — no Node, no frontend source, no dev deps.
-FROM python:3.14-slim AS runtime
+FROM python:3.15-slim AS runtime
 WORKDIR /app
 
 # Apply Debian security updates before anything else lands on top. The
