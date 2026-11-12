@@ -83,6 +83,17 @@ export default tseslint.config(
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
 
+      // eslint-plugin-react-hooks 7 folded the React Compiler diagnostics
+      // into `recommended`. These four flag 62 pre-existing patterns
+      // (mostly setState-in-effect resets and ref reads during render);
+      // they are off until that refactor lands as its own change, so the
+      // plugin upgrade doesn't have to carry it. The other compiler rules
+      // from the preset already pass and stay on.
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/refs': 'off',
+      'react-hooks/immutability': 'off',
+      'react-hooks/purity': 'off',
+
       // a11y. The tree is clean on all three, so they block too; the only
       // autofocus uses are the first field of single-purpose auth pages,
       // each carrying a justified inline disable.

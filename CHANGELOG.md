@@ -14,6 +14,30 @@ archive by hand.
 
 ## [Unreleased]
 
+### Dependencies
+
+- **Docker image:** the runtime stage moves from `python:3.14-slim` to
+  `python:3.15-slim`. To get CPython 3.15 (`cp315`) wheels, the lock picks
+  up `psycopg`/`psycopg-binary` `3.3.4` → `3.3.8`, `pydantic` `2.13.2` →
+  `2.14.3` (`pydantic-core` `2.46.2` → `2.50.4`), `httptools` `0.8.0` →
+  `0.9.0`, `markupsafe` `3.0.3` → `3.0.4`, `uvloop` `0.22.1` → `0.23.0` and
+  `watchfiles` `1.1.1` → `1.3.0` — `uv.lock` refreshes only. `pyyaml` (used
+  only by uvicorn for YAML log configs) has no 3.15 wheel yet and installs
+  as its pure-Python build. The supported floor stays Python 3.14.
+  [#622](https://github.com/JacoboSanchez/volley-overlay-control/pull/622)
+- **Frontend (dev-only):** `stylelint` `17.16.0` → `18.0.0` alongside
+  `stylelint-config-recommended` `18.0.0` → `19.0.0`, which requires it
+  as a peer.
+  [#625](https://github.com/JacoboSanchez/volley-overlay-control/pull/625)
+- **Frontend (dev-only):** `eslint-plugin-react-hooks` `5.2.0` → `7.1.1` and
+  `typescript-eslint` `8.59.2` → `8.72.x`. ESLint stays on 9 because
+  `eslint-plugin-react` and `eslint-plugin-jsx-a11y` do not support ESLint 10
+  yet. Of the React Compiler rules that react-hooks 7 adds to `recommended`,
+  `set-state-in-effect`, `refs`, `immutability` and `purity` are off for now
+  (they flag existing code that needs a refactor of its own); the rest are on.
+  Part of
+  [#317](https://github.com/JacoboSanchez/volley-overlay-control/pull/317)
+
 ## [7.5.1] - 2026-11-05
 
 ### Fixed
