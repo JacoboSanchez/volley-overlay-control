@@ -32,9 +32,8 @@ archive by hand.
   docked to the right edge that leaves the picture visible on the rest of
   the frame. It shows both teams with the set score, the sets table, one
   block per recorded rally, longest streak, timeouts and the set/match
-  clocks, in the dark or light palette of the active scoreboard. With simple
-  mode on it leaves out the sets table (the other sets' history) and keeps
-  the match standing and stats.
+  clocks, in the dark or light palette of the active scoreboard. Like the
+  other recaps it is unaffected by simple mode.
 
 ### Changed
 

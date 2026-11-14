@@ -600,9 +600,6 @@
       pointTypes,
       hasPointTypes,
       setFinished,
-      // Operator's "only current set" toggle. Variants that carry match
-      // context (previous sets, standing) may drop it when set.
-      simpleMode: !!matchInfo.show_only_current_set,
       matchFinished: !!matchInfo.match_finished,
       bestOf,
       setTarget,
@@ -2092,9 +2089,8 @@
   // A full-height column docked to the right edge, so the picture stays
   // visible on the remaining two thirds of the frame. Top to bottom:
   // status line, one card per team, the sets table, the rally grid,
-  // two per-team stats and the clocks. Simple mode ("only current set")
-  // drops the history of the other sets (the sets table); the match
-  // standing and this set's stats stay.
+  // two per-team stats and the clocks. Like every recap it ignores the
+  // scoreboard's simple mode: the summary always shows the whole set.
   function onColourInk(colour) {
     const rgb = parseHex(colour);
     if (!rgb) return "#ffffff";
@@ -2228,7 +2224,6 @@
     const awayColour = resolveTeamColour(vm.away, FALLBACK_AWAY);
     stage.style.setProperty("--ss-home-on", onColourInk(homeColour));
     stage.style.setProperty("--ss-away-on", onColourInk(awayColour));
-    if (vm.simpleMode) stage.classList.add("ss-simple");
 
     const status = el("div", {
       class: "ss-sp-status",
@@ -2260,7 +2255,7 @@
         ],
       }),
     );
-    if (!vm.simpleMode) stage.appendChild(buildSidePanelSets(vm));
+    stage.appendChild(buildSidePanelSets(vm));
     stage.appendChild(buildSidePanelRallies(vm));
     stage.appendChild(
       el("div", {
