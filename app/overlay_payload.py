@@ -194,6 +194,10 @@ def _add_rule_indicators(
         logger.exception("Failed to compute match-point / side-switch info")
 
 
+# Set-summary variants that render one block per rally of the set.
+_FULL_SEQUENCE_SUMMARIES = frozenset({"brand_ledger", "side_panel"})
+
+
 def _add_live_stats(payload: dict, storage_key: str, logger: logging.Logger) -> None:
     try:
         from app.api.live_stats import compute_live_stats, resolve_summary_set_num
@@ -206,13 +210,14 @@ def _add_live_stats(payload: dict, storage_key: str, logger: logging.Logger) -> 
         )
         match_info["summary_set_num"] = summary_set_num
 
-        # Keep ordinary broadcasts bounded. Only Rallies needs the complete
-        # set sequence, and only while that recap is actually on air. Other
-        # sets retain the public live-stats endpoint's 60-event cap.
+        # Keep ordinary broadcasts bounded. Only the recaps that draw every
+        # rally (Rallies, Side panel) need the complete set sequence, and
+        # only while that recap is actually on air. Other sets retain the
+        # public live-stats endpoint's 60-event cap.
         summary_events = stats["points_by_set"].get(summary_set_num, [])
         if (
             match_info["show_set_summary"]
-            and match_info["set_summary_style"] == "brand_ledger"
+            and match_info["set_summary_style"] in _FULL_SEQUENCE_SUMMARIES
             and len(summary_events) >= 60
         ):
             stats = compute_live_stats(

@@ -288,11 +288,59 @@ function renderSetProgress(state) {
     ["away-set-progress", state.team_away.points],
   ]).forEach(([id, points]) => {
     withEl(id, (el) => {
+      const pct = Math.max(0, Math.min(100, ((points || 0) / target) * 100));
+      // Published for styles that draw the progress themselves (the
+      // ring sweep in anillos.css); bar styles use the <i> fill below.
+      el.style.setProperty("--set-progress", pct.toFixed(1));
       const fill = el.querySelector("i");
       if (!fill) return;
-      const pct = Math.max(0, Math.min(100, ((points || 0) / target) * 100));
       fill.style.width = pct.toFixed(1) + "%";
     });
+  });
+}
+
+// Momentum strip: the most recent rallies of the live set, one chip
+// each. Templates opt in with a #momentum-track container. The strip
+// always holds MOMENTUM_POINTS slots — unplayed ones first — so the
+// card keeps its width from the first rally on. Chips are classed by
+// the side the scoring team is *drawn* on, so they follow a side swap
+// together with the team colours. Manual ``set_score`` edits are not
+// rallies and are skipped, as in the set summary.
+const MOMENTUM_POINTS = 12;
+
+/** @param {OverlayState} state */
+function renderMomentum(state) {
+  withEl("momentum-track", (track) => {
+    /** @type {Partial<OverlayState["overlay_control"]>} */
+    const oc = (state && state.overlay_control) || {};
+    const bySet = oc.points_by_set || {};
+    const setNum = (state.match_info && state.match_info.current_set) || 1;
+    const swapped = sidesSwappedOf(state);
+    const recent = (bySet[String(setNum)] || [])
+      .filter(
+        (p) => p && p.action !== "set_score" && (p.team === 1 || p.team === 2),
+      )
+      .slice(-MOMENTUM_POINTS)
+      .map((p) => ((p.team === 1) !== swapped ? "home" : "away"));
+    // Rebuild only when the visible sequence changed: this runs on
+    // every broadcast, and most of them do not add a rally.
+    const signature = recent.join(",");
+    if (track.dataset.sequence === signature) return;
+    track.dataset.sequence = signature;
+    track.textContent = "";
+    const fragment = document.createDocumentFragment();
+    for (let i = recent.length; i < MOMENTUM_POINTS; i++) {
+      const slot = document.createElement("i");
+      slot.className = "momentum-chip empty";
+      fragment.appendChild(slot);
+    }
+    recent.forEach((side, idx) => {
+      const chip = document.createElement("i");
+      chip.className =
+        "momentum-chip " + side + (idx === recent.length - 1 ? " last" : "");
+      fragment.appendChild(chip);
+    });
+    track.appendChild(fragment);
   });
 }
 
@@ -984,9 +1032,11 @@ function renderFullState(state, rawState) {
     el.textContent = setLabelText(state.match_info.current_set);
   });
 
-  // 7c. Set pips + set-progress (opt-in templates; no-ops elsewhere)
+  // 7c. Set pips, set-progress and momentum strip (opt-in templates;
+  // no-ops elsewhere)
   renderSetPips(state);
   renderSetProgress(state);
+  renderMomentum(state);
 
   // 8. Bottom Ticker
   withEl("ticker-message", (el) => {
@@ -1189,6 +1239,7 @@ function updateStateDiff(oldState, newState, oldRawState, newRawState) {
   // Idempotent and cheap, so they simply track every push.
   renderSetPips(newState);
   renderSetProgress(newState);
+  renderMomentum(newState);
 
   // Compact mode toggle
   if (

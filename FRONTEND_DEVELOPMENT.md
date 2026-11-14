@@ -611,14 +611,14 @@ Returns available overlay style names for the session's overlay backend.
 ["default", "esports", "glass", "compact", "ribbon", ...]
 ```
 
-The built-in engine returns the 28 selectable templates (the dynamic list from `get_available_styles_list`). The `mosaic` meta-style is intentionally excluded from this list — it can only be rendered via the explicit `?style=mosaic` query parameter on `/overlay/{public_token}`.
+The built-in engine returns the 31 selectable templates (the dynamic list from `get_available_styles_list`). The `mosaic` meta-style is intentionally excluded from this list — it can only be rendered via the explicit `?style=mosaic` query parameter on `/overlay/{public_token}`.
 
 ### SPA Bootstrap
 
 #### Style gallery examples
 
 `GET /overlay-preview/{style}` returns an isolated HTML example. `style` must
-be a selectable template; optional `summary` chooses one of the six recap
+be a selectable template; optional `summary` chooses one of the seven recap
 designs, `lang` sets the language and `theme=light|dark` overrides the palette
 (the recap always follows it; scoreboards only when the style supports it).
 Invalid styles return 404. The example uses invented match data and never

@@ -16,6 +16,24 @@ archive by hand.
 
 ### Added
 
+- **Three new scoreboards: Momentum, Tablero and Anillos.** *Momentum* stacks
+  two team rows over a strip of the live set's last twelve rallies — raised
+  chips for the left team, lowered for the right — so a run reads at a glance.
+  *Tablero* is a symmetric split-flap gym board with one flap per score and a
+  smaller pair for the sets won. *Anillos* is a pill whose two rings fill as
+  each team approaches the set's point target (25/15 indoor, 21 beach). All
+  three are dark by default with a light theme and honour side swaps, optional
+  logos and the position/size controls. In simple mode the one-line Tablero
+  and Anillos drop the team names and keep the logos, while two-row Momentum
+  keeps the names and drops the logos; sets won and timeouts stay on all
+  three. They appear in the style gallery with
+  localized names and renderer thumbnails.
+- **Side panel set summary.** A seventh recap design: a full-height column
+  docked to the right edge that leaves the picture visible on the rest of
+  the frame. It shows both teams with the set score, the sets table, one
+  block per recorded rally, longest streak, timeouts and the set/match
+  clocks, in the dark or light palette of the active scoreboard. Like the
+  other recaps it is unaffected by simple mode.
 - **Overlay state over HTTP:** `GET /api/state/{public_token}` returns the
   overlay's current state as JSON — team names, colours, logos, sets and
   points — the same document an OBS source receives on `/ws/{public_token}`,
@@ -23,6 +41,11 @@ archive by hand.
   match as it stands without holding a WebSocket open. Like the other token
   routes, its path is redacted in Sentry events and unknown tokens count
   towards the capability rate limit.
+
+### Changed
+
+- Refreshed the style mosaics, gallery captures and catalogue thumbnails for
+  the new scoreboards and set summary.
 
 ### Dependencies
 

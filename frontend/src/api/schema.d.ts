@@ -2801,7 +2801,7 @@ export interface components {
              * Style
              * @enum {string}
              */
-            style: "brand_ledger" | "bento" | "glass" | "brand_columns" | "ledger_diff" | "bumper";
+            style: "brand_ledger" | "bento" | "glass" | "brand_columns" | "ledger_diff" | "bumper" | "side_panel";
         };
         /** SimpleModeRequest */
         SimpleModeRequest: {

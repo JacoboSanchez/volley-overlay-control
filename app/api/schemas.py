@@ -113,6 +113,7 @@ SET_SUMMARY_STYLE_CHOICES = (
     "brand_columns",
     "ledger_diff",
     "bumper",
+    "side_panel",
 )
 SetSummaryStyle = Literal[
     "brand_ledger",
@@ -121,6 +122,7 @@ SetSummaryStyle = Literal[
     "brand_columns",
     "ledger_diff",
     "bumper",
+    "side_panel",
 ]
 
 
