@@ -470,7 +470,7 @@ describe('set_summary.js overlay renderer', () => {
       expect(blocks.at(-1)!.classList.contains('ss-last')).toBe(true);
     });
 
-    it('drops the match context in simple mode', () => {
+    it('drops only the sets history in simple mode', () => {
       const full = renderState(finishedSet);
       expect(full.classList.contains('ss-simple')).toBe(false);
       expect(full.querySelector('.ss-sp-standing')).not.toBeNull();
@@ -481,10 +481,10 @@ describe('set_summary.js overlay renderer', () => {
         match_info: { ...finishedSet.match_info, show_only_current_set: true },
       });
       expect(simple.classList.contains('ss-simple')).toBe(true);
-      expect(simple.querySelector('.ss-sp-standing')).toBeNull();
       expect(simple.querySelector('.ss-sp-sets')).toBeNull();
-      expect(simple.querySelector('.ss-sp-stats')).toBeNull();
-      // The set itself is still fully described.
+      // The match standing and the set itself are still fully described.
+      expect(simple.querySelector('.ss-sp-standing')).not.toBeNull();
+      expect(simple.querySelector('.ss-sp-stats')).not.toBeNull();
       expect(simple.querySelectorAll('.ss-sp-team')).toHaveLength(2);
       expect(simple.querySelector('.ss-sp-track')).not.toBeNull();
       expect(simple.querySelector('.ss-sp-clocks')).not.toBeNull();

@@ -2093,8 +2093,8 @@
   // visible on the remaining two thirds of the frame. Top to bottom:
   // status line, one card per team, the sets table, the rally grid,
   // two per-team stats and the clocks. Simple mode ("only current set")
-  // drops everything that describes the match rather than this set:
-  // the standing, the sets table and the stats.
+  // drops the history of the other sets (the sets table); the match
+  // standing and this set's stats stay.
   function onColourInk(colour) {
     const rgb = parseHex(colour);
     if (!rgb) return "#ffffff";
@@ -2239,19 +2239,17 @@
         }),
       ],
     });
-    if (!vm.simpleMode) {
-      status.appendChild(
-        el("span", {
-          class: "ss-sp-standing",
-          children: [
-            el("span", { text: t("match") }),
-            el("strong", { class: "home", text: String(vm.team1Sets) }),
-            document.createTextNode("–"),
-            el("strong", { class: "away", text: String(vm.team2Sets) }),
-          ],
-        }),
-      );
-    }
+    status.appendChild(
+      el("span", {
+        class: "ss-sp-standing",
+        children: [
+          el("span", { text: t("match") }),
+          el("strong", { class: "home", text: String(vm.team1Sets) }),
+          document.createTextNode("–"),
+          el("strong", { class: "away", text: String(vm.team2Sets) }),
+        ],
+      }),
+    );
     stage.appendChild(status);
     stage.appendChild(
       el("div", {
@@ -2264,25 +2262,23 @@
     );
     if (!vm.simpleMode) stage.appendChild(buildSidePanelSets(vm));
     stage.appendChild(buildSidePanelRallies(vm));
-    if (!vm.simpleMode) {
-      stage.appendChild(
-        el("div", {
-          class: "ss-sp-stats",
-          children: [
-            buildSidePanelStat(
-              t("longestStreak"),
-              vm.longestSet[1],
-              vm.longestSet[2],
-            ),
-            buildSidePanelStat(
-              t("timeoutsUsed"),
-              vm.timeoutsSet[1],
-              vm.timeoutsSet[2],
-            ),
-          ],
-        }),
-      );
-    }
+    stage.appendChild(
+      el("div", {
+        class: "ss-sp-stats",
+        children: [
+          buildSidePanelStat(
+            t("longestStreak"),
+            vm.longestSet[1],
+            vm.longestSet[2],
+          ),
+          buildSidePanelStat(
+            t("timeoutsUsed"),
+            vm.timeoutsSet[1],
+            vm.timeoutsSet[2],
+          ),
+        ],
+      }),
+    );
     stage.appendChild(
       el("div", {
         class: "ss-sp-clocks",

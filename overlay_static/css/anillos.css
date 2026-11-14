@@ -256,10 +256,13 @@ body.overlay-theme-light #scoreboard-container {
     0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
-/* Simple mode ("only current set"): the match context under each name —
-   sets won and timeouts — goes; the rings and names stay. */
-.scoreboard.compact-mode .anillos-meta {
-  display: none;
+/* Simple mode ("only current set"): a one-line pill shortens by dropping
+   the team names and letting the logos identify each side; sets won and
+   timeouts stay. ``!important`` beats the inline ``display: grid`` app.js's
+   equalizer puts on ``.team-info``. With logos switched off the names are
+   the only identity left, so they stay. */
+.scoreboard.compact-mode:not(.no-logos) .team-info {
+  display: none !important;
 }
 
 /* Legacy shared widgets remain invisible unless explicitly activated. */

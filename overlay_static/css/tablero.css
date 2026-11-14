@@ -270,12 +270,18 @@ body.overlay-theme-light #scoreboard-container {
     0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
-/* Simple mode ("only current set"): the sets flaps and timeout ticks go;
-   the current-set label stays between the two score flaps. */
-.scoreboard.compact-mode .tablero-sets,
-.scoreboard.compact-mode .tablero-sets-caption,
-.scoreboard.compact-mode .timeout-container {
-  display: none;
+/* Simple mode ("only current set"): a one-line board shortens by
+   dropping the team names and letting the logos identify each side; the
+   colour bar, serve lamp, timeouts and sets flaps all stay. ``!important``
+   beats the inline ``display: grid`` app.js's equalizer puts on
+   ``.team-info``. With logos switched off the names are the only
+   identity left, so they stay. */
+.scoreboard.compact-mode:not(.no-logos) .team-info {
+  display: none !important;
+}
+
+.scoreboard.compact-mode:not(.no-logos) .tablero-id {
+  min-width: 64px;
 }
 
 /* Legacy shared widgets remain invisible unless explicitly activated. */

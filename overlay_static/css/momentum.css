@@ -268,10 +268,10 @@ body.overlay-theme-light #scoreboard-container {
     0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
-/* Simple mode ("only current set"): drop the match context — sets won
-   and timeouts — and keep the live set's label and rally strip. */
-.scoreboard.compact-mode .sets,
-.scoreboard.compact-mode .timeout-container {
+/* Simple mode ("only current set"): this style has no set history to
+   drop and two stacked rows cannot shed their names, so the saving comes
+   from the logos. Sets won, timeouts and the rally strip all stay. */
+.scoreboard.compact-mode .logo-container {
   display: none;
 }
 

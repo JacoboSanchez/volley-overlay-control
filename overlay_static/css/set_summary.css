@@ -2496,7 +2496,7 @@ body.overlay-theme-light .set-summary-panel {
    colours fill only the leading team's card (with a luminance-picked
    ink, ``--ss-*-on``) and the rally blocks; everything else sits on
    the theme-relative neutral surfaces. Simple mode (``.ss-simple``)
-   omits the standing, the sets table and the stats in the renderer.
+   omits the sets table (the other sets' history) in the renderer.
    ───────────────────────────────────────────────────────────── */
 
 .ss-stage[data-style="side_panel"] {

@@ -22,17 +22,19 @@ archive by hand.
   *Tablero* is a symmetric split-flap gym board with one flap per score and a
   smaller pair for the sets won. *Anillos* is a pill whose two rings fill as
   each team approaches the set's point target (25/15 indoor, 21 beach). All
-  three are dark by default with a light theme, honour simple mode (sets won
-  and timeouts are dropped, the current set stays), side swaps, optional
-  logos and the position/size controls, and appear in the style gallery with
+  three are dark by default with a light theme and honour side swaps, optional
+  logos and the position/size controls. In simple mode the one-line Tablero
+  and Anillos drop the team names and keep the logos, while two-row Momentum
+  keeps the names and drops the logos; sets won and timeouts stay on all
+  three. They appear in the style gallery with
   localized names and renderer thumbnails.
 - **Side panel set summary.** A seventh recap design: a full-height column
   docked to the right edge that leaves the picture visible on the rest of
   the frame. It shows both teams with the set score, the sets table, one
   block per recorded rally, longest streak, timeouts and the set/match
   clocks, in the dark or light palette of the active scoreboard. With simple
-  mode on it keeps only what describes the set itself — the match standing,
-  sets table and stats are left out.
+  mode on it leaves out the sets table (the other sets' history) and keeps
+  the match standing and stats.
 
 ### Changed
 
