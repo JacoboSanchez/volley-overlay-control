@@ -510,6 +510,16 @@ def test_capability_surface_counts_404_token_misses(monkeypatch):
     assert client.get("/overlay/guess").status_code == 429
 
 
+def test_capability_surface_covers_the_state_snapshot(monkeypatch):
+    """``/api/state/<token>`` is addressed by the same output token, so guesses count too."""
+    auth_rate_limit._reset_for_tests()
+    monkeypatch.setenv("AUTH_RATE_LIMIT_MAX_FAILURES", "3")
+    client = _limiter_app({"/api/state/{token}": 404})
+    for _ in range(3):
+        assert client.get("/api/state/guess").status_code == 404
+    assert client.get("/api/state/guess").status_code == 429
+
+
 def test_api_surface_still_ignores_404(monkeypatch):
     """404 must stay harmless on /api/v1/ — there it is a missing resource,
     not a credential probe, so counting it would lock operators out for

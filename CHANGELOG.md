@@ -20,7 +20,9 @@ archive by hand.
   overlay's current state as JSON — team names, colours, logos, sets and
   points — the same document an OBS source receives on `/ws/{public_token}`,
   addressed by the same output-only token. It lets an integration read the
-  match as it stands without holding a WebSocket open.
+  match as it stands without holding a WebSocket open. Like the other token
+  routes, its path is redacted in Sentry events and unknown tokens count
+  towards the capability rate limit.
 
 ### Dependencies
 

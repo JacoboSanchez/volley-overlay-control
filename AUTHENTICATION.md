@@ -561,7 +561,7 @@ that count as a failure:
 | Surface | Paths | Counted as failure |
 | :--- | :--- | :--- |
 | `api` | `/api/v1/*` | 401, 403 |
-| `capability` | `/overlay/*`, `/follow/*`, `/match/*` | 401, 403, **404** |
+| `capability` | `/overlay/*`, `/follow/*`, `/api/state/*`, `/match/*` | 401, 403, **404** |
 
 404 counts on the capability surface because an unknown capability
 token is reported as "not found" (`app/overlay/routes.py`) — it is the

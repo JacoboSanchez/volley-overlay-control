@@ -27,7 +27,7 @@ _SAFE_REQUEST_HEADERS = frozenset(
 _SAFE_REQUEST_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,63}\Z")
 _MAX_SAFE_HEADER_LENGTH = 256
 # Path prefixes whose first segment is an unguessable capability token.
-_CAPABILITY_PREFIXES = ("/overlay/", "/follow/", "/ws/", "/matches/", "/match/")
+_CAPABILITY_PREFIXES = ("/overlay/", "/follow/", "/ws/", "/api/state/", "/matches/", "/match/")
 # Span/breadcrumb payload keys that carry a full URL and must be redacted.
 _URL_DATA_KEYS = frozenset(
     {

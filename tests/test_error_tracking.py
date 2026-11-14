@@ -77,7 +77,7 @@ def test_before_send_removes_credentials_body_and_capability_url():
 
 
 def test_before_send_redacts_every_capability_path_prefix():
-    for prefix in ("/overlay/", "/follow/", "/ws/", "/matches/", "/match/"):
+    for prefix in ("/overlay/", "/follow/", "/ws/", "/api/state/", "/matches/", "/match/"):
         event = {"request": {"url": f"https://example.test{prefix}tok3n/report"}}
         result = error_tracking._before_send(event, {})
         assert result["request"]["url"] == f"https://example.test{prefix}***"
@@ -151,6 +151,18 @@ def test_before_send_transaction_scrubs_request_spans_and_name():
     assert span["data"]["http.url"] == "https://hook.test/follow/***"
     assert "url.query" not in span["data"]
     assert span["data"]["http.response.status_code"] == 200
+
+
+def test_before_send_transaction_redacts_the_state_snapshot_token():
+    event = {
+        "type": "transaction",
+        "transaction": "/api/state/tok3n",
+        "request": {"url": "https://example.test/api/state/tok3n"},
+        "contexts": {"trace": {"op": "http.server", "description": "GET /api/state/tok3n"}},
+    }
+    result = error_tracking._before_send_transaction(event, {})
+    assert "tok3n" not in repr(result)
+    assert result["request"]["url"] == "https://example.test/api/state/***"
 
 
 def test_before_send_transaction_leaves_non_url_payloads_alone():
