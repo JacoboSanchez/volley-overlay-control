@@ -14,6 +14,14 @@ archive by hand.
 
 ## [Unreleased]
 
+### Added
+
+- **Overlay state over HTTP:** `GET /api/state/{public_token}` returns the
+  overlay's current state as JSON — team names, colours, logos, sets and
+  points — the same document an OBS source receives on `/ws/{public_token}`,
+  addressed by the same output-only token. It lets an integration read the
+  match as it stands without holding a WebSocket open.
+
 ### Dependencies
 
 - **Docker image:** the runtime stage moves from `python:3.14-slim` to

@@ -145,7 +145,7 @@ volley-overlay-control/
 │   │   ├── payload_schema.py  # Overlay state contract (what /ws/ sends) + public_overlay_state projection
 │   │   ├── style_catalog.py   # Template discovery and capability scanning
 │   │   ├── broadcast.py       # OBS WebSocket broadcast hub — 50ms debounced pushes
-│   │   └── routes.py          # HTTP/WS via public_token: /overlay/, /follow/, /ws/ + public /api/themes
+│   │   └── routes.py          # HTTP/WS via public_token: /overlay/, /follow/, /ws/, /api/state/ + public /api/themes
 │   │
 │   └── pwa/                   # Legacy PWA assets (icons)
 │
@@ -327,6 +327,7 @@ inventory; this table is a "what exists" index only.
 | `/overlay/{public_token}` | Overlay HTML template for OBS browser sources (capability token) |
 | `/follow/{public_token}` | Lightweight spectator view over the same feed |
 | `/ws/{public_token}` | WebSocket for OBS browser sources (overlay state broadcast) |
+| `/api/state/{public_token}` | One-shot JSON read of the state `/ws/{public_token}` sends (capability token) |
 | `/api/themes` | List preset overlay theme names (public) |
 | `/metrics` | Prometheus exposition (open by default; optional bearer token or disable flag) |
 | `/health` | Health check — returns `200 OK` with timestamp |
@@ -432,7 +433,7 @@ Use `app/oid_utils.py` for `extract_oid()` and `compose_output()` — do not imp
 3. `api_router` — `/api/v1/*` REST + WebSocket API
 4. `match_report_router` — `/match/{id}/report`
 5. `metrics_router` — `/metrics` (before the SPA mount so the catch-all never shadows it)
-6. `overlay_router` — `/overlay/*`, `/follow/*`, `/ws/*`, and public `/api/themes`
+6. `overlay_router` — `/overlay/*`, `/follow/*`, `/ws/*`, `/api/state/*`, and public `/api/themes`
 7. `app.mount("/fonts", ...)` — scoreboard fonts
 8. `app.mount("/static", ...)` — overlay JS/CSS/images
 9. `app.mount("/pwa", ...)` — PWA icons

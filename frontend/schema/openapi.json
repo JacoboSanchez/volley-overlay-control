@@ -2823,6 +2823,47 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/state/{public_token}": {
+      "get": {
+        "description": "One-shot HTTP read of the state an OBS source gets on connect.\n\nFor integrations that need the match as it stands (teams, colours,\nlogos, score) without holding a WebSocket open. Same capability and\nsame projection as ``/ws/{public_token}``: output only.",
+        "operationId": "overlay_state_snapshot_api_state__public_token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_token",
+            "required": true,
+            "schema": {
+              "title": "Public Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Current overlay state (same document /ws/{public_token} sends)",
+        "tags": [
+          "Overlay"
+        ]
+      }
+    },
     "/api/themes": {
       "get": {
         "operationId": "list_themes_api_themes_get",

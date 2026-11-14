@@ -504,6 +504,7 @@ Because whatever answers gets to set most of this app's configuration — includ
 | `/overlay/{public_token}` | Overlay HTML for OBS browser sources (built-in engine; no cookie). `?style=mosaic` renders a preview grid of every selectable style. |
 | `/follow/{public_token}` | Public mobile-first spectator page (no cookie). |
 | `/ws/{public_token}` | WebSocket for OBS browser sources (overlay state broadcast; no cookie). |
+| `/api/state/{public_token}` | `GET` — the overlay's current state as JSON (teams, colours, logos, score): the document `/ws/{public_token}` sends, for integrations that only need a one-off read (no cookie). |
 | `/api/themes` | List preset overlay themes (public). |
 | `/metrics` | Prometheus exposition. Open by default for backwards compatibility; disable with `METRICS_ENABLED=false` or require a bearer token with `METRICS_TOKEN`. |
 | `/health` | Health check endpoint. Returns `200 OK` with a timestamp. |
