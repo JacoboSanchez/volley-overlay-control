@@ -42,6 +42,9 @@ archive by hand.
 
 ### Dependencies
 
+- **Security:** `opentelemetry-api` `1.45.1` → `1.45.2` (transitive, via
+  `fastapi`) to clear CVE-2026-126360, which `pip-audit` started flagging
+  in CI. `uv.lock` refreshes only.
 - **Docker image:** the runtime stage moves from `python:3.14-slim` to
   `python:3.15-slim`. To get CPython 3.15 (`cp315`) wheels, the lock picks
   up `psycopg`/`psycopg-binary` `3.3.4` → `3.3.8`, `pydantic` `2.13.2` →
