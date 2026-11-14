@@ -1,0 +1,304 @@
+@import url("https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&display=swap");
+
+/* ─────────────────────────────────────────────────────────────────
+   "Tablero" overlay — a split-flap gym scoreboard.
+
+   A symmetric housing: team name over a team-colour bar on each
+   side, one black flap per score, and a smaller pair of flaps for
+   the sets won above the localized current-set label. The flaps
+   stay black in both themes (that is what the real boards look
+   like); the light theme only flips the housing.
+   ───────────────────────────────────────────────────────────────── */
+
+:root {
+  --home-primary: #e21836;
+  --home-secondary: #ffffff;
+  --away-primary: #0047ab;
+  --away-secondary: #ffd700;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  font-family: "Oswald", "Arial Narrow", sans-serif;
+}
+
+#scoreboard-container {
+  --accent-home: var(--home-accent-dark, var(--home-primary));
+  --accent-away: var(--away-accent-dark, var(--away-primary));
+  --t-housing: #26282b;
+  --t-border: #3d4146;
+  --t-ink: #f4efe2;
+  --t-ink-dim: #b9bdc2;
+  --t-tick: rgba(255, 255, 255, 0.3);
+  --t-serve: #ffd34d;
+  --t-flap-top: #1c1d1f;
+  --t-flap-bottom: #111213;
+  --t-flap-ink: #f4efe2;
+  --t-flap-sets: #ffd34d;
+
+  position: absolute;
+  left: 64px;
+  top: 64px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 20px;
+  background: var(--t-housing);
+  border: 2px solid var(--t-border);
+  border-radius: 12px;
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.5),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+  color: var(--t-ink);
+  opacity: 0;
+  transform-origin: top left;
+}
+
+.team {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.logo-container {
+  width: 46px;
+  height: 46px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.team-logo {
+  max-width: 46px;
+  max-height: 46px;
+  object-fit: contain;
+}
+
+.scoreboard.no-logos .logo-container {
+  display: none;
+}
+
+.tablero-id {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 130px;
+  max-width: 280px;
+}
+
+/* app.js's equalizer turns ``.team-info`` into a one-cell grid holding
+   the name plus a hidden copy of the opponent's, so both panels end up
+   as wide as the longer name. */
+.team-info {
+  min-width: 0;
+}
+
+.team-name {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.team-home .team-name {
+  justify-self: stretch;
+  text-align: right;
+}
+
+.tablero-bar {
+  height: 5px;
+}
+
+.team-home .tablero-bar {
+  background: var(--accent-home);
+}
+
+.team-away .tablero-bar {
+  background: var(--accent-away);
+}
+
+.tablero-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 10px;
+}
+
+.team-home .tablero-meta {
+  flex-direction: row-reverse;
+}
+
+.serving-indicator {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--t-serve);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.serving-indicator.active {
+  opacity: 1;
+}
+
+.timeout-container {
+  display: flex;
+  gap: 4px;
+}
+
+.timeout-dot {
+  width: 14px;
+  height: 4px;
+  border-radius: 1px;
+  background: var(--t-tick);
+}
+
+.timeout-dot.active {
+  opacity: 0.3;
+}
+
+/* ── Flaps ── a two-tone card with the hinge line across the middle.
+   The hinge sits above the digits so they read as printed on both
+   halves; app.js slides the incoming digit inside the same card. */
+.flap {
+  position: relative;
+  flex: none;
+  border-radius: 6px;
+  background: linear-gradient(
+    to bottom,
+    var(--t-flap-top) 50%,
+    var(--t-flap-bottom) 50%
+  );
+  overflow: hidden;
+}
+
+.flap::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(50% - 1px);
+  height: 2px;
+  background: #000000;
+}
+
+.points-container {
+  width: 98px;
+  height: 78px;
+}
+
+.points {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--t-flap-ink);
+  font-size: 58px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.tablero-centre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.tablero-caption {
+  color: var(--t-ink-dim);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  /* Optically re-centre text that carries trailing letter-spacing. */
+  margin-right: -0.24em;
+}
+
+.tablero-sets {
+  display: flex;
+  gap: 5px;
+}
+
+.flap-small {
+  width: 30px;
+  height: 40px;
+  border-radius: 4px;
+}
+
+.sets {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--t-flap-sets);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Light theme (operator overlayTheme=light / ?theme=light) ── */
+body.overlay-theme-light #scoreboard-container {
+  --accent-home: var(--home-accent-light, var(--home-primary));
+  --accent-away: var(--away-accent-light, var(--away-primary));
+  --t-housing: #f4f5f7;
+  --t-border: #cfd4dc;
+  --t-ink: #16181d;
+  --t-ink-dim: #5a6372;
+  --t-tick: rgba(22, 24, 29, 0.32);
+  --t-serve: #16181d;
+
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Simple mode ("only current set"): the sets flaps and timeout ticks go;
+   the current-set label stays between the two score flaps. */
+.scoreboard.compact-mode .tablero-sets,
+.scoreboard.compact-mode .tablero-sets-caption,
+.scoreboard.compact-mode .timeout-container {
+  display: none;
+}
+
+/* Legacy shared widgets remain invisible unless explicitly activated. */
+.ticker,
+.player-stats {
+  position: absolute;
+  opacity: 0;
+  background: #26282b;
+  color: #f4efe2;
+}
+
+.ticker {
+  bottom: 24px;
+  left: 400px;
+  width: 1120px;
+  padding: 12px 0;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.player-stats {
+  top: 260px;
+  left: 64px;
+  padding: 20px;
+}

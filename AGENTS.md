@@ -149,7 +149,7 @@ volley-overlay-control/
 │   │
 │   └── pwa/                   # Legacy PWA assets (icons)
 │
-├── overlay_templates/         # Jinja2 HTML templates for overlay styles (31 files, 28 selectable)
+├── overlay_templates/         # Jinja2 HTML templates for overlay styles (34 files, 31 selectable)
 ├── overlay_static/            # Static assets for overlays (JS, CSS, images)
 ├── data/                      # Persisted state — app.db + runtime.db (default SQLite), media/, .session_secret, .overlay_server_token, .admin_bootstrap_token (auto-generated, mode 0o600); legacy *.imported backups after an upgrade
 │
@@ -253,7 +253,7 @@ backend.
 
 **State flow:** `GameManager` → `Backend` → `LocalOverlayBackend` → `OverlayStateStore` → `ObsBroadcastHub` → OBS browser sources. Each overlay's OBS output URL is always the app's own `/overlay/<public_token>` link (there is no per-overlay custom/cloud output URL).
 
-**Overlay templates:** the Jinja2 HTML templates in `overlay_templates/` (31 files; 28 selectable styles via `get_available_styles_list`) serve overlay graphics to OBS browser sources at `/overlay/{public_token}` (and the lightweight spectator view at `/follow/{public_token}`). The overlay `app.js` connects via WebSocket at `/ws/{public_token}` for real-time state updates. The `public_token` is the unguessable per-overlay capability token — never the raw `oid` or `skey`.
+**Overlay templates:** the Jinja2 HTML templates in `overlay_templates/` (34 files; 31 selectable styles via `get_available_styles_list`) serve overlay graphics to OBS browser sources at `/overlay/{public_token}` (and the lightweight spectator view at `/follow/{public_token}`). The overlay `app.js` connects via WebSocket at `/ws/{public_token}` for real-time state updates. The `public_token` is the unguessable per-overlay capability token — never the raw `oid` or `skey`.
 
 ---
 

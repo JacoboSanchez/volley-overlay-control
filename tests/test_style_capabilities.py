@@ -61,6 +61,16 @@ def test_duna_offers_a_light_theme_over_its_native_graphite(store):
     }
 
 
+@pytest.mark.parametrize("style", ["momentum", "tablero", "anillos"])
+def test_dark_native_scoreboards_offer_a_light_theme(store, style):
+    caps = store.get_style_capabilities()
+    assert caps[style] == {
+        "verticalAnchor": False,
+        "theme": True,
+        "nativeTheme": "dark",
+    }
+
+
 def test_native_palette_marks_light_card_styles(store):
     caps = store.get_style_capabilities()
     light_styles = {

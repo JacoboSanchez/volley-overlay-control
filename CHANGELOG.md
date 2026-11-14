@@ -14,6 +14,31 @@ archive by hand.
 
 ## [Unreleased]
 
+### Added
+
+- **Three new scoreboards: Momentum, Tablero and Anillos.** *Momentum* stacks
+  two team rows over a strip of the live set's last twelve rallies — raised
+  chips for the left team, lowered for the right — so a run reads at a glance.
+  *Tablero* is a symmetric split-flap gym board with one flap per score and a
+  smaller pair for the sets won. *Anillos* is a pill whose two rings fill as
+  each team approaches the set's point target (25/15 indoor, 21 beach). All
+  three are dark by default with a light theme, honour simple mode (sets won
+  and timeouts are dropped, the current set stays), side swaps, optional
+  logos and the position/size controls, and appear in the style gallery with
+  localized names and renderer thumbnails.
+- **Side panel set summary.** A seventh recap design: a full-height column
+  docked to the right edge that leaves the picture visible on the rest of
+  the frame. It shows both teams with the set score, the sets table, one
+  block per recorded rally, longest streak, timeouts and the set/match
+  clocks, in the dark or light palette of the active scoreboard. With simple
+  mode on it keeps only what describes the set itself — the match standing,
+  sets table and stats are left out.
+
+### Changed
+
+- Refreshed the style mosaics, gallery captures and catalogue thumbnails for
+  the new scoreboards and set summary.
+
 ### Dependencies
 
 - **Docker image:** the runtime stage moves from `python:3.14-slim` to

@@ -13,7 +13,7 @@ const output = resolve(root, 'overlay_static/img/style-previews');
 const styles = (await readdir(resolve(root, 'overlay_templates')))
   .filter((name) => name.endsWith('.html') && !name.startsWith('_') && !['base.html', 'mosaic.html'].includes(name))
   .map((name) => name === 'index.html' ? 'default' : name.slice(0, -5)).sort();
-const summaries = ['brand_ledger', 'bento', 'glass', 'brand_columns', 'ledger_diff', 'bumper'];
+const summaries = ['brand_ledger', 'bento', 'glass', 'brand_columns', 'ledger_diff', 'bumper', 'side_panel'];
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({
   headless: true,

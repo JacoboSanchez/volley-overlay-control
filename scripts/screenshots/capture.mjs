@@ -764,7 +764,9 @@ async function captureOverlayMosaic(page, filename, extraQuery = '') {
   const extra = extraQuery ? `&${extraQuery}` : '';
   await page.goto(
     `${BASE}/overlay/${encodeURIComponent(PUBLIC_TOKEN[DEMO_OID])}?style=mosaic${extra}`,
-    { waitUntil: 'networkidle' },
+    // One iframe (page + WebSocket) per selectable style: on a slow
+    // runner the grid needs longer than the default 30 s to go idle.
+    { waitUntil: 'networkidle', timeout: 120000 },
   );
   await page.waitForFunction(() => {
     const iframes = document.querySelectorAll('.mosaic-iframe-wrapper iframe');

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block head_meta %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+{% endblock %}
+
+{% block title %}Tablero — Volleyball Overlay - {{ target_id }}{% endblock %}
+
+{% block head_css %}
+    <link rel="stylesheet" href="/static/css/tablero.css?v={{ v }}">
+{% endblock %}
+
+{% block body_content %}
+    {# Split-flap board: a symmetric housing with one flap per score and a
+       smaller pair for the sets won. ``.team-info`` opts both name panels
+       into app.js's width equalizer so the centre stays centred. #}
+    <div id="scoreboard-container" class="scoreboard tablero">
+
+        <div class="team team-home">
+            <div class="logo-container">
+                <img class="team-logo" id="home-logo" alt="" onerror="this.style.display='none'">
+            </div>
+            <div class="tablero-id">
+                <div class="team-info">
+                    <div class="team-name" id="home-name">HOME</div>
+                </div>
+                <div class="tablero-bar"></div>
+                <div class="tablero-meta">
+                    <div class="serving-indicator" id="home-serving"></div>
+                    <div class="timeout-container" id="home-timeouts">
+                        <div class="timeout-dot"></div>
+                        <div class="timeout-dot"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="points-container flap">
+            <div class="points" id="home-points">0</div>
+        </div>
+
+        <div class="tablero-centre">
+            <div class="tablero-caption tablero-sets-caption">SETS</div>
+            <div class="tablero-sets">
+                <div class="flap flap-small"><div class="sets" id="home-sets">0</div></div>
+                <div class="flap flap-small"><div class="sets" id="away-sets">0</div></div>
+            </div>
+            <div class="tablero-caption" id="current-set-label">SET 1</div>
+        </div>
+
+        <div class="points-container flap">
+            <div class="points" id="away-points">0</div>
+        </div>
+
+        <div class="team team-away">
+            <div class="tablero-id">
+                <div class="team-info">
+                    <div class="team-name" id="away-name">AWAY</div>
+                </div>
+                <div class="tablero-bar"></div>
+                <div class="tablero-meta">
+                    <div class="serving-indicator" id="away-serving"></div>
+                    <div class="timeout-container" id="away-timeouts">
+                        <div class="timeout-dot"></div>
+                        <div class="timeout-dot"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="logo-container">
+                <img class="team-logo" id="away-logo" alt="" onerror="this.style.display='none'">
+            </div>
+        </div>
+    </div>
+{% endblock %}

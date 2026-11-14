@@ -218,6 +218,7 @@ export const SET_SUMMARY_STYLES = [
   'brand_columns',
   'ledger_diff',
   'bumper',
+  'side_panel',
 ] as const;
 export type SetSummaryStyle = (typeof SET_SUMMARY_STYLES)[number];
 

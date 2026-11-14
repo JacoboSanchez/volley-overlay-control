@@ -386,6 +386,7 @@ export const translations: Record<string, TranslationDict> = {
     'setSummary.style.brand_columns': 'Columns',
     'setSummary.style.ledger_diff': 'Scoresheet',
     'setSummary.style.bumper': 'Bumper',
+    'setSummary.style.side_panel': 'Side panel',
 
     // --- Account area (control SPA outside the board) ---
     'acc.brand': 'Overlay Control',
@@ -1309,6 +1310,7 @@ export const translations: Record<string, TranslationDict> = {
     'setSummary.style.brand_columns': 'Columnas',
     'setSummary.style.ledger_diff': 'Acta',
     'setSummary.style.bumper': 'Cortinilla',
+    'setSummary.style.side_panel': 'Panel lateral',
 
     // --- Account area (control SPA outside the board) ---
     'acc.brand': 'Overlay Control',
@@ -2241,6 +2243,7 @@ export const translations: Record<string, TranslationDict> = {
     'setSummary.style.brand_columns': 'Colunas',
     'setSummary.style.ledger_diff': 'Súmula',
     'setSummary.style.bumper': 'Cortina',
+    'setSummary.style.side_panel': 'Painel lateral',
 
     // --- Account area (control SPA outside the board) ---
     'acc.brand': 'Overlay Control',
@@ -3163,6 +3166,7 @@ export const translations: Record<string, TranslationDict> = {
     'setSummary.style.brand_columns': 'Colonne',
     'setSummary.style.ledger_diff': 'Tabellino',
     'setSummary.style.bumper': 'Sigla',
+    'setSummary.style.side_panel': 'Pannello laterale',
 
     // --- Account area (control SPA outside the board) ---
     'acc.brand': 'Overlay Control',
@@ -4086,6 +4090,7 @@ export const translations: Record<string, TranslationDict> = {
     'setSummary.style.brand_columns': 'Colonnes',
     'setSummary.style.ledger_diff': 'Feuille de match',
     'setSummary.style.bumper': 'Habillage',
+    'setSummary.style.side_panel': 'Panneau latéral',
 
     // --- Account area (control SPA outside the board) ---
     'acc.brand': 'Overlay Control',
@@ -5015,6 +5020,7 @@ export const translations: Record<string, TranslationDict> = {
     'setSummary.style.brand_columns': 'Spalten',
     'setSummary.style.ledger_diff': 'Spielbericht',
     'setSummary.style.bumper': 'Bumper',
+    'setSummary.style.side_panel': 'Seitenleiste',
 
     // --- Account area (control SPA outside the board) ---
     'acc.brand': 'Overlay Control',

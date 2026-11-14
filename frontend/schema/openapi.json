@@ -2131,7 +2131,8 @@
               "glass",
               "brand_columns",
               "ledger_diff",
-              "bumper"
+              "bumper",
+              "side_panel"
             ],
             "title": "Style",
             "type": "string"

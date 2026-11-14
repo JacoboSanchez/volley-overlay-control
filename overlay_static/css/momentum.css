@@ -1,0 +1,301 @@
+@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&display=swap");
+
+/* ─────────────────────────────────────────────────────────────────
+   "Momentum" overlay — two team rows over a rally strip.
+
+   Each row carries a team-colour spine, the name, timeout ticks, a
+   serve lamp, the sets won and the points on the team's own colour.
+   The footer pairs the localized current-set label with the momentum
+   strip: one chip per recent rally of the live set, raised for the
+   left team and lowered for the right one, so a run reads as a step
+   even when both teams wear similar colours. ``renderMomentum`` in
+   app.js fills #momentum-track.
+   ───────────────────────────────────────────────────────────────── */
+
+:root {
+  --home-primary: #e21836;
+  --home-secondary: #ffffff;
+  --away-primary: #0047ab;
+  --away-secondary: #ffd700;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+}
+
+#scoreboard-container {
+  /* Contrast-safe team accents for the active surface (computed by
+     app.js). The light-theme block re-points them and the surface
+     tokens; every rule below reads the tokens only. */
+  --accent-home: var(--home-accent-dark, var(--home-primary));
+  --accent-away: var(--away-accent-dark, var(--away-primary));
+  --m-surface: #0f1419;
+  --m-raised: #1b232b;
+  --m-divider: #263039;
+  --m-ink: #ffffff;
+  --m-ink-dim: #a9b5c0;
+  --m-tick: rgba(255, 255, 255, 0.28);
+  --m-serve: #ffd34d;
+
+  position: absolute;
+  left: 64px;
+  top: 64px;
+  min-width: 480px;
+  background: var(--m-surface);
+  color: var(--m-ink);
+  border-radius: 10px;
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.5),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  opacity: 0;
+  transform-origin: top left;
+}
+
+.team {
+  display: flex;
+  align-items: center;
+  height: 58px;
+}
+
+.team-away {
+  border-top: 1px solid var(--m-divider);
+}
+
+.spine {
+  width: 8px;
+  flex: none;
+  align-self: stretch;
+}
+
+.team-home .spine {
+  background: var(--accent-home);
+}
+
+.team-away .spine {
+  background: var(--accent-away);
+}
+
+.logo-container {
+  width: 38px;
+  height: 38px;
+  margin-left: 14px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.team-logo {
+  max-width: 38px;
+  max-height: 38px;
+  object-fit: contain;
+}
+
+.scoreboard.no-logos .logo-container {
+  display: none;
+}
+
+.team-name {
+  flex: 1;
+  min-width: 0;
+  max-width: 320px;
+  margin-left: 12px;
+  padding-right: 14px;
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Timeout ticks: lit while available, dimmed once taken. */
+.timeout-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-right: 12px;
+}
+
+.timeout-dot {
+  width: 12px;
+  height: 4px;
+  border-radius: 1px;
+  background: var(--m-tick);
+}
+
+.timeout-dot.active {
+  opacity: 0.3;
+}
+
+.serving-indicator {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  margin-right: 16px;
+  border-radius: 50%;
+  background: var(--m-serve);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.serving-indicator.active {
+  opacity: 1;
+}
+
+.sets {
+  width: 44px;
+  flex: none;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--m-raised);
+  color: var(--m-ink-dim);
+  font-size: 26px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ``.points`` sits absolutely inside so app.js's slide animation
+   (which appends a sibling ``.points``) stacks both digits. */
+.points-container {
+  position: relative;
+  width: 78px;
+  flex: none;
+  align-self: stretch;
+  overflow: hidden;
+}
+
+.team-home .points-container {
+  background: var(--home-primary);
+  color: var(--home-text, #ffffff);
+}
+
+.team-away .points-container {
+  background: var(--away-primary);
+  color: var(--away-text, #ffffff);
+}
+
+.points {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 34px;
+  padding: 0 14px;
+  background: var(--m-raised);
+}
+
+.momentum-set {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Fixed-height lane: the left team's chips ride the top edge, the
+   right team's the bottom, and unplayed slots are a faint centre tick. */
+.momentum-track {
+  display: flex;
+  gap: 4px;
+  height: 18px;
+}
+
+.momentum-chip {
+  width: 14px;
+  height: 8px;
+  flex: none;
+  align-self: center;
+  border-radius: 1px;
+}
+
+.momentum-chip.home {
+  align-self: flex-start;
+  background: var(--accent-home);
+}
+
+.momentum-chip.away {
+  align-self: flex-end;
+  background: var(--accent-away);
+}
+
+.momentum-chip.empty {
+  height: 2px;
+  background: var(--m-tick);
+}
+
+.momentum-chip.last {
+  outline: 2px solid var(--m-ink);
+  outline-offset: 1px;
+}
+
+/* ── Light theme (operator overlayTheme=light / ?theme=light) ── */
+body.overlay-theme-light #scoreboard-container {
+  --accent-home: var(--home-accent-light, var(--home-primary));
+  --accent-away: var(--away-accent-light, var(--away-primary));
+  --m-surface: #fdfdfd;
+  --m-raised: #eef1f5;
+  --m-divider: #e0e4ea;
+  --m-ink: #16181d;
+  --m-ink-dim: #5a6372;
+  --m-tick: rgba(22, 24, 29, 0.3);
+  --m-serve: #16181d;
+
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Simple mode ("only current set"): drop the match context — sets won
+   and timeouts — and keep the live set's label and rally strip. */
+.scoreboard.compact-mode .sets,
+.scoreboard.compact-mode .timeout-container {
+  display: none;
+}
+
+/* Legacy shared widgets remain invisible unless explicitly activated. */
+.ticker,
+.player-stats {
+  position: absolute;
+  opacity: 0;
+  background: #0f1419;
+  color: #ffffff;
+}
+
+.ticker {
+  bottom: 24px;
+  left: 400px;
+  width: 1120px;
+  padding: 12px 0;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.player-stats {
+  top: 260px;
+  left: 64px;
+  padding: 20px;
+}

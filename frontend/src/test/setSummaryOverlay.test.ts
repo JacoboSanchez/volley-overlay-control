@@ -129,6 +129,7 @@ describe('set_summary.js overlay renderer', () => {
       glass: '.ss-team-row',
       ledger_diff: '.ss-ld-cols',
       bumper: '.ss-bumper-row',
+      side_panel: '.ss-sp-teams',
     };
 
     for (const [style, marker] of Object.entries(VARIANT_MARKERS)) {
@@ -413,6 +414,80 @@ describe('set_summary.js overlay renderer', () => {
         const panel = document.getElementById('set-summary-panel')!;
         expect(panel.querySelector('.ss-pt-breakdown')).not.toBeNull();
       }
+    });
+  });
+
+  describe('side_panel variant', () => {
+    const finishedSet = {
+      match_info: { set_summary_style: 'side_panel', summary_set_num: 2, current_set: 3 },
+      team_home: {
+        short_name: 'LIO',
+        sets_won: 1,
+        set_history: { set_1: 25, set_2: 21, set_3: 0 },
+      },
+      team_away: {
+        short_name: 'TIG',
+        sets_won: 1,
+        set_history: { set_1: 20, set_2: 25, set_3: 0 },
+      },
+      overlay_control: {
+        points_by_set: {
+          2: [
+            { team: 2, score: [0, 1], ts: 2000 },
+            { team: 1, score: [1, 1], ts: 2010 },
+            { action: 'set_score', team: 1, score: [5, 1], ts: 2020 },
+            { team: 2, score: [5, 2], ts: 2030 },
+          ],
+        },
+      },
+    };
+
+    it('fills the card of the team that took the set', () => {
+      const stage = renderState(finishedSet);
+      expect(stage.querySelector('.ss-sp-team.home')!.classList.contains('is-leading')).toBe(false);
+      expect(stage.querySelector('.ss-sp-team.away')!.classList.contains('is-leading')).toBe(true);
+      expect(stage.querySelector('.ss-sp-team.away .ss-team-score')!.textContent).toBe('25');
+    });
+
+    it('lists the sets up to the displayed one and marks each winner', () => {
+      const stage = renderState(finishedSet);
+      const table = stage.querySelector('.ss-sp-sets')!;
+      expect(Array.from(table.querySelectorAll('small')).map((n) => n.textContent)).toEqual([
+        'S1',
+        'S2',
+      ]);
+      expect(
+        Array.from(table.querySelectorAll('strong')).map(
+          (n) => `${n.textContent}${n.classList.contains('is-won') ? '*' : ''}`,
+        ),
+      ).toEqual(['25*', '21', '20', '25*']);
+    });
+
+    it('draws one block per recorded rally, skipping manual score edits', () => {
+      const stage = renderState(finishedSet);
+      const blocks = Array.from(stage.querySelectorAll('.ss-sp-track .ss-rally'));
+      expect(blocks.map((b) => (b.classList.contains('home') ? 'h' : 'a')).join('')).toBe('aha');
+      expect(blocks.at(-1)!.classList.contains('ss-last')).toBe(true);
+    });
+
+    it('drops the match context in simple mode', () => {
+      const full = renderState(finishedSet);
+      expect(full.classList.contains('ss-simple')).toBe(false);
+      expect(full.querySelector('.ss-sp-standing')).not.toBeNull();
+      expect(full.querySelector('.ss-sp-stats')).not.toBeNull();
+
+      const simple = renderState({
+        ...finishedSet,
+        match_info: { ...finishedSet.match_info, show_only_current_set: true },
+      });
+      expect(simple.classList.contains('ss-simple')).toBe(true);
+      expect(simple.querySelector('.ss-sp-standing')).toBeNull();
+      expect(simple.querySelector('.ss-sp-sets')).toBeNull();
+      expect(simple.querySelector('.ss-sp-stats')).toBeNull();
+      // The set itself is still fully described.
+      expect(simple.querySelectorAll('.ss-sp-team')).toHaveLength(2);
+      expect(simple.querySelector('.ss-sp-track')).not.toBeNull();
+      expect(simple.querySelector('.ss-sp-clocks')).not.toBeNull();
     });
   });
 

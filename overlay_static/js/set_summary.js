@@ -8,7 +8,8 @@
    below; unknown styles fall back to "brand_ledger".
 
    Most variants use a centred 16:9 panel; brand_ledger (Rallies)
-   uses a horizontal lower third. Placement is driven by set_summary.css.
+   uses a horizontal lower third and side_panel a column docked to the
+   right edge. Placement is driven by set_summary.css.
    ───────────────────────────────────────────────────────────────── */
 
 (function () {
@@ -599,6 +600,9 @@
       pointTypes,
       hasPointTypes,
       setFinished,
+      // Operator's "only current set" toggle. Variants that carry match
+      // context (previous sets, standing) may drop it when set.
+      simpleMode: !!matchInfo.show_only_current_set,
       matchFinished: !!matchInfo.match_finished,
       bestOf,
       setTarget,
@@ -2082,6 +2086,224 @@
 
   // ─────────────────────────────────────────────────────────────────
 
+  // ─────────────────────────────────────────────────────────────────
+  // Renderer: side_panel
+  // ─────────────────────────────────────────────────────────────────
+  // A full-height column docked to the right edge, so the picture stays
+  // visible on the remaining two thirds of the frame. Top to bottom:
+  // status line, one card per team, the sets table, the rally grid,
+  // two per-team stats and the clocks. Simple mode ("only current set")
+  // drops everything that describes the match rather than this set:
+  // the standing, the sets table and the stats.
+  function onColourInk(colour) {
+    const rgb = parseHex(colour);
+    if (!rgb) return "#ffffff";
+    return relativeLuminance(rgb) > 0.4 ? "#111827" : "#ffffff";
+  }
+
+  function buildSidePanelTeam(vm, side) {
+    const isHome = side === "home";
+    const team = isHome ? vm.home : vm.away;
+    const own = isHome ? vm.homeScore : vm.awayScore;
+    const other = isHome ? vm.awayScore : vm.homeScore;
+    const name = team.name || team.short_name || t(side);
+    return el("div", {
+      class: `ss-sp-team ${side}${own > other ? " is-leading" : ""}`,
+      children: [
+        teamLogoNode(team, side),
+        el("div", {
+          class: "ss-team-name",
+          text: name,
+          attrs: { title: name },
+        }),
+        el("div", { class: "ss-team-score", text: String(own) }),
+      ],
+    });
+  }
+
+  function buildSidePanelSets(vm) {
+    // Sets up to the displayed one; ``set_history`` also carries future
+    // zero-filled slots, so the object is never enumerated.
+    const table = el("div", { class: "ss-sp-sets" });
+    table.style.gridTemplateColumns = `minmax(0, 1fr) repeat(${vm.setNum}, 3.2em)`;
+    table.appendChild(el("span"));
+    for (let n = 1; n <= vm.setNum; n++) {
+      table.appendChild(
+        el("small", {
+          class: n === vm.setNum ? "is-current" : "",
+          text: `S${n}`,
+          attrs: { title: `${t("set")} ${n}` },
+        }),
+      );
+    }
+    [
+      ["home", vm.home, vm.away],
+      ["away", vm.away, vm.home],
+    ].forEach(([side, team, opponent]) => {
+      const label = team.short_name || team.name || t(side);
+      table.appendChild(
+        el("span", {
+          class: `ss-sp-sets-team ${side}`,
+          text: label,
+          attrs: { title: team.name || label },
+        }),
+      );
+      for (let n = 1; n <= vm.setNum; n++) {
+        const key = `set_${n}`;
+        let score = team.set_history && team.set_history[key];
+        let against = opponent.set_history && opponent.set_history[key];
+        if (n === vm.setNum) {
+          score = side === "home" ? vm.homeScore : vm.awayScore;
+          against = side === "home" ? vm.awayScore : vm.homeScore;
+        }
+        const won = score != null && against != null && score > against;
+        table.appendChild(
+          el("strong", {
+            class: won ? "is-won" : "",
+            text: score == null ? "–" : String(score),
+          }),
+        );
+      }
+    });
+    return table;
+  }
+
+  function buildSidePanelRallies(vm) {
+    const points = vm.setPoints.filter(
+      (p) => p && (p.team === 1 || p.team === 2),
+    );
+    const block = el("div", { class: "ss-sp-rallies" });
+    if (
+      colorsAreSimilar(
+        resolveTeamColour(vm.home, FALLBACK_HOME),
+        resolveTeamColour(vm.away, FALLBACK_AWAY),
+      )
+    ) {
+      block.classList.add("ss-rally-pattern");
+    }
+    block.appendChild(
+      el("div", {
+        class: "ss-sp-heading",
+        text: `${t("recordedRallies")} · ${points.length}`,
+      }),
+    );
+    if (!points.length) {
+      block.appendChild(
+        el("div", {
+          class: "ss-empty-note ss-empty-note--inline",
+          text: t("noRallies"),
+        }),
+      );
+      return block;
+    }
+    const track = el("div", { class: "ss-sp-track" });
+    points.forEach((point, i) => {
+      const side = point.team === 1 ? "home" : "away";
+      const team = point.team === 1 ? vm.home : vm.away;
+      const score = Array.isArray(point.score) ? point.score.join("–") : "–";
+      const title = `${i + 1} · ${team.name || team.short_name || t(side)} · ${score}`;
+      track.appendChild(
+        el("span", {
+          class: `ss-rally ${side}${i === points.length - 1 ? " ss-last" : ""}`,
+          attrs: { title, "aria-label": title },
+        }),
+      );
+    });
+    block.appendChild(track);
+    return block;
+  }
+
+  function buildSidePanelStat(label, homeVal, awayVal) {
+    return el("div", {
+      class: "ss-sp-stat",
+      children: [
+        el("span", { text: label }),
+        el("strong", { children: [dualValueNode(homeVal, awayVal)] }),
+      ],
+    });
+  }
+
+  function renderSidePanel(stage, vm) {
+    const homeColour = resolveTeamColour(vm.home, FALLBACK_HOME);
+    const awayColour = resolveTeamColour(vm.away, FALLBACK_AWAY);
+    stage.style.setProperty("--ss-home-on", onColourInk(homeColour));
+    stage.style.setProperty("--ss-away-on", onColourInk(awayColour));
+    if (vm.simpleMode) stage.classList.add("ss-simple");
+
+    const status = el("div", {
+      class: "ss-sp-status",
+      children: [
+        el("span", {
+          class: `ss-sp-set ${vm.setFinished ? "is-final" : "is-live"}`,
+          text: `${t("set")} ${vm.setNum} · ${vm.setFinished ? t("final") : t("live")}`,
+        }),
+      ],
+    });
+    if (!vm.simpleMode) {
+      status.appendChild(
+        el("span", {
+          class: "ss-sp-standing",
+          children: [
+            el("span", { text: t("match") }),
+            el("strong", { class: "home", text: String(vm.team1Sets) }),
+            document.createTextNode("–"),
+            el("strong", { class: "away", text: String(vm.team2Sets) }),
+          ],
+        }),
+      );
+    }
+    stage.appendChild(status);
+    stage.appendChild(
+      el("div", {
+        class: "ss-sp-teams",
+        children: [
+          buildSidePanelTeam(vm, "home"),
+          buildSidePanelTeam(vm, "away"),
+        ],
+      }),
+    );
+    if (!vm.simpleMode) stage.appendChild(buildSidePanelSets(vm));
+    stage.appendChild(buildSidePanelRallies(vm));
+    if (!vm.simpleMode) {
+      stage.appendChild(
+        el("div", {
+          class: "ss-sp-stats",
+          children: [
+            buildSidePanelStat(
+              t("longestStreak"),
+              vm.longestSet[1],
+              vm.longestSet[2],
+            ),
+            buildSidePanelStat(
+              t("timeoutsUsed"),
+              vm.timeoutsSet[1],
+              vm.timeoutsSet[2],
+            ),
+          ],
+        }),
+      );
+    }
+    stage.appendChild(
+      el("div", {
+        class: "ss-sp-clocks",
+        children: [
+          el("span", {
+            children: [
+              el("small", { text: t("set") }),
+              durationNode(vm.durationSec),
+            ],
+          }),
+          el("span", {
+            children: [
+              el("small", { text: t("match") }),
+              matchClockNode(vm.matchElapsedSec),
+            ],
+          }),
+        ],
+      }),
+    );
+  }
+
   // ── Dispatcher ──────────────────────────────────────────────────
   // ``pickRenderer`` resolves the operator-selected variant key to
   // its concrete renderer function via an explicit ``switch``. The
@@ -2097,6 +2319,7 @@
     "glass",
     "ledger_diff",
     "bumper",
+    "side_panel",
   ];
 
   function pickRenderer(style) {
@@ -2113,6 +2336,8 @@
         return renderLedgerDiff;
       case "bumper":
         return renderBumper;
+      case "side_panel":
+        return renderSidePanel;
       default:
         return renderBrandLedger;
     }

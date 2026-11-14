@@ -2,6 +2,8 @@
 
 import logging
 
+import pytest
+
 from app.conf import Conf
 from app.customization import Customization
 from app.overlay_payload import _add_live_stats, build_overlay_payload
@@ -76,7 +78,9 @@ def _fake_live_stats(points_by_set: dict[int, list[dict]]) -> dict:
     }
 
 
-def test_rallies_recap_uncaps_only_the_displayed_set(monkeypatch):
+@pytest.mark.parametrize("style", ["brand_ledger", "side_panel"])
+def test_rally_recaps_uncap_only_the_displayed_set(monkeypatch, style):
+    """Recaps that draw one block per rally get the whole set sequence."""
     from app.api import live_stats
 
     calls = []
@@ -96,7 +100,7 @@ def test_rallies_recap_uncaps_only_the_displayed_set(monkeypatch):
         "match_info": {
             "current_set": 2,
             "show_set_summary": True,
-            "set_summary_style": "brand_ledger",
+            "set_summary_style": style,
         },
         "overlay_control": {},
     }
