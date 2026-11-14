@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.6.1] - 2026-11-14
+
 ### Added
 
 - **Team catalog for other tools:** `GET /api/teams/{public_token}` returns
