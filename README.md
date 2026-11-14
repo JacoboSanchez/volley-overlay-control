@@ -384,6 +384,13 @@ Teams and presets are stored in the database, not in environment variables:
     every user sees. Users work with `/api/v1/customization/presets`
     (`GET`/`POST`/`DELETE {slug}`); admins manage globals under
     `/api/v1/admin/presets…`.
+*   **Teams for other tools** — `GET /api/teams/<token>` returns the teams of
+    an overlay's owner as a catalog JSON document, where `<token>` is the one
+    in that overlay's output link (`/overlay/<token>`). Add
+    `?group=<name or id>` to get only one of the owner's groups. Hosted logos
+    come as absolute URLs. The token is read-only: it cannot drive the
+    scoreboard, but anyone who has the output or spectator link can read the
+    team list with it.
 *   **Import/export** — On the Team catalog page, admins can download a
     gzip-compressed, versioned JSON backup (`team-catalog.json.gz`) and choose
     whether to embed hosted logos. Import accepts both compressed backups and
@@ -505,6 +512,7 @@ Because whatever answers gets to set most of this app's configuration — includ
 | `/follow/{public_token}` | Public mobile-first spectator page (no cookie). |
 | `/ws/{public_token}` | WebSocket for OBS browser sources (overlay state broadcast; no cookie). |
 | `/api/state/{public_token}` | `GET` — the overlay's current state as JSON (teams, colours, logos, score): the document `/ws/{public_token}` sends, for integrations that only need a one-off read (no cookie). |
+| `/api/teams/{public_token}[?group=X]` | `GET` — the overlay owner's teams as a team catalog JSON document (no cookie). `group` narrows it to one of the owner's groups by name or id. |
 | `/api/themes` | List preset overlay themes (public). |
 | `/metrics` | Prometheus exposition. Open by default for backwards compatibility; disable with `METRICS_ENABLED=false` or require a bearer token with `METRICS_TOKEN`. |
 | `/health` | Health check endpoint. Returns `200 OK` with a timestamp. |

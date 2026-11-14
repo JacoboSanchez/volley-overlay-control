@@ -11,7 +11,7 @@ import re
 import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.routing import APIRoute
 from fastapi.templating import Jinja2Templates
@@ -54,6 +54,38 @@ def _resolve_public_token(token: str) -> str | None:
             return None
         return overlays_service.skey_for(overlay)
 
+
+
+def _public_base_url(request: Request) -> str:
+    from app.api.overlay_links_service import public_base_url
+
+    return public_base_url(request)
+
+
+def _team_catalog(token: str, group: str | None, base_url: str) -> dict[str, Any]:
+    """The catalog of the teams (or one group) of the overlay *token* belongs to.
+
+    Raises 404 for an unknown token and for a group its owner cannot see, so
+    the answer never tells another user's group from a missing one.
+    """
+    from app import overlays_service, team_catalog_transfer, teams_service
+    from app.db.engine import session_scope
+    from app.overlay_key import split_skey
+
+    with session_scope() as db:
+        overlay = overlays_service.get_by_public_token(db, token) if token else None
+        if overlay is None:
+            raise HTTPException(status_code=404, detail="Overlay ID not found.")
+        owner_id, _oid = split_skey(overlays_service.skey_for(overlay))
+        group_id: int | None = None
+        if group is not None and group.strip().casefold() not in ("", "all"):
+            found = teams_service.find_visible_group(db, owner_id, group)
+            if found is None:
+                raise HTTPException(status_code=404, detail="Group not found.")
+            group_id = found.id
+        teams = teams_service.group_effective_teams(db, owner_id, group_id)
+        catalog = team_catalog_transfer.catalog_of_teams(teams, base_url=base_url)
+        return catalog.model_dump(mode="json")
 
 
 # ---------------------------------------------------------------------------
@@ -247,7 +279,8 @@ def _register_api_routes(
     Overlay state is driven in-process by ``LocalOverlayBackend`` (direct
     ``OverlayStateStore`` calls), so there are no externally-callable
     mutation/config endpoints — only the read-only theme list used by the
-    overlay templates and a read-only snapshot of one overlay's state.
+    overlay templates, a read-only snapshot of one overlay's state and its
+    owner's team catalog.
     """
 
     @router.get(
@@ -266,6 +299,30 @@ def _register_api_routes(
             raise HTTPException(status_code=404, detail="Overlay ID not found.")
         state: dict[str, Any] = await run_in_threadpool(store.get_state, skey)
         return JSONResponse(public_overlay_state(state), headers=_NO_CACHE_HEADERS)
+
+    @router.get(
+        "/api/teams/{public_token}",
+        summary="The overlay owner's teams as a team catalog document",
+    )
+    async def overlay_team_catalog(
+        request: Request,
+        public_token: str,
+        group: str | None = Query(
+            None,
+            max_length=120,
+            description="Name or id of one of the owner's groups; omit (or `all`) for every team.",
+        ),
+    ) -> JSONResponse:
+        """The teams the overlay's owner can pick from, for tools that sync teams.
+
+        Read-only, and addressed by the output token like the state above, so
+        a tool that only needs the team list is never handed the control
+        token. Hosted logos are absolute URLs rather than embedded data.
+        """
+        catalog = await run_in_threadpool(
+            _team_catalog, public_token, group, _public_base_url(request),
+        )
+        return JSONResponse(catalog, headers=_NO_CACHE_HEADERS)
 
     @router.get("/api/themes")
     async def list_themes() -> dict[str, list[str]]:

@@ -77,7 +77,7 @@ def test_before_send_removes_credentials_body_and_capability_url():
 
 
 def test_before_send_redacts_every_capability_path_prefix():
-    for prefix in ("/overlay/", "/follow/", "/ws/", "/api/state/", "/matches/", "/match/"):
+    for prefix in ("/overlay/", "/follow/", "/ws/", "/api/state/", "/api/teams/", "/matches/", "/match/"):
         event = {"request": {"url": f"https://example.test{prefix}tok3n/report"}}
         result = error_tracking._before_send(event, {})
         assert result["request"]["url"] == f"https://example.test{prefix}***"

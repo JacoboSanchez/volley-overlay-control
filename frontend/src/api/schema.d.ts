@@ -28,6 +28,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/teams/{public_token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The overlay owner's teams as a team catalog document
+         * @description The teams the overlay's owner can pick from, for tools that sync teams.
+         *
+         *     Read-only, and addressed by the output token like the state above, so
+         *     a tool that only needs the team list is never handed the control
+         *     token. Hosted logos are absolute URLs rather than embedded data.
+         */
+        get: operations["overlay_team_catalog_api_teams__public_token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/themes": {
         parameters: {
             query?: never;
@@ -3054,6 +3078,40 @@ export interface operations {
     overlay_state_snapshot_api_state__public_token__get: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                public_token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    overlay_team_catalog_api_teams__public_token__get: {
+        parameters: {
+            query?: {
+                /** @description Name or id of one of the owner's groups; omit (or `all`) for every team. */
+                group?: string | null;
+            };
             header?: never;
             path: {
                 public_token: string;

@@ -80,6 +80,13 @@ async def build_overlay_links(
     return links
 
 
+def public_base_url(request: Request) -> str:
+    """The base URL to hand out in absolute links: ``OVERLAY_PUBLIC_URL`` when
+    set (the app sits behind a proxy), else the one the request came in on."""
+    configured = (EnvVarsManager.get_env_var("OVERLAY_PUBLIC_URL", "") or "").rstrip("/")
+    return configured or str(request.base_url).rstrip("/")
+
+
 def _latest_match_id_for(oid: str) -> str | None:
     """Return the most-recent ``match_id`` archived for *oid*, or ``None``."""
     summaries = match_archive.list_matches(oid=oid, limit=1)
