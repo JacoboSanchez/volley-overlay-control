@@ -697,16 +697,15 @@ The Team catalog page uses the versioned transfer endpoints instead:
   Every team has an export-local `key`; when `include_logos=true`, hosted global
   WebP files are base64 assets referenced by `logo_asset`. External logo URLs
   remain in `icon` and are not downloaded by this endpoint.
-- `GET /api/v1/board/teams/catalog` returns the same package shape for the
-  teams of a board's owner, so another tool can keep its team list in step
-  with the scoreboard. It takes the board credential (`?c=<control token>`,
-  the `X-Control-Token` header, the public bookmark or the owner cookie with
-  `oid`), and an optional `group`: the name (case-insensitive) or id of a
-  shared or private group the owner sees; omitted or `all` means every team.
-  A name wins over an id and the owner's private group over a shared one of
-  the same name; an unknown group is a `404`. `logos` is always empty: a logo
-  hosted here is an absolute URL in `icon`, built from `OVERLAY_PUBLIC_URL`
-  or the request's own base URL.
+- `GET /api/teams/{public_token}` (public, outside `/api/v1`) returns the
+  same package shape for the teams of an overlay's owner, so another tool can
+  keep its team list in step with the scoreboard. It is addressed by the
+  overlay's read-only output token and takes an optional `group`: the name
+  (case-insensitive) or id of a shared or private group the owner sees;
+  omitted or `all` means every team. A name wins over an id and the owner's
+  private group over a shared one of the same name; an unknown group is a
+  `404`. `logos` is always empty: a logo hosted here is an absolute URL in
+  `icon`, built from `OVERLAY_PUBLIC_URL` or the request's own base URL.
 - `POST /api/v1/admin/teams/transfer/preview` accepts that package and returns
   `{"teams":N,"conflicts":[...]}`. A conflict identifies its package `key`,
   incoming/existing names, `kind` (`catalog` or `file`), and the existing team

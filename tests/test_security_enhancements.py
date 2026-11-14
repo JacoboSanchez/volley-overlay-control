@@ -520,6 +520,15 @@ def test_capability_surface_covers_the_state_snapshot(monkeypatch):
     assert client.get("/api/state/guess").status_code == 429
 
 
+def test_capability_surface_covers_the_team_catalog(monkeypatch):
+    auth_rate_limit._reset_for_tests()
+    monkeypatch.setenv("AUTH_RATE_LIMIT_MAX_FAILURES", "3")
+    client = _limiter_app({"/api/teams/{token}": 404})
+    for _ in range(3):
+        assert client.get("/api/teams/guess").status_code == 404
+    assert client.get("/api/teams/guess").status_code == 429
+
+
 def test_api_surface_still_ignores_404(monkeypatch):
     """404 must stay harmless on /api/v1/ — there it is a missing resource,
     not a credential probe, so counting it would lock operators out for

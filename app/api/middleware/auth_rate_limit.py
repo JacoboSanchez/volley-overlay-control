@@ -14,7 +14,7 @@ Two surfaces are watched, with **separate keyspaces**:
     401/403: an explicit authorization refusal.
 
 ``capability``
-    ``/overlay/*``, ``/follow/*``, ``/api/state/*`` and ``/match/*`` — addressed by an
+    ``/overlay/*``, ``/follow/*``, ``/api/state/*``, ``/api/teams/*`` and ``/match/*`` — addressed by an
     unguessable token rather than a session. A wrong token here surfaces as
     **404** (`app/overlay/routes.py`) or 401 (`app/match_report_access.py`),
     so this surface counts 401/403/404. Before this existed, token guessing
@@ -85,7 +85,7 @@ _SURFACES: tuple[tuple[str, tuple[str, ...], frozenset[int]], ...] = (
     (_API_SURFACE, ("/api/v1/",), frozenset({401, 403})),
     (
         _CAPABILITY_SURFACE,
-        ("/overlay/", "/follow/", "/api/state/", "/match/"),
+        ("/overlay/", "/follow/", "/api/state/", "/api/teams/", "/match/"),
         # 404 included: an unknown capability token is reported as "not
         # found", so it is the only signal a guessing attempt produces.
         frozenset({401, 403, 404}),

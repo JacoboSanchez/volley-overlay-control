@@ -7,7 +7,6 @@ Groups are the primary unit of team selection:
 - ``POST /api/v1/my/groups/{id}/teams``  add team(s) to a group (private member or shared-group extension)
 - ``GET  /api/v1/board/team-groups``     the board picker options (board-control auth → owner's groups)
 - ``GET  /api/v1/board/team-groups/{key}/teams``  a group's teams in APP_TEAMS shape for the board
-- ``GET  /api/v1/board/teams/catalog``   the owner's teams (or one group) as a team catalog document
 - ``PUT  /api/v1/board/selected-group``  remember the board's selected group (per overlay)
 - ``/api/v1/admin/teams*`` + ``/admin/team-groups*``  admin catalog + shared-group authoring
 
@@ -21,13 +20,12 @@ from __future__ import annotations
 from functools import partial
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from app import icons_service, team_catalog_transfer, teams_service
 from app.api import team_groups_service
 from app.api.dependencies import board_skey, get_session
-from app.api.overlay_links_service import public_base_url
 from app.api.pagination import PAGINATED_RESPONSES, Page, PageDep, with_total
 from app.api.schemas import (
     AdminTeamRequest,
@@ -375,36 +373,6 @@ def board_group_teams(
     owner_id, _oid = split_skey(skey)
     group_id = team_groups_service.parse_group_key(group_key)
     return teams_service.group_effective_teams_map(db, owner_id, group_id)
-
-
-@router.get("/board/teams/catalog", response_model=TeamCatalogTransferPackage)
-def board_team_catalog(
-    request: Request,
-    response: Response,
-    group: str | None = Query(
-        None,
-        max_length=120,
-        description="Name or id of one of the owner's groups; omit (or `all`) for every team.",
-    ),
-    skey: str = Depends(board_skey),
-    db: Session = Depends(get_db, scope="function"),
-) -> TeamCatalogTransferPackage:
-    """The owner's teams as a team catalog document, for tools that sync teams.
-
-    Addressed by the board credential like the picker above, so the control
-    link's token is enough: ``/api/v1/board/teams/catalog?c=<token>``. Hosted
-    logos are absolute URLs rather than embedded data.
-    """
-    owner_id, _oid = split_skey(skey)
-    group_id: int | None = None
-    if group is not None and group.strip().casefold() not in ("", "all"):
-        found = teams_service.find_visible_group(db, owner_id, group)
-        if found is None:
-            raise HTTPException(status_code=404, detail="Group not found.")
-        group_id = found.id
-    teams = teams_service.group_effective_teams(db, owner_id, group_id)
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    return team_catalog_transfer.catalog_of_teams(teams, base_url=public_base_url(request))
 
 
 @router.put("/board/selected-group")

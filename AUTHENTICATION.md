@@ -246,7 +246,6 @@ board and cannot touch the owner's account.
 | `GET` | `/links` | B | |
 | `GET` | `/styles`, `/style-capabilities` | B | |
 | `GET` | `/board/team-groups`, `/board/team-groups/{group_key}/teams` | B | Team pickers for the board UI, so a no-login operator can set team names. |
-| `GET` | `/board/teams/catalog` | B | The owner's teams, or one of their groups with `?group=<name or id>`, as a team catalog document. Read-only: it returns what the pickers above already expose, in the catalog format. |
 | `PUT` | `/board/selected-group` | B | |
 | `GET` | `/overlays` | Y | Scoped to the caller's overlays. Response includes each overlay's `control_token` / `control_url` and `public_control` flag (§1.2) — it is the owner's own credential list, so it is owner-only by cookie. |
 | `POST` | `/overlays` | Y | Mints `public_token` **and** `control_token`. |
@@ -334,6 +333,7 @@ state, and cannot mutate anything. Control needs one of credentials 1–3.
 | `GET` | `/follow/{public_token}` | — | Public spectator/follow page; same `public_token` capability URL, same `/ws/{public_token}` feed. |
 | `WS` | `/ws/{public_token}` | — | Public for OBS browser sources. Same `public_token` capability URL. |
 | `GET` | `/api/state/{public_token}` | — | Public, read-only JSON snapshot of the state `/ws/{public_token}` sends on connect (same projection, so no storage key or server-side bookkeeping). Same `public_token` capability URL; `404` for an unknown token. |
+| `GET` | `/api/teams/{public_token}` | — | Public, read-only: the teams the overlay's owner can pick from (global catalog, their own teams, or one of their groups with `?group=<name or id>`) as a team catalog document. Same `public_token` capability URL; `404` for an unknown token or a group the owner cannot see. Note that this token is also in the `/follow/` link handed to spectators, so anyone holding that link can read the owner's team list. |
 | `GET` | `/api/themes` | — | Public OK (theme name list is not sensitive). |
 
 > **Removed in the multi-user refactor:** `GET /list/overlay` no longer
@@ -562,7 +562,7 @@ that count as a failure:
 | Surface | Paths | Counted as failure |
 | :--- | :--- | :--- |
 | `api` | `/api/v1/*` | 401, 403 |
-| `capability` | `/overlay/*`, `/follow/*`, `/api/state/*`, `/match/*` | 401, 403, **404** |
+| `capability` | `/overlay/*`, `/follow/*`, `/api/state/*`, `/api/teams/*`, `/match/*` | 401, 403, **404** |
 
 404 counts on the capability surface because an unknown capability
 token is reported as "not found" (`app/overlay/routes.py`) — it is the
