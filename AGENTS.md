@@ -145,7 +145,7 @@ volley-overlay-control/
 │   │   ├── payload_schema.py  # Overlay state contract (what /ws/ sends) + public_overlay_state projection
 │   │   ├── style_catalog.py   # Template discovery and capability scanning
 │   │   ├── broadcast.py       # OBS WebSocket broadcast hub — 50ms debounced pushes
-│   │   └── routes.py          # HTTP/WS via public_token: /overlay/, /follow/, /ws/ + public /api/themes
+│   │   └── routes.py          # HTTP/WS via public_token: /overlay/, /follow/, /ws/, /api/state/ + public /api/themes
 │   │
 │   └── pwa/                   # Legacy PWA assets (icons)
 │
@@ -290,7 +290,7 @@ Key variables:
 - **Persistence:** `DATABASE_URL` — SQLAlchemy URL; defaults to a SQLite file at `data/app.db`. Point it at Postgres with `postgresql+psycopg://...`. The schema migrates to head on startup; no manual `alembic` step needed.
 - **Auth / accounts:** `SESSION_SECRET` (auto-minted and persisted to `data/.session_secret` if unset) signs login cookies; `MATCH_REPORT_SIGNING_SECRET` separately signs report capability URLs and persists to `data/.match_report_signing_secret`. Pin both across replicas. `REGISTRATION_OPEN` seeds the DB toggle for self-registration; admins flip it at runtime. First-admin claim uses a one-time token logged at startup (see Auth, below) — there is no admin password env var.
 - **Metrics:** `/metrics` contains aggregates only (no payloads or per-OID labels), is open by default, can require `METRICS_TOKEN`, and can be hidden with `METRICS_ENABLED=false`.
-- **Error tracking:** Sentry is inert unless `SENTRY_DSN` is configured. `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`, and `SENTRY_TRACES_SAMPLE_RATE` tune it; the setup scrubs bodies, cookies, query strings, and capability-bearing URL paths (`/overlay/`, `/follow/`, `/ws/`, `/matches/`, `/match/`) from error events and sampled transactions alike.
+- **Error tracking:** Sentry is inert unless `SENTRY_DSN` is configured. `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`, and `SENTRY_TRACES_SAMPLE_RATE` tune it; the setup scrubs bodies, cookies, query strings, and capability-bearing URL paths (`/overlay/`, `/follow/`, `/ws/`, `/api/state/`, `/matches/`, `/match/`) from error events and sampled transactions alike.
 - **Match behaviour:** `MATCH_GAME_POINTS`, `MATCH_GAME_POINTS_LAST_SET`, `MATCH_SETS`, `STALE_SET_THRESHOLD_MINUTES` (minutes a single set may run before the control-UI abandoned-match prompt fires; `0` disables).
 - **Overlay / serving:** `OVERLAY_PUBLIC_URL` (public base URL for OBS output links behind a proxy), `APP_PORT`, `ENABLE_MULTITHREAD`, `LOGGING_LEVEL`.
 - **Reports:** `MATCH_REPORT_PUBLIC=true` opens `/match/{id}/report` to anyone with the link (otherwise owner-cookie or signed URL).
@@ -327,6 +327,7 @@ inventory; this table is a "what exists" index only.
 | `/overlay/{public_token}` | Overlay HTML template for OBS browser sources (capability token) |
 | `/follow/{public_token}` | Lightweight spectator view over the same feed |
 | `/ws/{public_token}` | WebSocket for OBS browser sources (overlay state broadcast) |
+| `/api/state/{public_token}` | One-shot JSON read of the state `/ws/{public_token}` sends (capability token) |
 | `/api/themes` | List preset overlay theme names (public) |
 | `/metrics` | Prometheus exposition (open by default; optional bearer token or disable flag) |
 | `/health` | Health check — returns `200 OK` with timestamp |
@@ -432,7 +433,7 @@ Use `app/oid_utils.py` for `extract_oid()` and `compose_output()` — do not imp
 3. `api_router` — `/api/v1/*` REST + WebSocket API
 4. `match_report_router` — `/match/{id}/report`
 5. `metrics_router` — `/metrics` (before the SPA mount so the catch-all never shadows it)
-6. `overlay_router` — `/overlay/*`, `/follow/*`, `/ws/*`, and public `/api/themes`
+6. `overlay_router` — `/overlay/*`, `/follow/*`, `/ws/*`, `/api/state/*`, and public `/api/themes`
 7. `app.mount("/fonts", ...)` — scoreboard fonts
 8. `app.mount("/static", ...)` — overlay JS/CSS/images
 9. `app.mount("/pwa", ...)` — PWA icons
