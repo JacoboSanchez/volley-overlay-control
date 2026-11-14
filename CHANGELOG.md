@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.6.0] - 2026-11-14
+
 ### Added
 
 - **Three new scoreboards: Momentum, Tablero and Anillos.** *Momentum* stacks
