@@ -489,6 +489,30 @@ def get_visible_group(db: Session, user_id: int, group_id: int) -> TeamGroup | N
     return group if group.owner_user_id == user_id else None
 
 
+def find_visible_group(db: Session, user_id: int, ref: str) -> TeamGroup | None:
+    """The group *user_id* may select that *ref* names, for callers that
+    address a group from outside the UI (a URL parameter).
+
+    *ref* is a group name, compared case-insensitively, or a group id. A name
+    wins over an id, and the user's own private group over a shared one of the
+    same name. ``None`` when nothing visible matches.
+    """
+    wanted = ref.strip().casefold()
+    if not wanted:
+        return None
+    named = [
+        group
+        for group in list_user_visible_groups(db, user_id)
+        if group.name.strip().casefold() == wanted
+    ]
+    if named:
+        # Visible groups come shared first; the owner's own is the last match.
+        return next((g for g in named if g.owner_user_id is not None), named[0])
+    if wanted.isascii() and wanted.isdigit():
+        return get_visible_group(db, user_id, int(wanted))
+    return None
+
+
 def group_kind(group: TeamGroup | None) -> str:
     """``'all'`` (None), ``'private'`` (owned) or ``'shared'`` (admin)."""
     if group is None:

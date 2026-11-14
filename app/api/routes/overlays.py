@@ -12,7 +12,7 @@ from starlette.concurrency import run_in_threadpool
 from app import overlays_service
 from app.api import action_log, match_archive
 from app.api.dependencies import get_session
-from app.api.overlay_links_service import build_overlay_links
+from app.api.overlay_links_service import build_overlay_links, public_base_url
 from app.api.pagination import PAGINATED_RESPONSES, Page, PageDep, with_total
 from app.api.schemas import CreateOverlayRequest, OverlayOut, UpdateOverlayRequest
 from app.api.session_manager import GameSession, SessionManager
@@ -20,7 +20,6 @@ from app.auth.dependencies import require_user
 from app.db.engine import after_commit, after_rollback, get_db
 from app.db.models.overlay import UserOverlay
 from app.db.models.user import User
-from app.env_vars_manager import EnvVarsManager
 from app.overlay_lifecycle import (
     OverlayLifecycleLease,
     overlay_lifecycle_gate,
@@ -73,8 +72,7 @@ def _overlay_out(
     *,
     username: str | None = None,
 ) -> OverlayOut:
-    public_url = (EnvVarsManager.get_env_var("OVERLAY_PUBLIC_URL", "") or "").rstrip("/")
-    base = public_url or str(request.base_url).rstrip("/")
+    base = public_base_url(request)
     local_url = f"{base}/overlay/{overlay.public_token}"
     control_url = f"{base}/board?c={overlay.control_token}" if overlay.control_token else None
     public_control_url = (

@@ -471,6 +471,112 @@ def test_board_picker_via_control_token(db_session):
     assert set(all_teams) == set(APP_TEAMS)
 
 
+def _catalog_board(db_session):
+    """Owner with a shared group (Breogán), a private one (Estudiantes) and a board."""
+    owner = _admin(db_session)
+    cat = _seed_catalog(owner)
+    gid = owner.post("/api/v1/admin/team-groups", json={"name": "Liga"}).json()["id"]
+    owner.post(f"/api/v1/admin/team-groups/{gid}/members", json={"team_id": cat["Breogán"]})
+    owner.patch(f"/api/v1/admin/team-groups/{gid}", json={"is_active": True})
+    priv = owner.post("/api/v1/my/groups", json={"name": "My league"}).json()["id"]
+    owner.post(f"/api/v1/my/groups/{priv}/teams", json={"team_ids": [cat["Estudiantes"]]})
+    ctrl = owner.post("/api/v1/overlays", json={"oid": "liga"}).json()["control_token"]
+    return owner, ctrl, gid, priv
+
+
+def _catalog_names(response) -> set[str]:
+    assert response.status_code == 200, response.text
+    return {team["name"] for team in response.json()["teams"]}
+
+
+def test_board_team_catalog_via_control_token(db_session):
+    """The control token alone reads the owner's teams as a catalog document."""
+    _owner, ctrl, _gid, _priv = _catalog_board(db_session)
+    op = TestClient(create_app())  # no cookie
+    r = op.get(f"/api/v1/board/teams/catalog?c={ctrl}")
+    assert r.status_code == 200, r.text
+    assert "no-store" in r.headers["cache-control"]
+    body = r.json()
+    assert body["format"] == "volley-overlay-team-catalog" and body["version"] == 1
+    assert body["logos"] == {}
+    by_name = {team["name"]: team for team in body["teams"]}
+    assert set(by_name) == set(APP_TEAMS)
+    assert by_name["Breogán"]["icon"] == "http://x/b.png"
+    assert by_name["Breogán"]["color"] == "#ff0000"
+    assert by_name["Breogán"]["text_color"] == "#ffffff"
+    assert len({team["key"] for team in body["teams"]}) == 2
+    # `all` and a blank group are the same as no group.
+    assert _catalog_names(op.get(f"/api/v1/board/teams/catalog?c={ctrl}&group=ALL")) == set(APP_TEAMS)
+    assert _catalog_names(op.get(f"/api/v1/board/teams/catalog?c={ctrl}&group=")) == set(APP_TEAMS)
+
+
+def test_board_team_catalog_narrows_to_a_group(db_session):
+    _owner, ctrl, gid, priv = _catalog_board(db_session)
+    op = TestClient(create_app())
+    url = f"/api/v1/board/teams/catalog?c={ctrl}"
+    # By name, whatever its case, for shared and private groups alike; or by id.
+    assert _catalog_names(op.get(f"{url}&group=liga")) == {"Breogán"}
+    assert _catalog_names(op.get(f"{url}&group=My%20league")) == {"Estudiantes"}
+    assert _catalog_names(op.get(f"{url}&group={gid}")) == {"Breogán"}
+    assert _catalog_names(op.get(f"{url}&group={priv}")) == {"Estudiantes"}
+    assert op.get(f"{url}&group=Nope").status_code == 404
+    assert op.get(f"{url}&group=999999").status_code == 404
+
+
+def test_board_team_catalog_group_name_prefers_the_owners_own(db_session):
+    """A private group shadows a shared one of the same name; a name beats an id."""
+    owner, ctrl, gid, _priv = _catalog_board(db_session)
+    cat = _catalog_ids(owner)
+    mine = owner.post("/api/v1/my/groups", json={"name": "LIGA"}).json()["id"]
+    owner.post(f"/api/v1/my/groups/{mine}/teams", json={"team_ids": [cat["Estudiantes"]]})
+    numeric = owner.post("/api/v1/my/groups", json={"name": str(gid)}).json()["id"]
+    owner.post(f"/api/v1/my/groups/{numeric}/teams", json={"team_ids": [cat["Estudiantes"]]})
+
+    op = TestClient(create_app())
+    url = f"/api/v1/board/teams/catalog?c={ctrl}"
+    assert _catalog_names(op.get(f"{url}&group=Liga")) == {"Estudiantes"}
+    assert _catalog_names(op.get(f"{url}&group={gid}")) == {"Estudiantes"}
+
+
+def test_board_team_catalog_hides_other_users_and_inactive_groups(db_session):
+    owner, ctrl, gid, _priv = _catalog_board(db_session)
+    other = _user(db_session)
+    theirs = other.post("/api/v1/my/groups", json={"name": "Secret"}).json()["id"]
+    op = TestClient(create_app())
+    url = f"/api/v1/board/teams/catalog?c={ctrl}"
+    assert op.get(f"{url}&group=Secret").status_code == 404
+    assert op.get(f"{url}&group={theirs}").status_code == 404
+    owner.patch(f"/api/v1/admin/team-groups/{gid}", json={"is_active": False})
+    assert op.get(f"{url}&group=Liga").status_code == 404
+
+
+def test_board_team_catalog_needs_a_board_credential(db_session):
+    _catalog_board(db_session)
+    op = TestClient(create_app())
+    assert op.get("/api/v1/board/teams/catalog?c=wrong-token").status_code == 403
+    assert op.get("/api/v1/board/teams/catalog").status_code in (401, 403, 422)
+
+
+def test_board_team_catalog_makes_hosted_logos_absolute(db_session, monkeypatch):
+    owner, ctrl, _gid, _priv = _catalog_board(db_session)
+    owner.post(
+        "/api/v1/admin/teams",
+        json={"name": "Hosted", "icon": "/media/icons/abc.webp", "color": "#111111"},
+    )
+    owner.post("/api/v1/admin/teams", json={"name": "Relative", "icon": "//cdn.example/x.png"})
+    op = TestClient(create_app())
+
+    def icons():
+        teams = op.get(f"/api/v1/board/teams/catalog?c={ctrl}").json()["teams"]
+        return {team["name"]: team["icon"] for team in teams}
+
+    assert icons()["Hosted"] == "http://testserver/media/icons/abc.webp"
+    assert icons()["Relative"] == "//cdn.example/x.png"
+    assert icons()["Breogán"] == "http://x/b.png"
+    monkeypatch.setenv("OVERLAY_PUBLIC_URL", "https://score.example.com/")
+    assert icons()["Hosted"] == "https://score.example.com/media/icons/abc.webp"
+
+
 def test_board_picker_via_public_bookmark(db_session):
     owner = _admin(db_session)
     _seed_catalog(owner)

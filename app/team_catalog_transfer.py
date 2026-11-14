@@ -135,6 +135,39 @@ def export_catalog(db: Session, *, include_logos: bool) -> TeamCatalogTransferPa
     return catalog
 
 
+def catalog_of_teams(
+    teams: list[Team], *, base_url: str,
+) -> TeamCatalogTransferPackage:
+    """*teams* as a catalog package another host can consume as is.
+
+    Same format as :func:`export_catalog`, but no logo is embedded: a logo
+    this app hosts (``/media/icons/...``) is given as an absolute URL under
+    *base_url* instead, so the document stays small enough to be polled.
+    """
+    base = base_url.rstrip("/")
+    rows: list[TeamCatalogTransferTeam] = []
+    for index, team in enumerate(teams, start=1):
+        icon = (team.icon_url or "").strip() or None
+        if icon and icon.startswith("/") and not icon.startswith("//"):
+            icon = f"{base}{icon}"
+        rows.append(
+            TeamCatalogTransferTeam.model_construct(
+                key=f"team-{index}",
+                name=team.name,
+                icon=icon,
+                color=team.color,
+                text_color=team.text_color,
+                logo_asset=None,
+            )
+        )
+    return TeamCatalogTransferPackage.model_construct(
+        format="volley-overlay-team-catalog",
+        version=1,
+        teams=rows,
+        logos={},
+    )
+
+
 def preview_import(
     db: Session, catalog: TeamCatalogTransferPackage,
 ) -> TeamCatalogPreviewOut:

@@ -319,6 +319,7 @@ inventory; this table is a "what exists" index only.
 | `/api/v1/session/rules?oid=X` | `POST` — update match rules (mode, points, sets) for the session |
 | `/api/v1/audit?oid=X[&limit=N]` | Most-recent records from the per-overlay action audit log |
 | `/api/v1/audit/consistency?oid=X` | Replay the audit log and report where it disagrees with live state (`app/api/audit_replay.py`) |
+| `/api/v1/board/teams/catalog?c=<token>[&group=X]` | The owner's teams (or one group, by name or id) as a team catalog document |
 | `/api/v1/matches[?oid=X]` | List archived match snapshots (newest first) |
 | `/api/v1/matches/{match_id}` | Full archived snapshot (final_state, customization, audit_log, config) |
 | `/api/v1/game/undo` | Pop the last forward add_point/add_set/add_timeout and reverse it |

@@ -6299,6 +6299,165 @@
         ]
       }
     },
+    "/api/v1/board/teams/catalog": {
+      "get": {
+        "description": "The owner's teams as a team catalog document, for tools that sync teams.\n\nAddressed by the board credential like the picker above, so the control\nlink's token is enough: ``/api/v1/board/teams/catalog?c=<token>``. Hosted\nlogos are absolute URLs rather than embedded data.",
+        "operationId": "board_team_catalog_api_v1_board_teams_catalog_get",
+        "parameters": [
+          {
+            "description": "Name or id of one of the owner's groups; omit (or `all`) for every team.",
+            "in": "query",
+            "name": "group",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Name or id of one of the owner's groups; omit (or `all`) for every team.",
+              "title": "Group"
+            }
+          },
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Overlay ID",
+              "title": "Oid"
+            }
+          },
+          {
+            "description": "Alias of `oid` for backward compatibility",
+            "in": "query",
+            "name": "control",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of `oid` for backward compatibility",
+              "title": "Control"
+            }
+          },
+          {
+            "description": "Username for a public ?u=&oid= board URL",
+            "in": "query",
+            "name": "u",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
+            }
+          },
+          {
+            "description": "Control capability token (alternative to ?c=)",
+            "in": "header",
+            "name": "x-control-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (alternative to ?c=)",
+              "title": "X-Control-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamCatalogTransferPackage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Board Team Catalog",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
     "/api/v1/config": {
       "get": {
         "operationId": "get_config_api_v1_config_get",

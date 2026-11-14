@@ -14,6 +14,16 @@ archive by hand.
 
 ## [Unreleased]
 
+### Added
+
+- **Team catalog over the control link:** `GET /api/v1/board/teams/catalog`
+  returns the overlay owner's teams as a team catalog JSON document (the
+  format of the Team catalog export), addressed by the control link's token:
+  `…/api/v1/board/teams/catalog?c=<token>`. An optional `group=<name or id>`
+  narrows it to one of the owner's shared or private groups. Hosted logos are
+  absolute URLs instead of embedded data, so the document is small enough for
+  another tool to poll and keep its team list in step with the scoreboard.
+
 ## [7.6.0] - 2026-11-14
 
 ### Added

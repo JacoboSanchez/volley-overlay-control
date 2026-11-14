@@ -801,6 +801,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/board/teams/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Board Team Catalog
+         * @description The owner's teams as a team catalog document, for tools that sync teams.
+         *
+         *     Addressed by the board credential like the picker above, so the control
+         *     link's token is enough: ``/api/v1/board/teams/catalog?c=<token>``. Hosted
+         *     logos are absolute URLs rather than embedded data.
+         */
+        get: operations["board_team_catalog_api_v1_board_teams_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/config": {
         parameters: {
             query?: never;
@@ -4845,6 +4869,51 @@ export interface operations {
                             [key: string]: unknown;
                         };
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    board_team_catalog_api_v1_board_teams_catalog_get: {
+        parameters: {
+            query?: {
+                /** @description Name or id of one of the owner's groups; omit (or `all`) for every team. */
+                group?: string | null;
+                /** @description Overlay ID */
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
+            };
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamCatalogTransferPackage"];
                 };
             };
             /** @description Validation Error */

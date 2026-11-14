@@ -246,6 +246,7 @@ board and cannot touch the owner's account.
 | `GET` | `/links` | B | |
 | `GET` | `/styles`, `/style-capabilities` | B | |
 | `GET` | `/board/team-groups`, `/board/team-groups/{group_key}/teams` | B | Team pickers for the board UI, so a no-login operator can set team names. |
+| `GET` | `/board/teams/catalog` | B | The owner's teams, or one of their groups with `?group=<name or id>`, as a team catalog document. Read-only: it returns what the pickers above already expose, in the catalog format. |
 | `PUT` | `/board/selected-group` | B | |
 | `GET` | `/overlays` | Y | Scoped to the caller's overlays. Response includes each overlay's `control_token` / `control_url` and `public_control` flag (§1.2) — it is the owner's own credential list, so it is owner-only by cookie. |
 | `POST` | `/overlays` | Y | Mints `public_token` **and** `control_token`. |

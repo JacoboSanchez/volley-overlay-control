@@ -384,6 +384,12 @@ Teams and presets are stored in the database, not in environment variables:
     every user sees. Users work with `/api/v1/customization/presets`
     (`GET`/`POST`/`DELETE {slug}`); admins manage globals under
     `/api/v1/admin/presets…`.
+*   **Teams for other tools** — `GET /api/v1/board/teams/catalog?c=<token>`
+    returns the teams of an overlay's owner as a catalog JSON document, where
+    `<token>` is the one in that overlay's control link (`/board?c=<token>`).
+    Add `&group=<name or id>` to get only one of the owner's groups. Hosted
+    logos come as absolute URLs. Keep in mind that the control token also
+    drives the scoreboard: treat a URL that carries it as a secret.
 *   **Import/export** — On the Team catalog page, admins can download a
     gzip-compressed, versioned JSON backup (`team-catalog.json.gz`) and choose
     whether to embed hosted logos. Import accepts both compressed backups and
@@ -494,6 +500,7 @@ Because whatever answers gets to set most of this app's configuration — includ
 | `/api/v1/session/rules?oid=X` | `POST` — update match rules (`mode` indoor/beach, `points_limit`, `points_limit_last_set`, `sets_limit`, `reset_to_defaults`). Backs the React config panel's "Match rules" section. |
 | `/api/v1/audit?oid=X[&limit=N]` | `GET` — recent records from the per-OID action audit log (default `limit=100`, max `1000`). |
 | `/api/v1/audit/consistency?oid=X` | `GET` — rebuild the match from the audit log and list any field where it disagrees with the live scoreboard. |
+| `/api/v1/board/teams/catalog?c=<token>[&group=X]` | `GET` — the overlay owner's teams as a team catalog JSON document, addressed by the control link's token. `group` narrows it to one of the owner's groups by name or id. |
 | `/api/v1/matches[?oid=X]` | `GET` — list the user's archived match reports with owner-scoped OID/mode/date filters, stable sorting and `limit`/`offset` paging. |
 | `/api/v1/matches/days` | `GET` — distinct local calendar days containing the user's archived matches (optional OID/mode filters). |
 | `/api/v1/matches/bulk-delete` | `POST` — transactionally delete up to 100 selected reports owned by the caller. |
