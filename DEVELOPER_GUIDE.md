@@ -145,7 +145,7 @@ dependency.
 │   │   ├── state_store.py   # Overlay state management — in-memory + JSON file persistence.
 │   │   ├── style_catalog.py # Template discovery and capability scanning.
 │   │   ├── broadcast.py     # OBS WebSocket broadcast hub — debounced 50ms pushes.
-│   │   └── routes.py        # Public OBS surface: /overlay|follow|ws/{public_token}, /api/themes.
+│   │   └── routes.py        # Public OBS surface: /overlay|follow|ws/{public_token}, /api/state/{public_token}, /api/themes.
 │   ├── env_vars_manager.py  # The single env read path: remote config + typed accessors.
 │   ├── logging_config.py    # Logging level configuration.
 │   └── pwa/                 # Legacy PWA assets (icons).

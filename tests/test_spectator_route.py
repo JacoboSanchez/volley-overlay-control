@@ -67,6 +67,31 @@ def test_follow_serves_spectator_html(client):
 
 
 # ---------------------------------------------------------------------------
+# /api/state/{public_token} — HTTP snapshot of the WS feed
+# ---------------------------------------------------------------------------
+
+
+def test_state_snapshot_returns_404_for_unknown_overlay(client):
+    cli, _, _, _ = client
+    assert cli.get("/api/state/does-not-exist").status_code == 404
+
+
+def test_state_snapshot_matches_the_public_projection(client):
+    cli, store, token, skey = client
+    store.update_state_sync(skey, {"team_home": {"name": "Local", "logo_url": "/media/icons/a.png"}})
+    res = cli.get(f"/api/state/{token}")
+    assert res.status_code == 200
+    assert "no-store" in res.headers["cache-control"]
+    body = res.json()
+    assert body["team_home"]["name"] == "Local"
+    assert body["team_home"]["logo_url"] == "/media/icons/a.png"
+    # Server-side bookkeeping (the owner's storage key) never leaves.
+    assert "_meta" not in body
+    assert "raw_remote_model" not in body
+    assert skey not in res.text
+
+
+# ---------------------------------------------------------------------------
 # /overlay/{public_token} locale resolution
 # ---------------------------------------------------------------------------
 

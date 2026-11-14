@@ -34,6 +34,13 @@ archive by hand.
   block per recorded rally, longest streak, timeouts and the set/match
   clocks, in the dark or light palette of the active scoreboard. Like the
   other recaps it is unaffected by simple mode.
+- **Overlay state over HTTP:** `GET /api/state/{public_token}` returns the
+  overlay's current state as JSON — team names, colours, logos, sets and
+  points — the same document an OBS source receives on `/ws/{public_token}`,
+  addressed by the same output-only token. It lets an integration read the
+  match as it stands without holding a WebSocket open. Like the other token
+  routes, its path is redacted in Sentry events and unknown tokens count
+  towards the capability rate limit.
 
 ### Changed
 
@@ -43,8 +50,9 @@ archive by hand.
 ### Dependencies
 
 - **Security:** `opentelemetry-api` `1.45.1` → `1.45.2` (transitive, via
-  `fastapi`) to clear CVE-2026-126360, which `pip-audit` started flagging
-  in CI. `uv.lock` refreshes only.
+  FastAPI) for CVE-2026-126360, which `pip-audit` reports against the runtime
+  lock — `uv.lock` refresh only.
+  [#631](https://github.com/JacoboSanchez/volley-overlay-control/pull/631)
 - **Docker image:** the runtime stage moves from `python:3.14-slim` to
   `python:3.15-slim`. To get CPython 3.15 (`cp315`) wheels, the lock picks
   up `psycopg`/`psycopg-binary` `3.3.4` → `3.3.8`, `pydantic` `2.13.2` →

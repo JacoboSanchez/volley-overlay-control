@@ -9,9 +9,10 @@ import json
 import logging
 import re
 import time
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.routing import APIRoute
 from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
@@ -246,8 +247,25 @@ def _register_api_routes(
     Overlay state is driven in-process by ``LocalOverlayBackend`` (direct
     ``OverlayStateStore`` calls), so there are no externally-callable
     mutation/config endpoints — only the read-only theme list used by the
-    overlay templates.
+    overlay templates and a read-only snapshot of one overlay's state.
     """
+
+    @router.get(
+        "/api/state/{public_token}",
+        summary="Current overlay state (same document /ws/{public_token} sends)",
+    )
+    async def overlay_state_snapshot(public_token: str) -> JSONResponse:
+        """One-shot HTTP read of the state an OBS source gets on connect.
+
+        For integrations that need the match as it stands (teams, colours,
+        logos, score) without holding a WebSocket open. Same capability and
+        same projection as ``/ws/{public_token}``: output only.
+        """
+        skey = await run_in_threadpool(_resolve_public_token, public_token)
+        if skey is None:
+            raise HTTPException(status_code=404, detail="Overlay ID not found.")
+        state: dict[str, Any] = await run_in_threadpool(store.get_state, skey)
+        return JSONResponse(public_overlay_state(state), headers=_NO_CACHE_HEADERS)
 
     @router.get("/api/themes")
     async def list_themes() -> dict[str, list[str]]:

@@ -4,6 +4,30 @@
  */
 
 export interface paths {
+    "/api/state/{public_token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current overlay state (same document /ws/{public_token} sends)
+         * @description One-shot HTTP read of the state an OBS source gets on connect.
+         *
+         *     For integrations that need the match as it stands (teams, colours,
+         *     logos, score) without holding a WebSocket open. Same capability and
+         *     same projection as ``/ws/{public_token}``: output only.
+         */
+        get: operations["overlay_state_snapshot_api_state__public_token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/themes": {
         parameters: {
             query?: never;
@@ -3027,6 +3051,37 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    overlay_state_snapshot_api_state__public_token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                public_token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_themes_api_themes_get: {
         parameters: {
             query?: never;

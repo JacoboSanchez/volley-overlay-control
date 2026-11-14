@@ -332,6 +332,7 @@ state, and cannot mutate anything. Control needs one of credentials 1–3.
 | `GET` | `/overlay-preview/{style}` | — | Public style example with invented match data only; no access to accounts, stored overlays or live match state. |
 | `GET` | `/follow/{public_token}` | — | Public spectator/follow page; same `public_token` capability URL, same `/ws/{public_token}` feed. |
 | `WS` | `/ws/{public_token}` | — | Public for OBS browser sources. Same `public_token` capability URL. |
+| `GET` | `/api/state/{public_token}` | — | Public, read-only JSON snapshot of the state `/ws/{public_token}` sends on connect (same projection, so no storage key or server-side bookkeeping). Same `public_token` capability URL; `404` for an unknown token. |
 | `GET` | `/api/themes` | — | Public OK (theme name list is not sensitive). |
 
 > **Removed in the multi-user refactor:** `GET /list/overlay` no longer
@@ -560,7 +561,7 @@ that count as a failure:
 | Surface | Paths | Counted as failure |
 | :--- | :--- | :--- |
 | `api` | `/api/v1/*` | 401, 403 |
-| `capability` | `/overlay/*`, `/follow/*`, `/match/*` | 401, 403, **404** |
+| `capability` | `/overlay/*`, `/follow/*`, `/api/state/*`, `/match/*` | 401, 403, **404** |
 
 404 counts on the capability surface because an unknown capability
 token is reported as "not found" (`app/overlay/routes.py`) — it is the
