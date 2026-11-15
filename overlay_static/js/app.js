@@ -1398,6 +1398,12 @@ const BEACH_NAME_MAX_BAR = 480;
 const BEACH_NAME_PADDING = 44; // .name-bar horizontal padding (2 * 22px)
 let beachFontsHooked = false;
 
+// Inline font size for a design size in px, cancelling any WebView text
+// zoom measured by text_zoom.js so the name renders at the design size.
+function beachFontPx(fontSize) {
+  return fontSize / (window.OVERLAY_TEXT_ZOOM || 1) + "px";
+}
+
 // Measure the rendered width of a beach team name at a given font size with
 // an offscreen node, so the live (possibly clipped) element is untouched and
 // short names report their true width.
@@ -1417,7 +1423,7 @@ function measureBeachName(text, fontSize) {
     m.style.letterSpacing = "1px";
     document.body.appendChild(m);
   }
-  m.style.fontSize = fontSize + "px";
+  m.style.fontSize = beachFontPx(fontSize);
   m.textContent = text || "";
   return m.offsetWidth;
 }
@@ -1460,8 +1466,8 @@ function fitBeachNames() {
     );
   }
 
-  homeName.style.fontSize = fontSize + "px";
-  awayName.style.fontSize = fontSize + "px";
+  homeName.style.fontSize = beachFontPx(fontSize);
+  awayName.style.fontSize = beachFontPx(fontSize);
 
   const barWidth = Math.min(
     BEACH_NAME_MAX_BAR,
@@ -1538,8 +1544,8 @@ function fitBeachTwoLineNames() {
     );
   }
 
-  homeName.style.fontSize = fontSize + "px";
-  awayName.style.fontSize = fontSize + "px";
+  homeName.style.fontSize = beachFontPx(fontSize);
+  awayName.style.fontSize = beachFontPx(fontSize);
 
   const barWidth = Math.min(
     BEACH_TL_MAX_BAR,

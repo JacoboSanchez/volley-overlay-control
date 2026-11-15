@@ -29,6 +29,12 @@ declare global {
     OVERLAY_LOCALE?: string;
     OVERLAY_OUTPUT_KEY?: string;
     /**
+     * Text-zoom factor text_zoom.js measured and cancelled (1 when none):
+     * Android WebViews scale type by the system font size. Scripts that set
+     * an inline font size divide by it.
+     */
+    OVERLAY_TEXT_ZOOM?: number;
+    /**
      * Static demo state the style-preview / mosaic pages render instead of a
      * socket (app/overlay/style_preview.py). Intentionally partial: only the
      * fields a preview needs, so it is not the full contract.

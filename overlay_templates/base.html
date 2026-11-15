@@ -10,6 +10,10 @@
     <!-- Set summary overlay (loaded on every style; activated by
          match_info.show_set_summary). Transparent over the stream. -->
     <link rel="stylesheet" href="/static/css/set_summary.css?v={{ v }}">
+    <!-- Cancels the Android WebView text zoom (system font size) so the
+         board keeps its broadcast proportions. Must follow the last
+         stylesheet: it rewrites the loaded rules. -->
+    <script src="/static/js/text_zoom.js?v={{ v }}"></script>
 </head>
 <body>
 

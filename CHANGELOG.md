@@ -14,6 +14,16 @@ archive by hand.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Scoreboards no longer grow with the phone's font size.** Android apps
+  that show the overlay through the system WebView (PRISM Live Studio and
+  similar) applied the phone's accessibility font size to it, so scores and
+  names rendered oversized and spilled out of their boxes. The overlay now
+  measures that text zoom on load and cancels it, keeping the same
+  proportions as in OBS. The spectator page still follows the reader's font
+  size.
+
 ## [7.6.1] - 2026-11-14
 
 ### Added
