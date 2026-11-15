@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.6.2] - 2026-11-15
+
 ### Fixed
 
 - **Scoreboards no longer grow with the phone's font size.** Android apps
