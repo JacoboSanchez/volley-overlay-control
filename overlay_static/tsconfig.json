@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": []
   },
-  "include": ["js/app.js", "js/set_summary.js", "js/spectator.js", "js/i18n_labels.js", "js/types/*.d.ts"]
+  "include": ["js/app.js", "js/set_summary.js", "js/spectator.js", "js/i18n_labels.js", "js/text_zoom.js", "js/types/*.d.ts"]
 }
