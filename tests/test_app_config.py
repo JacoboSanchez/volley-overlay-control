@@ -168,6 +168,19 @@ def test_board_manifest_owner_variant_targets_oid_only_board():
     assert base["start_url"] == "/"
 
 
+def test_board_manifest_control_link_variant_reopens_the_token_link():
+    # An operator's ``?c=`` link needs no login, so its launcher must reopen
+    # that exact link — and it wins over a username passed alongside it.
+    base = {"name": "Volley", "short_name": "Volley", "start_url": "/", "icons": ["x"]}
+    out = _board_manifest(base, "Volley", "alex", "liga", control_token="tok-1_A")
+    assert out["start_url"] == "/board?c=tok-1_A"
+    assert out["id"] == "/board?c=tok-1_A"
+    assert out["scope"] == "/"
+    assert out["name"] == "Volley · liga"
+    assert out["short_name"] == "liga"
+    assert base["start_url"] == "/"
+
+
 def test_board_manifest_token_regex_rejects_unsafe_values():
     assert _BOARD_TOKEN_RE.match("liga-2024.A_b")
     assert not _BOARD_TOKEN_RE.match("a/b")
@@ -214,6 +227,59 @@ def test_manifest_route_serves_per_board_variant(tmp_path, monkeypatch):
         assert client.get("/manifest.webmanifest", params={"oid": "a/b"}).json()[
             "start_url"
         ] == "/"
+
+
+def test_manifest_route_serves_control_link_variant(tmp_path, monkeypatch, db_session):
+    """Installing from an operator's ``/board?c=<token>`` link yields a
+    launcher that reopens that link — no login — instead of the app root.
+    Only a live token qualifies: a revoked or unknown one gets the app-wide
+    manifest, never a launcher that cannot open."""
+    import app.bootstrap as bootstrap
+    from app import overlays_service
+    from tests.conftest import make_user
+
+    frontend = tmp_path / "dist"
+    frontend.mkdir()
+    (frontend / "manifest.webmanifest").write_text(
+        '{"name": "Volley", "short_name": "Volley", "start_url": "/", "icons": []}',
+        encoding="utf-8",
+    )
+    (frontend / "index.html").write_text("<title>x</title>", encoding="utf-8")
+    monkeypatch.setattr(bootstrap, "FRONTEND_DIR", frontend)
+    _render_manifest.cache_clear()
+
+    alex = make_user(db_session, "alex")
+    overlay = overlays_service.create_overlay(db_session, alex.id, "liga")
+    db_session.commit()
+    token = overlay.control_token
+
+    with TestClient(bootstrap.create_app()) as client:
+        # Anonymous request: the token alone is the credential.
+        board = client.get("/manifest.webmanifest", params={"c": token}).json()
+        assert board["start_url"] == f"/board?c={token}"
+        assert board["id"] == f"/board?c={token}"
+        assert board["short_name"] == "liga"
+        assert board["icons"][0]["src"] == "icon-board.svg"
+        assert "shortcuts" not in board
+
+        # The token wins over ``?u=``/``?oid=`` sent alongside it.
+        mixed = client.get(
+            "/manifest.webmanifest", params={"c": token, "u": "alex", "oid": "otra"}
+        ).json()
+        assert mixed["start_url"] == f"/board?c={token}"
+        assert mixed["short_name"] == "liga"
+
+        # Unknown / malformed tokens fall back to the app-wide manifest —
+        # and never to the ``?oid=`` variant riding along.
+        for bad in ("not-a-real-token", "a/b"):
+            res = client.get("/manifest.webmanifest", params={"c": bad, "oid": "liga"})
+            assert res.json()["start_url"] == "/"
+
+        # Regenerating the token revokes the old link's manifest too.
+        overlays_service.regenerate_control_token(db_session, alex.id, "liga")
+        db_session.commit()
+        revoked = client.get("/manifest.webmanifest", params={"c": token}).json()
+        assert revoked["start_url"] == "/"
 
 
 def test_manifest_route_adds_signed_in_overlay_shortcuts(tmp_path, monkeypatch, db_session):

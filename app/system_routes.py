@@ -18,6 +18,7 @@ from app.db.engine import get_db
 from app.pwa_manifest import (
     _BOARD_TOKEN_RE,
     _board_manifest,
+    _control_link_oid,
     _render_manifest,
     _with_overlay_shortcuts,
 )
@@ -66,9 +67,23 @@ def register_system_routes(
             source.stat().st_mtime,
             title,
         )
+        control_token = request.query_params.get("c")
         username = request.query_params.get("u")
         oid = request.query_params.get("oid")
-        if (
+        if control_token:
+            # An operator's ``/board?c=`` link: the launcher must reopen that
+            # same no-login board. A token that does not resolve falls back to
+            # the app-wide manifest rather than to ``?u=``/``?oid=``.
+            control_oid = _control_link_oid(db, control_token)
+            if control_oid:
+                content = _board_manifest(
+                    content,
+                    title,
+                    None,
+                    control_oid,
+                    control_token=control_token,
+                )
+        elif (
             oid
             and _BOARD_TOKEN_RE.match(oid)
             and (not username or _BOARD_TOKEN_RE.match(username))

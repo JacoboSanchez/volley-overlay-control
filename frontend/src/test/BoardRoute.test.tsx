@@ -135,12 +135,23 @@ describe('/board route', () => {
     expect(login.dataset.from).toBe('/board?oid=liga');
   });
 
-  it('leaves the manifest alone for a revocable ?c= link', async () => {
+  it('points the manifest at the no-login ?c= link, ignoring any oid alongside it', async () => {
     vi.mocked(api.getAuthContext).mockResolvedValue(anonymous);
     renderBoard('/board?c=tok123&oid=liga');
 
     const app = await screen.findByTestId('board-app');
     expect(app.dataset.controlToken).toBe('tok123');
+    // Installing from an operator link must reopen that same link — the
+    // app-wide manifest would launch at "/" and ask for a login.
+    expect(manifestLink().getAttribute('href')).toBe('/manifest.webmanifest?c=tok123');
+  });
+
+  it('restores the app-wide manifest when the board unmounts', async () => {
+    vi.mocked(api.getAuthContext).mockResolvedValue(anonymous);
+    const view = renderBoard('/board?c=tok123');
+
+    await screen.findByTestId('board-app');
+    view.unmount();
     expect(manifestLink().getAttribute('href')).toBe('/manifest.webmanifest');
   });
 });
