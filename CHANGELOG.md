@@ -14,6 +14,8 @@ archive by hand.
 
 ## [Unreleased]
 
+## [7.6.3] - 2026-11-21
+
 ### Changed
 
 - **An operator link installed as an app now opens its board directly.**
