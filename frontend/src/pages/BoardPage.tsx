@@ -35,18 +35,21 @@ export default function BoardPage() {
 
   // Point the PWA manifest at this specific board so an "Install app" (Chrome /
   // desktop) creates a launcher that reopens THIS board rather than the app
-  // root. Covers the stable, no-login bookmark (username + oid) and the owner
-  // board (?oid= behind a login — RequireAuth round-trips through /login and
-  // returns here). Never the ?c= link: the control token is revocable, so
-  // installing it would break when it's regenerated.
+  // root. Covers the operator's ?c= link and the no-login bookmark (username +
+  // oid) — both reopen without a login — and the owner board (?oid= behind a
+  // login — RequireAuth round-trips through /login and returns here). An
+  // installed ?c= link dies with its token: regenerating it means installing
+  // the new link again.
   useEffect(() => {
-    if (!oid || controlToken) return undefined;
+    let query: string;
+    if (controlToken) query = `c=${encodeURIComponent(controlToken)}`;
+    else if (!oid) return undefined;
+    else if (publicUser) {
+      query = `u=${encodeURIComponent(publicUser)}&oid=${encodeURIComponent(oid)}`;
+    } else query = `oid=${encodeURIComponent(oid)}`;
     const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
     if (!link) return undefined;
     const previous = link.getAttribute('href');
-    const query = publicUser
-      ? `u=${encodeURIComponent(publicUser)}&oid=${encodeURIComponent(oid)}`
-      : `oid=${encodeURIComponent(oid)}`;
     link.setAttribute('href', `/manifest.webmanifest?${query}`);
     return () => {
       if (previous !== null) link.setAttribute('href', previous);

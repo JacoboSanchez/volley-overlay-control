@@ -14,6 +14,15 @@ archive by hand.
 
 ## [Unreleased]
 
+### Changed
+
+- **An operator link installed as an app now opens its board directly.**
+  Installing `/board?c=<token>` from the browser ("Install app" / "Add to
+  Home screen") used to create a launcher for the app root, which asked for
+  a login the operator does not have. The launcher now reopens that same
+  board, with no login, named after the overlay. It lasts as long as the
+  token: after regenerating the link, install the new one again.
+
 ## [7.6.2] - 2026-11-15
 
 ### Fixed

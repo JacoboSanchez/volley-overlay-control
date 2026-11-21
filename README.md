@@ -175,11 +175,14 @@ https://your-host/board?c=<control-token>
 Anyone who opens it gets the full control board for **that one overlay** — no
 login, no account. It cannot touch your other overlays, your teams and presets,
 or your account settings. Hand it to the volunteer on the bench, bookmark it on
-a courtside tablet, or paste it into a stream-deck button.
+a courtside tablet, or paste it into a stream-deck button. Installing it as an
+app from the browser ("Install app" / "Add to Home screen") creates a launcher
+that opens that board directly, with no login.
 
 To revoke it, mint a fresh token from the overlay's dashboard entry (or
 `POST /api/v1/overlays/{oid}/regenerate-control-token`). **The old link stops
-working immediately** — do this when a season ends or a volunteer moves on.
+working immediately**, and so does any app installed from it (install the new
+link again) — do this when a season ends or a volunteer moves on.
 Treat the link like a password: anyone who has it can change the score.
 
 **Public bookmark — off by default; leave it off unless you need it.** An

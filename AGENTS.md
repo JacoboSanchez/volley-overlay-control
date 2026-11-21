@@ -333,7 +333,7 @@ inventory; this table is a "what exists" index only.
 | `/metrics` | Prometheus exposition (open by default; optional bearer token or disable flag) |
 | `/health` | Health check — returns `200 OK` with timestamp |
 | `/sw.js` | PWA service worker (from frontend build) |
-| `/manifest.webmanifest` | PWA manifest — served dynamically from the frontend build: `APP_TITLE` name, optional per-board `?oid=`/`?u=` variants, and (for a signed-in owner, via the `vsession` cookie) their overlays as long-press app `shortcuts` |
+| `/manifest.webmanifest` | PWA manifest — served dynamically from the frontend build: `APP_TITLE` name, optional per-board `?c=`/`?u=`/`?oid=` variants (so an installed board reopens itself), and (for a signed-in owner, via the `vsession` cookie) their overlays as long-press app `shortcuts` |
 
 For the complete authentication matrix — per-route, per-credential — see
 [AUTHENTICATION.md](AUTHENTICATION.md).

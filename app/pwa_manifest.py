@@ -68,14 +68,39 @@ def _render_manifest(path: str, mtime: float, title: str) -> dict:
 _BOARD_TOKEN_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
 
+def _control_link_oid(db: Session, token: str | None) -> str | None:
+    """Return the overlay id a live ``?c=`` control token opens, else ``None``.
+
+    Only a token that resolves gets a per-board manifest: a revoked or
+    mistyped link must not install a launcher that can never open.
+    """
+    if not token or not _BOARD_TOKEN_RE.match(token):
+        return None
+    try:
+        from app.overlays_service import get_by_control_token
+
+        overlay = get_by_control_token(db, token)
+    except Exception:
+        logger.exception("Failed to resolve control link for PWA manifest")
+        return None
+    return overlay.oid if overlay is not None else None
+
+
 def _board_manifest(
     base: dict,
     title: str,
     username: str | None,
     oid: str,
+    control_token: str | None = None,
 ) -> dict:
-    """Return a per-board installable manifest without mutating *base*."""
-    if username:
+    """Return a per-board installable manifest without mutating *base*.
+
+    ``control_token`` wins over ``username``: the launcher then reopens the
+    operator's ``/board?c=<token>`` link, which needs no login.
+    """
+    if control_token:
+        start = f"/board?c={quote(control_token, safe='')}"
+    elif username:
         start = (
             f"/board?u={quote(username, safe='')}&oid={quote(oid, safe='')}"
         )

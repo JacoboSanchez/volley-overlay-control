@@ -429,7 +429,7 @@ declarative themes (data validated against a schema, like the presets in
 | `GET` | `/pwa/**` | — | PWA manifest/icons |
 | `GET` | `/assets/**` | — | SPA build output |
 | `GET` | `/sw.js` | — | PWA service worker |
-| `GET` | `/manifest.webmanifest` | — | PWA manifest |
+| `GET` | `/manifest.webmanifest` | — | PWA manifest. A per-board variant (`?c=<token>`, `?u=<username>&oid=<oid>` or `?oid=<oid>`) only changes the launcher's start URL to that board link, so an installed board reopens itself; it grants nothing — the board routes still check the credential. `?c=` gets a variant only while the token is live, and the reply then names that overlay's id. |
 | `GET` | `/manifest.json` | — | PWA manifest |
 | `GET` | `/health` | — | Health check |
 | `GET` | `/health/ready` | — | Readiness probe: additionally touches the DB and the data dir, so an orchestrator does not route traffic to a pod that cannot serve. Reports status only, never configuration. |
